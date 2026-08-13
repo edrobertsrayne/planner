@@ -1,9 +1,15 @@
 # Course content lives in the database, not in files
 
-Courses, Topics and Lessons are rows in SQLite, edited in the application. Plain text remains an
-import format for entering a Course in bulk (issue #9), but it is a one-way loader: once imported,
-the database is the only source of truth. Markdown files in a git repository — read live, or
-projected into the database by a re-import — were the alternative, and were rejected.
+Courses, Topics and Lessons are rows in SQLite, edited in the application. Markdown files in a git
+repository — read live, or projected into the database by a re-import — were the alternative, and
+were rejected.
+
+> **Amended 2026-08-14.** This decision originally kept plain text as a one-way bulk import format
+> for entering a Course (issue #9). That importer has been dropped: there is no ready-to-import
+> source document to paste from, because Course content does not exist ahead of time — it is built
+> up through the year, roughly a half-term at a sitting. An import format would have meant typing
+> Lessons into a textarea instead of into a form, which is strictly worse. The editing screens are
+> the only path content takes into the system. See issue #9.
 
 ## Why
 
@@ -33,5 +39,5 @@ The application must provide editing screens for Courses, Topics and Lessons. Un
 those would not have existed, and that saving is real; it is spent buying the absence of a reconcile
 path.
 
-Plan data remains cheap to reconstruct by retyping or re-import, so ADR-0003's reasoning is
-undisturbed: what that decision protects is Session notes, which were never going to live in files.
+Plan data remains cheap to reconstruct by retyping, so ADR-0003's reasoning is undisturbed: what
+that decision protects is Session notes, which were never going to live in files.

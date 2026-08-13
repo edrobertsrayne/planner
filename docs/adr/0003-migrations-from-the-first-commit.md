@@ -23,5 +23,11 @@ The cutover is a property of the data, not a date: the moment real Term dates an
 entered, the rule changes. That transition must be deliberate and noted, because nothing in the
 tooling enforces it.
 
-Courses and Lessons remain importable from plain text regardless. Plan data is retypeable and
-therefore cheap to reconstruct; Session notes are not, and they are what this decision protects.
+Plan data is retypeable and therefore cheap to reconstruct; Session notes are not, and they are what
+this decision protects.
+
+> **Amended 2026-08-14.** This section previously read "Courses and Lessons remain importable from
+> plain text regardless." There is no importer — see the amendment on ADR-0009. Reconstruction of
+> plan data means retyping it through the editing screens. That remains an acceptable worst case:
+> the database is a single file (ADR-0008), so restore is copying the file back, and retyping was
+> always the fallback behind the fallback.
