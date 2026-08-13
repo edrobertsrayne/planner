@@ -23,8 +23,17 @@ _Avoid_: Unit, module, block, chapter
 
 **Lesson**:
 One planned teaching episode within a Topic — the plan, not the event. Exists whether or not it
-has ever been taught, and is shared by every Class following the Course.
+has ever been taught, and is shared by every Class following the Course. A title alone constitutes
+a Lesson; the notes and the links to resources held elsewhere arrive as planning catches up.
 _Avoid_: Period, session, class
+
+**Planned Length**:
+The number of Periods a Lesson is planned to occupy, defaulting to one. Distinct from a
+Continuation: Planned Length belongs to the Course and so applies to every Class following it,
+whereas a Continuation is a reaction to how one Class's teaching actually went. A Lesson longer
+than one Period takes the next Available Slots in order like any other, and may therefore run
+across two days rather than falling on a timetabled double.
+_Avoid_: Duration, double, span, periods
 
 ### Scheduling
 
