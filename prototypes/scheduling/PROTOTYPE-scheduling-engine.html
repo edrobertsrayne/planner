@@ -1,0 +1,479 @@
+<meta charset="utf-8" />
+<title>PROTOTYPE — one scheduling function?</title>
+<style>
+  :root {
+    --ink: #1a1a1a; --dim: #6b6b6b; --line: #e2e2df; --bg: #faf9f7;
+    --accent: #1f5f4f; --warn: #a4442a; --pale: #f0efec;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 2.5rem 1.5rem 6rem; background: var(--bg); color: var(--ink);
+    font: 16px/1.6 ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 .4rem; letter-spacing: -.01em; }
+  h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .09em;
+       color: var(--dim); margin: 2.2rem 0 .8rem; font-weight: 600; }
+  .lede { max-width: 62ch; color: #333; margin: 0 0 .6rem; }
+  .lede b { color: var(--accent); }
+  .banner { border-left: 3px solid var(--accent); padding: .1rem 0 .1rem 1rem; margin: 1.4rem 0 0; }
+  .cols { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,420px); gap: 2.5rem; align-items: start; }
+  @media (max-width: 900px) { .cols { grid-template-columns: 1fr; } }
+  .panel { background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 1.1rem 1.2rem; }
+  .right { position: sticky; top: 1.5rem; }
+  button {
+    font: inherit; font-size: .9rem; background: #fff; color: var(--ink); cursor: pointer;
+    border: 1px solid #cfcfca; border-radius: 5px; padding: .4rem .75rem; margin: 0 .4rem .5rem 0;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  button:disabled { opacity: .38; cursor: default; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover:not(:disabled) { color: #fff; opacity: .9; }
+  button.done { background: var(--pale); color: var(--dim); border-color: var(--line); }
+  .tabs { display: flex; flex-wrap: wrap; gap: .3rem; margin-bottom: -1px; }
+  .tabs button { margin: 0; border-radius: 5px 5px 0 0; border-bottom-color: transparent; }
+  .tabs button[aria-selected="true"] { background: #fff; border-color: var(--line);
+    border-bottom-color: #fff; color: var(--accent); font-weight: 600; }
+  .tabbody { background: #fff; border: 1px solid var(--line); border-radius: 0 6px 6px 6px; padding: 1.1rem 1.2rem; }
+  table { width: 100%; border-collapse: collapse; font-size: .87rem; }
+  th { text-align: left; font-weight: 600; color: var(--dim); font-size: .72rem;
+       text-transform: uppercase; letter-spacing: .06em; padding: 0 .5rem .3rem 0; }
+  td { padding: .18rem .5rem .18rem 0; border-top: 1px solid #f1f0ed; white-space: nowrap; }
+  tr.record td { color: var(--dim); }
+  tr.changed td { background: #fdf6e8; }
+  tr.today td { border-top: 2px solid var(--accent); }
+  .tag { font-size: .68rem; padding: .05rem .35rem; border-radius: 3px; background: var(--pale); color: var(--dim); }
+  .tag.note { background: #e8f0ee; color: var(--accent); }
+  .tag.cont { background: #fdf0e8; color: var(--warn); }
+  .scroll { max-height: 24rem; overflow: auto; }
+  .facts { font-size: .85rem; color: var(--dim); margin: 0 0 .7rem; }
+  .facts b { color: var(--ink); font-weight: 600; }
+  .warnbox { border-left: 3px solid var(--warn); padding-left: .8rem; margin: .9rem 0 0;
+             font-size: .87rem; color: var(--warn); }
+  ol.steps { margin: .8rem 0 0; padding: 0; list-style: none; counter-reset: s; }
+  ol.steps li { counter-increment: s; margin-bottom: .35rem; }
+  ol.steps li::before { content: counter(s) "."; color: var(--dim); margin-right: .5rem; font-size: .85rem; }
+  label { font-size: .85rem; color: var(--dim); margin-right: .3rem; }
+  input, select { font: inherit; font-size: .85rem; padding: .25rem .4rem;
+    border: 1px solid #cfcfca; border-radius: 4px; margin-right: .5rem; }
+  code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .85em; }
+</style>
+
+<div class="wrap">
+  <h1>Does the whole planner reduce to <em>one</em> scheduling function?</h1>
+  <p class="lede">
+    The claim being tested: laying a Course onto a Class's timetable needs no <i>move</i>, <i>shift</i>
+    or <i>insert</i> operations. There is <b>one function</b> — hand it the Lessons in order and the
+    Available Slots in order, and it zips them together — plus a little state. Every disruption is
+    then just a change to its input, and the answer is recomputed from scratch.
+  </p>
+  <p class="lede">
+    Press the buttons and try to break it. Everything below runs against the <b>real 2026/27
+    calendar</b> — the six Terms, the INSET days, the stored Week&nbsp;A/B letters. The timetable is
+    representative, not Ed's actual one: <b>9B/Sc1</b> gets five periods a fortnight including a
+    Thursday double, <b>10C/Ph2</b> gets two.
+  </p>
+  <div class="banner">
+    <p class="lede" style="margin:0">
+      <b>Watch the boundary.</b> The heavy line in the schedule is <i>today</i>. Above it is the
+      record of what happened; below it is plan. The function may only write below the line — that
+      one rule is what stops re-running from rewriting the past.
+    </p>
+  </div>
+
+  <div class="cols">
+    <div>
+      <h2>Free play</h2>
+      <div class="panel">
+        <div style="margin-bottom:.8rem">
+          <label>Class</label>
+          <select id="cls"></select>
+          <label>Today</label>
+          <span id="today" style="font-variant-numeric:tabular-nums"></span>
+        </div>
+        <button onclick="A.teachNext()">Teach the next lesson</button>
+        <button onclick="A.teachToNext(7)">Teach a week</button>
+        <button onclick="A.needsMoreTime()">That one needed more time</button>
+        <button onclick="A.writeNote()">Write a note on it</button>
+        <br />
+        <label>on</label><input type="date" id="d" value="2026-09-14" min="2026-09-01" max="2027-07-31" />
+        <button onclick="A.blockDay(document.getElementById('d').value, true)">School was closed</button>
+        <button onclick="A.cancelSlot(document.getElementById('d').value)">Just this Class missed it</button>
+        <br />
+        <button onclick="A.longCourse()">Make it a 150-Lesson Course</button>
+        <button onclick="A.studyLeave()">Drop this Class at study leave (14 May)</button>
+        <button onclick="A.reset()">Reset</button>
+      </div>
+
+      <h2>Guided walkthroughs</h2>
+      <div class="tabs" id="tabs"></div>
+      <div class="tabbody">
+        <p id="scenDesc" style="margin:0 0 .2rem; max-width:60ch"></p>
+        <p id="scenWatch" style="margin:.4rem 0 0; max-width:60ch; color:var(--dim); font-size:.9rem"></p>
+        <ol class="steps" id="steps"></ol>
+      </div>
+    </div>
+
+    <div class="right">
+      <h2 style="margin-top:0">The state</h2>
+      <div class="panel">
+        <p class="facts" id="facts"></p>
+        <div class="scroll"><table id="sched"></table></div>
+        <div id="warn"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// THE MODULE UNDER TEST. Pure: no DOM, no clock, no I/O. This is the part meant to survive the
+// prototype and lift into the real codebase; everything below the second rule is throwaway shell.
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+const D = {
+  parse: (s) => new Date(s + "T00:00:00Z"),
+  iso: (d) => d.toISOString().slice(0, 10),
+  add: (s, n) => { const d = D.parse(s); d.setUTCDate(d.getUTCDate() + n); return D.iso(d); },
+  dow: (s) => ((D.parse(s).getUTCDay() + 6) % 7) + 1,          // 1 = Monday ... 7 = Sunday
+  monday: (s) => D.add(s, -(D.dow(s) - 1)),
+};
+
+// A Teaching Week is a calendar week containing at least one taught day; the Week A / Week B
+// letters alternate across Teaching Weeks from Week A (ADR-0005). This is the GENERATOR, run once
+// at year setup — the rows it produces are stored and editable thereafter.
+function generateTeachingWeeks(terms) {
+  const mondays = new Set();
+  for (const t of terms)
+    for (let d = t.from; d <= t.to; d = D.add(d, 1))
+      if (D.dow(d) <= 5) mondays.add(D.monday(d));
+  return [...mondays].sort().map((monday, i) => ({ monday, letter: i % 2 === 0 ? "A" : "B" }));
+}
+
+const inAnyTerm = (terms, date) => terms.some((t) => date >= t.from && date <= t.to);
+const slotHolds = (slot, date) =>
+  (!slot.holdsFrom || date >= slot.holdsFrom) && (!slot.holdsTo || date <= slot.holdsTo);
+
+// Available Slot: a Slot on a date inside a Term, within the dates that Slot holds, not a Blocked
+// Day, and not individually cancelled. Returned in calendar order — that order IS the schedule.
+function availableSlots(cal, classId, from) {
+  const blocked = new Set(cal.blockedDays);
+  const cancelled = new Set((cal.cancellations || []).map((c) => c.date + "|" + c.slotId));
+  const out = [];
+  for (const week of cal.teachingWeeks) {
+    for (let day = 1; day <= 5; day++) {
+      const date = D.add(week.monday, day - 1);
+      if (from && date < from) continue;
+      if (!inAnyTerm(cal.terms, date)) continue;
+      if (blocked.has(date)) continue;
+      const todays = cal.slots
+        .filter((s) => s.classId === classId && s.week === week.letter && s.day === day
+                    && slotHolds(s, date) && !cancelled.has(date + "|" + s.id))
+        .sort((a, b) => a.period - b.period);
+      for (const s of todays) out.push({ date, period: s.period, slotId: s.id, week: week.letter });
+    }
+  }
+  return out;
+}
+
+// How many Available Slots a Lesson needs for this Class: one, plus one per Continuation recorded
+// against it. A Continuation is the only thing that makes a Lesson wider than a Slot.
+const demandFor = (lessonId, classId, continuations) =>
+  1 + continuations.filter((c) => c.lessonId === lessonId && c.classId === classId).length;
+
+// The Lesson-parts still owed to this Class, in Course order.
+function remainingParts(lessons, classId, continuations, delivered) {
+  const parts = [];
+  for (const l of lessons) {
+    const need = demandFor(l.id, classId, continuations);
+    for (let p = (delivered[l.id] || 0) + 1; p <= need; p++)
+      parts.push({ lessonId: l.id, part: p, of: need });
+  }
+  return parts;
+}
+
+// Zip the owed parts onto the stream of Available Slots. The whole of shift-right is this line.
+function layOut(parts, stream) {
+  return {
+    sessions: parts.slice(0, stream.length).map((p, i) => ({ ...p, ...stream[i] })),
+    unplaced: parts.slice(stream.length),
+  };
+}
+
+// ── THE ONE FUNCTION ───────────────────────────────────────────────────────────────────────
+// Re-runnable in full, at any time, from any state. `boundary` is the only thing stopping it
+// rewriting the past: it writes on and after that date and never before. Sessions dated before
+// the boundary are the record of what happened — inputs here, not outputs.
+function schedule({ cal, lessons, classId, sessions, continuations, boundary }) {
+  const history = sessions
+    .filter((s) => s.classId === classId && s.date < boundary)
+    .sort((a, b) => (a.date + a.period).localeCompare(b.date + b.period));
+
+  const delivered = {};
+  for (const s of history) delivered[s.lessonId] = (delivered[s.lessonId] || 0) + 1;
+
+  const { sessions: planned, unplaced } =
+    layOut(remainingParts(lessons, classId, continuations, delivered),
+           availableSlots(cal, classId, boundary));
+
+  return { boundary, history, planned: planned.map((p) => ({ ...p, classId })), unplaced };
+}
+
+// The one operation that is not a re-run. Entering a disruption in the past means the record after
+// that date was written under a false assumption, so the boundary moves back and those Sessions
+// are re-derived. Notes are evidence of what was really taught, so any Session carrying one that
+// ends up against a different Lesson is reported rather than silently relabelled.
+function rewind(sessions, classId, to) {
+  const affected = sessions.filter((s) => s.classId === classId && s.date >= to);
+  return { boundary: to, atRisk: affected.filter((s) => s.notes), discarded: affected.filter((s) => !s.notes) };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// THROWAWAY SHELL below this line. Nothing here flows back into the module above.
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+const TERMS = [
+  { name: "Autumn 1", from: "2026-09-03", to: "2026-10-23" },
+  { name: "Autumn 2", from: "2026-11-02", to: "2026-12-18" },
+  { name: "Spring 1", from: "2027-01-05", to: "2027-02-12" },
+  { name: "Spring 2", from: "2027-02-22", to: "2027-03-25" },
+  { name: "Summer 1", from: "2027-04-12", to: "2027-05-28" },
+  { name: "Summer 2", from: "2027-06-07", to: "2027-07-21" },
+];
+const INSET = ["2026-11-26", "2026-11-27", "2027-01-29", "2027-03-10", "2027-05-03", "2027-06-23"];
+const SLOTS = [
+  { id: "s1", classId: "9B/Sc1", week: "A", day: 1, period: 3 },
+  { id: "s2", classId: "9B/Sc1", week: "A", day: 3, period: 1 },
+  { id: "s3", classId: "9B/Sc1", week: "A", day: 4, period: 5 },   // the double,
+  { id: "s4", classId: "9B/Sc1", week: "A", day: 4, period: 6 },   // as two Slots
+  { id: "s5", classId: "9B/Sc1", week: "B", day: 2, period: 2 },
+  { id: "s6", classId: "9B/Sc1", week: "B", day: 5, period: 4 },
+  { id: "t1", classId: "10C/Ph2", week: "A", day: 1, period: 1 },
+  { id: "t2", classId: "10C/Ph2", week: "B", day: 3, period: 4 },
+];
+const CLASSES = ["9B/Sc1", "10C/Ph2"];
+const ALL_LESSONS = Array.from({ length: 200 }, (_, i) => ({ id: "L" + (i + 1) }));
+const lessonsNow = () => ALL_LESSONS.slice(0, st.courseLength);
+const DAYNAME = ["", "Mon", "Tue", "Wed", "Thu", "Fri"];
+const START = "2026-09-03";
+
+let st, prev = {}, cls = "9B/Sc1", note = null;
+
+function fresh() {
+  return {
+    today: START,
+    courseLength: 60,
+    cal: { terms: TERMS, teachingWeeks: generateTeachingWeeks(TERMS), slots: SLOTS,
+           blockedDays: [...INSET], cancellations: [] },
+    per: Object.fromEntries(CLASSES.map((c) => [c, { sessions: [], continuations: [] }])),
+  };
+}
+
+const noteMap = (ss) => new Map(ss.filter((s) => s.notes).map((s) => [s.date + "|" + s.period, s.notes]));
+
+// Run the function under `boundary` and freeze everything before `to` into the record. Notes are
+// keyed by the dated occasion, so they stay put when the Lesson on that occasion is relabelled.
+function freezeUpTo(c, to, boundary, extraNotes) {
+  const p = st.per[c];
+  const notes = extraNotes ?? noteMap(p.sessions);
+  const r = schedule({ cal: st.cal, lessons: lessonsNow(), classId: c, sessions: p.sessions,
+                       continuations: p.continuations, boundary });
+  p.sessions = [...r.history, ...r.planned.map((s) => ({ ...s, notes: notes.get(s.date + "|" + s.period) }))]
+    .filter((s) => s.date < to);
+}
+
+// Time passing: the plan under the current boundary becomes the record, then the line moves.
+function advance(to) {
+  for (const c of CLASSES) freezeUpTo(c, to, st.today);
+  st.today = to;
+}
+
+// Pure view — never mutates.
+function view(c = cls) {
+  const p = st.per[c];
+  const r = schedule({ cal: st.cal, lessons: lessonsNow(), classId: c, sessions: p.sessions,
+                       continuations: p.continuations, boundary: st.today });
+  return { all: [...r.history, ...r.planned], unplaced: r.unplaced };
+}
+
+const A = {
+  reset() { st = fresh(); note = null; prev = {}; render(); },
+
+  teachNext() {
+    const next = view().all.find((s) => s.date >= st.today);
+    if (next) { advance(D.add(next.date, 1)); render(); }
+  },
+  teachToNext(days) { advance(D.add(st.today, days)); render(); },
+
+  needsMoreTime() {
+    const last = lastTaught();
+    if (!last) return note = "Nothing has been taught yet.", render();
+    st.per[cls].continuations.push({ classId: cls, lessonId: last.lessonId });
+    note = `${last.lessonId} now needs ${demandFor(last.lessonId, cls, st.per[cls].continuations)} periods.`;
+    render();
+  },
+
+  writeNote() {
+    const last = lastTaught();
+    if (!last) return note = "Nothing has been taught yet.", render();
+    last.notes = "went badly — redo the practical";
+    note = `Note written on ${pretty(last.date)} P${last.period}.`;
+    render();
+  },
+
+  // Entering a closure. `doRewind` is the amendment under test: without it the record keeps
+  // asserting that a Lesson was taught on a day the school was shut.
+  blockDay(date, doRewind) {
+    if (!st.cal.blockedDays.includes(date)) st.cal.blockedDays = [...st.cal.blockedDays, date];
+    finishDisruption(date, doRewind, "School closed on " + pretty(date));
+  },
+
+  cancelSlot(date) {
+    const on = SLOTS.filter((s) => s.classId === cls && matches(s, date));
+    if (!on.length) return note = `${cls} has no Slot on ${pretty(date)}.`, render();
+    st.cal.cancellations = [...st.cal.cancellations, ...on.map((s) => ({ date, slotId: s.id }))];
+    finishDisruption(date, true, `${cls} missed ${on.length} period(s) on ${pretty(date)}`);
+  },
+
+  longCourse() {
+    st.courseLength = 150;
+    note = "The Course is now 150 Lessons.";
+    render();
+  },
+
+  studyLeave() {
+    st.cal = { ...st.cal, slots: st.cal.slots.map((s) => s.classId === cls ? { ...s, holdsTo: "2027-05-14" } : s) };
+    note = `${cls}'s Slots now stop holding after 14 May 2027.`;
+    render();
+  },
+};
+
+function finishDisruption(date, doRewind, msg) {
+  if (!doRewind || date >= st.today) {
+    note = msg + (date < st.today
+      ? ". Boundary left at today — the record was NOT re-derived, so it still claims a Lesson was taught that day."
+      : ".");
+    return render();
+  }
+  const p = st.per[cls];
+  const r = rewind(p.sessions, cls, date);
+  const was = new Map(p.sessions.map((s) => [s.date + "|" + s.period, s.lessonId]));
+  const notes = noteMap(p.sessions);
+  p.sessions = p.sessions.filter((s) => s.date < date);
+  freezeUpTo(cls, st.today, date, notes);
+
+  const moved = p.sessions.filter((s) => s.notes && was.has(s.date + "|" + s.period)
+                                      && was.get(s.date + "|" + s.period) !== s.lessonId);
+  note = `${msg}. Rewound to ${pretty(date)}; ${r.discarded.length} unevidenced Session(s) re-derived.` +
+    (moved.length ? ` ⚠ ${moved.length} Session carrying notes now sits against a different Lesson —`
+      + ` ${moved.map((s) => pretty(s.date) + " P" + s.period + " is now " + s.lessonId).join(", ")}.` : "");
+  render();
+}
+
+const matches = (slot, date) => {
+  const wk = st.cal.teachingWeeks.find((w) => w.monday === D.monday(date));
+  return wk && slot.week === wk.letter && slot.day === D.dow(date) && slotHolds(slot, date);
+};
+const lastTaught = () => {
+  const s = st.per[cls].sessions;
+  return s.length ? s[s.length - 1] : null;
+};
+const pretty = (d) =>
+  DAYNAME[D.dow(d)] + " " + D.parse(d).getUTCDate() + " " +
+  ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][D.parse(d).getUTCMonth()];
+
+// ── walkthroughs ───────────────────────────────────────────────────────────────────────────
+
+const SCEN = [
+  { name: "A day off", desc: "The commonest disruption: a whole-school closure lands in the middle of a topic.",
+    watch: "Every Lesson from that day on slides one Slot to the right, keeping Course order. Nothing is skipped and nothing is dropped.",
+    steps: [["Teach the first three weeks", () => advance("2026-09-21")],
+            ["Note what is planned for Mon 12 Oct", () => 0],
+            ["INSET day on Mon 12 Oct", () => A.blockDay("2026-10-12", true)]] },
+
+  { name: "Only this Class", desc: "9B is out on a field trip on Mon 14 Sep. The school is open; every other Class is taught as normal.",
+    watch: "A Blocked Day cannot say this — it blocks the whole day for everyone. Cancelling the single Slot can, and it is the same shape of input, so the function is unchanged. Switch to 10C/Ph2 afterwards and confirm it did not move.",
+    steps: [["Cancel 9B's Mon 14 Sep period", () => A.cancelSlot("2026-09-14")],
+            ["Switch to 10C/Ph2", () => (cls = "10C/Ph2", 0)],
+            ["Switch back to 9B/Sc1", () => (cls = "9B/Sc1", 0)]] },
+
+  { name: "Needed more time", desc: "A Lesson runs long on the last Friday before the October half-term.",
+    watch: "The second part does not appear the next day — it waits until Mon 2 Nov, because the intervening week has no Available Slots. The break also takes no turn in the A/B cycle, so 2 Nov is Week A.",
+    steps: [["Teach up to the half-term break", () => advance("2026-10-26")],
+            ["That last one needed more time", () => A.needsMoreTime()]] },
+
+  { name: "Two in a row", desc: "The same Lesson overruns twice, so it wants three periods.",
+    watch: "Continuation is not an operation on the schedule — it is a count against the Lesson. Everything after it shifts right on its own.",
+    steps: [["Teach the first week", () => advance("2026-09-09")],
+            ["Needed more time", () => A.needsMoreTime()],
+            ["Needed more time again", () => A.needsMoreTime()]] },
+
+  { name: "Out of year", desc: "A 150-Lesson Course on a Class that stops being taught at study leave in May. 9B/Sc1 has only 115 Available Slots in the whole year, and study leave removes 25 more.",
+    watch: "The function places what fits and reports the rest as unplaced rather than silently dropping them. A planner that quietly loses Lessons is worse than useless.",
+    steps: [["Make it a 150-Lesson Course", () => A.longCourse()],
+            ["Drop this Class at study leave", () => A.studyLeave()]] },
+
+  { name: "Remembering last week", desc: "The hard one. Ed teaches three weeks, writing a note on the Thu 17 Sep lesson. Only then does he remember he was off ill on Fri 11 Sep and enters it.",
+    watch: "Step 4 enters the closure with the boundary left at today — the record still claims a Lesson was taught on a day Ed was absent, and nothing notices. Step 5 rewinds to that date instead, which relabels the record correctly, and warns that the noted Session now sits against a different Lesson.",
+    steps: [["Teach three weeks", () => advance("2026-09-21")],
+            ["Write a note on the Thu 17 Sep lesson", () => { const s = st.per[cls].sessions.find((x) => x.date === "2026-09-17" && x.period === 5); if (s) s.notes = "went badly — redo the practical"; }],
+            ["Now: Ed was off on Fri 11 Sep", () => 0],
+            ["Enter it, boundary left at today", () => A.blockDay("2026-09-11", false)],
+            ["Enter it again, rewinding to 11 Sep", () => A.blockDay("2026-09-11", true)]] },
+];
+
+let scen = 0, step = 0;
+
+function pickScenario(i) { scen = i; step = 0; st = fresh(); note = null; prev = {}; cls = "9B/Sc1"; render(); }
+function doStep(i) { SCEN[scen].steps[i][1](); step = i + 1; render(); }
+
+// ── render ─────────────────────────────────────────────────────────────────────────────────
+
+function render() {
+  const sel = document.getElementById("cls");
+  sel.innerHTML = CLASSES.map((c) => `<option${c === cls ? " selected" : ""}>${c}</option>`).join("");
+  sel.onchange = (e) => { cls = e.target.value; render(); };
+  document.getElementById("today").textContent = pretty(st.today) + " 2026/27";
+
+  const { all, unplaced } = view();
+  const conts = st.per[cls].continuations.length;
+  const extras = st.cal.blockedDays.length - INSET.length;
+  document.getElementById("facts").innerHTML =
+    `<b>${all.filter((s) => s.date < st.today).length}</b> taught &middot; ` +
+    `<b>${all.filter((s) => s.date >= st.today).length}</b> planned &middot; ` +
+    `<b>${unplaced.length}</b> will not fit &middot; Course is <b>${st.courseLength}</b> Lessons<br />` +
+    `${extras} extra Blocked Day(s) &middot; ${st.cal.cancellations.length} cancelled Slot(s) &middot; ${conts} Continuation(s)`;
+
+  const rows = all.slice(0, 400);
+  let crossed = false;
+  document.getElementById("sched").innerHTML =
+    `<tr><th>Date</th><th>Wk</th><th>Per</th><th>Lesson</th><th></th></tr>` +
+    rows.map((s) => {
+      const key = s.date + "|" + s.period;
+      const cs = [];
+      if (s.date < st.today) cs.push("record");
+      if (prev[key] && prev[key] !== s.lessonId) cs.push("changed");
+      if (!crossed && s.date >= st.today) { cs.push("today"); crossed = true; }
+      return `<tr class="${cs.join(" ")}"><td>${pretty(s.date)}</td><td>${s.week}</td>` +
+        `<td>P${s.period}</td><td>${s.lessonId}</td><td>` +
+        (s.of > 1 ? `<span class="tag cont">part ${s.part}/${s.of}</span> ` : "") +
+        (s.notes ? `<span class="tag note">note</span>` : "") + `</td></tr>`;
+    }).join("") +
+    (unplaced.length ? `<tr><td colspan="5" style="color:var(--warn);padding-top:.6rem">` +
+      `${unplaced.length} Lessons have nowhere to go, from ${unplaced[0].lessonId} onward.</td></tr>` : "");
+
+  prev = Object.fromEntries(all.map((s) => [s.date + "|" + s.period, s.lessonId]));
+  document.getElementById("warn").innerHTML = note ? `<div class="warnbox">${note}</div>` : "";
+
+  document.getElementById("tabs").innerHTML = SCEN.map((s, i) =>
+    `<button aria-selected="${i === scen}" onclick="pickScenario(${i})">${s.name}</button>`).join("");
+  document.getElementById("scenDesc").textContent = SCEN[scen].desc;
+  document.getElementById("scenWatch").innerHTML = "<b>What to watch:</b> " + SCEN[scen].watch;
+  document.getElementById("steps").innerHTML = SCEN[scen].steps.map(([lab], i) =>
+    `<li><button class="${i < step ? "done" : i === step ? "primary" : ""}" ` +
+    `${i > step ? "disabled" : ""} onclick="doStep(${i})">${lab}</button></li>`).join("");
+}
+
+A.reset();
+pickScenario(0);
+</script>
