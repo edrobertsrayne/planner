@@ -1,6 +1,6 @@
 # Slots hold between dates instead of versioning the Timetable
 
-A Slot carries an optional start date and an optional end date, over which it *holds*. Null bounds
+A Slot carries an optional start date and an optional end date, over which it _holds_. Null bounds
 mean it holds for the whole year. A timetable change is expressed by ending one Slot and starting
 another; there is no Timetable version, no snapshot, and no history table.
 

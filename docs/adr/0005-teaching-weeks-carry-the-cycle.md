@@ -4,7 +4,7 @@ Week A and Week B alternate across Teaching Weeks — calendar weeks containing 
 day — starting from Week A in the first Teaching Week of the academic year. A week falling entirely
 inside a break is not a Teaching Week and takes no turn in the cycle.
 
-That rule is a *generator*, not an invariant. It is run once when the academic year is set up, to
+That rule is a _generator_, not an invariant. It is run once when the academic year is set up, to
 produce a stored row per Teaching Week carrying its letter. Thereafter the stored letter is the
 truth and can be edited.
 

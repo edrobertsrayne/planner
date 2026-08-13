@@ -1,7 +1,7 @@
 # Planner
 
 A personal electronic teacher planner for one UK state secondary school teacher. It holds what is
-*planned* to be taught, lays that plan onto the real school calendar, and keeps it correct when
+_planned_ to be taught, lays that plan onto the real school calendar, and keeps it correct when
 teaching does not go to plan.
 
 The central distinction in this domain is between **planning** and **scheduling**. A Lesson is
@@ -50,7 +50,7 @@ _Avoid_: Lesson, session, hour
 
 **Slot**:
 A recurring position in the Timetable when a given Class is taught, such as "Week A, Monday,
-Period 3". A Slot describes when teaching *can* happen, not what is taught. A Slot *holds* over a
+Period 3". A Slot describes when teaching _can_ happen, not what is taught. A Slot _holds_ over a
 range of dates, and no two Slots may share a position over dates where both hold. A Class taught
 two consecutive Periods occupies two Slots, never one longer one.
 _Avoid_: Lesson, session, booking, double

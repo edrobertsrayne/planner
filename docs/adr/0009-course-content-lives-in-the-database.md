@@ -19,7 +19,7 @@ Lesson identifiers living in the files, plus a defined answer for what a re-impo
 existing record — a week of work, in a three-week budget, whose failure mode is quiet.
 
 Two lesser reasons point the same way. The database is a single file (ADR-0008), so a git repository
-of markdown would be a *second* store with a second durability story, on a host where durability is
+of markdown would be a _second_ store with a second durability story, on a host where durability is
 already someone else's responsibility. And the resources themselves live in OneDrive, a work system
 the application cannot reach — so a Lesson was always going to link out rather than contain, which
 removes much of what files were for.

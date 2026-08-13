@@ -2,7 +2,7 @@
 
 Laying a Course onto a Class's calendar is one pure function: take the Lessons in order, take the
 Available Slots in order, zip them together. There are no move, shift or insert operations. Every
-disruption is a change to the function's *input*, and the schedule is recomputed from scratch:
+disruption is a change to the function's _input_, and the schedule is recomputed from scratch:
 
 - a **Blocked Day** removes every Slot on a date,
 - a **Blocked Slot** removes one Slot on one date for one Class,
@@ -21,7 +21,7 @@ The alternative is a set of mutation operations — push this lesson back, swap 
 gap. Each one is a separate code path, a separate screen, and a separate way for the schedule to end
 up in a state no rule explains.
 
-More decisively, mutations do not survive. The plan is *derived* from the stream of Available Slots,
+More decisively, mutations do not survive. The plan is _derived_ from the stream of Available Slots,
 so a manual "push everything back one" is undone by the next recompute — the Slot it moved past is
 still available. Blocking that Slot is not a prerequisite for the shift; it **is** the shift, in its
 only durable form. This is why Blocked Slot earns its place: without it the commonest single-Class
@@ -34,7 +34,7 @@ October half-term, two Continuations in a row, and a Course longer than the year
 
 The boundary is today rather than an explicit "mark as taught" tick. Explicit confirmation was tried
 first and is wrong: one skipped tick strands the earlier unconfirmed Lessons and re-plans them
-*after* Lessons that were confirmed later, silently reordering the Course. Nothing about a teacher's
+_after_ Lessons that were confirmed later, silently reordering the Course. Nothing about a teacher's
 week suggests the ticks would be kept up.
 
 ## Consequences

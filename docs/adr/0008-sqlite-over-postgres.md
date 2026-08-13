@@ -2,7 +2,7 @@
 
 The database is SQLite, in one file, driven through Drizzle over Node's built-in `node:sqlite`.
 ADR-0004 originally named Postgres, on the reasoning that thor already runs a Postgres server so the
-marginal cost of using it was near zero. That is true of the *server* and false of everything else:
+marginal cost of using it was near zero. That is true of the _server_ and false of everything else:
 it also meant a database role, peer authentication, a unit ordered against `postgresql-setup.service`
 and a connection string. None of it buys anything this application needs.
 

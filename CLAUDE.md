@@ -1,3 +1,11 @@
+## Project Configuration
+
+- **Language**: TypeScript
+- **Package Manager**: bun
+- **Add-ons**: prettier, eslint, vitest, playwright, tailwindcss, sveltekit-adapter, drizzle, better-auth
+
+---
+
 # planner
 
 An electronic teacher planner — self-hosted, single-user. UK state secondary school context.
