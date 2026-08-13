@@ -1,8 +1,11 @@
 # SvelteKit, chosen for reviewability over agent familiarity
 
-The application is SvelteKit 2 with Svelte 5 runes, Drizzle and Postgres, better-auth, and Vitest,
-deployed via `adapter-node` as a container. Next.js and React Router 7 were the alternatives, and
-both have more training data behind them.
+The application is SvelteKit 2 with Svelte 5 runes, Drizzle and SQLite, better-auth, and Vitest,
+built with `adapter-node`. Next.js and React Router 7 were the alternatives, and both have more
+training data behind them.
+
+This ADR originally named Postgres and a container; the database was revisited and settled as SQLite
+in ADR-0008, and how the artifact is packaged is issue #11's to decide.
 
 ## Why
 
