@@ -4,7 +4,9 @@
 	//   - B's grid for the Calendar tab (the better of the two week layouts)
 	//   - C promoted from an idea to a third tab, Classes
 	//   - one shared Session panel, opened from any of the three
-	//   - agenda horizon without "to the end of term"
+	//   - agenda horizon without "to the end of term". The horizon is a window of
+	//     *calendar* days: Today / Next week (7) / Next two weeks (14), spanning
+	//     weekends and Blocked Days alike.
 	//   - Agenda is where you land
 	import {
 		TODAY,
@@ -46,14 +48,16 @@
 
 	const agendaDays = $derived.by(() => {
 		const out: { date: string; blocked: string | null; sessions: Session[] }[] = [];
-		let d = TODAY;
-		let counted = 0;
-		while (counted < horizonDays) {
-			if (weekday(d) <= 5 && termOf(d)) {
-				out.push({ date: d, blocked: BLOCKED_DAYS[d] ?? null, sessions: sessionsOn(d) });
-				counted++;
-			}
-			d = addDays(d, 1);
+		// The horizon is a window of *calendar* days — "Next week" is the next 7
+		// days, weekends and Blocked Days included. So a week gutted by INSET
+		// shows less teaching than a clean one, and that is the point: the
+		// agenda answers "what is coming between now and then", not "show me
+		// five lessons". Weekends fall inside the window but get no row, since
+		// nothing is ever taught on one.
+		const end = addDays(TODAY, horizonDays);
+		for (let d = TODAY; d < end; d = addDays(d, 1)) {
+			if (weekday(d) > 5 || !termOf(d)) continue;
+			out.push({ date: d, blocked: BLOCKED_DAYS[d] ?? null, sessions: sessionsOn(d) });
 		}
 		return out;
 	});
@@ -124,7 +128,7 @@
 			<div class="mx-auto max-w-3xl px-6 py-6">
 				<div class="mb-5 flex items-center gap-2 text-sm">
 					<span class="text-neutral-500">Show</span>
-					{#each [[1, 'Today'], [5, 'Next 5 days'], [10, 'Next 10 days']] as [n, label] (n)}
+					{#each [[1, 'Today'], [7, 'Next week'], [14, 'Next two weeks']] as [n, label] (n)}
 						<button
 							class="rounded-full px-3 py-1 {horizonDays === n
 								? 'bg-neutral-900 text-white'
