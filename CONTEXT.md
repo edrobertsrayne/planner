@@ -119,3 +119,26 @@ _Avoid_: Undo, replay, recalculate, backdate
 A Session marked as needing more time, so that its Lesson also occupies the following Available
 Slot. The Course is unchanged; only that Class's Sessions shift.
 _Avoid_: Split, extend, carry over, overrun
+
+## Views
+
+Names for the screens, not for anything in the domain. Recorded so that issues, tests and code
+agree on what to call them.
+
+**Agenda**:
+The chronological stream of upcoming Sessions across every Class, grouped by day, reaching a
+horizon the teacher chooses. Where the planner opens.
+
+**Calendar**:
+One Teaching Week as a grid of Periods against days, showing which Class is taught when and what
+each Session carries. Note that this names a _screen_; the Terms, Blocked Days and Blocked Slots
+it draws on are the calendar _model_, and "the calendar" unqualified means the model.
+
+**Classes**:
+One card per Class showing how far its Course has got, what was last taught, and what is queued
+next. Keyed by Class rather than by time.
+
+**Session panel**:
+The single surface for one Session — its Lesson's plan and links, the note on the occasion, and
+the Continuation control. Opened from any of the three views; there is no other place a Session
+is read or written.

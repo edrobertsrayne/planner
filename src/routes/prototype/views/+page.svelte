@@ -8,24 +8,28 @@
 	import VariantA from './VariantA.svelte';
 	import VariantB from './VariantB.svelte';
 	import VariantC from './VariantC.svelte';
+	import VariantD from './VariantD.svelte';
 
 	const variants = [
+		{ key: 'D', name: 'THE ANSWER — Agenda / Calendar / Classes' },
 		{ key: 'A', name: 'Two surfaces — agenda + week' },
 		{ key: 'B', name: 'The week is the app' },
 		{ key: 'C', name: 'Class lanes' }
 	];
 
-	const variant = $derived(page.url.searchParams.get('variant') ?? 'A');
+	const variant = $derived(page.url.searchParams.get('variant') ?? 'D');
 </script>
 
 <svelte:head><title>PROTOTYPE — agenda and week views (#6)</title></svelte:head>
 
-{#if variant === 'B'}
+{#if variant === 'A'}
+	<VariantA />
+{:else if variant === 'B'}
 	<VariantB />
 {:else if variant === 'C'}
 	<VariantC />
 {:else}
-	<VariantA />
+	<VariantD />
 {/if}
 
 <PrototypeSwitcher {variants} />
