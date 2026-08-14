@@ -27,6 +27,8 @@ test-results
 
 # SQLite
 *.db
+*.db-shm
+*.db-wal
 
 # Agent
 .claude/*
