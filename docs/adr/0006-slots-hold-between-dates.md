@@ -36,3 +36,21 @@ separate concept for any of them.
 
 The uniqueness constraint cannot be a plain unique index, and a naive one would make replacing a
 Slot mid-year impossible — the replacement would collide with the Slot it replaces.
+
+> **Amended 2026-08-14.** This ADR was written assuming that Slots arrive by seed import and that
+> ending one Slot and starting another therefore means editing the seed and re-running it — the
+> position taken when the calendar was modelled. That is no longer true. **Classes and Slots are
+> created and edited by hand in the app**, and a mid-year timetable change is made in those screens.
+> The seed covers the calendar only — Terms, published Blocked Days, and the Teaching Weeks generated
+> from them. See the resolution of
+> [Design the school-year seed import](https://github.com/edrobertsrayne/planner/issues/10).
+>
+> Nothing about the model changes: Slots still hold between dates, the change is still expressed as
+> one Slot ending and another starting, and uniqueness is still window-aware. What changes is where
+> that edit is made, and therefore **where uniqueness is enforced** — the timetable screens must
+> reject a clashing Slot at the point of entry, since there is no longer a seed-time import to catch
+> it.
+>
+> Separately: the reference above to a Postgres exclusion constraint is stale. The planner runs on
+> SQLite (ADR-0008), which has no exclusion constraints, so window-aware uniqueness is enforced in
+> application code rather than by the database.
