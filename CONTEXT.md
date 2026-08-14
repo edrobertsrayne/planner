@@ -153,7 +153,20 @@ it draws on are the calendar _model_, and "the calendar" unqualified means the m
 One card per Class showing how far through its Assigned Topics it has got, what was last taught,
 and what is queued next. Keyed by Class rather than by time.
 
+**Courses**:
+Where Course content is written. Three panes — Courses, then that Course's Topics, then that
+Topic's Lessons in order — with a new Course, a new Topic and a new Lesson each created by typing
+a name into the foot of its own pane. The only screen that reads or writes Courses, Topics and
+Lessons. Unlike the other three it is a writing surface, and it is where the planner is used on a
+Sunday rather than during a teaching week.
+
+**Lesson editor**:
+The single surface for one Lesson — its title, its markdown body, its links and its Planned
+Length. Opens as a modal over the Courses view, and steps to the next or previous Lesson in the
+Topic without closing. Distinct from the Session panel: the Lesson editor writes the plan shared
+by every Class, the Session panel writes one Class's occasion.
+
 **Session panel**:
 The single surface for one Session — its Lesson's plan and links, the note on the occasion, and
-the Continuation control. Opened from any of the three views; there is no other place a Session
-is read or written.
+the Continuation control. Opened from any of the three reading views; there is no other place a
+Session is read or written.
