@@ -4,6 +4,11 @@
 // data. Writes re-derive: anything that changes an input to the schedule re-runs `schedule` for
 // the affected Class(es) from the boundary and persists the resulting Sessions. There is no
 // separate "recompute" action anywhere, ever.
+//
+// Authoring — createCourse, createTopic, createLesson and their renames, plus the reads behind
+// the Courses view — writes Course/Topic/Lesson rows directly and never re-derives: a Course and
+// a Topic are not scheduling inputs, and a Lesson only becomes one once a Topic is assigned to a
+// Class, which is `assignTopic`'s job above, not this one's.
 import { and, asc, eq, gte } from 'drizzle-orm';
 import type { drizzle } from 'drizzle-orm/node-sqlite';
 import * as schema from '../db/schema';
@@ -298,4 +303,78 @@ export function classSchedule(db: Db, { classId, today }: { classId: string; tod
 	});
 
 	return { ...result, runway: deriveRunway(result) };
+}
+
+// Authoring — the Courses view.
+
+export function listCourses(db: Db) {
+	return db.select().from(schema.course).orderBy(asc(schema.course.name)).all();
+}
+
+// No particular order (ADR-0010): a Course is an unordered container of Topics.
+export function topicsOf(db: Db, courseId: string) {
+	return db.select().from(schema.topic).where(eq(schema.topic.courseId, courseId)).all();
+}
+
+export function lessonsOf(db: Db, topicId: string) {
+	return db
+		.select()
+		.from(schema.lesson)
+		.where(eq(schema.lesson.topicId, topicId))
+		.orderBy(asc(schema.lesson.position))
+		.all();
+}
+
+export function createCourse(db: Db, { name }: { name: string }) {
+	const [row] = db.insert(schema.course).values({ name }).returning().all();
+	return row;
+}
+
+export function renameCourse(db: Db, { id, name }: { id: string; name: string }) {
+	const [row] = db
+		.update(schema.course)
+		.set({ name })
+		.where(eq(schema.course.id, id))
+		.returning()
+		.all();
+	return row;
+}
+
+export function createTopic(db: Db, { courseId, name }: { courseId: string; name: string }) {
+	const [row] = db.insert(schema.topic).values({ courseId, name }).returning().all();
+	return row;
+}
+
+export function renameTopic(db: Db, { id, name }: { id: string; name: string }) {
+	const [row] = db
+		.update(schema.topic)
+		.set({ name })
+		.where(eq(schema.topic.id, id))
+		.returning()
+		.all();
+	return row;
+}
+
+// A title alone is a complete Lesson — no draft state, no required second field. Appended at the
+// next position in its Topic's order (ADR-0010: Lessons, unlike Topics, are explicitly ordered).
+export function createLesson(db: Db, { topicId, title }: { topicId: string; title: string }) {
+	const existing = db
+		.select({ position: schema.lesson.position })
+		.from(schema.lesson)
+		.where(eq(schema.lesson.topicId, topicId))
+		.all();
+	const position = existing.length === 0 ? 0 : Math.max(...existing.map((r) => r.position)) + 1;
+
+	const [row] = db.insert(schema.lesson).values({ topicId, title, position }).returning().all();
+	return row;
+}
+
+export function renameLesson(db: Db, { id, title }: { id: string; title: string }) {
+	const [row] = db
+		.update(schema.lesson)
+		.set({ title })
+		.where(eq(schema.lesson.id, id))
+		.returning()
+		.all();
+	return row;
 }

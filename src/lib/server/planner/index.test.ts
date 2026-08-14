@@ -14,7 +14,16 @@ import {
 	blockSlot,
 	classSchedule,
 	createClass,
-	recordContinuation
+	createCourse,
+	createLesson,
+	createTopic,
+	lessonsOf,
+	listCourses,
+	recordContinuation,
+	renameCourse,
+	renameLesson,
+	renameTopic,
+	topicsOf
 } from './index';
 
 // The real 2026/27 calendar (seed/2026-27.json): six Terms opening Thursday 3 September 2026,
@@ -412,5 +421,57 @@ describe('the boundary', () => {
 			.all()
 			.filter((s) => s.classId === classA.id && s.date < today);
 		expect(historyAfter).toEqual(historyBefore);
+	});
+});
+
+// Course/Topic/Lesson authoring needs no calendar, no Class and no Slot — a bare migrated
+// database is enough, so this skips the heavy setUp() above.
+function setUpAuthoring() {
+	dir = mkdtempSync(join(tmpdir(), 'planner-authoring-'));
+	const { client, db } = openDatabase(join(dir, 'test.db'));
+	runMigrations(client, 'drizzle');
+	return { db };
+}
+
+describe('authoring Courses, Topics and Lessons', () => {
+	test('a Course is created and can be renamed', () => {
+		const { db } = setUpAuthoring();
+
+		const created = createCourse(db, { name: 'Year 9 Physics' });
+		expect(listCourses(db)).toEqual([created]);
+
+		const renamed = renameCourse(db, { id: created.id, name: 'Year 9 Science' });
+		expect(renamed.id).toBe(created.id);
+		expect(listCourses(db)).toEqual([renamed]);
+	});
+
+	test('a Topic belongs to its Course and can be renamed', () => {
+		const { db } = setUpAuthoring();
+		const course = createCourse(db, { name: 'Year 9 Physics' });
+		const otherCourse = createCourse(db, { name: 'Year 10 Physics' });
+
+		const created = createTopic(db, { courseId: course.id, name: 'Forces' });
+		createTopic(db, { courseId: otherCourse.id, name: 'Waves' });
+
+		expect(topicsOf(db, course.id)).toEqual([created]);
+
+		const renamed = renameTopic(db, { id: created.id, name: 'Forces and Motion' });
+		expect(topicsOf(db, course.id)).toEqual([renamed]);
+	});
+
+	test('a Lesson is appended in order, title alone is complete, and it can be renamed', () => {
+		const { db } = setUpAuthoring();
+		const course = createCourse(db, { name: 'Year 9 Physics' });
+		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
+
+		const first = createLesson(db, { topicId: topic.id, title: 'Newton I' });
+		const second = createLesson(db, { topicId: topic.id, title: 'Newton II' });
+
+		expect(first.body).toBeNull();
+		expect(first.plannedLength).toBe(1);
+		expect(lessonsOf(db, topic.id)).toEqual([first, second]);
+
+		const renamed = renameLesson(db, { id: first.id, title: 'Newton I — inertia' });
+		expect(lessonsOf(db, topic.id).map((l) => l.title)).toEqual([renamed.title, second.title]);
 	});
 });
