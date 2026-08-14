@@ -97,6 +97,13 @@ export const session = sqliteTable(
 	(table) => [unique('session_occasion').on(table.classId, table.date, table.period)]
 );
 
+export const continuation = sqliteTable('continuation', {
+	id: id(),
+	sessionId: text('session_id')
+		.notNull()
+		.references(() => session.id)
+});
+
 // Calendar
 
 export const term = sqliteTable('term', {
