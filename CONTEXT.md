@@ -13,35 +13,50 @@ the model follows from keeping those two apart.
 ### Planning
 
 **Course**:
-A sequence of teaching for one group over a sustained period, such as "Year 9 Physics". Composed
-of Topics, in order.
+The body of teaching material for a subject and year group, such as "Year 9 Physics". Composed of
+Topics, which it holds in no particular order — a Course is what a Class _may_ be taught, not a
+sequence it works through. It outlives the Classes drawing on it, and a Class typically teaches
+only part of one in a year.
 _Avoid_: Scheme of work, syllabus, curriculum, module, unit
 
 **Topic**:
 A named block of teaching within a Course, such as "Forces". Composed of Lessons, in order.
+Belongs to exactly one Course and holds no position within it; the order teaching happens in is
+fixed per Class by its Assigned Topics.
 _Avoid_: Unit, module, block, chapter
 
 **Lesson**:
 One planned teaching episode within a Topic — the plan, not the event. Exists whether or not it
-has ever been taught, and is shared by every Class following the Course. A title alone constitutes
+has ever been taught, and is shared by every Class assigned its Topic. A title alone constitutes
 a Lesson; the notes and the links to resources held elsewhere arrive as planning catches up.
 _Avoid_: Period, session, class
 
 **Planned Length**:
 The number of Periods a Lesson is planned to occupy, defaulting to one. Distinct from a
-Continuation: Planned Length belongs to the Course and so applies to every Class following it,
-whereas a Continuation is a reaction to how one Class's teaching actually went. A Lesson longer
-than one Period takes the next Available Slots in order like any other, and may therefore run
-across two days rather than falling on a timetabled double.
+Continuation: Planned Length belongs to the Lesson and so applies to every Class assigned its
+Topic, whereas a Continuation is a reaction to how one Class's teaching actually went. A Lesson
+longer than one Period takes the next Available Slots in order like any other, and may therefore
+run across two days rather than falling on a timetabled double.
 _Avoid_: Duration, double, span, periods
 
 ### Scheduling
 
 **Class**:
-A group of pupils taught as a unit, identified by a label such as "9B/Sc1". A Class follows one
-Course at a time and has its own Slots. It is a label and a timetable only — it holds no
-information about individual pupils.
+A group of pupils taught as a unit, identified by a label such as "9B/Sc1". A Class follows
+exactly one Course, fixed when the Class is created, which limits the Topics it may be given; what
+it actually teaches is the subset of those Topics assigned to it. It has its own Slots, and is
+scoped to one academic year — next year's teaching is new Classes, not these ones carried forward.
+It is a label, a Course and a timetable only — it holds no information about individual pupils.
 _Avoid_: Group, set, form, cohort
+
+**Assigned Topic**:
+One Topic given to one Class to teach, at a position in that Class's order. A Class begins the
+year with none and accumulates them one at a time as the Topics are written, so the teaching order
+is decided as it is reached rather than planned in advance. The assignment carries a position and
+nothing else — no status and no date, both of which are derivable. The Topic must belong to the
+Class's Course. Assigned Topics are what the schedule is derived from: their Lessons, flattened in
+order, are the sequence laid onto that Class's Available Slots.
+_Avoid_: Assignment (means homework), allocation, scheduled topic
 
 **Period**:
 One of the six numbered teaching positions in a school day, P1 to P6. Every day has the same six.
@@ -102,10 +117,10 @@ Blocked Day nor a Blocked Slot — that is, a Slot on which teaching can actuall
 
 **Shift-right**:
 The rule governing every disruption: when a Lesson cannot be taught as scheduled, it and every
-Lesson after it in the Course move to the next Available Slots for that Class, preserving the
-order of the Course. The alternative — skipping a Lesson so later ones keep their dates — is
-deliberately not supported. Shift-right is not an operation anyone performs; it is what falls out
-of laying the Course onto the Available Slots that remain.
+Lesson after it in that Class's sequence move to the next Available Slots for that Class,
+preserving the order of the sequence. The alternative — skipping a Lesson so later ones keep their
+dates — is deliberately not supported. Shift-right is not an operation anyone performs; it is what
+falls out of laying the Class's Assigned Topics onto the Available Slots that remain.
 _Avoid_: Reschedule, push back, bump
 
 **Rewind**:
@@ -135,8 +150,8 @@ each Session carries. Note that this names a _screen_; the Terms, Blocked Days a
 it draws on are the calendar _model_, and "the calendar" unqualified means the model.
 
 **Classes**:
-One card per Class showing how far its Course has got, what was last taught, and what is queued
-next. Keyed by Class rather than by time.
+One card per Class showing how far through its Assigned Topics it has got, what was last taught,
+and what is queued next. Keyed by Class rather than by time.
 
 **Session panel**:
 The single surface for one Session — its Lesson's plan and links, the note on the occasion, and

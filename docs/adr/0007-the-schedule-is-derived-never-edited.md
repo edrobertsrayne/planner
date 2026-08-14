@@ -1,12 +1,21 @@
 # The schedule is derived, never edited
 
-Laying a Course onto a Class's calendar is one pure function: take the Lessons in order, take the
+Laying a Class's plan onto its calendar is one pure function: take the Lessons in order, take the
 Available Slots in order, zip them together. There are no move, shift or insert operations. Every
 disruption is a change to the function's _input_, and the schedule is recomputed from scratch:
 
 - a **Blocked Day** removes every Slot on a date,
 - a **Blocked Slot** removes one Slot on one date for one Class,
 - a **Continuation** widens a Lesson from one Slot to two.
+
+> **Amended 2026-08-14 (ADR-0010).** The input was originally "a Course's Lessons". It is now the
+> Lessons of the Class's **Assigned Topics**, flattened in Assigned-Topic order and then Lesson
+> order. The function itself is untouched — the prototype always took a flat Lesson array and a
+> Class id, never a Course. One consequence is worth naming: the boundary rule below is now
+> load-bearing for **everyday use**, not only for disruptions, because assigning October's Topic in
+> October is an ordinary re-run that must not disturb what is already taught. Editing content moves
+> dates for the same reason — adding a Lesson to a half-taught Topic grows the flattened list in the
+> middle and shifts the rest of the year right, deliberately and without warning.
 
 The function takes a **boundary** and writes on and after it, never before. The boundary is today.
 Sessions dated before it are the record of what happened — inputs to the next run, not outputs.
