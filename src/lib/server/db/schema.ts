@@ -130,4 +130,4 @@ export const blockedSlot = sqliteTable('blocked_slot', {
 	note: text('note').notNull()
 });
 
-export * from './auth.schema';
+export * from './auth.schema.ts';

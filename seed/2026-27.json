@@ -1,0 +1,15 @@
+{
+	"academicYear": "2026/27",
+	"terms": [
+		{ "name": "Autumn 1", "opens": "2026-09-03", "closes": "2026-10-23" },
+		{ "name": "Autumn 2", "opens": "2026-11-02", "closes": "2026-12-22" },
+		{ "name": "Spring 1", "opens": "2027-01-05", "closes": "2027-02-12" },
+		{ "name": "Spring 2", "opens": "2027-02-22", "closes": "2027-03-26" },
+		{ "name": "Summer 1", "opens": "2027-04-19", "closes": "2027-05-28" },
+		{ "name": "Summer 2", "opens": "2027-06-07", "closes": "2027-07-19" }
+	],
+	"blockedDays": [
+		{ "date": "2026-11-26", "note": "INSET" },
+		{ "date": "2026-11-27", "note": "INSET" }
+	]
+}

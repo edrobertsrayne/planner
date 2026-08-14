@@ -4,6 +4,9 @@
   "workspaces": {
     "": {
       "name": "planner",
+      "dependencies": {
+        "zod": "^4.4.3",
+      },
       "devDependencies": {
         "@eslint/js": "^10.0.1",
         "@playwright/test": "^1.60.0",

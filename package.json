@@ -33,6 +33,9 @@
 		"vitest": "^4.1.8",
 		"vitest-browser-svelte": "^2.1.1"
 	},
+	"dependencies": {
+		"zod": "^4.4.3"
+	},
 	"private": true,
 	"scripts": {
 		"dev": "vite dev",
@@ -51,7 +54,8 @@
 		"db:migrate": "drizzle-kit migrate",
 		"db:studio": "drizzle-kit studio",
 		"auth:schema": "auth generate --config src/lib/server/auth.ts --output src/lib/server/db/auth.schema.ts --yes",
-		"seed:user": "node scripts/seed-user.ts"
+		"seed:user": "node scripts/seed-user.ts",
+		"seed": "node scripts/seed.ts"
 	},
 	"type": "module"
 }
