@@ -150,8 +150,18 @@ each Session carries. Note that this names a _screen_; the Terms, Blocked Days a
 it draws on are the calendar _model_, and "the calendar" unqualified means the model.
 
 **Classes**:
-One card per Class showing how far through its Assigned Topics it has got, what was last taught,
-and what is queued next. Keyed by Class rather than by time.
+One card per Class — a **lane** — showing how far through its Assigned Topics it has got, what was
+last taught, and what is queued next. Keyed by Class rather than by time. Opening a lane leads to
+that Class's Class page.
+
+**Class page**:
+The single surface for one Class: its lane, its own view of the fortnight, and the Topics assigned
+to it. The only place a Class is created, timetabled or given a Topic — there is no screen showing
+every Class's Timetable at once, because the Timetable is only ever read or written one Class at a
+time. Periods belonging to another Class are shown as unavailable rather than hidden, since a
+position can hold only one Class on any given date; that is where the Slot uniqueness rule is
+enforced. Changes take effect from a date the teacher chooses, defaulting to the start of the
+year, so ending one Slot and starting another is ordinary editing rather than a special operation.
 
 **Courses**:
 Where Course content is written. Three panes — Courses, then that Course's Topics, then that
