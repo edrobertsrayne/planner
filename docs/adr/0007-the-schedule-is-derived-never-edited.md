@@ -60,4 +60,19 @@ place the model touches something it cannot derive.
 Running out of Available Slots is a reportable outcome, not an error. The function places what fits
 and returns the rest as unplaced. Silently dropping Lessons would make the tool untrustworthy.
 
+> **Amended 2026-08-14 (issue #19).** The function returns the _mirror_ case too. Where `unplaced`
+> is the Lessons with no Slot, `unplanned` is the **Unplanned Slots** — the Available Slots with no
+> Lesson, in date order, to the end of the seeded calendar. Both fall out of the same zip; only one
+> was previously returned.
+>
+> This matters more than the symmetry suggests. Under ADR-0010 a Class is given its Topics one at a
+> time through the year, so having Slots left over is the _normal_ condition and running out of
+> Lessons is the rare one. Returning `unplanned` keeps that normal case inside the one derived
+> answer: the Agenda, the Calendar and the Classes lanes all read it rather than each re-deriving
+> which of a Class's Slots are Available and past the end. Three re-derivations of Slot availability
+> is the drift this ADR exists to prevent, arriving through the views instead of through mutation.
+>
+> The **Runway** — the date of a Class's first Unplanned Slot — is therefore derived, not stored,
+> like everything else about the schedule.
+
 Nothing may write a Session dated before today except a Rewind.

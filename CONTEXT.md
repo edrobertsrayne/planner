@@ -113,6 +113,19 @@ _Avoid_: Cancellation, skip, gap, missed lesson
 A Slot on a date that falls within a Term, lies within the dates that Slot holds, and is neither a
 Blocked Day nor a Blocked Slot — that is, a Slot on which teaching can actually take place.
 
+**Unplanned Slot**:
+An Available Slot carrying no Lesson, because the Class's Assigned Topics ran out before its Slots
+did. The mirror of an unplaced Lesson, and the normal condition of a Class that has not yet been
+given its next Topic — not a fault, and never a Blocked Slot, which means the opposite.
+_Avoid_: Empty slot, gap, free period, unfilled
+
+**Runway**:
+The date a Class's plan runs out — the date of its first Unplanned Slot. Measured as a date rather
+than a count of Lessons, because Classes taught at different frequencies exhaust the same number of
+Lessons at different speeds, and because a Blocked Day or a Continuation moves the date without
+changing the count.
+_Avoid_: Buffer, headroom, lessons remaining
+
 ### Rescheduling
 
 **Shift-right**:
@@ -142,17 +155,24 @@ agree on what to call them.
 
 **Agenda**:
 The chronological stream of upcoming Sessions across every Class, grouped by day, reaching a
-horizon the teacher chooses. Where the planner opens.
+horizon the teacher chooses. Where the planner opens. An Unplanned Slot appears as an ordinary row
+in its own position, marked as carrying no Lesson, because the teacher is teaching that Period and
+an Agenda that omitted it would report a free one.
 
 **Calendar**:
 One Teaching Week as a grid of Periods against days, showing which Class is taught when and what
 each Session carries. Note that this names a _screen_; the Terms, Blocked Days and Blocked Slots
-it draws on are the calendar _model_, and "the calendar" unqualified means the model.
+it draws on are the calendar _model_, and "the calendar" unqualified means the model. An Unplanned
+Slot keeps its Class's colour and shows no Lesson; a Blocked Day and a Blocked Slot drain the
+colour instead — present-but-empty and removed must never read alike.
 
 **Classes**:
 One card per Class — a **lane** — showing how far through its Assigned Topics it has got, what was
-last taught, and what is queued next. Keyed by Class rather than by time. Opening a lane leads to
-that Class's Class page.
+last taught, what is queued next, and its Runway. Keyed by Class rather than by time. Opening a
+lane leads to that Class's Class page. The Runway is shown plainly on every lane and is never
+coloured or flagged: a Class approaching the end of its Assigned Topics is the normal condition
+several times a year, so a threshold warning would be on almost always and mean nothing. The
+Agenda showing Unplanned Slots inside its own horizon is the only alert the planner has.
 
 **Class page**:
 The single surface for one Class: its lane, its own view of the fortnight, and the Topics assigned
@@ -179,4 +199,6 @@ by every Class, the Session panel writes one Class's occasion.
 **Session panel**:
 The single surface for one Session — its Lesson's plan and links, the note on the occasion, and
 the Continuation control. Opened from any of the three reading views; there is no other place a
-Session is read or written.
+Session is read or written. It opens on an Unplanned Slot too, showing no plan and offering the
+note — a Session is identified by its occasion, not by its Lesson, so a Slot carrying no Lesson is
+still an occasion the teacher may want to write about.
