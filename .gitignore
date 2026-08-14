@@ -31,3 +31,5 @@ test-results
 # Agent
 .claude/*
 !.claude/settings.json
+!.claude/hooks
+!.claude/hooks/*
