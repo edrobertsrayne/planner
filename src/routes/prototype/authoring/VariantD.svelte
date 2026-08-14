@@ -14,6 +14,7 @@
 		COURSES,
 		topicsOf,
 		topicById,
+		addCourse,
 		addTopic,
 		addLesson,
 		removeLesson,
@@ -31,6 +32,8 @@
 	let draft = $state('');
 	let newTopic = $state('');
 	let addingTopic = $state(false);
+	let newCourse = $state('');
+	let addingCourse = $state(false);
 	let linkUrl = $state('');
 	let linkLabel = $state('');
 
@@ -54,6 +57,16 @@
 		if (!t) return;
 		addLesson(topicId, t);
 		draft = '';
+	}
+
+	function commitCourse(e: KeyboardEvent) {
+		if (e.key !== 'Enter') return;
+		const n = newCourse.trim();
+		if (!n) return;
+		// a new Course starts empty — the Topics pane is then the obvious next move
+		pickCourse(addCourse(n).id);
+		newCourse = '';
+		addingCourse = false;
 	}
 
 	function commitTopic(e: KeyboardEvent) {
@@ -136,6 +149,24 @@
 					<span class="font-mono text-xs text-neutral-400">{topicsOf(c.id).length}</span>
 				</button>
 			{/each}
+			<div class="px-4 pt-2">
+				{#if addingCourse}
+					<!-- svelte-ignore a11y_autofocus -->
+					<input
+						autofocus
+						class="w-full rounded border border-neutral-300 px-2 py-1 text-sm"
+						placeholder="Course name…"
+						bind:value={newCourse}
+						onkeydown={commitCourse}
+						onblur={() => (addingCourse = false)}
+					/>
+				{:else}
+					<button
+						class="text-sm text-neutral-500 hover:text-neutral-900"
+						onclick={() => (addingCourse = true)}>+ New Course</button
+					>
+				{/if}
+			</div>
 		</aside>
 
 		<!-- pane 2: Topics -->
@@ -363,26 +394,31 @@
 								</li>
 							{/each}
 						</ul>
-						<div class="mt-2 flex gap-1">
+						<!-- label above url, so the label gets the full column width; Add
+						     stays alongside the url, which tolerates truncation and the
+						     label does not -->
+						<div class="mt-2 space-y-1">
 							<input
-								class="min-w-0 flex-1 rounded border border-neutral-300 px-2 py-1 text-xs"
+								class="w-full rounded border border-neutral-300 px-2 py-1 text-xs"
 								placeholder="Label"
 								bind:value={linkLabel}
 							/>
-							<input
-								class="min-w-0 flex-1 rounded border border-neutral-300 px-2 py-1 text-xs"
-								placeholder="https://…"
-								bind:value={linkUrl}
-							/>
-							<button
-								class="rounded bg-neutral-900 px-2 text-xs text-white"
-								onclick={() => {
-									if (!linkUrl.trim() || !linkLabel.trim()) return;
-									addLink(l, linkUrl.trim(), linkLabel.trim());
-									linkUrl = '';
-									linkLabel = '';
-								}}>Add</button
-							>
+							<div class="flex gap-1">
+								<input
+									class="min-w-0 flex-1 rounded border border-neutral-300 px-2 py-1 text-xs"
+									placeholder="https://…"
+									bind:value={linkUrl}
+								/>
+								<button
+									class="shrink-0 rounded bg-neutral-900 px-2.5 text-xs text-white"
+									onclick={() => {
+										if (!linkUrl.trim() || !linkLabel.trim()) return;
+										addLink(l, linkUrl.trim(), linkLabel.trim());
+										linkUrl = '';
+										linkLabel = '';
+									}}>Add</button
+								>
+							</div>
 						</div>
 					</div>
 

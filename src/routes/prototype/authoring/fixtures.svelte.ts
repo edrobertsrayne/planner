@@ -77,16 +77,23 @@ const topic = (courseId: string, name: string, titles: string[]): Topic => ({
 
 // ----------------------------------------------------------------- the content
 
-export const COURSES: Course[] = [
+/** $state so a Course added in a variant appears in the list without a reload */
+export const COURSES: Course[] = $state([
 	{ id: 'c8', name: 'Year 8 Science' },
 	{ id: 'c9', name: 'Year 9 Physics' },
 	{ id: 'c10', name: 'GCSE Physics Y10' },
 	{ id: 'c11', name: 'GCSE Physics Y11' },
 	{ id: 'c12', name: 'A-level Physics Y12' },
 	{ id: 'c13', name: 'A-level Physics Y13' }
-];
+]);
 
 export const courseById = (id: string) => COURSES.find((c) => c.id === id)!;
+
+export function addCourse(name: string): Course {
+	const c: Course = { id: uid('c'), name };
+	COURSES.push(c);
+	return c;
+}
 
 const TOPICS: Topic[] = [
 	topic('c8', 'Health and Lifestyle', [
