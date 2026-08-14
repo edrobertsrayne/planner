@@ -10,6 +10,9 @@ export const auth = betterAuth({
 	secret: env.BETTER_AUTH_SECRET,
 	database: drizzleAdapter(db, { provider: 'sqlite' }),
 	emailAndPassword: { enabled: true },
+	// The domain has its own `session` table (a taught occasion, ADR-0002) — better-auth's
+	// login session is renamed to avoid a table-name collision.
+	session: { modelName: 'authSession' },
 	plugins: [
 		sveltekitCookies(getRequestEvent) // make sure this is the last plugin in the array
 	]
