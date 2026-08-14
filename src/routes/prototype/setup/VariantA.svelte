@@ -27,9 +27,8 @@
 		courseById,
 		fmtLong,
 		historyAt,
+		lanes,
 		moveAssigned,
-		removeClass,
-		runway,
 		slotAt,
 		slotsOf,
 		takeSlot,
@@ -37,6 +36,7 @@
 		topicsOf,
 		unassignTopic
 	} from './fixtures.svelte';
+	import Lane from './Lane.svelte';
 
 	type SubView = 'classes' | 'timetable';
 	const SUBVIEWS: [SubView, string][] = [
@@ -281,101 +281,91 @@
 			</main>
 		</div>
 	{:else}
-		<!-- the everyday surface: one card per Class, and the permanent Assign control -->
-		<main class="grid flex-1 grid-cols-[repeat(auto-fill,minmax(22rem,1fr))] gap-4 p-6 pb-28">
-			{#each CLASSES as c (c.id)}
-				{@const r = runway(c.id)}
-				<section class="flex flex-col rounded-xl bg-white p-5 ring-1 ring-neutral-200">
-					<div class="flex items-baseline gap-2">
-						<span class="h-3 w-3 shrink-0 rounded-sm {TONE[c.tone].dot}"></span>
-						<h2 class="text-base font-semibold">{c.label}</h2>
-						<span class="text-xs text-neutral-400">{courseById(c.courseId).name}</span>
-						<button
-							class="ml-auto text-xs text-neutral-300 hover:text-red-600"
-							onclick={() => removeClass(c.id)}>delete</button
-						>
-					</div>
-					<p class="mt-1 text-xs text-neutral-400">
-						{slotsOf(c.id, TODAY).length} periods a fortnight · {r.taught} of {r.total} Lessons taught
-					</p>
-
-					<ol class="mt-3 space-y-1">
-						{#each c.assigned as tid, i (tid + i)}
-							{@const t = topicById(tid)}
-							<li
-								class="group flex items-baseline gap-2 rounded px-2 py-1 text-sm hover:bg-neutral-50"
-							>
-								<span class="font-mono text-xs text-neutral-300">{i + 1}</span>
-								<span class="min-w-0 flex-1 truncate">{t.name}</span>
-								<span class="shrink-0 font-mono text-xs text-neutral-400">{t.lessons.length}</span>
-								<span class="shrink-0 opacity-0 group-hover:opacity-100">
-									<button
-										class="px-1 text-neutral-400 hover:text-neutral-900"
-										onclick={() => moveAssigned(c.id, i, i - 1)}
-										aria-label="Move up">↑</button
-									>
-									<button
-										class="px-1 text-neutral-400 hover:text-neutral-900"
-										onclick={() => moveAssigned(c.id, i, i + 1)}
-										aria-label="Move down">↓</button
-									>
-									<button
-										class="px-1 text-neutral-400 hover:text-red-600"
-										onclick={() => unassignTopic(c.id, i)}
-										aria-label="Unassign">✕</button
-									>
-								</span>
-							</li>
-						{/each}
-						{#if !c.assigned.length}
-							<li class="px-2 py-1 text-sm text-neutral-400">Nothing assigned yet.</li>
-						{/if}
-					</ol>
-
-					<!-- the permanent control: it lives on the card, not in setup -->
-					{#if picking === c.id}
-						<div class="mt-3 rounded-lg border border-neutral-200">
-							<p class="border-b border-neutral-100 px-3 py-1.5 text-[11px] text-neutral-400">
-								Topics in {courseById(c.courseId).name}
-							</p>
-							<ul class="max-h-56 overflow-y-auto">
-								{#each topicsOf(c.courseId) as t (t.id)}
-									{@const mine = c.assigned.includes(t.id)}
-									{@const others = alsoAssigned(t.id, c.id)}
-									<li>
-										<button
-											class="flex w-full items-baseline gap-2 px-3 py-1.5 text-left text-sm hover:bg-neutral-50"
-											onclick={() => {
-												assignTopic(c.id, t.id);
-												picking = null;
-											}}
+		<!-- the everyday surface: the lane cards #6 landed on, with the Assign
+		     control living inside the lane it acts on -->
+		<main class="flex-1 p-6 pb-28">
+			<h2 class="mb-3 text-xs font-bold tracking-wider text-neutral-400 uppercase">
+				Where each Class is up to
+			</h2>
+			<div class="grid gap-3 lg:grid-cols-2">
+				{#each lanes() as lane (lane.cls.id)}
+					{@const c = lane.cls}
+					<Lane classId={c.id}>
+						{#snippet footer()}
+							<div class="mt-3 border-t border-neutral-100 pt-3">
+								<div class="text-[11px] font-bold tracking-wider text-neutral-400 uppercase">
+									Teaching order
+								</div>
+								<div class="mt-1.5 flex flex-wrap items-center gap-1">
+									{#each c.assigned as tid, i (tid + i)}
+										<span
+											class="group flex items-baseline gap-1 rounded px-1.5 py-0.5 text-xs ring-1 {TONE[
+												c.tone
+											].chip}"
 										>
-											<span class="min-w-0 flex-1 truncate {mine ? 'text-neutral-400' : ''}"
-												>{t.name}</span
-											>
-											{#if mine}
-												<span class="shrink-0 text-[11px] text-neutral-400">already here</span>
-											{:else if others.length}
-												<span class="shrink-0 text-[11px] text-neutral-400"
-													>with {others.map((o) => o.label).join(', ')}</span
+											{topicById(tid).name}
+											<span class="opacity-0 group-hover:opacity-100">
+												<button onclick={() => moveAssigned(c.id, i, i - 1)} aria-label="Move up"
+													>←</button
 												>
-											{/if}
-											<span class="shrink-0 font-mono text-xs text-neutral-300"
-												>{t.lessons.length || '—'}</span
-											>
-										</button>
-									</li>
-								{/each}
-							</ul>
-						</div>
-					{:else}
-						<button
-							class="mt-3 self-start text-sm text-neutral-500 hover:text-neutral-900"
-							onclick={() => (picking = c.id)}>+ Assign Topic</button
-						>
-					{/if}
-				</section>
-			{/each}
+												<button onclick={() => moveAssigned(c.id, i, i + 1)} aria-label="Move down"
+													>→</button
+												>
+												<button onclick={() => unassignTopic(c.id, i)} aria-label="Unassign"
+													>✕</button
+												>
+											</span>
+										</span>
+									{/each}
+									<button
+										class="rounded px-1.5 py-0.5 text-xs text-neutral-500 ring-1 ring-neutral-300 hover:bg-neutral-100"
+										onclick={() => (picking = picking === c.id ? null : c.id)}
+										>+ Assign Topic</button
+									>
+								</div>
+
+								{#if picking === c.id}
+									<div class="mt-2 rounded-lg border border-neutral-200">
+										<p class="border-b border-neutral-100 px-3 py-1.5 text-[11px] text-neutral-400">
+											Topics in {courseById(c.courseId).name}
+										</p>
+										<ul class="max-h-56 overflow-y-auto">
+											{#each topicsOf(c.courseId) as t (t.id)}
+												{@const mine = c.assigned.includes(t.id)}
+												{@const others = alsoAssigned(t.id, c.id)}
+												<li>
+													<button
+														class="flex w-full items-baseline gap-2 px-3 py-1.5 text-left text-sm hover:bg-neutral-50"
+														onclick={() => {
+															assignTopic(c.id, t.id);
+															picking = null;
+														}}
+													>
+														<span class="min-w-0 flex-1 truncate {mine ? 'text-neutral-400' : ''}"
+															>{t.name}</span
+														>
+														{#if mine}
+															<span class="shrink-0 text-[11px] text-neutral-400">already here</span
+															>
+														{:else if others.length}
+															<span class="shrink-0 text-[11px] text-neutral-400"
+																>with {others.map((o) => o.label).join(', ')}</span
+															>
+														{/if}
+														<span class="shrink-0 font-mono text-xs text-neutral-300"
+															>{t.lessons.length || '—'}</span
+														>
+													</button>
+												</li>
+											{/each}
+										</ul>
+									</div>
+								{/if}
+							</div>
+						{/snippet}
+					</Lane>
+				{/each}
+			</div>
 		</main>
 	{/if}
 </div>

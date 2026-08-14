@@ -701,3 +701,114 @@ export const fmtLong = (iso: string) =>
 		year: 'numeric',
 		timeZone: 'UTC'
 	});
+
+// ============================================ lanes, borrowed back from #6
+//
+// The Classes view #6 landed on is one lane per Class: progress by Assigned
+// Topic, what was last taught with its note, and what is queued next. Showing
+// the setup screens beside it is the point of this second pass — so the lanes
+// here are derived from the *real* Slots above rather than faked, and painting
+// a period visibly moves the dates in the lane.
+//
+// Simplifications a real implementation would not make: no Terms and no Blocked
+// Days (they live in the calendar model, which this mock has no copy of), so the
+// walk below just skips weekends. ADR-0007's engine is the real answer.
+
+/** Monday of the week the year opens in — the anchor for A/B parity. */
+const WEEK_ANCHOR = '2026-08-31';
+
+const dayIndex = (iso: string) => (new Date(iso + 'T00:00:00Z').getUTCDay() + 6) % 7;
+
+const weeksSinceAnchor = (iso: string) =>
+	Math.floor(
+		(new Date(iso + 'T00:00:00Z').getTime() - new Date(WEEK_ANCHOR + 'T00:00:00Z').getTime()) /
+			(7 * 86400000)
+	);
+
+/** Which half of the cycle a date falls in. Offset so TODAY reads Week B. */
+export const weekLetterOn = (iso: string): Week => WEEKS[(weeksSinceAnchor(iso) + 1) % 2];
+
+/** The Class's Slots on one date, in Period order. */
+export const slotsOnDate = (classId: string, iso: string) => {
+	const d = dayIndex(iso);
+	if (d > 4) return [];
+	const w = weekLetterOn(iso);
+	return SLOTS.filter(
+		(s) => s.classId === classId && s.week === w && s.day === d && holds(s, iso)
+	).sort((a, b) => a.period - b.period);
+};
+
+export type Occasion = { date: string; period: number };
+
+/** Walk the calendar collecting the Class's occasions, forwards or backwards. */
+function occasions(classId: string, from: string, count: number, step: 1 | -1): Occasion[] {
+	const out: Occasion[] = [];
+	let date = from;
+	for (let i = 0; i < 400 && out.length < count; i++) {
+		const found = slotsOnDate(classId, date).map((s) => ({ date, period: s.period }));
+		out.push(...(step === 1 ? found : found.reverse()));
+		date = addDays(date, step);
+	}
+	return out.slice(0, count);
+}
+
+/** A note or two, so the lanes read like a planner in use rather than a mock. */
+export const NOTES: Record<string, string> = {
+	'8D': 'Ran out of time on the enzyme practical — pick the tables up next lesson.',
+	'9B': 'Half of them still say weight is measured in kg. Worth ten minutes on Monday.',
+	'10A': 'Good lesson. The density practical works better with the irregular solids first.',
+	'11C': 'Cover lesson — they did the past paper but it is not marked yet.',
+	'12A': 'Projectiles went well; three of them want the extension sheet.',
+	'13A': 'SHM graphs still shaky. Do the pendulum practical before the test.'
+};
+
+/**
+ * Everything one lane needs. Lessons come from the Assigned Topics, flattened
+ * (ADR-0010); the Class's `taught` count is the boundary between what has
+ * happened and what is planned.
+ */
+export function laneOf(classId: string) {
+	const c = classById(classId);
+	const flat = c.assigned.flatMap((tid, ai) =>
+		topicById(tid).lessons.map((l) => ({ lesson: l, topicId: tid, ai }))
+	);
+	const done = Math.min(c.taught, flat.length);
+
+	const ahead = occasions(classId, TODAY, flat.length - done, 1);
+	const behind = occasions(classId, addDays(TODAY, -1), 1, -1);
+
+	const topics = c.assigned.map((tid, i) => {
+		const before = c.assigned.slice(0, i).reduce((n, id) => n + topicById(id).lessons.length, 0);
+		const t = topicById(tid);
+		return {
+			topic: t,
+			total: t.lessons.length,
+			done: Math.max(0, Math.min(t.lessons.length, done - before))
+		};
+	});
+
+	return {
+		cls: c,
+		topics,
+		done,
+		total: flat.length,
+		current: topics.find((t) => t.done < t.total) ?? topics[topics.length - 1],
+		last: done > 0 && behind[0] ? { ...behind[0], lesson: flat[done - 1].lesson } : null,
+		next: ahead.map((o, i) => ({ ...o, lesson: flat[done + i]?.lesson })).filter((n) => n.lesson),
+		/** the date the last currently-planned Lesson lands on, or null if it runs out */
+		runsTo: ahead.length ? ahead[ahead.length - 1].date : null
+	};
+}
+
+/** Lanes in the order #6 settled on: whoever is taught soonest, first. */
+export const lanes = () =>
+	CLASSES.map((c) => laneOf(c.id)).sort((a, b) =>
+		(a.next[0]?.date ?? 'zz').localeCompare(b.next[0]?.date ?? 'zz')
+	);
+
+export const whenLabel = (o: Occasion) =>
+	o.date === TODAY
+		? `today P${o.period}`
+		: o.date === addDays(TODAY, 1)
+			? `tomorrow P${o.period}`
+			: `${fmtDate(o.date)} P${o.period}`;

@@ -38,6 +38,7 @@
 		topicsOf,
 		unassignTopic
 	} from './fixtures.svelte';
+	import Lane from './Lane.svelte';
 
 	let selected = $state('9B');
 	const cls = $derived(classById(selected));
@@ -169,112 +170,117 @@
 				</p>
 			</div>
 
-			<!-- the timetable, this Class's own -->
-			<section class="px-8 py-6">
-				<div class="flex items-baseline gap-3">
-					<h3 class="text-sm font-semibold">Timetable</h3>
-					<span class="text-xs text-neutral-400"
-						>{slotsOf(cls.id, on).length} periods a fortnight</span
-					>
-					<span class="ml-auto flex items-center gap-2 text-xs">
-						<span class="text-neutral-400">Changes apply from</span>
-						<select
-							class="rounded border border-neutral-300 px-2 py-1 text-xs"
-							bind:value={effective}
-						>
-							<option value="year">the start of the year</option>
-							<option value="date">a date…</option>
-						</select>
-						{#if effective === 'date'}
-							<input
-								type="date"
-								class="rounded border border-neutral-300 px-2 py-1 text-xs"
-								bind:value={from}
-							/>
-						{/if}
-					</span>
-				</div>
+			<div class="grid grid-cols-[22rem_minmax(0,1fr)] gap-6 px-8 py-6">
+				<!-- the lane card from #6, unchanged: this page is that card, opened -->
+				<div><Lane classId={cls.id} /></div>
 
-				<div class="mt-3 flex gap-8">
-					{#each WEEKS as w (w)}
-						<table class="border-separate border-spacing-1 text-sm">
-							<thead>
-								<tr>
-									<th
-										class="w-8 pb-1 text-left text-[11px] font-bold tracking-wider text-neutral-500"
-										>{w}</th
-									>
-									{#each DAYS as d (d)}
-										<th class="w-16 pb-1 text-xs font-semibold text-neutral-500">{d}</th>
-									{/each}
-								</tr>
-							</thead>
-							<tbody>
-								{#each PERIODS as p (p)}
+				<!-- the timetable, this Class's own -->
+				<section>
+					<div class="flex items-baseline gap-3">
+						<h3 class="text-sm font-semibold">Timetable</h3>
+						<span class="text-xs text-neutral-400"
+							>{slotsOf(cls.id, on).length} periods a fortnight</span
+						>
+						<span class="ml-auto flex items-center gap-2 text-xs">
+							<span class="text-neutral-400">Changes apply from</span>
+							<select
+								class="rounded border border-neutral-300 px-2 py-1 text-xs"
+								bind:value={effective}
+							>
+								<option value="year">the start of the year</option>
+								<option value="date">a date…</option>
+							</select>
+							{#if effective === 'date'}
+								<input
+									type="date"
+									class="rounded border border-neutral-300 px-2 py-1 text-xs"
+									bind:value={from}
+								/>
+							{/if}
+						</span>
+					</div>
+
+					<div class="mt-3 flex flex-wrap gap-6">
+						{#each WEEKS as w (w)}
+							<table class="border-separate border-spacing-1 text-sm">
+								<thead>
 									<tr>
-										<th class="pr-1 text-right text-xs font-medium text-neutral-400">P{p}</th>
-										{#each DAYS as d, i (d)}
-											{@const s = slotAt(w, i, p, on)}
-											{@const mine = s?.classId === cls.id}
-											<td>
-												<button
-													class="h-9 w-16 rounded text-xs ring-1 ring-inset {mine
-														? TONE[cls.tone].cell
-														: s
-															? 'cursor-not-allowed bg-[repeating-linear-gradient(45deg,#f5f5f5,#f5f5f5_4px,#e5e5e5_4px,#e5e5e5_8px)] text-neutral-400 ring-neutral-200'
-															: 'bg-white text-neutral-300 ring-neutral-200 hover:bg-neutral-100'}"
-													aria-label="Week {w} {d} P{p}"
-													onclick={() => toggle(w, i, p)}
-												>
-													{#if mine}
-														<span class="font-medium">{cls.label.split('/')[0]}</span>
-													{:else if s}
-														<span class="text-[10px]"
-															>{classById(s.classId).label.split('/')[0]}</span
-														>
-													{:else}
-														·
-													{/if}
-												</button>
-											</td>
+										<th
+											class="w-8 pb-1 text-left text-[11px] font-bold tracking-wider text-neutral-500"
+											>{w}</th
+										>
+										{#each DAYS as d (d)}
+											<th class="w-14 pb-1 text-xs font-semibold text-neutral-500">{d}</th>
 										{/each}
 									</tr>
-								{/each}
-							</tbody>
-						</table>
-					{/each}
-				</div>
-				<p class="mt-2 text-[11px] text-neutral-400">
-					Hatched periods belong to another Class — you cannot be in two rooms at once. A double is
-					two periods, ticked separately.
-				</p>
-
-				<!-- the date ranges, which the grid alone cannot show -->
-				{#if allSlotsOf(cls.id).some((s) => s.to || s.from !== YEAR_START)}
-					<div class="mt-4 rounded-lg bg-white p-3 ring-1 ring-neutral-200">
-						<p class="text-[11px] font-bold tracking-wider text-neutral-400 uppercase">
-							Dated periods
-						</p>
-						<ul class="mt-1 space-y-0.5 text-xs text-neutral-600">
-							{#each allSlotsOf(cls.id).filter((s) => s.to || s.from !== YEAR_START) as s (s.id)}
-								<li class="flex items-baseline gap-2">
-									<span class="font-medium">Week {s.week} · {dayName(s.day)} · P{s.period}</span>
-									<span class="text-neutral-400">
-										{#if s.from !== YEAR_START}from {fmtLong(s.from)}{/if}
-										{#if s.to}{s.from !== YEAR_START ? ', ' : ''}until {fmtLong(s.to)}{/if}
-									</span>
-									{#if !s.to}
-										<button
-											class="ml-auto text-neutral-300 hover:text-red-600"
-											onclick={() => endSlot(s, TODAY)}>end it today</button
-										>
-									{/if}
-								</li>
-							{/each}
-						</ul>
+								</thead>
+								<tbody>
+									{#each PERIODS as p (p)}
+										<tr>
+											<th class="pr-1 text-right text-xs font-medium text-neutral-400">P{p}</th>
+											{#each DAYS as d, i (d)}
+												{@const s = slotAt(w, i, p, on)}
+												{@const mine = s?.classId === cls.id}
+												<td>
+													<button
+														class="h-9 w-14 rounded text-xs ring-1 ring-inset {mine
+															? TONE[cls.tone].cell
+															: s
+																? 'cursor-not-allowed bg-[repeating-linear-gradient(45deg,#f5f5f5,#f5f5f5_4px,#e5e5e5_4px,#e5e5e5_8px)] text-neutral-400 ring-neutral-200'
+																: 'bg-white text-neutral-300 ring-neutral-200 hover:bg-neutral-100'}"
+														aria-label="Week {w} {d} P{p}"
+														onclick={() => toggle(w, i, p)}
+													>
+														{#if mine}
+															<span class="font-medium">{cls.label.split('/')[0]}</span>
+														{:else if s}
+															<span class="text-[10px]"
+																>{classById(s.classId).label.split('/')[0]}</span
+															>
+														{:else}
+															·
+														{/if}
+													</button>
+												</td>
+											{/each}
+										</tr>
+									{/each}
+								</tbody>
+							</table>
+						{/each}
 					</div>
-				{/if}
-			</section>
+					<p class="mt-2 text-[11px] text-neutral-400">
+						Hatched periods belong to another Class — you cannot be in two rooms at once. A double
+						is two periods, ticked separately.
+					</p>
+
+					<!-- the date ranges, which the grid alone cannot show -->
+					{#if allSlotsOf(cls.id).some((s) => s.to || s.from !== YEAR_START)}
+						<div class="mt-4 rounded-lg bg-white p-3 ring-1 ring-neutral-200">
+							<p class="text-[11px] font-bold tracking-wider text-neutral-400 uppercase">
+								Dated periods
+							</p>
+							<ul class="mt-1 space-y-0.5 text-xs text-neutral-600">
+								{#each allSlotsOf(cls.id).filter((s) => s.to || s.from !== YEAR_START) as s (s.id)}
+									<li class="flex items-baseline gap-2">
+										<span class="font-medium">Week {s.week} · {dayName(s.day)} · P{s.period}</span>
+										<span class="text-neutral-400">
+											{#if s.from !== YEAR_START}from {fmtLong(s.from)}{/if}
+											{#if s.to}{s.from !== YEAR_START ? ', ' : ''}until {fmtLong(s.to)}{/if}
+										</span>
+										{#if !s.to}
+											<button
+												class="ml-auto text-neutral-300 hover:text-red-600"
+												onclick={() => endSlot(s, TODAY)}>end it today</button
+											>
+										{/if}
+									</li>
+								{/each}
+							</ul>
+						</div>
+					{/if}
+				</section>
+			</div>
 
 			<!-- Assigned Topics, as a shelf: the Course on the left, this Class's order on the right -->
 			<section class="border-t border-neutral-200 px-8 py-6">
