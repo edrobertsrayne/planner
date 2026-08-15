@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { applyAction, enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
+	import LessonEditor from './LessonEditor.svelte';
 	import RenameableRow from './RenameableRow.svelte';
 	import type { PageProps } from './$types';
 
@@ -132,6 +133,8 @@
 						<div class="min-w-0 flex-1">
 							<RenameableRow
 								name={lesson.title}
+								selected={lesson.id === data.lesson?.id}
+								href={`?course=${data.course?.id}&topic=${data.topic.id}&lesson=${lesson.id}`}
 								action="?/renameLesson"
 								hidden={{ id: lesson.id }}
 								field="title"
@@ -162,3 +165,18 @@
 		{/if}
 	</main>
 </div>
+
+{#if data.lesson && data.course && data.topic}
+	<LessonEditor
+		lesson={data.lesson}
+		links={data.links}
+		index={data.lessonIndex}
+		count={data.lessons.length}
+		previousId={data.lessonIndex > 0 ? data.lessons[data.lessonIndex - 1].id : null}
+		nextId={data.lessonIndex < data.lessons.length - 1
+			? data.lessons[data.lessonIndex + 1].id
+			: null}
+		courseId={data.course.id}
+		topicId={data.topic.id}
+	/>
+{/if}

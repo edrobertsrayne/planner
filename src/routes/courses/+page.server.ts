@@ -3,13 +3,19 @@ import { db } from '$lib/server/db';
 import {
 	createCourse,
 	createLesson,
+	createLink,
 	createTopic,
+	deleteLink,
+	lessonDetail,
 	lessonsOf,
 	listCourses,
+	moveLink,
 	renameCourse,
 	renameLesson,
 	renameTopic,
-	topicsOf
+	topicsOf,
+	updateLesson,
+	updateLink
 } from '$lib/server/planner';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -24,7 +30,21 @@ export const load: PageServerLoad = ({ url }) => {
 	const topic = topicId ? (topics.find((t) => t.id === topicId) ?? null) : null;
 	const lessons = topic ? lessonsOf(db, topic.id) : [];
 
-	return { courses, course, topics, topic, lessons };
+	const lessonId = url.searchParams.get('lesson');
+	const detail =
+		lessonId && lessons.some((l) => l.id === lessonId) ? lessonDetail(db, lessonId) : null;
+	const lessonIndex = detail ? lessons.findIndex((l) => l.id === detail.id) : -1;
+
+	return {
+		courses,
+		course,
+		topics,
+		topic,
+		lessons,
+		lesson: detail,
+		links: detail?.links ?? [],
+		lessonIndex
+	};
 };
 
 function trimmed(data: FormData, field: string) {
@@ -82,5 +102,57 @@ export const actions: Actions = {
 		const lesson = renameLesson(db, { id, title });
 		if (!lesson) return fail(404, { error: 'No such Lesson.' });
 		return { lesson };
+	},
+
+	updateLesson: async ({ request }) => {
+		const data = await request.formData();
+		const id = trimmed(data, 'id');
+		const title = trimmed(data, 'title');
+		if (!title) return fail(400, { error: 'A Lesson needs a title.' });
+		const body = String(data.get('body') ?? '').trim() || null;
+		const plannedLength = Math.max(1, Math.round(Number(data.get('plannedLength'))) || 1);
+		const lesson = updateLesson(db, { id, title, body, plannedLength });
+		if (!lesson) return fail(404, { error: 'No such Lesson.' });
+		return { lesson };
+	},
+
+	createLink: async ({ request }) => {
+		const data = await request.formData();
+		const lessonId = trimmed(data, 'lessonId');
+		const label = trimmed(data, 'label');
+		const url = trimmed(data, 'url');
+		if (!label) return fail(400, { error: 'A Link needs a label.' });
+		if (!url) return fail(400, { error: 'A Link needs a url.' });
+		return { link: createLink(db, { lessonId, label, url }) };
+	},
+
+	updateLink: async ({ request }) => {
+		const data = await request.formData();
+		const id = trimmed(data, 'id');
+		const label = trimmed(data, 'label');
+		const url = trimmed(data, 'url');
+		if (!label) return fail(400, { error: 'A Link needs a label.' });
+		if (!url) return fail(400, { error: 'A Link needs a url.' });
+		const link = updateLink(db, { id, label, url });
+		if (!link) return fail(404, { error: 'No such Link.' });
+		return { link };
+	},
+
+	deleteLink: async ({ request }) => {
+		const data = await request.formData();
+		const id = trimmed(data, 'id');
+		const link = deleteLink(db, { id });
+		if (!link) return fail(404, { error: 'No such Link.' });
+		return {};
+	},
+
+	moveLink: async ({ request }) => {
+		const data = await request.formData();
+		const lessonId = trimmed(data, 'lessonId');
+		const id = trimmed(data, 'id');
+		const direction = trimmed(data, 'direction');
+		if (direction !== 'up' && direction !== 'down') return fail(400, { error: 'Bad direction.' });
+		moveLink(db, { lessonId, id, direction });
+		return {};
 	}
 };

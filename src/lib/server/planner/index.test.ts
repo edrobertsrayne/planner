@@ -16,14 +16,20 @@ import {
 	createClass,
 	createCourse,
 	createLesson,
+	createLink,
 	createTopic,
+	deleteLink,
+	lessonDetail,
 	lessonsOf,
 	listCourses,
+	moveLink,
 	recordContinuation,
 	renameCourse,
 	renameLesson,
 	renameTopic,
-	topicsOf
+	topicsOf,
+	updateLesson,
+	updateLink
 } from './index';
 
 // The real 2026/27 calendar (seed/2026-27.json): six Terms opening Thursday 3 September 2026,
@@ -473,5 +479,105 @@ describe('authoring Courses, Topics and Lessons', () => {
 
 		const renamed = renameLesson(db, { id: first.id, title: 'Newton I — inertia' });
 		expect(lessonsOf(db, topic.id).map((l) => l.title)).toEqual([renamed.title, second.title]);
+	});
+});
+
+describe('the Lesson editor', () => {
+	function setUpLesson() {
+		const { db } = setUpAuthoring();
+		const course = createCourse(db, { name: 'Year 9 Physics' });
+		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
+		const lesson = createLesson(db, { topicId: topic.id, title: 'Newton I' });
+		return { db, topic, lesson };
+	}
+
+	test('reads a Lesson back with its Links, in position order', () => {
+		const { db, lesson } = setUpLesson();
+
+		expect(lessonDetail(db, lesson.id)).toEqual({ ...lesson, links: [] });
+	});
+
+	test('a Lesson holds a markdown body and a Planned Length in Periods', () => {
+		const { db, lesson } = setUpLesson();
+
+		const updated = updateLesson(db, {
+			id: lesson.id,
+			title: 'Newton I — inertia',
+			body: 'Objectives: state the First Law.',
+			plannedLength: 2
+		});
+
+		expect(updated).toMatchObject({
+			title: 'Newton I — inertia',
+			body: 'Objectives: state the First Law.',
+			plannedLength: 2
+		});
+		expect(lessonDetail(db, lesson.id)).toMatchObject({
+			title: 'Newton I — inertia',
+			body: 'Objectives: state the First Law.',
+			plannedLength: 2
+		});
+	});
+
+	test('Links are appended in order, edited and removed', () => {
+		const { db, lesson } = setUpLesson();
+
+		const first = createLink(db, {
+			lessonId: lesson.id,
+			label: 'Slide deck',
+			url: 'https://example.com/slides'
+		});
+		const second = createLink(db, {
+			lessonId: lesson.id,
+			label: 'Worksheet',
+			url: 'https://example.com/worksheet'
+		});
+		expect(lessonDetail(db, lesson.id)!.links.map((l) => l.id)).toEqual([first.id, second.id]);
+
+		const edited = updateLink(db, {
+			id: first.id,
+			label: 'Slide deck (2026)',
+			url: 'https://example.com/slides-2026'
+		});
+		expect(edited).toMatchObject({
+			label: 'Slide deck (2026)',
+			url: 'https://example.com/slides-2026'
+		});
+
+		const deleted = deleteLink(db, { id: second.id });
+		expect(deleted).toMatchObject({ id: second.id });
+		expect(lessonDetail(db, lesson.id)!.links.map((l) => l.id)).toEqual([first.id]);
+
+		expect(deleteLink(db, { id: second.id })).toBeNull();
+	});
+
+	test('Links are reordered up and down within the Lesson', () => {
+		const { db, lesson } = setUpLesson();
+
+		const first = createLink(db, { lessonId: lesson.id, label: 'A', url: 'https://a.example' });
+		const second = createLink(db, { lessonId: lesson.id, label: 'B', url: 'https://b.example' });
+		const third = createLink(db, { lessonId: lesson.id, label: 'C', url: 'https://c.example' });
+
+		moveLink(db, { lessonId: lesson.id, id: third.id, direction: 'up' });
+		expect(lessonDetail(db, lesson.id)!.links.map((l) => l.id)).toEqual([
+			first.id,
+			third.id,
+			second.id
+		]);
+
+		moveLink(db, { lessonId: lesson.id, id: first.id, direction: 'down' });
+		expect(lessonDetail(db, lesson.id)!.links.map((l) => l.id)).toEqual([
+			third.id,
+			first.id,
+			second.id
+		]);
+
+		// A move past either end is a no-op, not an error.
+		moveLink(db, { lessonId: lesson.id, id: third.id, direction: 'up' });
+		expect(lessonDetail(db, lesson.id)!.links.map((l) => l.id)).toEqual([
+			third.id,
+			first.id,
+			second.id
+		]);
 	});
 });

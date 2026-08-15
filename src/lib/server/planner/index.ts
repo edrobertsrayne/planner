@@ -378,3 +378,85 @@ export function renameLesson(db: Db, { id, title }: { id: string; title: string 
 		.all();
 	return row;
 }
+
+export function linksOf(db: Db, lessonId: string) {
+	return db
+		.select()
+		.from(schema.link)
+		.where(eq(schema.link.lessonId, lessonId))
+		.orderBy(asc(schema.link.position))
+		.all();
+}
+
+// The Lesson editor's one full-detail read: the Lesson plus its Links, in position order.
+export function lessonDetail(db: Db, id: string) {
+	const [row] = db.select().from(schema.lesson).where(eq(schema.lesson.id, id)).all();
+	if (!row) return null;
+	return { ...row, links: linksOf(db, id) };
+}
+
+export function updateLesson(
+	db: Db,
+	{
+		id,
+		title,
+		body,
+		plannedLength
+	}: { id: string; title: string; body: string | null; plannedLength: number }
+) {
+	const [row] = db
+		.update(schema.lesson)
+		.set({ title, body, plannedLength })
+		.where(eq(schema.lesson.id, id))
+		.returning()
+		.all();
+	return row;
+}
+
+// Appended at the next position in its Lesson's order, same as a Lesson within a Topic.
+export function createLink(
+	db: Db,
+	{ lessonId, url, label }: { lessonId: string; url: string; label: string }
+) {
+	const existing = db
+		.select({ position: schema.link.position })
+		.from(schema.link)
+		.where(eq(schema.link.lessonId, lessonId))
+		.all();
+	const position = existing.length === 0 ? 0 : Math.max(...existing.map((r) => r.position)) + 1;
+
+	const [row] = db.insert(schema.link).values({ lessonId, url, label, position }).returning().all();
+	return row;
+}
+
+export function updateLink(db: Db, { id, url, label }: { id: string; url: string; label: string }) {
+	const [row] = db
+		.update(schema.link)
+		.set({ url, label })
+		.where(eq(schema.link.id, id))
+		.returning()
+		.all();
+	return row;
+}
+
+export function deleteLink(db: Db, { id }: { id: string }) {
+	const [row] = db.delete(schema.link).where(eq(schema.link.id, id)).returning().all();
+	return row ?? null;
+}
+
+// Swaps position with the previous or next Link in the same Lesson. Off either end is a no-op —
+// there is no wraparound and no error.
+export function moveLink(
+	db: Db,
+	{ lessonId, id, direction }: { lessonId: string; id: string; direction: 'up' | 'down' }
+) {
+	const links = linksOf(db, lessonId);
+	const index = links.findIndex((l) => l.id === id);
+	const swapWith = direction === 'up' ? index - 1 : index + 1;
+	if (index < 0 || swapWith < 0 || swapWith >= links.length) return;
+
+	const a = links[index];
+	const b = links[swapWith];
+	db.update(schema.link).set({ position: b.position }).where(eq(schema.link.id, a.id)).run();
+	db.update(schema.link).set({ position: a.position }).where(eq(schema.link.id, b.id)).run();
+}
