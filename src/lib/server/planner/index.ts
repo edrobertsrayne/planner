@@ -12,7 +12,7 @@
 // updateLesson, deleteLesson, moveLesson and moveLessonToTopic all re-derive every Class with
 // that Lesson's Topic (or, for a move, either Topic) assigned, from `today` — quietly, on the
 // same write, with no separate recompute step (issue #31).
-import { and, asc, eq, gte, lt } from 'drizzle-orm';
+import { and, asc, eq, gte, isNotNull, lt, or } from 'drizzle-orm';
 import type { drizzle } from 'drizzle-orm/node-sqlite';
 import * as schema from '../db/schema';
 import {
@@ -214,6 +214,95 @@ export function createClass(db: Db, { label, courseId }: { label: string; course
 	return row;
 }
 
+// Every Class, for the rail on the Class page — labels only, alphabetical.
+export function listClasses(db: Db) {
+	return db
+		.select({
+			id: schema.classes.id,
+			label: schema.classes.label,
+			courseId: schema.classes.courseId
+		})
+		.from(schema.classes)
+		.orderBy(asc(schema.classes.label))
+		.all();
+}
+
+export function classDetail(db: Db, id: string) {
+	const [row] = db
+		.select({
+			id: schema.classes.id,
+			label: schema.classes.label,
+			courseId: schema.classes.courseId,
+			courseName: schema.course.name
+		})
+		.from(schema.classes)
+		.innerJoin(schema.course, eq(schema.course.id, schema.classes.courseId))
+		.where(eq(schema.classes.id, id))
+		.all();
+	return row ?? null;
+}
+
+// The date "Changes apply from" defaults to (ADR-0006): the earliest Term's opening date. A
+// concrete stand-in for a null holdsFrom, needed wherever the Class page reads the Timetable as
+// it stood at the start of the year rather than writes to it.
+export function academicYearStart(db: Db): string | null {
+	const [row] = db
+		.select({ opens: schema.term.opens })
+		.from(schema.term)
+		.orderBy(asc(schema.term.opens))
+		.all();
+	return row?.opens ?? null;
+}
+
+// Window-aware Slot uniqueness (ADR-0006, amended): null bounds mean "holds for the whole
+// year", so they compare as the earliest/latest possible date rather than as "no bound at all" —
+// which is what lets two windowed date ranges be compared with plain string comparison.
+const MIN_DATE = '0000-01-01';
+const MAX_DATE = '9999-12-31';
+const from = (d: string | null) => d ?? MIN_DATE;
+const to = (d: string | null) => d ?? MAX_DATE;
+
+const overlaps = (
+	aFrom: string | null,
+	aTo: string | null,
+	bFrom: string | null,
+	bTo: string | null
+) => from(aFrom) <= to(bTo) && from(bFrom) <= to(aTo);
+
+const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+
+function addDays(iso: string, days: number): string {
+	const [year, month, day] = iso.split('-').map(Number);
+	const date = new Date(Date.UTC(year, month - 1, day));
+	date.setUTCDate(date.getUTCDate() + days);
+	return date.toISOString().slice(0, 10);
+}
+
+function slotsAtPosition(db: Db, week: 'A' | 'B', day: number, period: number) {
+	return db
+		.select()
+		.from(schema.slot)
+		.where(
+			and(eq(schema.slot.week, week), eq(schema.slot.day, day), eq(schema.slot.period, period))
+		)
+		.all();
+}
+
+// Whichever Class holds a Timetable position on one date, if any — what a click on the grid needs
+// to know before deciding whether it takes, clears or is refused.
+export function holderAt(
+	db: Db,
+	{ week, day, period, on }: { week: 'A' | 'B'; day: number; period: number; on: string }
+) {
+	return (
+		slotsAtPosition(db, week, day, period).find((s) => overlaps(on, on, s.holdsFrom, s.holdsTo)) ??
+		null
+	);
+}
+
+// A Slot's position is (Week, Day, Period), and no two Slots may share one over dates where both
+// hold (ADR-0006) — enforced here, at the point of entry, since SQLite has no exclusion
+// constraint and a naive unique index would make replacing a Slot mid-year impossible.
 export function addSlot(
 	db: Db,
 	input: {
@@ -221,12 +310,153 @@ export function addSlot(
 		week: 'A' | 'B';
 		day: number;
 		period: number;
-		holdsFrom?: string;
-		holdsTo?: string;
+		holdsFrom?: string | null;
+		holdsTo?: string | null;
 	}
 ) {
-	const [row] = db.insert(schema.slot).values(input).returning().all();
+	const holdsFrom = input.holdsFrom ?? null;
+	const holdsTo = input.holdsTo ?? null;
+
+	const clash = slotsAtPosition(db, input.week, input.day, input.period).find((s) =>
+		overlaps(holdsFrom, holdsTo, s.holdsFrom, s.holdsTo)
+	);
+	if (clash) {
+		throw new Error(
+			`Week ${input.week} ${DAY_NAMES[input.day - 1]} P${input.period} already belongs to another Class over these dates.`
+		);
+	}
+
+	const [row] = db
+		.insert(schema.slot)
+		.values({
+			classId: input.classId,
+			week: input.week,
+			day: input.day,
+			period: input.period,
+			holdsFrom,
+			holdsTo
+		})
+		.returning()
+		.all();
 	return row;
+}
+
+// Ends a Slot from a chosen date: the day before if it already held earlier, or removed outright
+// if it never held before that date — the same operation whether the caller replaces it with
+// another Class's Slot or simply drops it. Re-derives its Class's schedule forward from `today`;
+// Sessions already taught in it remain historical fact (ADR-0006, amended).
+export function endSlot(
+	db: Db,
+	{ id, from: endFrom, today }: { id: string; from: string; today: string }
+) {
+	const [row] = db.select().from(schema.slot).where(eq(schema.slot.id, id)).all();
+	if (!row) return null;
+
+	if (from(row.holdsFrom) >= endFrom) {
+		db.delete(schema.slot).where(eq(schema.slot.id, id)).run();
+	} else {
+		db.update(schema.slot)
+			.set({ holdsTo: addDays(endFrom, -1) })
+			.where(eq(schema.slot.id, id))
+			.run();
+	}
+
+	rederive(db, row.classId, today);
+	return row;
+}
+
+// Puts a Class in an empty Timetable position from a chosen date. A click on a position already
+// held by the clicking Class is a no-op; a position held by another Class *on that date* is
+// refused rather than collided with (ADR-0006) — the Class page shows it hatched so this is
+// never actually reached from the grid. Replacing another Class's Slot is a separate, explicit
+// act: end its Slot first, then take the position.
+//
+// The pre-check here only sees the position as it stands on `from`, the same single date the
+// grid renders — a Class whose Slot there starts later still isn't visible on screen. addSlot's
+// own window-aware check is what actually guards the write, and is what catches that case; it
+// surfaces as an ordinary rejection rather than a silent collision, just not a pre-emptive hatch.
+export function takeSlot(
+	db: Db,
+	{
+		classId,
+		week,
+		day,
+		period,
+		from: takeFrom,
+		today
+	}: {
+		classId: string;
+		week: 'A' | 'B';
+		day: number;
+		period: number;
+		from: string | null;
+		today: string;
+	}
+) {
+	const on = takeFrom ?? MIN_DATE;
+	const holder = holderAt(db, { week, day, period, on });
+	if (holder) {
+		if (holder.classId === classId) return holder;
+		throw new Error(
+			`Week ${week} ${DAY_NAMES[day - 1]} P${period} already belongs to another Class over these dates.`
+		);
+	}
+
+	const row = addSlot(db, { classId, week, day, period, holdsFrom: takeFrom });
+	rederive(db, classId, today);
+	return row;
+}
+
+// Ends whatever this Class's Slot is at a position, from a chosen date. The mirror of takeSlot.
+export function clearSlot(
+	db: Db,
+	{
+		classId,
+		week,
+		day,
+		period,
+		from: clearFrom,
+		today
+	}: {
+		classId: string;
+		week: 'A' | 'B';
+		day: number;
+		period: number;
+		from: string | null;
+		today: string;
+	}
+) {
+	const held = slotsAtPosition(db, week, day, period).find(
+		(s) => s.classId === classId && overlaps(clearFrom, null, s.holdsFrom, s.holdsTo)
+	);
+	if (!held) return null;
+	return endSlot(db, { id: held.id, from: clearFrom ?? MIN_DATE, today });
+}
+
+// The Timetable as it stands on one date, across every Class — what the Class page's grid
+// renders: this Class's own cells, and every other Class's shown hatched.
+export function activeSlots(db: Db, on: string) {
+	return db
+		.select()
+		.from(schema.slot)
+		.all()
+		.filter((s) => overlaps(on, on, s.holdsFrom, s.holdsTo));
+}
+
+// Every Slot a Class has ever held, live or ended — the Dated periods list, restricted to those
+// whose range says something the grid alone cannot: a start after the year began, or an end.
+export function datedSlotsOf(db: Db, classId: string) {
+	return db
+		.select()
+		.from(schema.slot)
+		.where(
+			and(
+				eq(schema.slot.classId, classId),
+				or(isNotNull(schema.slot.holdsFrom), isNotNull(schema.slot.holdsTo))
+			)
+		)
+		.orderBy(asc(schema.slot.holdsFrom))
+		.all();
 }
 
 // Gives a Class one more of its Course's Topics, at the next position in its order, then
