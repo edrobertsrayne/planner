@@ -11,7 +11,9 @@
 		previousId,
 		nextId,
 		courseId,
-		topicId
+		topicId,
+		topics,
+		taughtBy
 	}: {
 		lesson: { id: string; title: string; body: string | null; plannedLength: number };
 		links: { id: string; label: string; url: string }[];
@@ -21,6 +23,8 @@
 		nextId: string | null;
 		courseId: string;
 		topicId: string;
+		topics: { id: string; name: string }[];
+		taughtBy: { id: string; label: string }[];
 	} = $props();
 
 	function hrefFor(lessonId: string | null) {
@@ -167,6 +171,53 @@
 					</div>
 				</label>
 			</form>
+
+			<div>
+				<label class="block">
+					<span class="text-[11px] font-bold tracking-wider text-neutral-400 uppercase">
+						Topic
+					</span>
+					<form
+						method="POST"
+						action="?/moveLessonToTopic"
+						class="mt-1"
+						use:enhance={() => {
+							return async ({ formData, result, update }) => {
+								if (result.type === 'success') {
+									const newTopicId = String(formData.get('topicId'));
+									// eslint-disable-next-line svelte/no-navigation-without-resolve -- carries a query string
+									await goto(`?course=${courseId}&topic=${newTopicId}&lesson=${lesson.id}`, {
+										replaceState: true,
+										noScroll: true,
+										keepFocus: true,
+										invalidateAll: true
+									});
+								} else {
+									await update();
+								}
+							};
+						}}
+					>
+						<input type="hidden" name="id" value={lesson.id} />
+						<select
+							name="topicId"
+							value={topicId}
+							class="w-full rounded border border-neutral-300 px-2 py-1 text-sm"
+							onchange={(e) => e.currentTarget.form?.requestSubmit()}
+						>
+							{#each topics as t (t.id)}
+								<option value={t.id}>{t.name}</option>
+							{/each}
+						</select>
+					</form>
+				</label>
+
+				{#if taughtBy.length}
+					<p class="mt-2 text-[11px] text-neutral-400">
+						Taught by {taughtBy.map((c) => c.label).join(', ')}.
+					</p>
+				{/if}
+			</div>
 
 			<div class="min-h-0 overflow-y-auto">
 				<span class="text-[11px] font-bold tracking-wider text-neutral-400 uppercase"> Links </span>

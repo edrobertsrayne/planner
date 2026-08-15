@@ -1,14 +1,18 @@
 import { fail } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import {
+	classesTaughtLesson,
 	createCourse,
 	createLesson,
 	createLink,
 	createTopic,
+	deleteLesson,
 	deleteLink,
 	lessonDetail,
 	lessonsOf,
 	listCourses,
+	moveLesson,
+	moveLessonToTopic,
 	moveLink,
 	renameCourse,
 	renameLesson,
@@ -18,6 +22,11 @@ import {
 	updateLink
 } from '$lib/server/planner';
 import type { Actions, PageServerLoad } from './$types';
+
+// The scheduling boundary: content edits re-derive every affected Class from today, never before.
+function today() {
+	return new Date().toISOString().slice(0, 10);
+}
 
 export const load: PageServerLoad = ({ url }) => {
 	const courses = listCourses(db);
@@ -34,6 +43,7 @@ export const load: PageServerLoad = ({ url }) => {
 	const detail =
 		lessonId && lessons.some((l) => l.id === lessonId) ? lessonDetail(db, lessonId) : null;
 	const lessonIndex = detail ? lessons.findIndex((l) => l.id === detail.id) : -1;
+	const taughtBy = detail ? classesTaughtLesson(db, { lessonId: detail.id, today: today() }) : [];
 
 	return {
 		courses,
@@ -43,7 +53,8 @@ export const load: PageServerLoad = ({ url }) => {
 		lessons,
 		lesson: detail,
 		links: detail?.links ?? [],
-		lessonIndex
+		lessonIndex,
+		taughtBy
 	};
 };
 
@@ -91,7 +102,7 @@ export const actions: Actions = {
 		const topicId = trimmed(data, 'topicId');
 		const title = trimmed(data, 'title');
 		if (!title) return fail(400, { error: 'A Lesson needs a title.' });
-		return { lesson: createLesson(db, { topicId, title }) };
+		return { lesson: createLesson(db, { topicId, title, today: today() }) };
 	},
 
 	renameLesson: async ({ request }) => {
@@ -111,7 +122,39 @@ export const actions: Actions = {
 		if (!title) return fail(400, { error: 'A Lesson needs a title.' });
 		const body = String(data.get('body') ?? '').trim() || null;
 		const plannedLength = Math.max(1, Math.round(Number(data.get('plannedLength'))) || 1);
-		const lesson = updateLesson(db, { id, title, body, plannedLength });
+		const lesson = updateLesson(db, { id, title, body, plannedLength, today: today() });
+		if (!lesson) return fail(404, { error: 'No such Lesson.' });
+		return { lesson };
+	},
+
+	deleteLesson: async ({ request }) => {
+		const data = await request.formData();
+		const id = trimmed(data, 'id');
+		try {
+			const lesson = deleteLesson(db, { id, today: today() });
+			if (!lesson) return fail(404, { error: 'No such Lesson.' });
+			return {};
+		} catch (error) {
+			return fail(400, { error: error instanceof Error ? error.message : 'Could not delete.' });
+		}
+	},
+
+	moveLesson: async ({ request }) => {
+		const data = await request.formData();
+		const topicId = trimmed(data, 'topicId');
+		const id = trimmed(data, 'id');
+		const direction = trimmed(data, 'direction');
+		if (direction !== 'up' && direction !== 'down') return fail(400, { error: 'Bad direction.' });
+		moveLesson(db, { topicId, id, direction, today: today() });
+		return {};
+	},
+
+	moveLessonToTopic: async ({ request }) => {
+		const data = await request.formData();
+		const id = trimmed(data, 'id');
+		const topicId = trimmed(data, 'topicId');
+		if (!topicId) return fail(400, { error: 'Pick a Topic.' });
+		const lesson = moveLessonToTopic(db, { id, topicId, today: today() });
 		if (!lesson) return fail(404, { error: 'No such Lesson.' });
 		return { lesson };
 	},

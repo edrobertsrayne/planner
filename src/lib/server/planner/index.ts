@@ -5,11 +5,14 @@
 // the affected Class(es) from the boundary and persists the resulting Sessions. There is no
 // separate "recompute" action anywhere, ever.
 //
-// Authoring — createCourse, createTopic, createLesson and their renames, plus the reads behind
-// the Courses view — writes Course/Topic/Lesson rows directly and never re-derives: a Course and
-// a Topic are not scheduling inputs, and a Lesson only becomes one once a Topic is assigned to a
-// Class, which is `assignTopic`'s job above, not this one's.
-import { and, asc, eq, gte } from 'drizzle-orm';
+// Authoring — createCourse, createTopic and their renames, plus the reads behind the Courses
+// view — writes Course/Topic rows directly and never re-derives: a Course and a Topic are not
+// themselves scheduling inputs. A Lesson is different: once its Topic is assigned to a Class
+// (`assignTopic`, above), the Lesson is part of that Class's schedule, so createLesson,
+// updateLesson, deleteLesson, moveLesson and moveLessonToTopic all re-derive every Class with
+// that Lesson's Topic (or, for a move, either Topic) assigned, from `today` — quietly, on the
+// same write, with no separate recompute step (issue #31).
+import { and, asc, eq, gte, lt } from 'drizzle-orm';
 import type { drizzle } from 'drizzle-orm/node-sqlite';
 import * as schema from '../db/schema';
 import {
@@ -181,6 +184,21 @@ function rederive(
 	const { atRisk, discarded } = rewind(touchedWithLesson, classId, boundary);
 
 	return { ...result, atRisk, discarded };
+}
+
+// Every Class currently assigned this Topic — the Classes whose schedule a change to one of the
+// Topic's Lessons touches.
+function classIdsForTopic(db: Db, topicId: string): string[] {
+	return db
+		.select({ classId: schema.assignedTopic.classId })
+		.from(schema.assignedTopic)
+		.where(eq(schema.assignedTopic.topicId, topicId))
+		.all()
+		.map((row) => row.classId);
+}
+
+function rederiveTopic(db: Db, topicId: string, today: string) {
+	for (const classId of classIdsForTopic(db, topicId)) rederive(db, classId, today);
 }
 
 function allClassIds(db: Db): string[] {
@@ -357,7 +375,12 @@ export function renameTopic(db: Db, { id, name }: { id: string; name: string }) 
 
 // A title alone is a complete Lesson — no draft state, no required second field. Appended at the
 // next position in its Topic's order (ADR-0010: Lessons, unlike Topics, are explicitly ordered).
-export function createLesson(db: Db, { topicId, title }: { topicId: string; title: string }) {
+// Re-derives every Class already assigned this Topic, since a new Lesson changes what those
+// Classes still have left to teach.
+export function createLesson(
+	db: Db,
+	{ topicId, title, today }: { topicId: string; title: string; today: string }
+) {
 	const existing = db
 		.select({ position: schema.lesson.position })
 		.from(schema.lesson)
@@ -366,6 +389,7 @@ export function createLesson(db: Db, { topicId, title }: { topicId: string; titl
 	const position = existing.length === 0 ? 0 : Math.max(...existing.map((r) => r.position)) + 1;
 
 	const [row] = db.insert(schema.lesson).values({ topicId, title, position }).returning().all();
+	rederiveTopic(db, topicId, today);
 	return row;
 }
 
@@ -395,14 +419,18 @@ export function lessonDetail(db: Db, id: string) {
 	return { ...row, links: linksOf(db, id) };
 }
 
+// Planned Length is a scheduling input, so this re-derives every Class assigned this Lesson's
+// Topic from `today`. Title and body are cosmetic and never move a date, but re-deriving
+// regardless is harmless — `rederive` only writes where something actually changed.
 export function updateLesson(
 	db: Db,
 	{
 		id,
 		title,
 		body,
-		plannedLength
-	}: { id: string; title: string; body: string | null; plannedLength: number }
+		plannedLength,
+		today
+	}: { id: string; title: string; body: string | null; plannedLength: number; today: string }
 ) {
 	const [row] = db
 		.update(schema.lesson)
@@ -410,7 +438,114 @@ export function updateLesson(
 		.where(eq(schema.lesson.id, id))
 		.returning()
 		.all();
+	if (!row) return row;
+	rederiveTopic(db, row.topicId, today);
 	return row;
+}
+
+// Removes a Lesson entirely, along with its Links, and re-derives every Class assigned its
+// Topic. Refuses when a Class has already been taught this Lesson: the historical Session rows
+// reference it (ADR-0002), so deleting it would erase part of the record of what happened —
+// the taught-by block in the Lesson editor is what warns Ed before he tries this and it fails.
+export function deleteLesson(db: Db, { id, today }: { id: string; today: string }) {
+	const [row] = db.select().from(schema.lesson).where(eq(schema.lesson.id, id)).all();
+	if (!row) return null;
+
+	const alreadyTaught = db
+		.select({ id: schema.session.id })
+		.from(schema.session)
+		.where(and(eq(schema.session.lessonId, id), lt(schema.session.date, today)))
+		.all();
+	if (alreadyTaught.length > 0) {
+		throw new Error('This Lesson has already been taught and cannot be deleted.');
+	}
+
+	// Not-yet-taught Sessions carrying this Lesson are about to be replaced by `rederiveTopic`
+	// below — clear them, and any Continuation on them, before dropping the Lesson row itself.
+	const future = db
+		.select({ id: schema.session.id })
+		.from(schema.session)
+		.where(eq(schema.session.lessonId, id))
+		.all();
+	for (const s of future) {
+		db.delete(schema.continuation).where(eq(schema.continuation.sessionId, s.id)).run();
+	}
+	db.delete(schema.session).where(eq(schema.session.lessonId, id)).run();
+
+	db.delete(schema.link).where(eq(schema.link.lessonId, id)).run();
+	db.delete(schema.lesson).where(eq(schema.lesson.id, id)).run();
+
+	rederiveTopic(db, row.topicId, today);
+	return row;
+}
+
+// Swaps position with the previous or next Lesson in the same Topic, and re-derives every Class
+// assigned it. Off either end is a no-op — there is no wraparound and no error, same as moveLink.
+export function moveLesson(
+	db: Db,
+	{
+		topicId,
+		id,
+		direction,
+		today
+	}: { topicId: string; id: string; direction: 'up' | 'down'; today: string }
+) {
+	const lessons = lessonsOf(db, topicId);
+	const index = lessons.findIndex((l) => l.id === id);
+	const swapWith = direction === 'up' ? index - 1 : index + 1;
+	if (index < 0 || swapWith < 0 || swapWith >= lessons.length) return;
+
+	const a = lessons[index];
+	const b = lessons[swapWith];
+	db.update(schema.lesson).set({ position: b.position }).where(eq(schema.lesson.id, a.id)).run();
+	db.update(schema.lesson).set({ position: a.position }).where(eq(schema.lesson.id, b.id)).run();
+
+	rederiveTopic(db, topicId, today);
+}
+
+// Moves a Lesson to a different Topic, keeping its body, links and Planned Length — appended at
+// the end of the new Topic's order. Re-derives every Class assigned either Topic: the old one
+// lost a Lesson, the new one gained one.
+export function moveLessonToTopic(
+	db: Db,
+	{ id, topicId, today }: { id: string; topicId: string; today: string }
+) {
+	const [row] = db.select().from(schema.lesson).where(eq(schema.lesson.id, id)).all();
+	if (!row) return null;
+	const oldTopicId = row.topicId;
+
+	const existing = db
+		.select({ position: schema.lesson.position })
+		.from(schema.lesson)
+		.where(eq(schema.lesson.topicId, topicId))
+		.all();
+	const position = existing.length === 0 ? 0 : Math.max(...existing.map((r) => r.position)) + 1;
+
+	const [updated] = db
+		.update(schema.lesson)
+		.set({ topicId, position })
+		.where(eq(schema.lesson.id, id))
+		.returning()
+		.all();
+
+	rederiveTopic(db, oldTopicId, today);
+	if (topicId !== oldTopicId) rederiveTopic(db, topicId, today);
+	return updated;
+}
+
+// Which Classes have already been taught this Lesson, before `today` — the taught-by block in
+// the Lesson editor, so Ed knows an edit here touches a plan already in use.
+export function classesTaughtLesson(
+	db: Db,
+	{ lessonId, today }: { lessonId: string; today: string }
+) {
+	return db
+		.selectDistinct({ id: schema.classes.id, label: schema.classes.label })
+		.from(schema.session)
+		.innerJoin(schema.classes, eq(schema.classes.id, schema.session.classId))
+		.where(and(eq(schema.session.lessonId, lessonId), lt(schema.session.date, today)))
+		.orderBy(asc(schema.classes.label))
+		.all();
 }
 
 // Appended at the next position in its Lesson's order, same as a Lesson within a Topic.

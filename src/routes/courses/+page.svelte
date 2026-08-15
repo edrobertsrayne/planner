@@ -5,7 +5,7 @@
 	import RenameableRow from './RenameableRow.svelte';
 	import type { PageProps } from './$types';
 
-	let { data }: PageProps = $props();
+	let { data, form }: PageProps = $props();
 </script>
 
 <svelte:head><title>Courses</title></svelte:head>
@@ -124,11 +124,17 @@
 				<p class="mt-1 text-xs text-neutral-500">
 					{data.lessons.length} Lesson{data.lessons.length === 1 ? '' : 's'}
 				</p>
+				<p class="mt-1 text-[11px] text-neutral-400">
+					Editing these Lessons moves dates for every Class already teaching this Topic.
+				</p>
+				{#if form?.error}
+					<p role="alert" class="mt-1 text-xs text-neutral-500">{form.error}</p>
+				{/if}
 			</div>
 
 			<ol class="flex-1 divide-y divide-neutral-100 overflow-y-auto bg-white">
 				{#each data.lessons as lesson, i (lesson.id)}
-					<li class="flex items-baseline gap-3 pl-2">
+					<li class="group flex items-baseline gap-3 pl-2">
 						<span class="w-6 shrink-0 pl-4 font-mono text-xs text-neutral-300">{i + 1}</span>
 						<div class="min-w-0 flex-1">
 							<RenameableRow
@@ -140,6 +146,44 @@
 								field="title"
 							/>
 						</div>
+						<span class="flex shrink-0 items-center gap-0.5 pr-2 opacity-0 group-hover:opacity-100">
+							<form method="POST" action="?/moveLesson" use:enhance>
+								<input type="hidden" name="topicId" value={data.topic.id} />
+								<input type="hidden" name="id" value={lesson.id} />
+								<input type="hidden" name="direction" value="up" />
+								<button
+									type="submit"
+									class="px-1 text-neutral-400 hover:text-neutral-900 disabled:opacity-25"
+									disabled={i === 0}
+									aria-label="Move {lesson.title} up"
+								>
+									↑
+								</button>
+							</form>
+							<form method="POST" action="?/moveLesson" use:enhance>
+								<input type="hidden" name="topicId" value={data.topic.id} />
+								<input type="hidden" name="id" value={lesson.id} />
+								<input type="hidden" name="direction" value="down" />
+								<button
+									type="submit"
+									class="px-1 text-neutral-400 hover:text-neutral-900 disabled:opacity-25"
+									disabled={i === data.lessons.length - 1}
+									aria-label="Move {lesson.title} down"
+								>
+									↓
+								</button>
+							</form>
+							<form method="POST" action="?/deleteLesson" use:enhance>
+								<input type="hidden" name="id" value={lesson.id} />
+								<button
+									type="submit"
+									class="px-1 text-neutral-400 hover:text-red-600"
+									aria-label="Delete {lesson.title}"
+								>
+									✕
+								</button>
+							</form>
+						</span>
 					</li>
 				{/each}
 			</ol>
@@ -178,5 +222,7 @@
 			: null}
 		courseId={data.course.id}
 		topicId={data.topic.id}
+		topics={data.topics}
+		taughtBy={data.taughtBy}
 	/>
 {/if}
