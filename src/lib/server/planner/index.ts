@@ -466,6 +466,20 @@ export function assignTopic(
 	db: Db,
 	{ classId, topicId, today }: { classId: string; topicId: string; today: string }
 ) {
+	const [cls] = db
+		.select({ courseId: schema.classes.courseId })
+		.from(schema.classes)
+		.where(eq(schema.classes.id, classId))
+		.all();
+	const [top] = db
+		.select({ courseId: schema.topic.courseId })
+		.from(schema.topic)
+		.where(eq(schema.topic.id, topicId))
+		.all();
+	if (!cls || !top || cls.courseId !== top.courseId) {
+		throw new Error("This Topic does not belong to the Class's Course.");
+	}
+
 	const existing = db
 		.select({ position: schema.assignedTopic.position })
 		.from(schema.assignedTopic)
@@ -476,6 +490,94 @@ export function assignTopic(
 	db.insert(schema.assignedTopic).values({ classId, topicId, position }).run();
 
 	return rederive(db, classId, today);
+}
+
+// A Class's Assigned Topics, in teaching order — the two-column shelf on the Class page.
+export function assignedTopicsOf(db: Db, classId: string) {
+	return db
+		.select({
+			id: schema.assignedTopic.id,
+			position: schema.assignedTopic.position,
+			topicId: schema.topic.id,
+			topicName: schema.topic.name
+		})
+		.from(schema.assignedTopic)
+		.innerJoin(schema.topic, eq(schema.topic.id, schema.assignedTopic.topicId))
+		.where(eq(schema.assignedTopic.classId, classId))
+		.orderBy(asc(schema.assignedTopic.position))
+		.all();
+}
+
+// Whether a Class has already been taught any Lesson of this Topic, before `today` — what stops
+// an Unassign of a Topic the Class has already reached.
+function topicReachedByClass(db: Db, classId: string, topicId: string, today: string): boolean {
+	const [row] = db
+		.select({ id: schema.session.id })
+		.from(schema.session)
+		.innerJoin(schema.lesson, eq(schema.lesson.id, schema.session.lessonId))
+		.where(
+			and(
+				eq(schema.session.classId, classId),
+				eq(schema.lesson.topicId, topicId),
+				lt(schema.session.date, today)
+			)
+		)
+		.all();
+	return row !== undefined;
+}
+
+// Drops a Topic the Class has not yet reached from its Assigned Topics, then re-derives its
+// schedule from today. Refused once any of the Topic's Lessons has already been taught to this
+// Class — the same Sessions-reference-Lessons reasoning as deleteLesson.
+export function unassignTopic(
+	db: Db,
+	{ classId, id, today }: { classId: string; id: string; today: string }
+) {
+	const [row] = db
+		.select()
+		.from(schema.assignedTopic)
+		.where(and(eq(schema.assignedTopic.id, id), eq(schema.assignedTopic.classId, classId)))
+		.all();
+	if (!row) return null;
+
+	if (topicReachedByClass(db, classId, row.topicId, today)) {
+		throw new Error('This Topic has already been taught and cannot be unassigned.');
+	}
+
+	db.delete(schema.assignedTopic).where(eq(schema.assignedTopic.id, id)).run();
+	rederive(db, classId, today);
+	return row;
+}
+
+// Swaps position with the previous or next Assigned Topic, and re-derives the Class's schedule.
+// Off either end is a no-op, same as moveLesson — reordering is free (issue #33), but only ever
+// within one Class's own order, never within the Course.
+export function moveAssignedTopic(
+	db: Db,
+	{
+		classId,
+		id,
+		direction,
+		today
+	}: { classId: string; id: string; direction: 'up' | 'down'; today: string }
+) {
+	const assigned = assignedTopicsOf(db, classId);
+	const index = assigned.findIndex((a) => a.id === id);
+	const swapWith = direction === 'up' ? index - 1 : index + 1;
+	if (index < 0 || swapWith < 0 || swapWith >= assigned.length) return;
+
+	const a = assigned[index];
+	const b = assigned[swapWith];
+	db.update(schema.assignedTopic)
+		.set({ position: b.position })
+		.where(eq(schema.assignedTopic.id, a.id))
+		.run();
+	db.update(schema.assignedTopic)
+		.set({ position: a.position })
+		.where(eq(schema.assignedTopic.id, b.id))
+		.run();
+
+	rederive(db, classId, today);
 }
 
 // A Blocked Day removes every Slot on that date for every Class. Entering one dated before today

@@ -55,6 +55,12 @@
 	$effect(() => {
 		if (!data.courses.some((c) => c.id === newCourse)) newCourse = data.courses[0]?.id ?? '';
 	});
+
+	let topicToAssign = $state('');
+	$effect(() => {
+		if (!data.courseTopics.some((t) => t.id === topicToAssign))
+			topicToAssign = data.courseTopics[0]?.id ?? '';
+	});
 </script>
 
 <svelte:head><title>Classes</title></svelte:head>
@@ -289,6 +295,117 @@
 						</ul>
 					</div>
 				{/if}
+			</section>
+
+			<section class="px-8 pb-8">
+				<h3 class="text-sm font-semibold">Assigned Topics</h3>
+				<p class="mt-1 text-xs text-neutral-400">
+					{data.class.label} teaches these, in this order — decide the next one as you reach it.
+				</p>
+
+				{#if form?.error}
+					<p role="alert" class="mt-2 text-xs text-neutral-500">{form.error}</p>
+				{/if}
+
+				{#if data.assignedTopics.length}
+					<ul class="mt-3 grid grid-cols-2 gap-2">
+						{#each data.assignedTopics as a, i (a.id)}
+							<li
+								class="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm ring-1 ring-neutral-200"
+							>
+								<span class="w-5 shrink-0 text-right text-xs text-neutral-400">{i + 1}</span>
+								<span class="min-w-0 flex-1 truncate">{a.topicName}</span>
+								<form
+									method="POST"
+									action="?/moveAssignedTopic"
+									use:enhance={() =>
+										async ({ update }) =>
+											update({ invalidateAll: true })}
+								>
+									<input type="hidden" name="classId" value={data.class.id} />
+									<input type="hidden" name="id" value={a.id} />
+									<input type="hidden" name="direction" value="up" />
+									<button
+										type="submit"
+										disabled={i === 0}
+										class="rounded px-1.5 py-0.5 text-xs text-neutral-500 hover:bg-neutral-100 disabled:opacity-20"
+										aria-label="Move {a.topicName} earlier"
+									>
+										↑
+									</button>
+								</form>
+								<form
+									method="POST"
+									action="?/moveAssignedTopic"
+									use:enhance={() =>
+										async ({ update }) =>
+											update({ invalidateAll: true })}
+								>
+									<input type="hidden" name="classId" value={data.class.id} />
+									<input type="hidden" name="id" value={a.id} />
+									<input type="hidden" name="direction" value="down" />
+									<button
+										type="submit"
+										disabled={i === data.assignedTopics.length - 1}
+										class="rounded px-1.5 py-0.5 text-xs text-neutral-500 hover:bg-neutral-100 disabled:opacity-20"
+										aria-label="Move {a.topicName} later"
+									>
+										↓
+									</button>
+								</form>
+								<form
+									method="POST"
+									action="?/unassignTopic"
+									use:enhance={() =>
+										async ({ update }) =>
+											update({ invalidateAll: true })}
+								>
+									<input type="hidden" name="classId" value={data.class.id} />
+									<input type="hidden" name="id" value={a.id} />
+									<button
+										type="submit"
+										class="rounded px-1.5 py-0.5 text-xs text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+										aria-label="Unassign {a.topicName}"
+									>
+										✕
+									</button>
+								</form>
+							</li>
+						{/each}
+					</ul>
+				{:else}
+					<p class="mt-3 text-xs text-neutral-400">No Topics assigned yet.</p>
+				{/if}
+
+				<form
+					method="POST"
+					action="?/assignTopic"
+					class="mt-3 flex items-center gap-2"
+					use:enhance={() =>
+						async ({ update }) =>
+							update({ invalidateAll: true })}
+				>
+					<input type="hidden" name="classId" value={data.class.id} />
+					<select
+						name="topicId"
+						bind:value={topicToAssign}
+						class="rounded border border-neutral-300 px-2 py-1 text-xs"
+					>
+						{#each data.courseTopics as t (t.id)}
+							<option value={t.id}>{t.name}</option>
+						{/each}
+					</select>
+					<button
+						type="submit"
+						class="rounded bg-neutral-900 px-2 py-1 text-xs text-white disabled:opacity-40"
+						disabled={!data.courseTopics.length}
+					>
+						Assign next
+					</button>
+					{#if !data.courseTopics.length}
+						<span class="text-[11px] text-neutral-400">This Course has no Topics yet.</span>
+					{/if}
+				</form>
 			</section>
 		{/if}
 	</main>

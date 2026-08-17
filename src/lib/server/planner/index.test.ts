@@ -10,6 +10,7 @@ import { seedFileSchema } from '../calendar/seed-file.schema';
 import {
 	activeSlots,
 	addSlot,
+	assignedTopicsOf,
 	assignTopic,
 	blockDay,
 	blockSlot,
@@ -31,6 +32,7 @@ import {
 	lessonsOf,
 	listClasses,
 	listCourses,
+	moveAssignedTopic,
 	moveLesson,
 	moveLessonToTopic,
 	moveLink,
@@ -40,6 +42,7 @@ import {
 	renameTopic,
 	takeSlot,
 	topicsOf,
+	unassignTopic,
 	updateLesson,
 	updateLink
 } from './index';
@@ -1052,5 +1055,93 @@ describe('the Lesson editor', () => {
 			first.id,
 			second.id
 		]);
+	});
+});
+
+describe('assigning Topics to a Class', () => {
+	test('only Topics belonging to the Class’s own Course may be assigned', () => {
+		const { db, course, classA } = setUp();
+		const otherCourse = db
+			.insert(schema.course)
+			.values({ name: 'Year 11 Chemistry' })
+			.returning()
+			.all()[0];
+		const foreignTopic = makeTopic(db, otherCourse.id, 'Moles');
+
+		expect(() =>
+			assignTopic(db, { classId: classA.id, topicId: foreignTopic.id, today: '2026-09-03' })
+		).toThrow();
+
+		const ownTopic = makeTopic(db, course.id, 'Forces');
+		expect(() =>
+			assignTopic(db, { classId: classA.id, topicId: ownTopic.id, today: '2026-09-03' })
+		).not.toThrow();
+	});
+
+	test('accumulates one at a time, in the order assigned, shown as the shelf', () => {
+		const { db, course, classA } = setUp();
+		const forces = makeTopic(db, course.id, 'Forces');
+		const waves = makeTopic(db, course.id, 'Waves');
+
+		assignTopic(db, { classId: classA.id, topicId: forces.id, today: '2026-09-03' });
+		assignTopic(db, { classId: classA.id, topicId: waves.id, today: '2026-09-03' });
+
+		const shelf = assignedTopicsOf(db, classA.id);
+		expect(shelf.map((a) => a.topicName)).toEqual(['Forces', 'Waves']);
+	});
+
+	test('reorders freely, and the order is the teaching order', () => {
+		const { db, course, classA } = setUp();
+		const forces = makeTopic(db, course.id, 'Forces');
+		makeLessons(db, forces.id, 2);
+		const waves = makeTopic(db, course.id, 'Waves');
+		makeLessons(db, waves.id, 2);
+
+		assignTopic(db, { classId: classA.id, topicId: forces.id, today: '2026-09-03' });
+		const wavesAssigned = assignTopic(db, {
+			classId: classA.id,
+			topicId: waves.id,
+			today: '2026-09-03'
+		});
+		const wavesRow = assignedTopicsOf(db, classA.id).find((a) => a.topicId === waves.id)!;
+
+		moveAssignedTopic(db, {
+			classId: classA.id,
+			id: wavesRow.id,
+			direction: 'up',
+			today: '2026-09-03'
+		});
+
+		const shelf = assignedTopicsOf(db, classA.id);
+		expect(shelf.map((a) => a.topicName)).toEqual(['Waves', 'Forces']);
+
+		const schedule = classSchedule(db, { classId: classA.id, today: '2026-09-03' });
+		expect(schedule.planned[0].lessonId).not.toBe(wavesAssigned.planned[0]?.lessonId);
+	});
+
+	test('unassigns a Topic the Class has not reached', () => {
+		const { db, course, classA } = setUp();
+		const forces = makeTopic(db, course.id, 'Forces');
+		makeLessons(db, forces.id, 3);
+
+		assignTopic(db, { classId: classA.id, topicId: forces.id, today: '2026-09-03' });
+		const row = assignedTopicsOf(db, classA.id)[0];
+
+		unassignTopic(db, { classId: classA.id, id: row.id, today: '2026-09-03' });
+
+		expect(assignedTopicsOf(db, classA.id)).toEqual([]);
+	});
+
+	test('refuses to unassign a Topic the Class has already been taught', () => {
+		const { db, course, classA } = setUp();
+		const forces = makeTopic(db, course.id, 'Forces');
+		makeLessons(db, forces.id, 3);
+
+		assignTopic(db, { classId: classA.id, topicId: forces.id, today: '2026-09-03' });
+		const row = assignedTopicsOf(db, classA.id)[0];
+
+		expect(() =>
+			unassignTopic(db, { classId: classA.id, id: row.id, today: '2026-09-10' })
+		).toThrow();
 	});
 });

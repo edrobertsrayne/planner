@@ -3,14 +3,19 @@ import { db } from '$lib/server/db';
 import {
 	academicYearStart,
 	activeSlots,
+	assignedTopicsOf,
+	assignTopic,
 	classDetail,
 	createClass,
 	datedSlotsOf,
 	holderAt,
 	listClasses,
 	listCourses,
+	moveAssignedTopic,
 	takeSlot,
-	clearSlot
+	clearSlot,
+	topicsOf,
+	unassignTopic
 } from '$lib/server/planner';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -36,8 +41,21 @@ export const load: PageServerLoad = ({ url }) => {
 
 	const grid = selected ? activeSlots(db, on) : [];
 	const datedSlots = selected ? datedSlotsOf(db, selected.id) : [];
+	const assignedTopics = selected ? assignedTopicsOf(db, selected.id) : [];
+	const courseTopics = selected ? topicsOf(db, selected.courseId) : [];
 
-	return { courses, classes, class: selected, yearStart, effectiveFrom, on, grid, datedSlots };
+	return {
+		courses,
+		classes,
+		class: selected,
+		yearStart,
+		effectiveFrom,
+		on,
+		grid,
+		datedSlots,
+		assignedTopics,
+		courseTopics
+	};
 };
 
 export const actions: Actions = {
@@ -73,6 +91,45 @@ export const actions: Actions = {
 				error: error instanceof Error ? error.message : 'Could not change the Timetable.'
 			});
 		}
+		return {};
+	},
+
+	assignTopic: async ({ request }) => {
+		const data = await request.formData();
+		const classId = trimmed(data, 'classId');
+		const topicId = trimmed(data, 'topicId');
+		if (!topicId) return fail(400, { error: 'Pick a Topic to assign.' });
+		try {
+			assignTopic(db, { classId, topicId, today: today() });
+		} catch (error) {
+			return fail(400, {
+				error: error instanceof Error ? error.message : 'Could not assign the Topic.'
+			});
+		}
+		return {};
+	},
+
+	unassignTopic: async ({ request }) => {
+		const data = await request.formData();
+		const classId = trimmed(data, 'classId');
+		const id = trimmed(data, 'id');
+		try {
+			unassignTopic(db, { classId, id, today: today() });
+		} catch (error) {
+			return fail(400, {
+				error: error instanceof Error ? error.message : 'Could not unassign the Topic.'
+			});
+		}
+		return {};
+	},
+
+	moveAssignedTopic: async ({ request }) => {
+		const data = await request.formData();
+		const classId = trimmed(data, 'classId');
+		const id = trimmed(data, 'id');
+		const direction = trimmed(data, 'direction');
+		if (direction !== 'up' && direction !== 'down') return fail(400, { error: 'Bad direction.' });
+		moveAssignedTopic(db, { classId, id, direction, today: today() });
 		return {};
 	}
 };
