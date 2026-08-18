@@ -23,7 +23,11 @@
 		<div class="mx-auto flex max-w-6xl items-baseline gap-4 px-6 pt-5">
 			<h1 class="text-lg font-semibold tracking-tight">Planner</h1>
 			{#if data.user}
-				<form method="POST" action="/logout" class="ml-auto">
+				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- static internal route -->
+				<a href="/settings" class="ml-auto text-sm text-neutral-500 hover:text-neutral-800"
+					>Settings</a
+				>
+				<form method="POST" action="/logout">
 					<button type="submit" class="text-sm text-neutral-500 hover:text-neutral-800"
 						>Log out</button
 					>

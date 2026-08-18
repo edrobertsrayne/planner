@@ -2,15 +2,50 @@ import { redirect, type Handle } from '@sveltejs/kit';
 import { sequence } from '@sveltejs/kit/hooks';
 import { building } from '$app/environment';
 import { auth } from '$lib/server/auth';
+import { hasUser } from '$lib/server/setup';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 
 // Routes reachable without a session, besides /api/auth/* (excluded below by svelteKitHandler
 // itself, not by this list). `handle` never runs for static assets, so between the two, every
 // other route is protected by default.
 const PUBLIC_ROUTES = ['/login'];
+const SETUP_ROUTE = '/setup';
+
+function matches(pathname: string, route: string) {
+	return pathname === route || pathname.startsWith(`${route}/`);
+}
 
 export function isPublicRoute(pathname: string) {
-	return PUBLIC_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`));
+	return PUBLIC_ROUTES.some((route) => matches(pathname, route));
+}
+
+/**
+ * The one place that answers "where does this request belong". Three states, in order: no user at
+ * all means the app is unconfigured and everything goes to the wizard; a user but no session goes
+ * to the login page; a configured, signed-in visitor has no business on either.
+ *
+ * Returns the path to redirect to, or null to let the request through.
+ */
+export function guardRedirect(request: {
+	pathname: string;
+	search: string;
+	userExists: boolean;
+	signedIn: boolean;
+}): string | null {
+	const isSetup = matches(request.pathname, SETUP_ROUTE);
+
+	if (!request.userExists) return isSetup ? null : SETUP_ROUTE;
+
+	if (!request.signedIn) {
+		// isSetup is checked here, not folded into isPublicRoute, so a signed-out visitor goes
+		// straight to /login rather than bouncing through '/' first.
+		if (isSetup) return '/login';
+		if (isPublicRoute(request.pathname)) return null;
+		return `/login?redirectTo=${encodeURIComponent(request.pathname + request.search)}`;
+	}
+
+	if (isSetup) return '/';
+	return isPublicRoute(request.pathname) ? '/' : null;
 }
 
 const handleAuth: Handle = async ({ event, resolve }) => {
@@ -27,16 +62,14 @@ const handleAuth: Handle = async ({ event, resolve }) => {
 };
 
 const handleGuard: Handle = async ({ event, resolve }) => {
-	const isPublic = isPublicRoute(event.url.pathname);
+	const target = guardRedirect({
+		pathname: event.url.pathname,
+		search: event.url.search,
+		userExists: await hasUser(),
+		signedIn: Boolean(event.locals.user)
+	});
 
-	if (!isPublic && !event.locals.user) {
-		const target = event.url.pathname + event.url.search;
-		redirect(303, `/login?redirectTo=${encodeURIComponent(target)}`);
-	}
-
-	if (isPublic && event.locals.user) {
-		redirect(303, '/');
-	}
+	if (target) redirect(303, target);
 
 	return resolve(event);
 };

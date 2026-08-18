@@ -29,7 +29,10 @@ export const auth = betterAuth({
 	baseURL: env.BETTER_AUTH_URL,
 	secret: env.BETTER_AUTH_SECRET,
 	database: drizzleAdapter(db, { provider: 'sqlite', schema: authSchema }),
-	emailAndPassword: { enabled: true },
+	// Sign-up is closed at the endpoint, permanently: `/api/auth/*` is short-circuited straight to
+	// better-auth by svelteKitHandler, so hooks.server.ts never sees it and cannot guard it. The
+	// single user is created once, by /setup, through the internal adapter — see setup.ts.
+	emailAndPassword: { enabled: true, disableSignUp: true },
 	// The domain has its own `session` table (a taught occasion, ADR-0002) — better-auth's
 	// login session is renamed to avoid a table-name collision.
 	session: { modelName: 'authSession' },
