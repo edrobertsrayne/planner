@@ -7,6 +7,9 @@ const DATABASE_URL = 'e2e.db';
 const ORIGIN = 'http://localhost:4173';
 
 export default defineConfig({
+	// One database, one user (ADR-0001) — every spec file mutates the same shared state, so files
+	// must run one at a time, in the order they're discovered, rather than racing across workers.
+	workers: 1,
 	webServer: {
 		command: `rm -f ${DATABASE_URL} ${DATABASE_URL}-shm ${DATABASE_URL}-wal && bun run build && bun run preview`,
 		port: 4173,
