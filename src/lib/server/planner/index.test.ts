@@ -10,6 +10,7 @@ import { seedFileSchema } from '../calendar/seed-file.schema';
 import {
 	activeSlots,
 	addSlot,
+	agenda,
 	assignedTopicsOf,
 	assignTopic,
 	blockDay,
@@ -1143,5 +1144,61 @@ describe('assigning Topics to a Class', () => {
 		expect(() =>
 			unassignTopic(db, { classId: classA.id, id: row.id, today: '2026-09-10' })
 		).toThrow();
+	});
+});
+
+describe('the Agenda', () => {
+	// 2026-09-03 is a Thursday, the day Term 1 opens. classA's first Available Slot is that
+	// Thursday's double (P5, P6); classB's is the following Monday (2026-09-07) P1.
+	test('runs chronologically across every Class, and a Lesson with Planned Length > 1 is one row', () => {
+		const { db, course, classA, classB } = setUp();
+		const forces = makeTopic(db, course.id, 'Forces');
+		const [wideLesson] = makeLessons(db, forces.id, 1, 2);
+		assignTopic(db, { classId: classA.id, topicId: forces.id, today: '2026-09-03' });
+
+		const optics = makeTopic(db, course.id, 'Optics');
+		makeLessons(db, optics.id, 1);
+		assignTopic(db, { classId: classB.id, topicId: optics.id, today: '2026-09-03' });
+
+		const rows = agenda(db, { today: '2026-09-03', horizonDays: 14 });
+
+		expect(rows[0]).toMatchObject({
+			classId: classA.id,
+			classLabel: '9B/Sc1',
+			date: '2026-09-03',
+			periodFrom: 5,
+			periodTo: 6,
+			lesson: { title: wideLesson.title, topicName: 'Forces' }
+		});
+		// classB's Slot is Week A Mon P1 and Week B Wed P4; the Thursday Term opens on is Week A,
+		// so classB's first Available Slot is the following Week B Wednesday, 2026-09-09.
+		const dates = rows.map((r) => r.date);
+		expect(dates).toEqual([...dates].sort());
+		expect(rows.some((r) => r.classId === classB.id && r.date === '2026-09-09')).toBe(true);
+	});
+
+	test('the horizon is calendar days: weekends inside it produce no row, and it can be narrowed to today', () => {
+		const { db, course, classA } = setUp();
+		const forces = makeTopic(db, course.id, 'Forces');
+		makeLessons(db, forces.id, 10);
+		assignTopic(db, { classId: classA.id, topicId: forces.id, today: '2026-09-03' });
+
+		// 2026-09-05/06 is the Sat/Sun immediately after Term opens.
+		const week = agenda(db, { today: '2026-09-03', horizonDays: 7 });
+		expect(week.some((r) => r.date === '2026-09-05' || r.date === '2026-09-06')).toBe(false);
+
+		const today = agenda(db, { today: '2026-09-03', horizonDays: 1 });
+		expect(today.every((r) => r.date === '2026-09-03')).toBe(true);
+		expect(today.length).toBeGreaterThan(0);
+	});
+
+	test('an Unplanned Slot appears as an ordinary row carrying no Lesson', () => {
+		const { db, classA } = setUp();
+		// No Topic assigned at all: every Available Slot is unplanned.
+
+		const rows = agenda(db, { today: '2026-09-03', horizonDays: 1 });
+
+		expect(rows.length).toBeGreaterThan(0);
+		expect(rows.every((r) => r.classId === classA.id && r.lesson === null)).toBe(true);
 	});
 });

@@ -239,3 +239,57 @@ export function runway(result: ScheduleResult): Runway {
 		lessonsRemaining: result.unplaced.length
 	};
 }
+
+export interface AgendaRow {
+	classId: string;
+	date: string;
+	week: 'A' | 'B';
+	periodFrom: number;
+	periodTo: number;
+	lesson: { lessonId: string; part: number; of: number } | null;
+}
+
+// A view of a ScheduleResult for the Agenda: one row per occasion, a Lesson with Planned Length
+// (or a Continuation) above 1 collapsed into a single row spanning its Periods rather than
+// reported once per Period. Only ever merges within one date — `planned` is chronological, so a
+// Lesson that runs into the next day's first Slot never lands in adjacent array positions with
+// contiguous Periods, and the Agenda groups by day regardless.
+export function agendaRows(classId: string, result: ScheduleResult): AgendaRow[] {
+	const rows: AgendaRow[] = [];
+
+	for (const p of result.planned) {
+		const prev = rows[rows.length - 1];
+		if (
+			prev?.lesson &&
+			prev.date === p.date &&
+			prev.periodTo + 1 === p.period &&
+			prev.lesson.lessonId === p.lessonId &&
+			prev.lesson.part + 1 === p.part
+		) {
+			prev.periodTo = p.period;
+			prev.lesson = { lessonId: p.lessonId, part: p.part, of: p.of };
+		} else {
+			rows.push({
+				classId,
+				date: p.date,
+				week: p.week,
+				periodFrom: p.period,
+				periodTo: p.period,
+				lesson: { lessonId: p.lessonId, part: p.part, of: p.of }
+			});
+		}
+	}
+
+	for (const u of result.unplanned) {
+		rows.push({
+			classId,
+			date: u.date,
+			week: u.week,
+			periodFrom: u.period,
+			periodTo: u.period,
+			lesson: null
+		});
+	}
+
+	return rows;
+}

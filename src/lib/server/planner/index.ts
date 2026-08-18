@@ -12,10 +12,11 @@
 // updateLesson, deleteLesson, moveLesson and moveLessonToTopic all re-derive every Class with
 // that Lesson's Topic (or, for a move, either Topic) assigned, from `today` — quietly, on the
 // same write, with no separate recompute step (issue #31).
-import { and, asc, eq, gte, isNotNull, lt, or } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, isNotNull, lt, or } from 'drizzle-orm';
 import type { drizzle } from 'drizzle-orm/node-sqlite';
 import * as schema from '../db/schema';
 import {
+	agendaRows,
 	schedule,
 	rewind,
 	runway as deriveRunway,
@@ -639,6 +640,74 @@ export function recordContinuation(
 	db.insert(schema.continuation).values({ sessionId: existing.id }).run();
 
 	return rederive(db, classId, today);
+}
+
+export interface AgendaEntry {
+	classId: string;
+	classLabel: string;
+	date: string;
+	week: 'A' | 'B';
+	periodFrom: number;
+	periodTo: number;
+	lesson: { title: string; topicName: string } | null;
+}
+
+// The chronological stream of upcoming Sessions across every Class, grouped by day (issue #34).
+// The one derived answer the Agenda view reads: every Class's schedule, re-run and never stored,
+// windowed to a horizon of calendar days from `today` — so a weekend or a Blocked Day inside it
+// honestly produces no row, rather than being padded out to look like a full week of teaching.
+export function agenda(db: Db, { today, horizonDays }: { today: string; horizonDays: number }) {
+	const horizonEnd = addDays(today, horizonDays);
+	const cal = loadCalendar(db);
+	const classes = listClasses(db);
+
+	const rows = classes.flatMap((cls) => {
+		const result = schedule({
+			cal,
+			lessons: loadLessonStream(db, cls.id),
+			classId: cls.id,
+			sessions: loadSessions(db, cls.id),
+			continuations: loadContinuations(db, cls.id),
+			boundary: today
+		});
+		return agendaRows(cls.id, result)
+			.filter((r) => r.date < horizonEnd)
+			.map((r) => ({ ...r, classLabel: cls.label }));
+	});
+
+	const lessonIds = [...new Set(rows.flatMap((r) => (r.lesson ? [r.lesson.lessonId] : [])))];
+	const names = lessonIds.length
+		? new Map(
+				db
+					.select({
+						id: schema.lesson.id,
+						title: schema.lesson.title,
+						topicName: schema.topic.name
+					})
+					.from(schema.lesson)
+					.innerJoin(schema.topic, eq(schema.topic.id, schema.lesson.topicId))
+					.where(inArray(schema.lesson.id, lessonIds))
+					.all()
+					.map((row) => [row.id, row])
+			)
+		: new Map<string, { title: string; topicName: string }>();
+
+	const entries: AgendaEntry[] = rows.map((r) => ({
+		classId: r.classId,
+		classLabel: r.classLabel,
+		date: r.date,
+		week: r.week,
+		periodFrom: r.periodFrom,
+		periodTo: r.periodTo,
+		lesson: r.lesson ? (names.get(r.lesson.lessonId) ?? null) : null
+	}));
+
+	entries.sort((a, b) =>
+		(a.date + String(a.periodFrom).padStart(2, '0')).localeCompare(
+			b.date + String(b.periodFrom).padStart(2, '0')
+		)
+	);
+	return entries;
 }
 
 // Read back exactly where a Class has got to. Pure: never writes.

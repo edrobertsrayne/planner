@@ -1,15 +1,50 @@
 <script lang="ts">
 	import './layout.css';
 	import favicon from '$lib/assets/favicon.svg';
+	import { page } from '$app/state';
 	import type { LayoutProps } from './$types';
 
 	let { children, data }: LayoutProps = $props();
+
+	const TABS = [
+		['/', 'Agenda'],
+		['/calendar', 'Calendar'],
+		['/classes', 'Classes'],
+		['/courses', 'Courses']
+	] as const;
 </script>
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
-{#if data.user}
-	<form method="POST" action="/logout">
-		<button type="submit">Log out</button>
-	</form>
-{/if}
-{@render children()}
+
+<div class="flex min-h-screen flex-col bg-neutral-50 text-neutral-900">
+	<header class="border-b border-neutral-200 bg-white">
+		<div class="mx-auto flex max-w-6xl items-baseline gap-4 px-6 pt-5">
+			<h1 class="text-lg font-semibold tracking-tight">Planner</h1>
+			{#if data.user}
+				<form method="POST" action="/logout" class="ml-auto">
+					<button type="submit" class="text-sm text-neutral-500 hover:text-neutral-800"
+						>Log out</button
+					>
+				</form>
+			{/if}
+		</div>
+		<nav class="mx-auto flex max-w-6xl gap-1 px-6 pt-4">
+			{#each TABS as [href, label] (href)}
+				{@const active =
+					href === '/' ? page.url.pathname === '/' : page.url.pathname.startsWith(href)}
+				<!-- eslint-disable svelte/no-navigation-without-resolve -- static internal route -->
+				<a
+					{href}
+					class="-mb-px border-b-2 px-4 py-2 text-sm font-medium {active
+						? 'border-neutral-900 text-neutral-900'
+						: 'border-transparent text-neutral-500 hover:text-neutral-800'}">{label}</a
+				>
+				<!-- eslint-enable svelte/no-navigation-without-resolve -->
+			{/each}
+		</nav>
+	</header>
+
+	<main class="min-h-0 flex-1">
+		{@render children()}
+	</main>
+</div>
