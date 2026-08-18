@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { invalidateAll } from '$app/navigation';
 	import type { Occasion } from '$lib/client/session-panel.svelte';
 	import type { SessionDetail } from '$lib/server/planner';
 
@@ -8,11 +9,15 @@
 	let note = $state('');
 	let saved = $state(true);
 	let saveFailed = $state(false);
+	let continuing = $state(false);
+	let continuationError = $state<string | null>(null);
 
 	$effect(() => {
 		const { classId, date, period } = occasion;
 		let current = true;
 		detail = null;
+		continuing = false;
+		continuationError = null;
 		fetch(`/session?classId=${encodeURIComponent(classId)}&date=${date}&period=${period}`)
 			.then((r) => r.json())
 			.then((d: SessionDetail) => {
@@ -23,6 +28,7 @@
 				note = d.note ?? '';
 				saved = true;
 				saveFailed = false;
+				continuationError = null;
 			});
 		return () => {
 			current = false;
@@ -48,6 +54,32 @@
 					saved = false;
 					saveFailed = true;
 				}
+			});
+	}
+
+	function markContinuation() {
+		const target = occasion;
+		continuing = true;
+		continuationError = null;
+		fetch('/session/continuation', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify(target)
+		})
+			.then(async (r) => {
+				if (!r.ok) throw new Error((await r.json().catch(() => null))?.message ?? 'Failed.');
+				return r.json() as Promise<SessionDetail>;
+			})
+			.then((d) => {
+				if (target !== occasion) return;
+				detail = d;
+				continuing = false;
+				invalidateAll();
+			})
+			.catch((e: Error) => {
+				if (target !== occasion) return;
+				continuing = false;
+				continuationError = e.message;
 			});
 	}
 
@@ -111,6 +143,23 @@
 					{/each}
 				</ul>
 			{/if}
+
+			<div class="mt-4 border-t border-neutral-100 pt-4">
+				<button
+					type="button"
+					class="rounded border border-neutral-300 px-2.5 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+					disabled={continuing}
+					onclick={markContinuation}
+				>
+					{continuing ? 'Marking…' : 'Needs more time'}
+				</button>
+				<p class="mt-1 text-[11px] text-neutral-400">
+					Widens this Lesson onto the Class's next Available Slot.
+				</p>
+				{#if continuationError}
+					<p class="mt-1 text-[11px] text-red-600">{continuationError}</p>
+				{/if}
+			</div>
 		{:else}
 			<h2 class="text-lg leading-snug font-semibold text-neutral-400 italic">Unplanned</h2>
 			<p class="mt-1 text-xs text-neutral-500">No Lesson planned for this occasion.</p>

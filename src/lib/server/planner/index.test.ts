@@ -486,6 +486,42 @@ describe('Blocked Slot', () => {
 			lessonId: lessons[0].id
 		});
 	});
+
+	test('keeps a noted Session on its occasion even when a Rewind drops it from the plan entirely', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		makeLessons(db, topic.id, 1);
+
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+		writeSessionNote(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			period: 5,
+			note: 'went badly — redo the practical'
+		});
+
+		const mondaySlot = db
+			.select()
+			.from(schema.slot)
+			.all()
+			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 4 && s.period === 5)!;
+
+		// The same Rewind as above, onto the noted occasion's own Slot — its Lesson is rescheduled
+		// elsewhere, so this occasion drops out of the plan entirely (it is neither still Planned
+		// nor Unplanned). The note is the one irreplaceable thing in the system (#38): it must stay
+		// on (class_id, date, period) rather than being deleted along with the row that carried it.
+		blockSlot(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			slotId: mondaySlot.id,
+			note: 'Field trip',
+			today: '2026-09-10'
+		});
+
+		const detail = sessionDetail(db, { classId: classA.id, date: '2026-09-03', period: 5 });
+		expect(detail?.note).toBe('went badly — redo the practical');
+		expect(detail?.lesson).toBeNull();
+	});
 });
 
 describe('Continuation', () => {

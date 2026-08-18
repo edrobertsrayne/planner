@@ -5,7 +5,7 @@
 	import type { CalendarCell } from '$lib/server/planner';
 	import type { PageProps } from './$types';
 
-	let { data }: PageProps = $props();
+	let { data, form }: PageProps = $props();
 
 	const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 	const PERIODS = [1, 2, 3, 4, 5, 6];
@@ -38,6 +38,21 @@
 <svelte:head><title>Calendar</title></svelte:head>
 
 <div class="mx-auto max-w-5xl px-6 py-6">
+	{#if form?.atRisk && form.atRisk.length > 0}
+		<div class="mb-4 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+			<p class="font-bold">
+				The Rewind changed the Lesson on {form.atRisk.length === 1
+					? 'a noted Session'
+					: `${form.atRisk.length} noted Sessions`} — check the note still applies.
+			</p>
+			<ul class="mt-1 space-y-0.5">
+				{#each form.atRisk as s (s.classId + s.date + s.period)}
+					<li>{s.classLabel} · {s.date} P{s.period} — now {s.lessonTitle}</li>
+				{/each}
+			</ul>
+		</div>
+	{/if}
+
 	{#if data.ribbon.length === 0}
 		<p class="text-sm text-neutral-400">No Teaching Weeks are set up yet.</p>
 	{:else}

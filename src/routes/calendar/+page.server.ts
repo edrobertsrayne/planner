@@ -3,6 +3,7 @@ import { db } from '$lib/server/db';
 import {
 	addDays,
 	calendarWeek,
+	describeAtRisk,
 	setTeachingWeekLetter,
 	teachingWeeksList
 } from '$lib/server/planner';
@@ -55,6 +56,6 @@ export const actions: Actions = {
 
 		const report = setTeachingWeekLetter(db, { weekCommencing, letter, today: today() });
 		if (!report) return fail(400, { error: 'No such Teaching Week.' });
-		return {};
+		return { atRisk: describeAtRisk(db, report.atRisk) };
 	}
 };

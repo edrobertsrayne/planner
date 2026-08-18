@@ -195,7 +195,15 @@ function rederive(
 
 		touched.push(row);
 		db.delete(schema.continuation).where(eq(schema.continuation.sessionId, row.id)).run();
-		db.delete(schema.session).where(eq(schema.session.id, row.id)).run();
+
+		// The note is the one irreplaceable thing in the system (#38) — even an occasion that has
+		// stopped being an Available Slot at all keeps its row, carrying no Lesson, rather than
+		// losing a note Ed wrote against it. Only a note-less row is safe to drop outright.
+		if (row.note !== null) {
+			db.update(schema.session).set({ lessonId: null }).where(eq(schema.session.id, row.id)).run();
+		} else {
+			db.delete(schema.session).where(eq(schema.session.id, row.id)).run();
+		}
 	}
 
 	const touchedWithLesson = touched.filter(
@@ -736,6 +744,44 @@ export function writeSessionNote(
 			set: { note }
 		})
 		.run();
+}
+
+export interface AtRiskSession {
+	classId: string;
+	classLabel: string;
+	date: string;
+	period: number;
+	lessonTitle: string;
+}
+
+// A Rewind's report, made readable: each note-carrying Session whose Lesson changed, named by
+// Class and Lesson rather than left as bare ids — what blockDay, blockSlot and
+// setTeachingWeekLetter's `atRisk` is for (the point of the feature, not a nicety, per #38).
+export function describeAtRisk(db: Db, atRisk: SessionRecord[]): AtRiskSession[] {
+	if (atRisk.length === 0) return [];
+
+	const classes = new Map(listClasses(db).map((c) => [c.id, c.label]));
+	const lessons = new Map(
+		db
+			.select({ id: schema.lesson.id, title: schema.lesson.title })
+			.from(schema.lesson)
+			.where(
+				inArray(
+					schema.lesson.id,
+					atRisk.map((s) => s.lessonId)
+				)
+			)
+			.all()
+			.map((row) => [row.id, row.title])
+	);
+
+	return atRisk.map((s) => ({
+		classId: s.classId,
+		classLabel: classes.get(s.classId) ?? s.classId,
+		date: s.date,
+		period: s.period,
+		lessonTitle: lessons.get(s.lessonId) ?? s.lessonId
+	}));
 }
 
 export interface AgendaEntry {
