@@ -290,7 +290,7 @@ const overlaps = (
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
-function addDays(iso: string, days: number): string {
+export function addDays(iso: string, days: number): string {
 	const [year, month, day] = iso.split('-').map(Number);
 	const date = new Date(Date.UTC(year, month - 1, day));
 	date.setUTCDate(date.getUTCDate() + days);
@@ -803,6 +803,181 @@ export function agenda(db: Db, { today, horizonDays }: { today: string; horizonD
 		)
 	);
 	return entries;
+}
+
+export interface CalendarCell {
+	date: string;
+	periodFrom: number;
+	periodTo: number;
+	classId: string;
+	classLabel: string;
+	kind: 'lesson' | 'unplanned' | 'blocked';
+	lesson: { title: string; topicName: string } | null;
+	blockedNote: string | null;
+}
+
+export interface CalendarWeek {
+	weekCommencing: string;
+	letter: 'A' | 'B';
+	dates: string[];
+	cells: CalendarCell[];
+}
+
+const slotHoldsOn = (s: { holdsFrom: string | null; holdsTo: string | null }, date: string) =>
+	(!s.holdsFrom || date >= s.holdsFrom) && (!s.holdsTo || date <= s.holdsTo);
+
+// One Teaching Week as Periods × days, across every Class (issue #36). Reuses the same schedule()
+// as the Agenda, so a cell's Lesson/Unplanned status always agrees with what the Agenda and the
+// Session panel say about the same occasion — there is no separate "calendar" computation of what
+// is taught. A position that schedule() stayed silent on — a Blocked Day, a Blocked Slot, or a
+// date outside every Term, none of which ever reach availableSlots — is filled in afterwards from
+// the raw Timetable, so the grid still shows whose position it is. A position no Class ever holds
+// is left out of `cells` entirely: genuinely free, not blocked.
+export function calendarWeek(
+	db: Db,
+	{ weekCommencing, today }: { weekCommencing: string; today: string }
+): CalendarWeek | null {
+	const [week] = db
+		.select({ letter: schema.teachingWeek.letter })
+		.from(schema.teachingWeek)
+		.where(eq(schema.teachingWeek.weekCommencing, weekCommencing))
+		.all();
+	if (!week) return null;
+
+	const dates = Array.from({ length: 5 }, (_, i) => addDays(weekCommencing, i));
+	const dateSet = new Set(dates);
+	const cal = loadCalendar(db);
+	const classes = listClasses(db);
+
+	const cells: CalendarCell[] = [];
+	const covered = new Set<string>();
+	const lessonIds = new Set<string>();
+	const perClassRows = classes.map((cls) => {
+		const result = schedule({
+			cal,
+			lessons: loadLessonStream(db, cls.id),
+			classId: cls.id,
+			sessions: loadSessions(db, cls.id),
+			continuations: loadContinuations(db, cls.id),
+			boundary: today
+		});
+		const rows = agendaRows(cls.id, result).filter((r) => dateSet.has(r.date));
+		for (const r of rows) if (r.lesson) lessonIds.add(r.lesson.lessonId);
+		return { cls, rows };
+	});
+
+	const names = lessonIds.size
+		? new Map(
+				db
+					.select({
+						id: schema.lesson.id,
+						title: schema.lesson.title,
+						topicName: schema.topic.name
+					})
+					.from(schema.lesson)
+					.innerJoin(schema.topic, eq(schema.topic.id, schema.lesson.topicId))
+					.where(inArray(schema.lesson.id, [...lessonIds]))
+					.all()
+					.map((row) => [row.id, row])
+			)
+		: new Map<string, { title: string; topicName: string }>();
+
+	for (const { cls, rows } of perClassRows) {
+		for (const r of rows) {
+			cells.push({
+				date: r.date,
+				periodFrom: r.periodFrom,
+				periodTo: r.periodTo,
+				classId: cls.id,
+				classLabel: cls.label,
+				kind: r.lesson ? 'lesson' : 'unplanned',
+				lesson: r.lesson ? (names.get(r.lesson.lessonId) ?? null) : null,
+				blockedNote: null
+			});
+			for (let p = r.periodFrom; p <= r.periodTo; p++) covered.add(`${r.date}|${p}`);
+		}
+	}
+
+	const blockedDayNotes = new Map(
+		db
+			.select({ date: schema.blockedDay.date, note: schema.blockedDay.note })
+			.from(schema.blockedDay)
+			.all()
+			.map((r) => [r.date, r.note])
+	);
+	const blockedSlotNotes = new Map(
+		db
+			.select({
+				classId: schema.blockedSlot.classId,
+				date: schema.blockedSlot.date,
+				slotId: schema.blockedSlot.slotId,
+				note: schema.blockedSlot.note
+			})
+			.from(schema.blockedSlot)
+			.all()
+			.map((r) => [`${r.classId}|${r.date}|${r.slotId}`, r.note])
+	);
+
+	dates.forEach((date, i) => {
+		const day = i + 1;
+		for (let period = 1; period <= 6; period++) {
+			if (covered.has(`${date}|${period}`)) continue;
+			const slot = cal.slots.find(
+				(s) =>
+					s.week === week.letter && s.day === day && s.period === period && slotHoldsOn(s, date)
+			);
+			if (!slot) continue;
+			const cls = classes.find((c) => c.id === slot.classId);
+			if (!cls) continue;
+			cells.push({
+				date,
+				periodFrom: period,
+				periodTo: period,
+				classId: cls.id,
+				classLabel: cls.label,
+				kind: 'blocked',
+				lesson: null,
+				blockedNote:
+					blockedDayNotes.get(date) ?? blockedSlotNotes.get(`${cls.id}|${date}|${slot.id}`) ?? null
+			});
+		}
+	});
+
+	return { weekCommencing, letter: week.letter, dates, cells };
+}
+
+// Every Teaching Week, in order — the ribbon on the Calendar steps through this.
+export function teachingWeeksList(db: Db) {
+	return db
+		.select({
+			weekCommencing: schema.teachingWeek.weekCommencing,
+			letter: schema.teachingWeek.letter
+		})
+		.from(schema.teachingWeek)
+		.orderBy(asc(schema.teachingWeek.weekCommencing))
+		.all();
+}
+
+// The Week letter is stored, never computed (ADR-0005), and editable here for the one-off "we'll
+// stay on Week A next week" the school announces after a disruption. It is a scheduling input
+// like a Blocked Day: every Class is re-derived from the earlier of the edited week and today, and
+// any noted Session that Rewind relabels is reported back as `atRisk` rather than silently changed.
+export function setTeachingWeekLetter(
+	db: Db,
+	{ weekCommencing, letter, today }: { weekCommencing: string; letter: 'A' | 'B'; today: string }
+) {
+	const updated = db
+		.update(schema.teachingWeek)
+		.set({ letter })
+		.where(eq(schema.teachingWeek.weekCommencing, weekCommencing))
+		.returning()
+		.all();
+	if (!updated.length) return null;
+
+	const boundary = weekCommencing < today ? weekCommencing : today;
+	const atRisk: SessionRecord[] = [];
+	for (const classId of allClassIds(db)) atRisk.push(...rederive(db, classId, boundary).atRisk);
+	return { atRisk };
 }
 
 // Read back exactly where a Class has got to. Pure: never writes.

@@ -15,6 +15,7 @@ import {
 	assignTopic,
 	blockDay,
 	blockSlot,
+	calendarWeek,
 	classDetail,
 	classesTaughtLesson,
 	classSchedule,
@@ -42,7 +43,9 @@ import {
 	renameLesson,
 	renameTopic,
 	sessionDetail,
+	setTeachingWeekLetter,
 	takeSlot,
+	teachingWeeksList,
 	topicsOf,
 	unassignTopic,
 	updateLesson,
@@ -1202,6 +1205,125 @@ describe('the Agenda', () => {
 
 		expect(rows.length).toBeGreaterThan(0);
 		expect(rows.every((r) => r.classId === classA.id && r.lesson === null)).toBe(true);
+	});
+});
+
+describe('the Calendar', () => {
+	// The first Teaching Week (issue #28's fixture) has weekCommencing 2026-08-31, a Monday two
+	// days before Term 1 opens Thursday 3 Sep — so Mon/Tue/Wed that week fall outside every Term
+	// even though it is a Teaching Week overall. classA's Slots that week are Mon P3, Wed P1, and
+	// the Thu P5/P6 double; classB's is Mon P1. Thu is the only in-term day either Class holds.
+	test('shows a Lesson, an Unplanned Slot, a Slot outside the Term, and a genuinely free position', () => {
+		const { db, course, classA, classB } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [lesson] = makeLessons(db, topic.id, 1);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+
+		const week = calendarWeek(db, { weekCommencing: '2026-08-31', today: '2026-09-03' });
+
+		expect(week?.letter).toBe('A');
+		expect(week?.dates).toEqual([
+			'2026-08-31',
+			'2026-09-01',
+			'2026-09-02',
+			'2026-09-03',
+			'2026-09-04'
+		]);
+
+		const at = (date: string, period: number, classId: string) =>
+			week?.cells.find((c) => c.date === date && c.periodFrom === period && c.classId === classId);
+
+		// Thursday, in term: the Lesson lands on P5, and P6 — still an Available Slot, just
+		// nothing left to teach — is Unplanned, not blocked.
+		expect(at('2026-09-03', 5, classA.id)).toMatchObject({
+			kind: 'lesson',
+			lesson: { title: lesson.title, topicName: 'Forces' }
+		});
+		expect(at('2026-09-03', 6, classA.id)).toMatchObject({ kind: 'unplanned', lesson: null });
+
+		// Monday and Wednesday are outside every Term, even though the Timetable puts each Class
+		// there — blocked, the same as a Blocked Day, and never mistaken for Unplanned.
+		expect(at('2026-08-31', 3, classA.id)).toMatchObject({ kind: 'blocked' });
+		expect(at('2026-08-31', 1, classB.id)).toMatchObject({ kind: 'blocked' });
+		expect(at('2026-09-02', 1, classA.id)).toMatchObject({ kind: 'blocked' });
+
+		// Friday: neither Class holds a Slot there in Week A at all — genuinely free, not blocked.
+		expect(week?.cells.some((c) => c.date === '2026-09-04')).toBe(false);
+	});
+
+	test('a Lesson with Planned Length > 1 is one cell spanning its Periods, not two', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [wideLesson] = makeLessons(db, topic.id, 1, 2);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+
+		const week = calendarWeek(db, { weekCommencing: '2026-08-31', today: '2026-09-03' });
+
+		const cells = week?.cells.filter((c) => c.classId === classA.id && c.date === '2026-09-03');
+		expect(cells).toHaveLength(1);
+		expect(cells?.[0]).toMatchObject({
+			periodFrom: 5,
+			periodTo: 6,
+			kind: 'lesson',
+			lesson: { title: wideLesson.title }
+		});
+	});
+
+	test('a Blocked Slot drains the colour and carries its note, distinct from an Unplanned Slot', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		makeLessons(db, topic.id, 2);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+
+		const thuP5 = db
+			.select()
+			.from(schema.slot)
+			.all()
+			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 4 && s.period === 5)!;
+
+		blockSlot(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			slotId: thuP5.id,
+			note: 'Field trip',
+			today: '2026-09-03'
+		});
+
+		const week = calendarWeek(db, { weekCommencing: '2026-08-31', today: '2026-09-03' });
+		const blocked = week?.cells.find(
+			(c) => c.date === '2026-09-03' && c.periodFrom === 5 && c.classId === classA.id
+		);
+		expect(blocked).toMatchObject({ kind: 'blocked', blockedNote: 'Field trip', lesson: null });
+
+		// Shift-right moved the first Lesson into the Slot the block left free.
+		const shifted = week?.cells.find(
+			(c) => c.date === '2026-09-03' && c.periodFrom === 6 && c.classId === classA.id
+		);
+		expect(shifted).toMatchObject({ kind: 'lesson' });
+	});
+
+	test('the stored Week letter is read back, never inferred, and edits re-derive the schedule around it', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [lesson] = makeLessons(db, topic.id, 1);
+		const before = assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+		expect(before.planned[0]).toMatchObject({ lessonId: lesson.id, date: '2026-09-03', period: 5 });
+
+		expect(teachingWeeksList(db).find((w) => w.weekCommencing === '2026-08-31')?.letter).toBe('A');
+
+		const report = setTeachingWeekLetter(db, {
+			weekCommencing: '2026-08-31',
+			letter: 'B',
+			today: '2026-09-03'
+		});
+		expect(report?.atRisk).toEqual([]);
+		expect(teachingWeeksList(db).find((w) => w.weekCommencing === '2026-08-31')?.letter).toBe('B');
+
+		// Relabelled as Week B, classA no longer holds a Thursday Slot that week (its Week B day 4
+		// is bare) but does hold Friday P4 — so the Lesson moves there instead.
+		const after = classSchedule(db, { classId: classA.id, today: '2026-09-03' });
+		expect(after.planned.some((s) => s.date === '2026-09-03')).toBe(false);
+		expect(after.planned[0]).toMatchObject({ lessonId: lesson.id, date: '2026-09-04', period: 4 });
 	});
 });
 
