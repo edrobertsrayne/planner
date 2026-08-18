@@ -23,6 +23,7 @@ import {
 	type Calendar,
 	type Continuation,
 	type LessonInput,
+	type Runway,
 	type ScheduleResult,
 	type SessionRecord
 } from './engine';
@@ -233,7 +234,7 @@ export function createClass(db: Db, { label, courseId }: { label: string; course
 	return row;
 }
 
-// Every Class, for the rail on the Class page — labels only, alphabetical.
+// Every Class, alphabetical — what classLanes and the Class page's create form read.
 export function listClasses(db: Db) {
 	return db
 		.select({
@@ -992,6 +993,107 @@ export function classSchedule(db: Db, { classId, today }: { classId: string; tod
 	});
 
 	return { ...result, runway: deriveRunway(result) };
+}
+
+export interface ClassLane {
+	classId: string;
+	classLabel: string;
+	courseId: string;
+	taught: number;
+	total: number;
+	lastTaught: {
+		date: string;
+		period: number;
+		title: string;
+		topicName: string;
+		note: string | null;
+	} | null;
+	nextUp: { title: string; topicName: string } | null;
+	unplacedCount: number;
+	runway: Runway;
+}
+
+// One lane per Class (issue #37): how far it has got through its Assigned Topics — never its
+// Course (ADR-0010) — what was last taught and its Session note, what is queued next, and the
+// Runway. Reuses classSchedule's single derived answer per Class; there is no separate
+// Classes-view computation. `classId` restricts to one Class, for the lane atop its own Class page.
+export function classLanes(
+	db: Db,
+	{ today, classId }: { today: string; classId?: string }
+): ClassLane[] {
+	const classes = classId ? listClasses(db).filter((c) => c.id === classId) : listClasses(db);
+
+	const rows = classes.map((cls) => {
+		const result = classSchedule(db, { classId: cls.id, today });
+		const total = result.history.length + result.planned.length + result.unplaced.length;
+		const lastEntry = result.history[result.history.length - 1] ?? null;
+		const nextEntry = result.planned[0] ?? null;
+		return { cls, result, total, lastEntry, nextEntry };
+	});
+
+	const lessonIds = [
+		...new Set(
+			rows.flatMap((r) =>
+				[r.lastEntry?.lessonId, r.nextEntry?.lessonId].filter((id): id is string => !!id)
+			)
+		)
+	];
+	const names = lessonIds.length
+		? new Map(
+				db
+					.select({
+						id: schema.lesson.id,
+						title: schema.lesson.title,
+						topicName: schema.topic.name
+					})
+					.from(schema.lesson)
+					.innerJoin(schema.topic, eq(schema.topic.id, schema.lesson.topicId))
+					.where(inArray(schema.lesson.id, lessonIds))
+					.all()
+					.map((row) => [row.id, row] as const)
+			)
+		: new Map<string, { title: string; topicName: string }>();
+
+	return rows.map(({ cls, result, total, lastEntry, nextEntry }) => {
+		let lastTaught: ClassLane['lastTaught'] = null;
+		if (lastEntry) {
+			const name = names.get(lastEntry.lessonId);
+			if (name) {
+				const [noteRow] = db
+					.select({ note: schema.session.note })
+					.from(schema.session)
+					.where(
+						and(
+							eq(schema.session.classId, cls.id),
+							eq(schema.session.date, lastEntry.date),
+							eq(schema.session.period, lastEntry.period)
+						)
+					)
+					.all();
+				lastTaught = {
+					date: lastEntry.date,
+					period: lastEntry.period,
+					title: name.title,
+					topicName: name.topicName,
+					note: noteRow?.note ?? null
+				};
+			}
+		}
+
+		const nextName = nextEntry ? names.get(nextEntry.lessonId) : undefined;
+
+		return {
+			classId: cls.id,
+			classLabel: cls.label,
+			courseId: cls.courseId,
+			taught: result.history.length,
+			total,
+			lastTaught,
+			nextUp: nextName ? { title: nextName.title, topicName: nextName.topicName } : null,
+			unplacedCount: result.unplaced.length,
+			runway: result.runway
+		};
+	});
 }
 
 // Authoring — the Courses view.

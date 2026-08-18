@@ -18,6 +18,7 @@ import {
 	calendarWeek,
 	classDetail,
 	classesTaughtLesson,
+	classLanes,
 	classSchedule,
 	clearSlot,
 	createClass,
@@ -1205,6 +1206,81 @@ describe('the Agenda', () => {
 
 		expect(rows.length).toBeGreaterThan(0);
 		expect(rows.every((r) => r.classId === classA.id && r.lesson === null)).toBe(true);
+	});
+});
+
+describe('the Classes view', () => {
+	test('a lane reports progress, last taught with its note, next up, and Runway', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const lessons = makeLessons(db, topic.id, 3);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+
+		// classA's first Available Slot is 3 Sep's Thursday double (P5, P6): Lesson 1 lands on
+		// P5, Lesson 2 on P6 — both taught by the time `today` moves past them.
+		writeSessionNote(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			period: 6,
+			note: 'went well'
+		});
+
+		// classB's Slot at that boundary doesn't matter here; classA's next Available Slot after
+		// the Thursday double is 7 Sep — so 5 Sep sits between "taught" and "still to come".
+		const [lane] = classLanes(db, { today: '2026-09-05', classId: classA.id });
+
+		expect(lane.classId).toBe(classA.id);
+		expect(lane.taught).toBe(2);
+		expect(lane.total).toBe(3);
+		expect(lane.lastTaught).toMatchObject({
+			date: '2026-09-03',
+			period: 6,
+			title: lessons[1].title,
+			topicName: 'Forces',
+			note: 'went well'
+		});
+		expect(lane.nextUp).toMatchObject({ title: lessons[2].title, topicName: 'Forces' });
+		expect(lane.unplacedCount).toBe(0);
+		expect(lane.runway).toEqual(
+			classSchedule(db, { classId: classA.id, today: '2026-09-05' }).runway
+		);
+	});
+
+	test('a Class with no Assigned Topics has nothing taught, nothing queued, and an untouched Runway', () => {
+		const { db, classA } = setUp();
+
+		const [lane] = classLanes(db, { today: '2026-09-03', classId: classA.id });
+
+		expect(lane.taught).toBe(0);
+		expect(lane.total).toBe(0);
+		expect(lane.lastTaught).toBeNull();
+		expect(lane.nextUp).toBeNull();
+		// Every Available Slot is Unplanned — the Runway date is the first of them, straight away.
+		expect(lane.runway.date).toBe('2026-09-03');
+		expect(lane.runway.lessonsRemaining).toBe(0);
+	});
+
+	test('a Class whose Assigned Topics outrun the year reports its unplaced count on the lane', () => {
+		const { db, course, classB } = setUp();
+		const topic = makeTopic(db, course.id, 'Everything');
+		makeLessons(db, topic.id, 300);
+		assignTopic(db, { classId: classB.id, topicId: topic.id, today: '2026-09-03' });
+
+		const [lane] = classLanes(db, { today: '2026-09-03', classId: classB.id });
+
+		expect(lane.unplacedCount).toBeGreaterThan(0);
+		expect(lane.runway.lessonsRemaining).toBe(lane.unplacedCount);
+	});
+
+	test('covers every Class when no classId is given, in the same order as listClasses', () => {
+		const { db, course, classA, classB } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		makeLessons(db, topic.id, 1);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+
+		const lanes = classLanes(db, { today: '2026-09-03' });
+
+		expect(lanes.map((l) => l.classId)).toEqual([classB.id, classA.id]);
 	});
 });
 
