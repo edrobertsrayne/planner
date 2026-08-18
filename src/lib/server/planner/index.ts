@@ -172,8 +172,26 @@ function rederive(
 		}
 	}
 
+	// An occasion still an Available Slot but carrying no Lesson (Unplanned) keeps its row rather
+	// than losing it — a note written against it (issue #35) must stay put even though it was
+	// never part of `stillPlanned` to begin with.
+	const stillUnplanned = new Set(result.unplanned.map((u) => `${u.date}|${u.period}`));
+
 	for (const [key, row] of byOccasion) {
 		if (stillPlanned.has(key)) continue;
+
+		if (stillUnplanned.has(key)) {
+			if (row.lessonId !== null) {
+				touched.push(row);
+				db.delete(schema.continuation).where(eq(schema.continuation.sessionId, row.id)).run();
+				db.update(schema.session)
+					.set({ lessonId: null })
+					.where(eq(schema.session.id, row.id))
+					.run();
+			}
+			continue;
+		}
+
 		touched.push(row);
 		db.delete(schema.continuation).where(eq(schema.continuation.sessionId, row.id)).run();
 		db.delete(schema.session).where(eq(schema.session.id, row.id)).run();
@@ -640,6 +658,83 @@ export function recordContinuation(
 	db.insert(schema.continuation).values({ sessionId: existing.id }).run();
 
 	return rederive(db, classId, today);
+}
+
+export interface SessionDetail {
+	classId: string;
+	classLabel: string;
+	date: string;
+	period: number;
+	lesson: {
+		title: string;
+		topicName: string;
+		body: string | null;
+		links: ReturnType<typeof linksOf>;
+	} | null;
+	note: string | null;
+}
+
+// The Session panel's one read (issue #35) — the only place a Session is read or written. A
+// Session is identified by its occasion, not by its Lesson, so this reads by (classId, date,
+// period) and never fails to resolve just because the occasion carries no Lesson: an Unplanned
+// Slot is still an occasion Ed may want to write about.
+export function sessionDetail(
+	db: Db,
+	{ classId, date, period }: { classId: string; date: string; period: number }
+): SessionDetail | null {
+	const cls = classDetail(db, classId);
+	if (!cls) return null;
+
+	const [row] = db
+		.select({ lessonId: schema.session.lessonId, note: schema.session.note })
+		.from(schema.session)
+		.where(
+			and(
+				eq(schema.session.classId, classId),
+				eq(schema.session.date, date),
+				eq(schema.session.period, period)
+			)
+		)
+		.all();
+
+	let lesson: SessionDetail['lesson'] = null;
+	if (row?.lessonId) {
+		const [lessonRow] = db
+			.select({
+				title: schema.lesson.title,
+				body: schema.lesson.body,
+				topicName: schema.topic.name
+			})
+			.from(schema.lesson)
+			.innerJoin(schema.topic, eq(schema.topic.id, schema.lesson.topicId))
+			.where(eq(schema.lesson.id, row.lessonId))
+			.all();
+		if (lessonRow) lesson = { ...lessonRow, links: linksOf(db, row.lessonId) };
+	}
+
+	return { classId, classLabel: cls.label, date, period, lesson, note: row?.note ?? null };
+}
+
+// The Session panel's one write (issue #35): a free-text note against the occasion, never against
+// the Lesson (ADR-0002). Upserts on the occasion's unique key without touching lessonId, so
+// writing a note never disturbs the schedule — and an Unplanned Slot, which has no Session row
+// until now, gets one carrying no Lesson, purely to hold the note.
+export function writeSessionNote(
+	db: Db,
+	{
+		classId,
+		date,
+		period,
+		note
+	}: { classId: string; date: string; period: number; note: string | null }
+) {
+	db.insert(schema.session)
+		.values({ classId, date, period, lessonId: null, note })
+		.onConflictDoUpdate({
+			target: [schema.session.classId, schema.session.date, schema.session.period],
+			set: { note }
+		})
+		.run();
 }
 
 export interface AgendaEntry {

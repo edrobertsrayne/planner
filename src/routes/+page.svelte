@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { sessionPanel } from '$lib/client/session-panel.svelte';
 	import { AGENDA_HORIZONS } from './agenda-horizons';
 	import type { PageProps } from './$types';
 
@@ -63,23 +64,34 @@
 				class="divide-y divide-neutral-100 overflow-hidden rounded-lg bg-white ring-1 ring-neutral-200"
 			>
 				{#each day.rows as row (row.classId + row.periodFrom)}
-					<li class="flex gap-3 px-4 py-3 text-sm">
-						<span class="w-14 shrink-0 font-mono text-xs text-neutral-400">
-							P{row.periodFrom}{#if row.periodTo !== row.periodFrom}–{row.periodTo}{/if}
-						</span>
-						<span
-							class="h-fit shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 text-xs font-semibold ring-1 ring-neutral-300"
+					<li>
+						<button
+							type="button"
+							class="flex w-full gap-3 px-4 py-3 text-left text-sm hover:bg-neutral-50"
+							onclick={() =>
+								sessionPanel.open({
+									classId: row.classId,
+									date: row.date,
+									period: row.periodFrom
+								})}
 						>
-							{row.classLabel}
-						</span>
-						<span class="min-w-0 flex-1">
-							{#if row.lesson}
-								<span class="font-medium">{row.lesson.title}</span>
-								<span class="block text-xs text-neutral-500">{row.lesson.topicName}</span>
-							{:else}
-								<span class="text-neutral-400 italic">Unplanned</span>
-							{/if}
-						</span>
+							<span class="w-14 shrink-0 font-mono text-xs text-neutral-400">
+								P{row.periodFrom}{#if row.periodTo !== row.periodFrom}–{row.periodTo}{/if}
+							</span>
+							<span
+								class="h-fit shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 text-xs font-semibold ring-1 ring-neutral-300"
+							>
+								{row.classLabel}
+							</span>
+							<span class="min-w-0 flex-1">
+								{#if row.lesson}
+									<span class="font-medium">{row.lesson.title}</span>
+									<span class="block text-xs text-neutral-500">{row.lesson.topicName}</span>
+								{:else}
+									<span class="text-neutral-400 italic">Unplanned</span>
+								{/if}
+							</span>
+						</button>
 					</li>
 				{/each}
 			</ul>

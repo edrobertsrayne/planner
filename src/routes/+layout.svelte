@@ -2,6 +2,8 @@
 	import './layout.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import { page } from '$app/state';
+	import { sessionPanel } from '$lib/client/session-panel.svelte';
+	import SessionPanel from './SessionPanel.svelte';
 	import type { LayoutProps } from './$types';
 
 	let { children, data }: LayoutProps = $props();
@@ -44,7 +46,12 @@
 		</nav>
 	</header>
 
-	<main class="min-h-0 flex-1">
-		{@render children()}
+	<main class="flex min-h-0 flex-1">
+		<div class="min-w-0 flex-1 overflow-y-auto">
+			{@render children()}
+		</div>
+		{#if sessionPanel.selected}
+			<SessionPanel occasion={sessionPanel.selected} onclose={() => sessionPanel.close()} />
+		{/if}
 	</main>
 </div>

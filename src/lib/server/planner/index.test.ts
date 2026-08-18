@@ -41,11 +41,13 @@ import {
 	renameCourse,
 	renameLesson,
 	renameTopic,
+	sessionDetail,
 	takeSlot,
 	topicsOf,
 	unassignTopic,
 	updateLesson,
-	updateLink
+	updateLink,
+	writeSessionNote
 } from './index';
 
 // The real 2026/27 calendar (seed/2026-27.json): six Terms opening Thursday 3 September 2026,
@@ -1200,5 +1202,119 @@ describe('the Agenda', () => {
 
 		expect(rows.length).toBeGreaterThan(0);
 		expect(rows.every((r) => r.classId === classA.id && r.lesson === null)).toBe(true);
+	});
+});
+
+describe('the Session panel', () => {
+	test('reads a planned occasion back with its Lesson, plan and Links', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [lesson] = makeLessons(db, topic.id, 1);
+		db.update(schema.lesson)
+			.set({ body: 'Recap Newton I' })
+			.where(eq(schema.lesson.id, lesson.id))
+			.run();
+		createLink(db, { lessonId: lesson.id, url: 'https://example.com', label: 'Slides' });
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+
+		const detail = sessionDetail(db, { classId: classA.id, date: '2026-09-03', period: 5 });
+
+		expect(detail).toMatchObject({
+			classId: classA.id,
+			classLabel: '9B/Sc1',
+			date: '2026-09-03',
+			period: 5,
+			note: null,
+			lesson: {
+				title: lesson.title,
+				topicName: 'Forces',
+				body: 'Recap Newton I'
+			}
+		});
+		expect(detail!.lesson!.links).toMatchObject([{ url: 'https://example.com', label: 'Slides' }]);
+	});
+
+	test('opens on an Unplanned Slot showing no plan, and still offers the note', () => {
+		const { db, classA } = setUp();
+		// No Topic assigned: 3 Sep P5 is an Unplanned Slot, with no Session row yet at all.
+
+		const detail = sessionDetail(db, { classId: classA.id, date: '2026-09-03', period: 5 });
+
+		expect(detail).toMatchObject({ classId: classA.id, lesson: null, note: null });
+	});
+
+	test('a note is written against the occasion, saved and reopened', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		makeLessons(db, topic.id, 1);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+
+		writeSessionNote(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			period: 5,
+			note: 'went badly — redo the practical'
+		});
+
+		const detail = sessionDetail(db, { classId: classA.id, date: '2026-09-03', period: 5 });
+		expect(detail!.note).toBe('went badly — redo the practical');
+		// The Lesson stayed exactly as scheduled — writing a note never touches the schedule.
+		expect(detail!.lesson).not.toBeNull();
+	});
+
+	test('a note on an Unplanned Slot survives an unrelated re-derive of the same Class', () => {
+		const { db, course, classA } = setUp();
+		// classA's first Available Slot, 3 Sep P5/6, is left Unplanned.
+
+		writeSessionNote(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			period: 5,
+			note: 'covered by a colleague, ad hoc revision'
+		});
+
+		// An unrelated Topic assignment triggers rederive on classA from today.
+		const topic = makeTopic(db, course.id, 'Electricity');
+		makeLessons(db, topic.id, 1);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-10' });
+
+		const detail = sessionDetail(db, { classId: classA.id, date: '2026-09-03', period: 5 });
+		expect(detail!.note).toBe('covered by a colleague, ad hoc revision');
+	});
+
+	test('a note stays keyed to the occasion, not the Lesson, across a Rewind', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		// Two 1-Period Lessons land on 3 Sep's Thursday double: Lesson 1 on P5, Lesson 2 on P6.
+		const lessons = makeLessons(db, topic.id, 2);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+
+		// The note is on P6 — Lesson 2, as actually taught.
+		writeSessionNote(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			period: 6,
+			note: 'went badly — redo the practical'
+		});
+
+		const p5Slot = db
+			.select()
+			.from(schema.slot)
+			.all()
+			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 4 && s.period === 5)!;
+
+		// P5 turns out to have been a field trip, entered after the fact: shift-right relabels
+		// P6 as carrying Lesson 1 instead of Lesson 2, though P6 itself is still taught.
+		blockSlot(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			slotId: p5Slot.id,
+			note: 'Field trip',
+			today: '2026-09-10'
+		});
+
+		const detail = sessionDetail(db, { classId: classA.id, date: '2026-09-03', period: 6 });
+		expect(detail!.note).toBe('went badly — redo the practical');
+		expect(detail!.lesson?.title).toBe(lessons[0].title);
 	});
 });
