@@ -1,6 +1,25 @@
 import { defineConfig } from '@playwright/test';
 
+// A scratch database, never the developer's own local.db (see issue #40). Deleted before every
+// run so two consecutive suites see the same fresh state: migrations applied, no user, the
+// first-run wizard as the entry gate.
+const DATABASE_URL = 'e2e.db';
+const ORIGIN = 'http://localhost:4173';
+
 export default defineConfig({
-	webServer: { command: 'npm run build && npm run preview', port: 4173 },
+	webServer: {
+		command: `rm -f ${DATABASE_URL} ${DATABASE_URL}-shm ${DATABASE_URL}-wal && bun run build && bun run preview`,
+		port: 4173,
+		// Never reuse a server already on this port — that could be the developer's own `bun run
+		// preview`, serving local.db, which is exactly what this file exists to keep the suite off.
+		reuseExistingServer: false,
+		timeout: 120_000,
+		env: {
+			DATABASE_URL,
+			ORIGIN,
+			BETTER_AUTH_URL: ORIGIN,
+			BETTER_AUTH_SECRET: 'e2e-suite-secret-fixed-value-not-used-outside-tests'
+		}
+	},
 	testMatch: '**/*.e2e.{ts,js}'
 });
