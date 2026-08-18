@@ -36,6 +36,7 @@ describe('agendaRows', () => {
 				week: 'A',
 				periodFrom: 5,
 				periodTo: 5,
+				slotId: 's1',
 				lesson: { lessonId: 'l1', part: 1, of: 1 }
 			}
 		]);
@@ -75,6 +76,7 @@ describe('agendaRows', () => {
 				week: 'A',
 				periodFrom: 5,
 				periodTo: 6,
+				slotId: 's1',
 				lesson: { lessonId: 'l1', part: 2, of: 2 }
 			}
 		]);
@@ -147,7 +149,15 @@ describe('agendaRows', () => {
 		});
 
 		expect(agendaRows('c1', result)).toEqual([
-			{ classId: 'c1', date: '2026-09-03', week: 'A', periodFrom: 5, periodTo: 5, lesson: null }
+			{
+				classId: 'c1',
+				date: '2026-09-03',
+				week: 'A',
+				periodFrom: 5,
+				periodTo: 5,
+				slotId: 's1',
+				lesson: null
+			}
 		]);
 	});
 

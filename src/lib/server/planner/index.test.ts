@@ -49,6 +49,8 @@ import {
 	teachingWeeksList,
 	topicsOf,
 	unassignTopic,
+	unblockDay,
+	unblockSlot,
 	updateLesson,
 	updateLink,
 	writeSessionNote
@@ -521,6 +523,107 @@ describe('Blocked Slot', () => {
 		const detail = sessionDetail(db, { classId: classA.id, date: '2026-09-03', period: 5 });
 		expect(detail?.note).toBe('went badly — redo the practical');
 		expect(detail?.lesson).toBeNull();
+	});
+});
+
+describe('removing a Blocked Day', () => {
+	test('re-derives every Class, undoing the shift-right', () => {
+		const { db, course, classA, classB } = setUp();
+		const topicA = makeTopic(db, course.id, 'Forces');
+		makeLessons(db, topicA.id, 6);
+		const topicB = makeTopic(db, course.id, 'Waves');
+		makeLessons(db, topicB.id, 4);
+
+		const before = assignTopic(db, { classId: classA.id, topicId: topicA.id, today: '2026-09-03' });
+		assignTopic(db, { classId: classB.id, topicId: topicB.id, today: '2026-09-03' });
+
+		const blockedDate = '2026-09-14';
+		blockDay(db, { date: blockedDate, note: 'Snow day', today: '2026-09-03' });
+		const [row] = db
+			.select()
+			.from(schema.blockedDay)
+			.where(eq(schema.blockedDay.date, blockedDate))
+			.all();
+
+		const report = unblockDay(db, { id: row.id, today: '2026-09-03' });
+		expect(report?.atRisk).toEqual([]);
+
+		const after = classSchedule(db, { classId: classA.id, today: '2026-09-03' });
+		expect(after.planned).toEqual(before.planned);
+		expect(
+			db.select().from(schema.blockedDay).where(eq(schema.blockedDay.date, blockedDate)).all()
+		).toHaveLength(0);
+	});
+
+	test('reports a noted Session the re-derivation relabels back, and is a no-op for an unknown id', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		makeLessons(db, topic.id, 1);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-01' });
+
+		// Blocking 3 Sep — classA's first Available Slot — pushes the Lesson onto whatever comes
+		// next; a note written there is what a Rewind onto the block's removal relabels.
+		blockDay(db, { date: '2026-09-03', note: 'Snow day', today: '2026-09-01' });
+		const pushed = classSchedule(db, { classId: classA.id, today: '2026-09-01' }).planned[0];
+		writeSessionNote(db, {
+			classId: classA.id,
+			date: pushed.date,
+			period: pushed.period,
+			note: 'went badly — redo the practical'
+		});
+
+		const [row] = db
+			.select()
+			.from(schema.blockedDay)
+			.where(eq(schema.blockedDay.date, '2026-09-03'))
+			.all();
+
+		const report = unblockDay(db, { id: row.id, today: '2026-09-10' });
+		expect(report?.atRisk.length).toBeGreaterThan(0);
+
+		expect(unblockDay(db, { id: 'does-not-exist', today: '2026-09-10' })).toBeNull();
+	});
+});
+
+describe('removing a Blocked Slot', () => {
+	test('re-derives the one Class, and is a no-op for an unknown id', () => {
+		const { db, course, classA, classB } = setUp();
+		const topicA = makeTopic(db, course.id, 'Forces');
+		makeLessons(db, topicA.id, 6);
+		const topicB = makeTopic(db, course.id, 'Waves');
+		makeLessons(db, topicB.id, 4);
+
+		const before = assignTopic(db, { classId: classA.id, topicId: topicA.id, today: '2026-09-03' });
+		assignTopic(db, { classId: classB.id, topicId: topicB.id, today: '2026-09-03' });
+
+		const mondaySlot = db
+			.select()
+			.from(schema.slot)
+			.all()
+			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3)!;
+
+		blockSlot(db, {
+			classId: classA.id,
+			date: '2026-09-14',
+			slotId: mondaySlot.id,
+			note: 'Field trip',
+			today: '2026-09-03'
+		});
+		const [row] = db
+			.select()
+			.from(schema.blockedSlot)
+			.where(eq(schema.blockedSlot.classId, classA.id))
+			.all();
+
+		unblockSlot(db, { id: row.id, today: '2026-09-03' });
+
+		const after = classSchedule(db, { classId: classA.id, today: '2026-09-03' });
+		expect(after.planned).toEqual(before.planned);
+		expect(
+			db.select().from(schema.blockedSlot).where(eq(schema.blockedSlot.id, row.id)).all()
+		).toHaveLength(0);
+
+		expect(unblockSlot(db, { id: 'does-not-exist', today: '2026-09-03' })).toBeNull();
 	});
 });
 
@@ -1406,12 +1509,29 @@ describe('the Calendar', () => {
 			(c) => c.date === '2026-09-03' && c.periodFrom === 5 && c.classId === classA.id
 		);
 		expect(blocked).toMatchObject({ kind: 'blocked', blockedNote: 'Field trip', lesson: null });
+		expect(blocked?.blockedSlotId).toBeTruthy();
+		expect(blocked?.blockedDayId).toBeNull();
 
 		// Shift-right moved the first Lesson into the Slot the block left free.
 		const shifted = week?.cells.find(
 			(c) => c.date === '2026-09-03' && c.periodFrom === 6 && c.classId === classA.id
 		);
 		expect(shifted).toMatchObject({ kind: 'lesson' });
+		expect(shifted?.slotId).toBeTruthy();
+		expect(shifted?.blockedSlotId).toBeNull();
+	});
+
+	test('a Blocked Day is reported for its date, for the Calendar to offer removing it', () => {
+		const { db } = setUp();
+		blockDay(db, { date: '2026-09-03', note: 'Snow day', today: '2026-09-01' });
+
+		const week = calendarWeek(db, { weekCommencing: '2026-08-31', today: '2026-09-01' });
+
+		expect(week?.blockedDays).toEqual([
+			{ id: expect.any(String), date: '2026-09-03', note: 'Snow day' }
+		]);
+		const blocked = week?.cells.find((c) => c.date === '2026-09-03');
+		expect(blocked?.blockedDayId).toBe(week?.blockedDays[0].id);
 	});
 
 	test('the stored Week letter is read back, never inferred, and edits re-derive the schedule around it', () => {

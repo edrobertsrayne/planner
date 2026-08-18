@@ -2,10 +2,14 @@ import { fail } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import {
 	addDays,
+	blockDay,
+	blockSlot,
 	calendarWeek,
 	describeAtRisk,
 	setTeachingWeekLetter,
-	teachingWeeksList
+	teachingWeeksList,
+	unblockDay,
+	unblockSlot
 } from '$lib/server/planner';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -56,6 +60,47 @@ export const actions: Actions = {
 
 		const report = setTeachingWeekLetter(db, { weekCommencing, letter, today: today() });
 		if (!report) return fail(400, { error: 'No such Teaching Week.' });
+		return { atRisk: describeAtRisk(db, report.atRisk) };
+	},
+
+	blockDay: async ({ request }) => {
+		const data = await request.formData();
+		const date = String(data.get('date') ?? '');
+		const note = String(data.get('note') ?? '').trim();
+		if (!date) return fail(400, { error: 'No date given.' });
+
+		const report = blockDay(db, { date, note: note || undefined, today: today() });
+		return { atRisk: describeAtRisk(db, report.atRisk) };
+	},
+
+	unblockDay: async ({ request }) => {
+		const data = await request.formData();
+		const id = String(data.get('id') ?? '');
+
+		const report = unblockDay(db, { id, today: today() });
+		if (!report) return fail(400, { error: 'No such Blocked Day.' });
+		return { atRisk: describeAtRisk(db, report.atRisk) };
+	},
+
+	blockSlot: async ({ request }) => {
+		const data = await request.formData();
+		const classId = String(data.get('classId') ?? '');
+		const date = String(data.get('date') ?? '');
+		const slotId = String(data.get('slotId') ?? '');
+		const note = String(data.get('note') ?? '').trim();
+		if (!classId || !date || !slotId) return fail(400, { error: 'Missing Slot to block.' });
+		if (!note) return fail(400, { error: 'A Blocked Slot needs a note.' });
+
+		const report = blockSlot(db, { classId, date, slotId, note, today: today() });
+		return { atRisk: describeAtRisk(db, report.atRisk) };
+	},
+
+	unblockSlot: async ({ request }) => {
+		const data = await request.formData();
+		const id = String(data.get('id') ?? '');
+
+		const report = unblockSlot(db, { id, today: today() });
+		if (!report) return fail(400, { error: 'No such Blocked Slot.' });
 		return { atRisk: describeAtRisk(db, report.atRisk) };
 	}
 };

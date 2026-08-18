@@ -33,6 +33,8 @@
 			month: 'short',
 			timeZone: 'UTC'
 		});
+
+	const blockedByDate = $derived(new Map((data.week?.blockedDays ?? []).map((b) => [b.date, b])));
 </script>
 
 <svelte:head><title>Calendar</title></svelte:head>
@@ -117,8 +119,55 @@
 						<tr>
 							<th class="w-10"></th>
 							{#each DAY_NAMES as d, i (d)}
+								{@const date = data.week.dates[i]}
+								{@const blockedDay = blockedByDate.get(date)}
 								<th class="pb-1 text-left text-xs font-semibold text-neutral-500">
-									{d} <span class="font-normal text-neutral-400">{fmtDay(data.week.dates[i])}</span>
+									{d} <span class="font-normal text-neutral-400">{fmtDay(date)}</span>
+									{#if blockedDay}
+										<form
+											method="POST"
+											action="?/unblockDay"
+											class="inline"
+											use:enhance={() =>
+												async ({ update }) =>
+													update({ invalidateAll: true })}
+										>
+											<input type="hidden" name="id" value={blockedDay.id} />
+											<button
+												type="submit"
+												class="ml-1 font-normal text-amber-600 underline hover:text-amber-800"
+												title={blockedDay.note ?? 'Blocked day'}>blocked · remove</button
+											>
+										</form>
+									{:else}
+										<details class="inline">
+											<summary
+												class="cursor-pointer list-none font-normal text-neutral-300 underline hover:text-neutral-600"
+												>block day</summary
+											>
+											<form
+												method="POST"
+												action="?/blockDay"
+												class="mt-1 flex gap-1"
+												use:enhance={() =>
+													async ({ update }) =>
+														update({ invalidateAll: true })}
+											>
+												<input type="hidden" name="date" value={date} />
+												<input
+													type="text"
+													name="note"
+													placeholder="Optional note"
+													class="w-24 rounded border border-neutral-300 px-1 py-0.5 text-[11px] font-normal"
+												/>
+												<button
+													type="submit"
+													class="rounded bg-neutral-800 px-1.5 py-0.5 text-[11px] font-normal text-white"
+													>Block</button
+												>
+											</form>
+										</details>
+									{/if}
 								</th>
 							{/each}
 						</tr>
@@ -139,7 +188,7 @@
 										{@const cell = entry.cell}
 										{@const rowspan = cell.periodTo - cell.periodFrom + 1}
 										{@const tone = classTone(cell.classId)}
-										<td {rowspan} class="align-top">
+										<td {rowspan} class="relative align-top">
 											{#if cell.kind === 'blocked'}
 												<div
 													class="h-full min-h-16 w-40 rounded border border-dashed border-neutral-300 bg-[repeating-linear-gradient(135deg,#f5f5f5_0_6px,#fafafa_6px_12px)] px-2 py-1.5"
@@ -148,6 +197,39 @@
 													<div class="mt-0.5 text-[11px] text-neutral-400">
 														{cell.blockedNote ?? 'Blocked'}
 													</div>
+													{#if cell.blockedSlotId}
+														<form
+															method="POST"
+															action="?/unblockSlot"
+															class="mt-1"
+															use:enhance={() =>
+																async ({ update }) =>
+																	update({ invalidateAll: true })}
+														>
+															<input type="hidden" name="id" value={cell.blockedSlotId} />
+															<button
+																type="submit"
+																class="text-[10px] text-amber-700 underline hover:text-amber-900"
+																>Unblock</button
+															>
+														</form>
+													{:else if cell.blockedDayId}
+														<form
+															method="POST"
+															action="?/unblockDay"
+															class="mt-1"
+															use:enhance={() =>
+																async ({ update }) =>
+																	update({ invalidateAll: true })}
+														>
+															<input type="hidden" name="id" value={cell.blockedDayId} />
+															<button
+																type="submit"
+																class="text-[10px] text-amber-700 underline hover:text-amber-900"
+																>Unblock day</button
+															>
+														</form>
+													{/if}
 												</div>
 											{:else}
 												<button
@@ -171,6 +253,42 @@
 														<div class="mt-0.5 text-[11px] text-neutral-400 italic">Unplanned</div>
 													{/if}
 												</button>
+												{#if cell.periodFrom === cell.periodTo}
+													<!-- A Lesson with Planned Length > 1 spans several Periods as one merged
+													cell (issue #36); a Blocked Slot is only ever one Period (#39), so the
+													control is offered solely on a cell that is exactly one Period wide,
+													never on a span where "this Period" would be ambiguous. -->
+													<details class="absolute top-0.5 right-0.5">
+														<summary
+															class="cursor-pointer list-none rounded bg-white/70 px-1 text-[9px] text-neutral-400 hover:text-neutral-700"
+															title="Block this Slot">⊘</summary
+														>
+														<form
+															method="POST"
+															action="?/blockSlot"
+															class="absolute top-full right-0 z-10 mt-1 w-40 rounded border border-neutral-300 bg-white p-1.5 shadow"
+															use:enhance={() =>
+																async ({ update }) =>
+																	update({ invalidateAll: true })}
+														>
+															<input type="hidden" name="classId" value={cell.classId} />
+															<input type="hidden" name="date" value={cell.date} />
+															<input type="hidden" name="slotId" value={cell.slotId} />
+															<input
+																type="text"
+																name="note"
+																required
+																placeholder="Why (required)"
+																class="w-full rounded border border-neutral-300 px-1 py-0.5 text-[10px]"
+															/>
+															<button
+																type="submit"
+																class="mt-1 w-full rounded bg-neutral-800 px-1 py-0.5 text-[10px] text-white"
+																>Block this Period</button
+															>
+														</form>
+													</details>
+												{/if}
 											{/if}
 										</td>
 									{/if}

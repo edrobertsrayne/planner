@@ -246,6 +246,7 @@ export interface AgendaRow {
 	week: 'A' | 'B';
 	periodFrom: number;
 	periodTo: number;
+	slotId: string;
 	lesson: { lessonId: string; part: number; of: number } | null;
 }
 
@@ -275,6 +276,7 @@ export function agendaRows(classId: string, result: ScheduleResult): AgendaRow[]
 				week: p.week,
 				periodFrom: p.period,
 				periodTo: p.period,
+				slotId: p.slotId,
 				lesson: { lessonId: p.lessonId, part: p.part, of: p.of }
 			});
 		}
@@ -287,6 +289,7 @@ export function agendaRows(classId: string, result: ScheduleResult): AgendaRow[]
 			week: u.week,
 			periodFrom: u.period,
 			periodTo: u.period,
+			slotId: u.slotId,
 			lesson: null
 		});
 	}

@@ -237,6 +237,15 @@ function allClassIds(db: Db): string[] {
 		.map((row) => row.id);
 }
 
+// Re-derives every Class from a boundary and collects the combined atRisk report — shared by
+// every scheduling input that isn't scoped to one Class (a Blocked Day, its removal, and the
+// Week letter), so the aggregation logic lives in exactly one place.
+function rederiveAllClasses(db: Db, boundary: string): SessionRecord[] {
+	const atRisk: SessionRecord[] = [];
+	for (const classId of allClassIds(db)) atRisk.push(...rederive(db, classId, boundary).atRisk);
+	return atRisk;
+}
+
 export function createClass(db: Db, { label, courseId }: { label: string; courseId: string }) {
 	const [row] = db.insert(schema.classes).values({ label, courseId }).returning().all();
 	return row;
@@ -620,9 +629,7 @@ export function blockDay(
 	db.insert(schema.blockedDay).values({ date, note }).run();
 
 	const boundary = date < today ? date : today;
-	const atRisk: SessionRecord[] = [];
-	for (const classId of allClassIds(db)) atRisk.push(...rederive(db, classId, boundary).atRisk);
-	return { atRisk };
+	return { atRisk: rederiveAllClasses(db, boundary) };
 }
 
 // A Blocked Slot removes one Slot on one date for one Class, leaving every other Class untouched.
@@ -640,6 +647,30 @@ export function blockSlot(
 
 	const boundary = date < today ? date : today;
 	return rederive(db, classId, boundary);
+}
+
+// Removes a Blocked Day and re-derives every Class, the mirror of blockDay: undoing an ad hoc
+// closure is exactly as much of a Rewind as recording one was, so it re-derives from the earlier
+// of its date and today, not from today alone.
+export function unblockDay(db: Db, { id, today }: { id: string; today: string }) {
+	const [row] = db.select().from(schema.blockedDay).where(eq(schema.blockedDay.id, id)).all();
+	if (!row) return null;
+
+	db.delete(schema.blockedDay).where(eq(schema.blockedDay.id, id)).run();
+
+	const boundary = row.date < today ? row.date : today;
+	return { atRisk: rederiveAllClasses(db, boundary) };
+}
+
+// Removes a Blocked Slot and re-derives its one Class, the mirror of blockSlot.
+export function unblockSlot(db: Db, { id, today }: { id: string; today: string }) {
+	const [row] = db.select().from(schema.blockedSlot).where(eq(schema.blockedSlot.id, id)).all();
+	if (!row) return null;
+
+	db.delete(schema.blockedSlot).where(eq(schema.blockedSlot.id, id)).run();
+
+	const boundary = row.date < today ? row.date : today;
+	return rederive(db, row.classId, boundary);
 }
 
 // A Session marked as needing more time: its Lesson widens to occupy the next Available Slot too.
@@ -861,6 +892,9 @@ export interface CalendarCell {
 	kind: 'lesson' | 'unplanned' | 'blocked';
 	lesson: { title: string; topicName: string } | null;
 	blockedNote: string | null;
+	slotId: string;
+	blockedDayId: string | null;
+	blockedSlotId: string | null;
 }
 
 export interface CalendarWeek {
@@ -868,6 +902,7 @@ export interface CalendarWeek {
 	letter: 'A' | 'B';
 	dates: string[];
 	cells: CalendarCell[];
+	blockedDays: { id: string; date: string; note: string | null }[];
 }
 
 const slotHoldsOn = (s: { holdsFrom: string | null; holdsTo: string | null }, date: string) =>
@@ -939,30 +974,36 @@ export function calendarWeek(
 				classLabel: cls.label,
 				kind: r.lesson ? 'lesson' : 'unplanned',
 				lesson: r.lesson ? (names.get(r.lesson.lessonId) ?? null) : null,
-				blockedNote: null
+				blockedNote: null,
+				slotId: r.slotId,
+				blockedDayId: null,
+				blockedSlotId: null
 			});
 			for (let p = r.periodFrom; p <= r.periodTo; p++) covered.add(`${r.date}|${p}`);
 		}
 	}
 
-	const blockedDayNotes = new Map(
-		db
-			.select({ date: schema.blockedDay.date, note: schema.blockedDay.note })
-			.from(schema.blockedDay)
-			.all()
-			.map((r) => [r.date, r.note])
-	);
-	const blockedSlotNotes = new Map(
-		db
-			.select({
-				classId: schema.blockedSlot.classId,
-				date: schema.blockedSlot.date,
-				slotId: schema.blockedSlot.slotId,
-				note: schema.blockedSlot.note
-			})
-			.from(schema.blockedSlot)
-			.all()
-			.map((r) => [`${r.classId}|${r.date}|${r.slotId}`, r.note])
+	const blockedDayRows = db
+		.select({
+			id: schema.blockedDay.id,
+			date: schema.blockedDay.date,
+			note: schema.blockedDay.note
+		})
+		.from(schema.blockedDay)
+		.all();
+	const blockedDayByDate = new Map(blockedDayRows.map((r) => [r.date, r]));
+	const blockedSlotRows = db
+		.select({
+			id: schema.blockedSlot.id,
+			classId: schema.blockedSlot.classId,
+			date: schema.blockedSlot.date,
+			slotId: schema.blockedSlot.slotId,
+			note: schema.blockedSlot.note
+		})
+		.from(schema.blockedSlot)
+		.all();
+	const blockedSlotByKey = new Map(
+		blockedSlotRows.map((r) => [`${r.classId}|${r.date}|${r.slotId}`, r])
 	);
 
 	dates.forEach((date, i) => {
@@ -976,6 +1017,8 @@ export function calendarWeek(
 			if (!slot) continue;
 			const cls = classes.find((c) => c.id === slot.classId);
 			if (!cls) continue;
+			const dayBlock = blockedDayByDate.get(date);
+			const slotBlock = blockedSlotByKey.get(`${cls.id}|${date}|${slot.id}`);
 			cells.push({
 				date,
 				periodFrom: period,
@@ -984,13 +1027,20 @@ export function calendarWeek(
 				classLabel: cls.label,
 				kind: 'blocked',
 				lesson: null,
-				blockedNote:
-					blockedDayNotes.get(date) ?? blockedSlotNotes.get(`${cls.id}|${date}|${slot.id}`) ?? null
+				blockedNote: dayBlock?.note ?? slotBlock?.note ?? null,
+				slotId: slot.id,
+				blockedDayId: dayBlock?.id ?? null,
+				blockedSlotId: slotBlock?.id ?? null
 			});
 		}
 	});
 
-	return { weekCommencing, letter: week.letter, dates, cells };
+	const blockedDays = dates.flatMap((date) => {
+		const row = blockedDayByDate.get(date);
+		return row ? [{ id: row.id, date, note: row.note }] : [];
+	});
+
+	return { weekCommencing, letter: week.letter, dates, cells, blockedDays };
 }
 
 // Every Teaching Week, in order — the ribbon on the Calendar steps through this.
@@ -1022,9 +1072,7 @@ export function setTeachingWeekLetter(
 	if (!updated.length) return null;
 
 	const boundary = weekCommencing < today ? weekCommencing : today;
-	const atRisk: SessionRecord[] = [];
-	for (const classId of allClassIds(db)) atRisk.push(...rederive(db, classId, boundary).atRisk);
-	return { atRisk };
+	return { atRisk: rederiveAllClasses(db, boundary) };
 }
 
 // Read back exactly where a Class has got to. Pure: never writes.
