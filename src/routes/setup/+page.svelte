@@ -1,42 +1,28 @@
+<!-- PROTOTYPE (issue #56) — three variants of /setup on this route, switchable via ?variant=. -->
 <script lang="ts">
+	import { page } from '$app/state';
+	import PrototypeSwitcher from '$lib/prototype/PrototypeSwitcher.svelte';
+	import RuledSetup from '$lib/prototype/signed-out/ruled/Setup.svelte';
+	import FortnightSetup from '$lib/prototype/signed-out/fortnight/Setup.svelte';
+	import ToneSetup from '$lib/prototype/signed-out/tone/Setup.svelte';
 	import type { ActionData } from './$types';
 
 	let { form }: { form: ActionData } = $props();
+
+	const VARIANTS = [
+		{ key: 'A', name: 'Ruled — one screen' },
+		{ key: 'B', name: 'Fortnight — stepped' },
+		{ key: 'C', name: 'Tone — one screen' }
+	];
+	const variant = $derived(page.url.searchParams.get('variant') ?? 'A');
 </script>
 
-<main>
-	<h1>Set up Planner</h1>
+{#if variant === 'B'}
+	<FortnightSetup {form} />
+{:else if variant === 'C'}
+	<ToneSetup {form} />
+{:else}
+	<RuledSetup {form} />
+{/if}
 
-	<p>
-		This planner has one account. Choose the details you will log in with — there is no password
-		reset by email, so keep them somewhere safe.
-	</p>
-
-	<form method="POST">
-		<label>
-			Name
-			<input type="text" name="name" value={form?.name ?? ''} required />
-		</label>
-
-		<label>
-			Email
-			<input type="email" name="email" value={form?.email ?? ''} required />
-		</label>
-
-		<label>
-			Password
-			<input type="password" name="password" autocomplete="new-password" required />
-		</label>
-
-		<label>
-			Confirm password
-			<input type="password" name="confirmPassword" autocomplete="new-password" required />
-		</label>
-
-		{#if form?.error}
-			<p role="alert">{form.error}</p>
-		{/if}
-
-		<button type="submit">Create account</button>
-	</form>
-</main>
+<PrototypeSwitcher variants={VARIANTS} />

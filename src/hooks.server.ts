@@ -1,6 +1,6 @@
 import { redirect, type Handle } from '@sveltejs/kit';
 import { sequence } from '@sveltejs/kit/hooks';
-import { building } from '$app/environment';
+import { building, dev } from '$app/environment';
 import { auth } from '$lib/server/auth';
 import { hasUser } from '$lib/server/setup';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
@@ -62,6 +62,11 @@ const handleAuth: Handle = async ({ event, resolve }) => {
 };
 
 const handleGuard: Handle = async ({ event, resolve }) => {
+	// PROTOTYPE (issue #56) — let ?variant= reach /login and /setup in dev regardless of whether an
+	// account exists or a session is open, so the signed-out designs can be viewed. Remove with the
+	// prototype.
+	if (dev && event.url.searchParams.has('variant')) return resolve(event);
+
 	const target = guardRedirect({
 		pathname: event.url.pathname,
 		search: event.url.search,

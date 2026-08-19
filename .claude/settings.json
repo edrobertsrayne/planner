@@ -1,37 +1,39 @@
 {
-	"extraKnownMarketplaces": {
-		"svelte": {
-			"source": {
-				"source": "github",
-				"repo": "sveltejs/ai-tools"
-			}
-		}
-	},
-	"enabledPlugins": {
-		"svelte@svelte": true
-	},
-	"hooks": {
-		"PreToolUse": [
-			{
-				"matcher": "Bash",
-				"hooks": [
-					{
-						"type": "command",
-						"command": "$CLAUDE_PROJECT_DIR/.claude/hooks/enforce-bun.sh"
-					}
-				]
-			}
-		],
-		"PostToolUse": [
-			{
-				"matcher": "Write|Edit",
-				"hooks": [
-					{
-						"type": "command",
-						"command": "jq -r '.tool_response.filePath // .tool_input.file_path' | { read -r f; [ -f \"$f\" ] || exit 0; bunx prettier --write --ignore-unknown \"$f\" >/dev/null 2>&1; case \"$f\" in *.js|*.mjs|*.cjs|*.ts|*.svelte) out=$(bunx eslint --fix --no-warn-ignored \"$f\" 2>&1); [ -n \"$out\" ] && jq -n --arg msg \"$out\" '{hookSpecificOutput: {hookEventName: \"PostToolUse\", additionalContext: $msg}}' ;; esac; } 2>/dev/null || true"
-					}
-				]
-			}
-		]
-	}
+  "extraKnownMarketplaces": {
+    "svelte": {
+      "source": {
+        "source": "github",
+        "repo": "sveltejs/ai-tools"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "svelte@svelte": true,
+    "context7@claude-plugins-official": true,
+    "mattpocock-skills@claude-plugins-official": true
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/enforce-bun.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_response.filePath // .tool_input.file_path' | { read -r f; [ -f \"$f\" ] || exit 0; bunx prettier --write --ignore-unknown \"$f\" >/dev/null 2>&1; case \"$f\" in *.js|*.mjs|*.cjs|*.ts|*.svelte) out=$(bunx eslint --fix --no-warn-ignored \"$f\" 2>&1); [ -n \"$out\" ] && jq -n --arg msg \"$out\" '{hookSpecificOutput: {hookEventName: \"PostToolUse\", additionalContext: $msg}}' ;; esac; } 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
 }
