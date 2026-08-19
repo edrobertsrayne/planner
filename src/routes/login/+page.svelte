@@ -1,29 +1,26 @@
-<!-- PROTOTYPE (issue #56) — three variants of /login on this route, switchable via ?variant=.
-     Throwaway: the losers and the switcher come out once a direction is picked. -->
+<!-- PROTOTYPE (issue #56) — two variants of /login on this route, switchable via ?variant=.
+     Both are built only from shadcn-svelte components, on the shadcn-svelte sign-up blocks
+     signup-03 (card) and signup-05 (bare). -->
 <script lang="ts">
 	import { page } from '$app/state';
 	import PrototypeSwitcher from '$lib/prototype/PrototypeSwitcher.svelte';
-	import RuledLogin from '$lib/prototype/signed-out/ruled/Login.svelte';
-	import FortnightLogin from '$lib/prototype/signed-out/fortnight/Login.svelte';
-	import ToneLogin from '$lib/prototype/signed-out/tone/Login.svelte';
+	import CardLogin from '$lib/prototype/signed-out/card/Login.svelte';
+	import BareLogin from '$lib/prototype/signed-out/bare/Login.svelte';
 	import type { ActionData } from './$types';
 
 	let { form }: { form: ActionData } = $props();
 
 	const VARIANTS = [
-		{ key: 'A', name: 'Ruled — exercise book' },
-		{ key: 'B', name: 'Fortnight — the grid' },
-		{ key: 'C', name: 'Tone — split colour field' }
+		{ key: 'A', name: 'Card on muted (signup-03)' },
+		{ key: 'B', name: 'Bare on background (signup-05)' }
 	];
 	const variant = $derived(page.url.searchParams.get('variant') ?? 'A');
 </script>
 
 {#if variant === 'B'}
-	<FortnightLogin {form} />
-{:else if variant === 'C'}
-	<ToneLogin {form} />
+	<BareLogin {form} />
 {:else}
-	<RuledLogin {form} />
+	<CardLogin {form} />
 {/if}
 
 <PrototypeSwitcher variants={VARIANTS} />
