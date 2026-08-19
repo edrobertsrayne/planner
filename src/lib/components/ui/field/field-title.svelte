@@ -12,8 +12,8 @@
 
 <div
 	bind:this={ref}
-	data-slot="alert-action"
-	class={cn("absolute top-2.5 right-3", className)}
+	data-slot="field-label"
+	class={cn("gap-2 text-sm leading-snug font-medium group-data-[disabled=true]/field:opacity-50 flex w-fit items-center leading-snug", className)}
 	{...restProps}
 >
 	{@render children?.()}

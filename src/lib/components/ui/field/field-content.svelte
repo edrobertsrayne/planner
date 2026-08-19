@@ -12,8 +12,8 @@
 
 <div
 	bind:this={ref}
-	data-slot="alert-action"
-	class={cn("absolute top-2.5 right-3", className)}
+	data-slot="field-content"
+	class={cn("gap-1 group/field-content flex flex-1 flex-col leading-snug", className)}
 	{...restProps}
 >
 	{@render children?.()}
