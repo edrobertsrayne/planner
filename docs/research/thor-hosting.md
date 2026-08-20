@@ -114,7 +114,7 @@ planner = {
 Inside the module the package is `inputs.planner.packages.${pkgs.stdenv.hostPlatform.system}.default`.
 
 **The operational consequence to accept up front:** `flake.lock` pins the
-planner revision, so the nightly auto-upgrade will *not* pick up new planner
+planner revision, so the nightly auto-upgrade will _not_ pick up new planner
 releases. Shipping a planner change becomes `nix flake update planner` +
 commit + push in nix-config — a two-repo dance. That is the price of the
 non-container route, and it is the opposite of how the container services
@@ -139,8 +139,8 @@ comment into Infrastructure / Monitoring / Exporters / Media / Applications, wit
 `types.submodule` used where a service owns several ports
 (`exporters`, `media`, `barAssistant`).
 
-House rule, stated explicitly: *"Ports go in `modules/settings/ports.nix`, which
-is the single source of truth — never hard-code a port in a service module"*
+House rule, stated explicitly: _"Ports go in `modules/settings/ports.nix`, which
+is the single source of truth — never hard-code a port in a service module"_
 ([`docs/deploying.md#L185-L187`](https://github.com/edrobertsrayne/nix-config/blob/30564983db7acbce0608d029b3ab41ffc80f0c4a/docs/deploying.md#L185-L187)).
 `modules/hosts/thor/README.md#L48-L70` carries a convenience table that is
 explicitly subordinate to the Nix.
@@ -162,7 +162,7 @@ planner = mkOption {
 
 ## 3. Postgres: provisioning and the connection string
 
-`modules/postgresql.nix` is a shared *aspect*, not a host service — nine lines
+`modules/postgresql.nix` is a shared _aspect_, not a host service — nine lines
 that enable the server and persist its data directory
 ([`modules/postgresql.nix`](https://github.com/edrobertsrayne/nix-config/blob/30564983db7acbce0608d029b3ab41ffc80f0c4a/modules/postgresql.nix)):
 
@@ -207,12 +207,12 @@ No password, because nixpkgs' default `pg_hba` line is `local all all peer`
 ([nixpkgs `postgresql.nix#L684-L693`](https://github.com/NixOS/nixpkgs/blob/e4bae1bd10c9c57b2cf517953ab70060a828ee6f/nixos/modules/services/databases/postgresql.nix#L684-L693)),
 and nix-config never overrides `services.postgresql.authentication`. The same
 reasoning is spelled out for the Grafana datasource:
-*"Grafana's postgres driver treats a leading `/` as a unix socket and
-authenticates by peer, so no secret is needed"*
+_"Grafana's postgres driver treats a leading `/` as a unix socket and
+authenticates by peer, so no secret is needed"_
 ([`blocky.nix#L182-L184`](https://github.com/edrobertsrayne/nix-config/blob/30564983db7acbce0608d029b3ab41ffc80f0c4a/modules/blocky.nix#L182-L184)).
 
 **Therefore: `DATABASE_URL` is a plain `environment` entry, not a secret.**
-Peer auth matches the *OS* user name to the *role* name, so the unit must run as
+Peer auth matches the _OS_ user name to the _role_ name, so the unit must run as
 a user literally called `planner`. Set
 
 ```
@@ -256,7 +256,7 @@ Nothing to do for a new secret; it just means agenix works on a wiped root.
 
 Creating one (from
 [`.claude/skills/secrets/SKILL.md`](https://github.com/edrobertsrayne/nix-config/blob/30564983db7acbce0608d029b3ab41ffc80f0c4a/.claude/skills/secrets/SKILL.md#L28-L47)
-— `agenix` is *not* on PATH, and you *must* `cd secrets` first or `RULES`
+— `agenix` is _not_ on PATH, and you _must_ `cd secrets` first or `RULES`
 resolution fails):
 
 ```bash
@@ -278,13 +278,13 @@ Consumption patterns actually in use
 ([`SKILL.md#L85-L99`](https://github.com/edrobertsrayne/nix-config/blob/30564983db7acbce0608d029b3ab41ffc80f0c4a/.claude/skills/secrets/SKILL.md#L85-L99)),
 each with a live example:
 
-| Shape | Example | File format |
-|---|---|---|
-| `environmentFile` | [`searxng.nix#L20-L23`](https://github.com/edrobertsrayne/nix-config/blob/30564983db7acbce0608d029b3ab41ffc80f0c4a/modules/searxng.nix#L20-L23) | `KEY=value` |
-| `credentialsFile` | [`mealie.nix#L20-L26`](https://github.com/edrobertsrayne/nix-config/blob/30564983db7acbce0608d029b3ab41ffc80f0c4a/modules/mealie.nix#L20-L26) | `KEY=value` |
-| `*_FILE` env var → `.path` | [`n8n.nix#L39`](https://github.com/edrobertsrayne/nix-config/blob/30564983db7acbce0608d029b3ab41ffc80f0c4a/modules/n8n.nix#L39) | raw value |
-| systemd `EnvironmentFile` | [`code-server.nix#L32-L33`](https://github.com/edrobertsrayne/nix-config/blob/30564983db7acbce0608d029b3ab41ffc80f0c4a/modules/code-server.nix#L32-L33) | `KEY=value` |
-| container `environmentFiles` | [`bar-assistant.nix#L79`](https://github.com/edrobertsrayne/nix-config/blob/30564983db7acbce0608d029b3ab41ffc80f0c4a/modules/bar-assistant.nix#L79) | `KEY=value` |
+| Shape                        | Example                                                                                                                                                 | File format |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| `environmentFile`            | [`searxng.nix#L20-L23`](https://github.com/edrobertsrayne/nix-config/blob/30564983db7acbce0608d029b3ab41ffc80f0c4a/modules/searxng.nix#L20-L23)         | `KEY=value` |
+| `credentialsFile`            | [`mealie.nix#L20-L26`](https://github.com/edrobertsrayne/nix-config/blob/30564983db7acbce0608d029b3ab41ffc80f0c4a/modules/mealie.nix#L20-L26)           | `KEY=value` |
+| `*_FILE` env var → `.path`   | [`n8n.nix#L39`](https://github.com/edrobertsrayne/nix-config/blob/30564983db7acbce0608d029b3ab41ffc80f0c4a/modules/n8n.nix#L39)                         | raw value   |
+| systemd `EnvironmentFile`    | [`code-server.nix#L32-L33`](https://github.com/edrobertsrayne/nix-config/blob/30564983db7acbce0608d029b3ab41ffc80f0c4a/modules/code-server.nix#L32-L33) | `KEY=value` |
+| container `environmentFiles` | [`bar-assistant.nix#L79`](https://github.com/edrobertsrayne/nix-config/blob/30564983db7acbce0608d029b3ab41ffc80f0c4a/modules/bar-assistant.nix#L79)     | `KEY=value` |
 
 For a hand-written unit, `code-server.nix`'s
 `systemd.services.<name>.serviceConfig.EnvironmentFile = config.age.secrets.<name>.path`
@@ -337,7 +337,7 @@ services.cloudflared.tunnels."23c4423f-…" = {
 So `planner.greensroad.uk` is already routed to nginx the moment the vhost
 exists — **there is no per-service tunnel edit**. Confirmed in prose at
 [`docs/networking.md#L13-L23`](https://github.com/edrobertsrayne/nix-config/blob/30564983db7acbce0608d029b3ab41ffc80f0c4a/docs/networking.md#L13-L23).
-What is *not* in the repo is the public DNS record pointing
+What is _not_ in the repo is the public DNS record pointing
 `planner.greensroad.uk` at the tunnel — see
 [open questions](#open-questions--gaps).
 
@@ -361,14 +361,14 @@ per-service enrolment step in Nix.** The config's own words:
 > **Authentication is Cloudflare Access**, which requires a Google login before
 > a request ever reaches thor. Access policies are configured in the Cloudflare
 > dashboard, not in this repo — there is no password layer in the Nix config
-> because Access *is* the auth layer.
+> because Access _is_ the auth layer.
 > — [`docs/networking.md#L20-L23`](https://github.com/edrobertsrayne/nix-config/blob/30564983db7acbce0608d029b3ab41ffc80f0c4a/docs/networking.md#L20-L23)
 
 Corroborating: the only Cloudflare secrets are the tunnel credentials
 (`cloudflare-thor.age`) and the DNS-01 API token (`cloudflare-dns.age`)
 ([`secrets/secrets.nix#L10-L11`](https://github.com/edrobertsrayne/nix-config/blob/30564983db7acbce0608d029b3ab41ffc80f0c4a/secrets/secrets.nix#L10-L11));
 there is no `cloudflare-access` module, no `cf-terraforming`, no Terraform at
-all. Modules only ever *refer* to Access in comments explaining why they need no
+all. Modules only ever _refer_ to Access in comments explaining why they need no
 auth of their own
 ([`nginx.nix#L22-L25`](https://github.com/edrobertsrayne/nix-config/blob/30564983db7acbce0608d029b3ab41ffc80f0c4a/modules/nginx.nix#L22-L25),
 [`portainer.nix#L27-L33`](https://github.com/edrobertsrayne/nix-config/blob/30564983db7acbce0608d029b3ab41ffc80f0c4a/modules/portainer.nix#L27-L33)).
@@ -382,12 +382,12 @@ the repo.
 tailnet. Blocky resolves `*.greensroad.uk` straight to thor's tailnet address
 `100.84.196.40`
 ([`blocky.nix#L41-L43`](https://github.com/edrobertsrayne/nix-config/blob/30564983db7acbce0608d029b3ab41ffc80f0c4a/modules/blocky.nix#L41-L43)),
-so a tailnet client hits nginx directly on `:443` and *"Cloudflare Access never
-sees tailnet-direct traffic"*
+so a tailnet client hits nginx directly on `:443` and _"Cloudflare Access never
+sees tailnet-direct traffic"_
 ([`docs/networking.md#L129-L133`](https://github.com/edrobertsrayne/nix-config/blob/30564983db7acbce0608d029b3ab41ffc80f0c4a/docs/networking.md#L129-L133),
 table at
 [L135-L144](https://github.com/edrobertsrayne/nix-config/blob/30564983db7acbce0608d029b3ab41ffc80f0c4a/docs/networking.md#L135-L144)).
-The planner's better-auth login is therefore the *only* gate on the tailnet path
+The planner's better-auth login is therefore the _only_ gate on the tailnet path
 — which is the right call for this app, and matches how Paperless and Portainer
 are reasoned about. Do not treat Access as the sole authentication.
 
@@ -428,7 +428,7 @@ Two caveats:
    the Postgres role, and the state path would move under `/var/lib/private`.
    Declare `users.users.planner` explicitly.
 2. If the planner ever gains uploads or a writable cache, it needs its own
-   `environment.persistence` entry *and* the deploy must reach thor via a
+   `environment.persistence` entry _and_ the deploy must reach thor via a
    **reboot**, not a live switch: `system.autoUpgrade.operation = "boot"` exists
    precisely because a new persistence line applied live bind-mounts an empty
    directory over a running service's data
@@ -595,7 +595,7 @@ In order:
    and the port table in
    [`modules/hosts/thor/README.md#L48-L70`](https://github.com/edrobertsrayne/nix-config/blob/30564983db7acbce0608d029b3ab41ffc80f0c4a/modules/hosts/thor/README.md#L48-L70).
 10. **Out of band, in the Cloudflare dashboard** — confirm/add the DNS record for `planner.greensroad.uk` and enrol the hostname in the Access application (§6). Nothing in Nix does this.
-11. **`switch`** and push to `main` (merging *is* deploying, §0).
+11. **`switch`** and push to `main` (merging _is_ deploying, §0).
 
 In the **planner** repo, prerequisites: a flake exposing
 `packages.<system>.default` (and a migrate binary), a `GET /healthz` that needs
