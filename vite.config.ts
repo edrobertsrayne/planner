@@ -48,6 +48,10 @@ export default defineConfig({
 				test: {
 					name: 'server',
 					environment: 'node',
+					// Several test files import $lib/server/auth (transitively) or $lib/server/db/client,
+					// which open and migrate the same real DATABASE_URL file as a module-level side effect.
+					// Running server test files across multiple processes races them against that one file.
+					fileParallelism: false,
 					include: ['src/**/*.{test,spec}.{js,ts}'],
 					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}']
 				}

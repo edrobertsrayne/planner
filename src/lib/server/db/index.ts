@@ -1,16 +1,14 @@
 import { DatabaseSync } from 'node:sqlite';
 import { drizzle } from 'drizzle-orm/node-sqlite';
 import { readMigrationFiles } from 'drizzle-orm/migrator';
-import { building } from '$app/environment';
-import { env } from '$env/dynamic/private';
 
 const MIGRATIONS_TABLE = '__drizzle_migrations';
 
 export function openDatabase(path: string) {
 	const client = new DatabaseSync(path);
+	client.exec('PRAGMA busy_timeout = 5000');
 	client.exec('PRAGMA foreign_keys = ON');
 	client.exec('PRAGMA journal_mode = WAL');
-	client.exec('PRAGMA busy_timeout = 5000');
 
 	return { client, db: drizzle({ client }) };
 }
@@ -58,11 +56,3 @@ export function runMigrations(client: DatabaseSync, migrationsFolder = 'drizzle'
 		}
 	}
 }
-
-if (!env.DATABASE_URL) throw new Error('DATABASE_URL is not set');
-
-const { client, db } = openDatabase(env.DATABASE_URL);
-
-if (!building) runMigrations(client);
-
-export { db };

@@ -3,7 +3,7 @@ import { betterAuth } from 'better-auth/minimal';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { sveltekitCookies } from 'better-auth/svelte-kit';
 import { getRequestEvent } from '$app/server';
-import { db } from '$lib/server/db';
+import { db } from '$lib/server/db/client';
 import * as authSchema from '$lib/server/db/auth.schema';
 
 // SvelteKit's adapter-node needs ORIGIN to build event.url; better-auth needs BETTER_AUTH_URL

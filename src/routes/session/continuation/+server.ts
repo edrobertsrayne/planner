@@ -1,5 +1,5 @@
 import { error, json } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
+import { db } from '$lib/server/db/client';
 import { recordContinuation, sessionDetail } from '$lib/server/planner';
 import type { RequestHandler } from './$types';
 
