@@ -1,0 +1,35 @@
+node_modules
+Dockerfile*
+docker-compose*
+.dockerignore
+.git
+.gitignore
+README.md
+LICENSE
+.vscode
+Makefile
+helm-charts
+.env
+.env.*
+!.env.example
+.editorconfig
+.idea
+coverage*
+
+# Build output/caches (regenerated during build)
+.svelte-kit
+/build
+test-results
+
+# SQLite (local dev/e2e data)
+*.db
+*.db-shm
+*.db-wal
+
+# Repo/agent metadata not needed to build or run
+.github
+.claude
+.agents
+docs
+CONTEXT.md
+e2e

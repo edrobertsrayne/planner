@@ -1,6 +1,6 @@
 # SQLite over Postgres
 
-The database is SQLite, in one file, driven through Drizzle over Node's built-in `node:sqlite`.
+The database is SQLite, in one file, driven through Drizzle over Bun's built-in `bun:sqlite`.
 ADR-0004 originally named Postgres, on the reasoning that thor already runs a Postgres server so the
 marginal cost of using it was near zero. That is true of the _server_ and false of everything else:
 it also meant a database role, peer authentication, a unit ordered against `postgresql-setup.service`
@@ -19,9 +19,8 @@ term with Session notes, which ADR-0003 identifies as the one thing here that ca
 `pg_dump` schedule you set up in August and never tested."
 
 The deployable artifact is a flake or a container (issue #11) and the deployment itself is out of
-scope for this repository, so the runtime pins its own Node. `node:sqlite` has been available
-unflagged since Node 23.4 and therefore needs no native build in the derivation, which
-`better-sqlite3` would have.
+scope for this repository, so the runtime pins its own Bun. `bun:sqlite` is built into the Bun
+runtime and therefore needs no native build in the derivation, which `better-sqlite3` would have.
 
 ## Consequences
 

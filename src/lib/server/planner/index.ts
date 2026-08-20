@@ -13,7 +13,7 @@
 // that Lesson's Topic (or, for a move, either Topic) assigned, from `today` — quietly, on the
 // same write, with no separate recompute step (issue #31).
 import { and, asc, eq, gte, inArray, isNotNull, lt, or } from 'drizzle-orm';
-import type { drizzle } from 'drizzle-orm/node-sqlite';
+import type { drizzle } from 'drizzle-orm/bun-sqlite';
 import * as schema from '../db/schema';
 import {
 	agendaRows,

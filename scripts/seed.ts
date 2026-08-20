@@ -1,17 +1,16 @@
 /**
  * Rebuilds the calendar tables (Term, Blocked Day, Teaching Week) from a seed file and prints the
  * generated Teaching Week table for Ed to check by eye against the school's published calendar.
- * Runs under plain node (not bun — bun has no node:sqlite), from the repo root so DATABASE_URL
- * resolves:
+ * Runs under bun, from the repo root so DATABASE_URL resolves:
  *
- *   DATABASE_URL=local.db node scripts/seed.ts seed/2026-27.json
+ *   DATABASE_URL=local.db bun scripts/seed.ts seed/2026-27.json
  *
  * Destructive: rebuilds the calendar tables from scratch every run, and refuses to run once any
  * Session exists — there is no --force. Use `bun db:studio` to inspect or fix the database by hand.
  */
 import { readFileSync } from 'node:fs';
-import { DatabaseSync } from 'node:sqlite';
-import { drizzle } from 'drizzle-orm/node-sqlite';
+import { Database } from 'bun:sqlite';
+import { drizzle } from 'drizzle-orm/bun-sqlite';
 import * as schema from '../src/lib/server/db/schema.ts';
 import { seedFileSchema } from '../src/lib/server/calendar/seed-file.schema.ts';
 import { generateTeachingWeeks } from '../src/lib/server/calendar/generate-teaching-weeks.ts';
@@ -33,10 +32,10 @@ if (!parsed.success) {
 }
 const { academicYear, terms, blockedDays } = parsed.data;
 
-const client = new DatabaseSync(databaseUrl);
-client.exec('PRAGMA foreign_keys = ON');
-client.exec('PRAGMA journal_mode = WAL');
-client.exec('PRAGMA busy_timeout = 5000');
+const client = new Database(databaseUrl);
+client.run('PRAGMA foreign_keys = ON');
+client.run('PRAGMA journal_mode = WAL');
+client.run('PRAGMA busy_timeout = 5000');
 const db = drizzle({ client });
 
 const existingSession = client.prepare('SELECT id FROM session LIMIT 1').get();
@@ -48,7 +47,7 @@ if (existingSession) {
 
 const generatedWeeks = generateTeachingWeeks(terms, blockedDays);
 
-client.exec('BEGIN');
+client.run('BEGIN');
 try {
 	db.delete(schema.teachingWeek).run();
 	db.delete(schema.blockedDay).run();
@@ -66,9 +65,9 @@ try {
 			.run();
 	}
 
-	client.exec('COMMIT');
+	client.run('COMMIT');
 } catch (cause) {
-	client.exec('ROLLBACK');
+	client.run('ROLLBACK');
 	throw new Error(`Seeding ${academicYear} failed: ${(cause as Error).message}`, { cause });
 }
 
