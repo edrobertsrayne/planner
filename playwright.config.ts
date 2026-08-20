@@ -19,7 +19,7 @@ export default defineConfig({
 		headless: true
 	},
 	webServer: {
-		command: `rm -f ${DATABASE_URL} ${DATABASE_URL}-shm ${DATABASE_URL}-wal && bun run build && bun run preview`,
+		command: `rm -f ${DATABASE_URL} ${DATABASE_URL}-shm ${DATABASE_URL}-wal && bun --bun run build && bun --bun run preview`,
 		port: 4173,
 		// Never reuse a server already on this port — that could be the developer's own `bun run
 		// preview`, serving local.db, which is exactly what this file exists to keep the suite off.
