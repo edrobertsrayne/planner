@@ -1,20 +1,20 @@
-import { DatabaseSync } from 'node:sqlite';
-import { drizzle } from 'drizzle-orm/node-sqlite';
+import { Database } from 'bun:sqlite';
+import { drizzle } from 'drizzle-orm/bun-sqlite';
 import { readMigrationFiles } from 'drizzle-orm/migrator';
 
 const MIGRATIONS_TABLE = '__drizzle_migrations';
 
 export function openDatabase(path: string) {
-	const client = new DatabaseSync(path);
-	client.exec('PRAGMA busy_timeout = 5000');
-	client.exec('PRAGMA foreign_keys = ON');
-	client.exec('PRAGMA journal_mode = WAL');
+	const client = new Database(path);
+	client.run('PRAGMA busy_timeout = 5000');
+	client.run('PRAGMA foreign_keys = ON');
+	client.run('PRAGMA journal_mode = WAL');
 
 	return { client, db: drizzle({ client }) };
 }
 
-export function runMigrations(client: DatabaseSync, migrationsFolder = 'drizzle') {
-	client.exec(`CREATE TABLE IF NOT EXISTS ${MIGRATIONS_TABLE} (
+export function runMigrations(client: Database, migrationsFolder = 'drizzle') {
+	client.run(`CREATE TABLE IF NOT EXISTS ${MIGRATIONS_TABLE} (
 		id INTEGER PRIMARY KEY,
 		hash TEXT NOT NULL,
 		created_at NUMERIC,
@@ -24,9 +24,9 @@ export function runMigrations(client: DatabaseSync, migrationsFolder = 'drizzle'
 
 	const applied = new Set(
 		client
-			.prepare(`SELECT name FROM ${MIGRATIONS_TABLE}`)
+			.prepare<{ name: string }, []>(`SELECT name FROM ${MIGRATIONS_TABLE}`)
 			.all()
-			.map((row) => row.name as string)
+			.map((row) => row.name)
 	);
 
 	const pending = readMigrationFiles({ migrationsFolder }).filter(
@@ -38,18 +38,18 @@ export function runMigrations(client: DatabaseSync, migrationsFolder = 'drizzle'
 	);
 
 	for (const migration of pending) {
-		client.exec('BEGIN');
+		client.run('BEGIN');
 		try {
-			for (const statement of migration.sql) client.exec(statement);
+			for (const statement of migration.sql) client.run(statement);
 			insertMigration.run(
 				migration.hash,
 				migration.folderMillis,
 				migration.name,
 				new Date().toISOString()
 			);
-			client.exec('COMMIT');
+			client.run('COMMIT');
 		} catch (cause) {
-			client.exec('ROLLBACK');
+			client.run('ROLLBACK');
 			throw new Error(`Migration "${migration.name}" failed: ${(cause as Error).message}`, {
 				cause
 			});

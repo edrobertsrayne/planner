@@ -2,22 +2,22 @@
  * Recovers a locked-out planner. Deletes the single user, so the next request hits the setup gate
  * and the first-run wizard runs again. There is no password reset inside the app — see ADR-0011.
  *
- * Runs under plain node (not bun — bun has no node:sqlite), from the repo root:
+ * Runs under bun, from the repo root:
  *
- *   DATABASE_URL=local.db node scripts/reset-credentials.ts
+ *   DATABASE_URL=local.db bun scripts/reset-credentials.ts
  *
  * No better-auth import and no password hashing: /setup is the only path that creates a user, so
  * first-run and recovery exercise the same code and cannot drift apart.
  */
-import { DatabaseSync } from 'node:sqlite';
+import { Database } from 'bun:sqlite';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error('DATABASE_URL is not set');
 
-const client = new DatabaseSync(databaseUrl);
+const client = new Database(databaseUrl);
 // `account` and `auth_session` reference `user` ON DELETE CASCADE; nothing else in the schema
 // references it at all. Without this pragma the cascade does not fire and the delete fails.
-client.exec('PRAGMA foreign_keys = ON');
+client.run('PRAGMA foreign_keys = ON');
 
 const existing = client.prepare('SELECT email FROM user LIMIT 1').get() as
 	{ email: string } | undefined;
