@@ -1,6 +1,15 @@
 # use the official Bun image
 # see all versions at https://hub.docker.com/r/oven/bun/tags
-FROM oven/bun:alpine AS builder
+
+# install production-only dependencies, kept separate so devDependencies
+# never end up in the final image
+FROM oven/bun:alpine AS deps
+WORKDIR /app
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile --production
+
+
+FROM oven/bun:alpine AS build
 WORKDIR /app
 
 ENV NODE_ENV=production
@@ -17,17 +26,16 @@ COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 COPY . .
 RUN bun --bun run build
-# RUN bun prune --production
 
 
 # fresh image for the final stage so build-time env vars (including the
 # placeholder auth secret above) are not baked into the runtime image
 FROM oven/bun:alpine AS release
 WORKDIR /app
-COPY --from=builder /app/build build/
-COPY --from=builder /app/node_modules node_modules
-COPY --from=builder /app/package.json .
-COPY --from=builder /app/drizzle drizzle
+COPY --from=build /app/build build/
+COPY --from=deps /app/node_modules node_modules
+COPY --from=build /app/package.json .
+COPY --from=build /app/drizzle drizzle
 
 EXPOSE 3000
 ENV NODE_ENV=production
