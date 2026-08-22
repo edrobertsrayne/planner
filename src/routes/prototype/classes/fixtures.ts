@@ -20,6 +20,8 @@ export interface Lane {
 	taught: number;
 	total: number;
 	lastTaught: { title: string; note: string | null; date: string; period: number } | null;
+	/** The Assigned Topic being taught right now — the one the next Lesson sits inside. */
+	currentTopic: string | null;
 	nextUp: { title: string } | null;
 	runway: { date: string | null; lessonsRemaining: number };
 }
@@ -27,6 +29,7 @@ export interface Lane {
 export const LANES: Lane[] = [
 	{
 		classId: 'cls-7x',
+		currentTopic: 'Forces and motion',
 		classLabel: '7X/Sc1',
 		courseId: 'crs-ks3',
 		courseName: 'KS3 Science',
@@ -44,6 +47,7 @@ export const LANES: Lane[] = [
 	},
 	{
 		classId: 'cls-8y',
+		currentTopic: 'Energy',
 		classLabel: '8Y/Sc2',
 		courseId: 'crs-ks3',
 		courseName: 'KS3 Science',
@@ -56,6 +60,7 @@ export const LANES: Lane[] = [
 	},
 	{
 		classId: 'cls-9a',
+		currentTopic: 'Electricity',
 		classLabel: '9A/Ph1',
 		courseId: 'crs-ks4',
 		courseName: 'AQA GCSE Physics',
@@ -73,6 +78,7 @@ export const LANES: Lane[] = [
 	},
 	{
 		classId: 'cls-10b',
+		currentTopic: 'Particle model of matter',
 		classLabel: '10B/Ph',
 		courseId: 'crs-ks4',
 		courseName: 'AQA GCSE Physics',
@@ -90,6 +96,7 @@ export const LANES: Lane[] = [
 	},
 	{
 		classId: 'cls-11c',
+		currentTopic: 'Revision',
 		classLabel: '11C/Ph',
 		courseId: 'crs-ks4',
 		courseName: 'AQA GCSE Physics',
@@ -107,6 +114,7 @@ export const LANES: Lane[] = [
 	},
 	{
 		classId: 'cls-12d',
+		currentTopic: 'Mechanics',
 		classLabel: '12D/Ph',
 		courseId: 'crs-a',
 		courseName: 'A-level Physics (Year 12)',

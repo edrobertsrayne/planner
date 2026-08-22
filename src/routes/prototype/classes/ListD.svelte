@@ -52,9 +52,15 @@
 					</div>
 
 					<dl class="mt-auto space-y-1 text-xs">
+						<!-- The Topic sits above the Lesson because the Lesson is inside it: the tile now reads
+						     "you are in Electricity, and the next one is Resistance". -->
+						<div class="flex gap-1.5">
+							<dt class="shrink-0 text-muted-foreground">Topic</dt>
+							<dd class="truncate font-medium">{lane.currentTopic ?? '—'}</dd>
+						</div>
 						<div class="flex gap-1.5">
 							<dt class="shrink-0 text-muted-foreground">Next</dt>
-							<dd class="truncate font-medium">{lane.nextUp?.title ?? '—'}</dd>
+							<dd class="truncate">{lane.nextUp?.title ?? '—'}</dd>
 						</div>
 						<div class="flex gap-1.5">
 							<dt class="shrink-0 text-muted-foreground">Runway</dt>
