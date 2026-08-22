@@ -10,6 +10,12 @@ There was no design system before this. `src/lib/components` did not exist; all 
 files carried inline Tailwind, and the drift was already visible — `text-neutral-400` hand-repeated
 thirteen times, the same text input spelled three ways.
 
+This ADR originally assumed a staged migration that preserved the existing look, converting roughly
+44% of the UI opportunistically. Issue #53 reset that: the redesign is ground-up, every screen
+including the two grids, decided by prototype rather than argument. The Why below still holds — it's
+the reason for shadcn-svelte at all, not the shape of the rollout. The Consequences have been
+rewritten to match what #53 actually decided.
+
 ## Why
 
 A future reader will reasonably ask why a project that chose SvelteKit _against_ agent familiarity
@@ -41,34 +47,48 @@ shadcn-svelte sits on.
 
 ## Consequences
 
-**`$lib/components/ui` is vendored, and hand-edits to it are a signal.** It is exempted from
-`.prettierignore` and the eslint config so that it stays byte-identical to upstream and a diff means
-a deliberate fork. Anything authored here lives outside that directory; single-use components stay
-colocated with their route.
+**`$lib/components/ui` is ours, not vendored.** Once a component is added it is part of this
+codebase and may be edited freely — the "byte-identical to upstream" rule is withdrawn. The
+`.prettierignore` and eslint `ignores` entries that enforced it come out, and the directory is
+formatted and linted like everything else.
 
-**The two grids are never migrating.** The Teaching Week grid and the Slot grid are bespoke tables
-over the derived schedule, and no library on the survey ships them. They are also where density
-matters most — `min-h-16 w-40` cells, `text-[11px]` titles, a `text-[9px]` control — against
-shadcn's `h-9 px-4 py-2`. shadcn density is adopted for chrome and refused inside the grids, which
-keeps the copied components unforked.
+**The style is `rhea`, at `--radius: 0.625rem`.** shadcn's recommended appearance stands otherwise
+untouched: the CLI-default neutral tokens, no accent colour, no bespoke type scale. `mira` was tried
+first for its 10px `xs` control size, then dropped as too cramped outside the grids; `rhea` was
+settled instead, and `mira`'s `xs` convention — `h-7` (28px) everywhere except the Teaching Week and
+Slot grids, which keep `xs`/`h-5` density — carried over as a documented convention rather than a
+token. `@tailwindcss/typography` is dropped; nothing in the app renders prose. `@tailwindcss/forms` remains
+dropped too — it applies base-layer resets to bare inputs that shadcn's own `input.svelte` also
+styles, and stopped earning its place once every input is a component.
 
-**Two idioms coexist for a while.** Only the four chrome files convert immediately; roughly 44% of
-the UI converts when a feature next touches it. That band is where an agent will find both idioms
-and pick either, so `CLAUDE.md` names which files are converted, which never will be, and what the
-test is: things with states go through `ui/`, arrangement stays Tailwind in the route.
+**The two grids are redesigned, not exempted.** ADR-0012's original carve-out — "the two grids are
+never migrating" — is withdrawn. The density argument that justified it is answered by the `xs`
+control size, not by leaving the grids on hand-rolled markup.
 
-**`@tailwindcss/forms` is dropped.** It applies base-layer resets to bare inputs, which shadcn's
-`input.svelte` also styles, leaving cascade order to decide. It existed to make unstyled inputs
-tolerable and stops earning its place once every input is a component. `@tailwindcss/typography`
-stays; it styles prose and does not overlap.
+**There is no staged conversion.** Every screen converts as part of the redesign; the
+44%-opportunistic-conversion plan and the two-idioms-coexist period it implied do not happen.
 
-**Dark mode is taken at init rather than retrofitted.** shadcn ships both token sets and carries the
-dark variants in its class strings, so the marginal cost now is one block of tokens. The cost later
-would be revisiting every bespoke grid cell, since `class-tone.ts` hashes a colour per Class and its
-eight tones must stay literal class names for Tailwind's scanner to see them.
+**Dark mode is wired with `mode-watcher`.** Both token sets shipping in `class` strings was only half
+the story — the activation layer (`<ModeWatcher />`, localStorage, a pre-paint head script for
+SSR-safety) had to be built separately from the tokens. Class tone tokens (below) replace the literal
+per-Class Tailwind classes that would otherwise have needed a static exemption from the dark-mode
+class scan.
 
-**The accent colour is constrained by the calendar.** Eight hashed Class tones already spend the
-colour budget on the busiest screen, so the accent is near-neutral by necessity rather than taste.
+**Class tones are CSS custom-property tokens, not literal Tailwind classes.** `class-tone.ts`'s
+per-Class hash now resolves to `{ bg, fg, ring }` roles on `--tone-{0-7}-{bg|fg|ring}`, with dark
+variants formula-driven from a shared OKLCH curve rather than hand-picked per tone. `stone` was
+replaced by `indigo`; the other seven hues are unchanged. This is what makes the tones safe to keep
+literal-free — a lint rule against raw palette utilities becomes viable now that `class-tone.ts` no
+longer needs an exemption from it.
+
+**The accent colour is near-neutral by default, not constrained by the calendar.** shadcn's
+unmodified neutral palette was kept rather than picking an accent around the eight Class tones; the
+tones live as their own token set and don't compete with chrome for colour budget.
+
+**The component inventory is not pre-registered.** Adding a shadcn-svelte component is a single CLI
+command, so rebuild tickets decide what they need when they need it rather than settling an inventory
+up front. `dialog`, `field`, `separator` and `badge` are in use as of the prototypes; `sheet` and
+`tabs` were tried and rejected.
 
 **`data-table` is available, and the dependency is not the reason to avoid it.** The research
 document flags that it pulls `@tanstack/table-core`; that is true and is not a deciding factor, on a
