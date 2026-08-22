@@ -1,40 +1,33 @@
-// PROTOTYPE — throwaway. Read-only load combining the real agenda and calendar-week data so all
-// three variants can be judged against Ed's actual data, not fixtures. See issue #61.
-import { db } from '$lib/server/db';
-import { addDays, agenda, calendarWeek, teachingWeeksList } from '$lib/server/planner';
+// PROTOTYPE — throwaway. Serves fixtures only — see fixtures.ts for why. This loader deliberately
+// does not import `$lib/server/db`: the prototype must render on an empty database, and a route
+// that reads no real data is a route with nothing to leak.
+import { agendaFixture, mondayOf, weekFixture } from './fixtures';
 import type { PageServerLoad } from './$types';
 
 function today() {
 	return new Date().toISOString().slice(0, 10);
 }
 
-// Same "the week today falls inside, else the next one to come" rule as the real Calendar route.
-function defaultWeek(weeks: { weekCommencing: string }[], on: string): string | null {
-	if (weeks.length === 0) return null;
-	const containing = weeks.find(
-		(w) => on >= w.weekCommencing && on <= addDays(w.weekCommencing, 4)
-	);
-	if (containing) return containing.weekCommencing;
-	const upcoming = weeks.find((w) => w.weekCommencing > on);
-	if (upcoming) return upcoming.weekCommencing;
-	return weeks[weeks.length - 1].weekCommencing;
+function addDays(iso: string, n: number): string {
+	const d = new Date(iso + 'T00:00:00Z');
+	d.setUTCDate(d.getUTCDate() + n);
+	return d.toISOString().slice(0, 10);
 }
 
 export const load: PageServerLoad = ({ url }) => {
 	const t = today();
+	const thisWeek = mondayOf(t);
+	const nextWeek = addDays(thisWeek, 7);
 
-	const rows = agenda(db, { today: t, horizonDays: 14 });
+	const requested = url.searchParams.get('week');
+	const selected = requested === nextWeek ? nextWeek : thisWeek;
+	const letter = selected === thisWeek ? 'A' : 'B';
 
-	const weeks = teachingWeeksList(db);
-	const requestedWeek = url.searchParams.get('week');
-	const selected =
-		(requestedWeek && weeks.some((w) => w.weekCommencing === requestedWeek)
-			? requestedWeek
-			: null) ?? defaultWeek(weeks, t);
-	const week = selected ? calendarWeek(db, { weekCommencing: selected, today: t }) : null;
-	const index = selected ? weeks.findIndex((w) => w.weekCommencing === selected) : -1;
-	const prev = index > 0 ? weeks[index - 1].weekCommencing : null;
-	const next = index >= 0 && index < weeks.length - 1 ? weeks[index + 1].weekCommencing : null;
-
-	return { today: t, rows, week, prev, next };
+	return {
+		today: t,
+		rows: agendaFixture(t),
+		week: weekFixture(selected, letter),
+		prev: selected === nextWeek ? thisWeek : null,
+		next: selected === thisWeek ? nextWeek : null
+	};
 };

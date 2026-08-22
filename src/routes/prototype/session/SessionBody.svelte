@@ -10,7 +10,8 @@
 	aside and sheet can only really do `narrow`, the route can do either — so if `wide` reads as
 	the right hierarchy, that's an argument for the route on its own.
 
-	Reads real data from /session. Writes are stubbed — no mutation from a prototype.
+	Reads fixtures, not the database (see fixtures.ts). Writes are stubbed — no mutation from a
+	prototype, and the note resets when you move to another occasion.
 -->
 <script lang="ts">
 	import { Badge } from '$lib/components/ui/badge/index.js';
@@ -20,28 +21,18 @@
 	import { classTone } from '$lib/client/class-tone';
 	import type { Occasion } from '$lib/client/session-panel.svelte';
 	import type { SessionDetail } from '$lib/server/planner';
+	import { sessionDetailFixture } from './fixtures';
 
 	let { occasion, layout = 'narrow' }: { occasion: Occasion; layout?: 'narrow' | 'wide' } =
 		$props();
 
-	let detail = $state<SessionDetail | null>(null);
-	let note = $state('');
+	// The real panel fetches GET /session here. That endpoint is gated, and this prototype has to
+	// run against an empty database, so it reads the fixture instead — synchronously, which also
+	// means no loading state and no stale-response race to reproduce.
+	const detail: SessionDetail = $derived(sessionDetailFixture(occasion));
 
-	$effect(() => {
-		const { classId, date, period } = occasion;
-		let current = true;
-		detail = null;
-		fetch(`/session?classId=${encodeURIComponent(classId)}&date=${date}&period=${period}`)
-			.then((r) => r.json())
-			.then((d: SessionDetail) => {
-				if (!current) return;
-				detail = d;
-				note = d.note ?? '';
-			});
-		return () => {
-			current = false;
-		};
-	});
+	// Writable derived: resets when you move to another occasion, edits stay local, never saved.
+	let note = $derived(detail.note ?? '');
 
 	const tone = $derived(classTone(occasion.classId));
 
@@ -56,7 +47,7 @@
 
 {#snippet heading()}
 	<div class="flex items-center gap-2">
-		<Badge variant="outline" class="{tone.bg} {tone.text}">{detail?.classLabel ?? '···'}</Badge>
+		<Badge variant="outline" class="{tone.bg} {tone.text}">{detail.classLabel}</Badge>
 		<span class="text-xs text-muted-foreground">
 			{fmtLongDay(occasion.date)} · P{occasion.period}
 		</span>
@@ -64,7 +55,7 @@
 {/snippet}
 
 {#snippet plan()}
-	{#if detail?.lesson}
+	{#if detail.lesson}
 		<h2 class={layout === 'wide' ? 'text-xl font-semibold' : 'text-lg leading-snug font-semibold'}>
 			{detail.lesson.title}
 		</h2>
@@ -101,11 +92,9 @@
 				Widens this Lesson onto the Class's next Available Slot.
 			</p>
 		</div>
-	{:else if detail}
+	{:else}
 		<h2 class="text-lg font-semibold text-muted-foreground italic">Unplanned</h2>
 		<p class="mt-1 text-xs text-muted-foreground">No Lesson planned for this occasion.</p>
-	{:else}
-		<p class="text-sm text-muted-foreground">Loading…</p>
 	{/if}
 {/snippet}
 
