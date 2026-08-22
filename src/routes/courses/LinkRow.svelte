@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { Input } from '$lib/components/ui/input/index.js';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import LinkIcon from '@lucide/svelte/icons/link';
 
 	let {
 		link,
@@ -29,14 +32,13 @@
 		class="space-y-1"
 	>
 		<input type="hidden" name="id" value={link.id} />
-		<!-- svelte-ignore a11y_autofocus -->
-		<input
+		<Input
 			autofocus
 			name="label"
 			value={link.label}
 			required
 			autocomplete="off"
-			class="w-full rounded border border-neutral-300 px-2 py-1 text-xs"
+			class="h-7 text-xs"
 			placeholder="Label"
 			onkeydown={(e) => {
 				if (e.key === 'Escape') {
@@ -46,30 +48,30 @@
 			}}
 		/>
 		<div class="flex gap-1">
-			<input
+			<Input
 				name="url"
 				type="url"
 				value={link.url}
 				required
 				autocomplete="off"
-				class="min-w-0 flex-1 rounded border border-neutral-300 px-2 py-1 text-xs"
+				class="h-7 min-w-0 flex-1 text-xs"
 				placeholder="https://…"
 			/>
-			<button type="submit" class="shrink-0 rounded bg-neutral-900 px-2.5 text-xs text-white">
-				Save
-			</button>
-			<button
+			<Button type="submit" size="sm" class="h-7 shrink-0 text-xs">Save</Button>
+			<Button
 				type="button"
-				class="shrink-0 rounded px-2.5 text-xs text-neutral-400 hover:text-neutral-900"
+				variant="ghost"
+				size="sm"
+				class="h-7 shrink-0 text-xs"
 				onclick={() => (editing = false)}
 			>
 				Cancel
-			</button>
+			</Button>
 		</div>
 	</form>
 {:else}
 	<div class="group flex items-baseline gap-2">
-		<span class="text-neutral-300">🔗</span>
+		<LinkIcon class="size-3.5 shrink-0 text-muted-foreground" />
 		<button
 			type="button"
 			class="min-w-0 flex-1 truncate text-left"
@@ -77,7 +79,7 @@
 		>
 			{link.label}
 		</button>
-		<span class="shrink-0 font-mono text-[10px] text-neutral-400">
+		<span class="shrink-0 font-mono text-[10px] text-muted-foreground">
 			{new URL(link.url).hostname.split('.')[0]}
 		</span>
 		<span class="flex shrink-0 items-center gap-0.5 opacity-0 group-hover:opacity-100">
@@ -87,7 +89,7 @@
 				<input type="hidden" name="direction" value="up" />
 				<button
 					type="submit"
-					class="px-1 text-neutral-400 hover:text-neutral-900 disabled:opacity-25"
+					class="px-1 text-muted-foreground hover:text-foreground disabled:opacity-25"
 					disabled={first}
 					aria-label="Move {link.label} up"
 				>
@@ -100,7 +102,7 @@
 				<input type="hidden" name="direction" value="down" />
 				<button
 					type="submit"
-					class="px-1 text-neutral-400 hover:text-neutral-900 disabled:opacity-25"
+					class="px-1 text-muted-foreground hover:text-foreground disabled:opacity-25"
 					disabled={last}
 					aria-label="Move {link.label} down"
 				>
@@ -111,7 +113,7 @@
 				<input type="hidden" name="id" value={link.id} />
 				<button
 					type="submit"
-					class="px-1 text-neutral-400 hover:text-red-600"
+					class="px-1 text-muted-foreground hover:text-destructive"
 					aria-label="Remove {link.label}"
 				>
 					✕
