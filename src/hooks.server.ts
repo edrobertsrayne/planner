@@ -8,7 +8,7 @@ import { svelteKitHandler } from 'better-auth/svelte-kit';
 // Routes reachable without a session, besides /api/auth/* (excluded below by svelteKitHandler
 // itself, not by this list). `handle` never runs for static assets, so between the two, every
 // other route is protected by default.
-const PUBLIC_ROUTES = ['/login', '/prototype'];
+const PUBLIC_ROUTES = ['/login'];
 const SETUP_ROUTE = '/setup';
 
 function matches(pathname: string, route: string) {
