@@ -117,6 +117,7 @@
 									{:else}
 										<button
 											type="button"
+											data-session-trigger
 											class="h-full min-h-5 w-28 rounded border-l-2 {tone.border} {tone.bg} px-1 py-0.5 text-left hover:brightness-95 {isSelected(
 												cell
 											)

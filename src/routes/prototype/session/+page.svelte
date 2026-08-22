@@ -3,9 +3,10 @@
 	open?" (issue #62), each rendered against the real Agenda list and Teaching Week grid at their
 	settled density so the trade-off is honest.
 
-	  A — Persistent aside      store-driven, schedule squeezed beside it
+	  A — Persistent aside      store-driven, schedule squeezed beside it, closes only by ✕
 	  B — Its own destination   URL-driven, replaces the schedule, wide two-column hierarchy
 	  C — Sheet over the top    URL-driven, overlays the schedule at full width
+	  D — Dismissible aside     A's in-flow column with C's click-away dismissal (the hybrid)
 
 	Switchable via ?variant=A|B|C. B and C also carry ?session=<class>~<date>~<period> — reload
 	the page with one open to feel the difference from A.
@@ -17,6 +18,7 @@
 	import VariantA from './VariantA.svelte';
 	import VariantB from './VariantB.svelte';
 	import VariantC from './VariantC.svelte';
+	import VariantD from './VariantD.svelte';
 	import PrototypeSwitcher from './PrototypeSwitcher.svelte';
 	import { PARAM, decodeOccasion, encodeOccasion } from './occasion';
 	import type { PageData } from './$types';
@@ -26,7 +28,8 @@
 	const VARIANTS = [
 		{ key: 'A', name: 'Persistent aside' },
 		{ key: 'B', name: 'Its own destination' },
-		{ key: 'C', name: 'Sheet over the top' }
+		{ key: 'C', name: 'Sheet over the top' },
+		{ key: 'D', name: 'Dismissible aside (A+C)' }
 	];
 
 	const variant = $derived(page.url.searchParams.get('variant') ?? 'A');
@@ -61,7 +64,9 @@
 </script>
 
 <div class="h-screen">
-	{#if variant === 'B'}
+	{#if variant === 'D'}
+		<VariantD {data} {onNav} {selected} {onSelect} />
+	{:else if variant === 'B'}
 		<VariantB {data} {onNav} {selected} {onSelect} />
 	{:else if variant === 'C'}
 		<VariantC {data} {onNav} {selected} {onSelect} />

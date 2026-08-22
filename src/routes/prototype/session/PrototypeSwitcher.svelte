@@ -30,6 +30,7 @@
 <svelte:window {onkeydown} />
 
 <div
+	data-prototype-chrome
 	class="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full border bg-neutral-900 px-3 py-1.5 text-white shadow-lg dark:bg-neutral-100 dark:text-neutral-900"
 >
 	<button type="button" onclick={() => go(-1)} aria-label="Previous variant" class="px-1">←</button>

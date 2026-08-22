@@ -63,6 +63,7 @@
 				<li>
 					<button
 						type="button"
+						data-session-trigger
 						class="flex w-full gap-3 px-4 {dense
 							? 'py-2'
 							: 'py-3'} text-left text-sm hover:bg-muted/50 {isSelected(row)
