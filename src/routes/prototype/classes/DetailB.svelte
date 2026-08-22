@@ -65,7 +65,7 @@
 	<div class="mx-auto w-full max-w-4xl px-6 py-6">
 		<Tabs.Content value="timetable">
 			<EffectiveFromBanner bind:from />
-			<div class="rounded-b-xl border p-4">
+			<div class="max-w-2xl rounded-b-xl border p-4">
 				<SlotGridUnified />
 				<p class="mt-3 text-xs text-muted-foreground">
 					Greyed Periods belong to another Class. A double is two Periods, ticked separately.

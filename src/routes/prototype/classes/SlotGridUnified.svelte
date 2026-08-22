@@ -27,7 +27,7 @@
 		</Tabs.List>
 	</Tabs.Root>
 
-	<table class="w-full max-w-2xl border-separate border-spacing-1">
+	<table class="w-full border-separate border-spacing-1">
 		<thead>
 			<tr>
 				<th class="w-10"></th>

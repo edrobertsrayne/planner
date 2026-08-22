@@ -18,6 +18,8 @@
 	import DetailA from './DetailA.svelte';
 	import DetailB from './DetailB.svelte';
 	import DetailC from './DetailC.svelte';
+	import DetailD from './DetailD.svelte';
+	import DetailE from './DetailE.svelte';
 
 	const SCREENS = {
 		list: {
@@ -31,7 +33,9 @@
 			variants: [
 				{ key: 'A', name: 'One page, sectioned', component: DetailA },
 				{ key: 'B', name: 'Identity + tabs', component: DetailB },
-				{ key: 'C', name: 'The workbench', component: DetailC }
+				{ key: 'C', name: 'The workbench', component: DetailC },
+				{ key: 'D', name: 'Workbench + one week', component: DetailD },
+				{ key: 'E', name: 'Workbench + both weeks', component: DetailE }
 			]
 		}
 	} as const;
