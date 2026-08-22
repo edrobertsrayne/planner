@@ -15,6 +15,7 @@
 	import ListA from './ListA.svelte';
 	import ListB from './ListB.svelte';
 	import ListC from './ListC.svelte';
+	import ListD from './ListD.svelte';
 	import DetailA from './DetailA.svelte';
 	import DetailB from './DetailB.svelte';
 	import DetailC from './DetailC.svelte';
@@ -26,7 +27,8 @@
 			variants: [
 				{ key: 'A', name: 'Lane cards', component: ListA },
 				{ key: 'B', name: 'The register', component: ListB },
-				{ key: 'C', name: 'Launcher tiles', component: ListC }
+				{ key: 'C', name: 'Launcher tiles', component: ListC },
+				{ key: 'D', name: 'Tiles + actions', component: ListD }
 			]
 		},
 		detail: {
