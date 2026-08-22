@@ -1,6 +1,6 @@
 import { redirect, type Handle } from '@sveltejs/kit';
 import { sequence } from '@sveltejs/kit/hooks';
-import { building } from '$app/environment';
+import { building, dev } from '$app/environment';
 import { auth } from '$lib/server/auth';
 import { hasUser } from '$lib/server/setup';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
@@ -62,6 +62,12 @@ const handleAuth: Handle = async ({ event, resolve }) => {
 };
 
 const handleGuard: Handle = async ({ event, resolve }) => {
+	// Throwaway prototype routes (src/routes/prototype/*) serve fixtures and never touch the
+	// database, so there is nothing behind this gate for them to leak — and they have to be
+	// viewable on a machine whose database is empty, where every other route bounces to /setup.
+	// `dev` is statically false in a build, so this branch cannot exist in production.
+	if (dev && event.url.pathname.startsWith('/prototype')) return resolve(event);
+
 	const target = guardRedirect({
 		pathname: event.url.pathname,
 		search: event.url.search,
