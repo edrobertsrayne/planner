@@ -1,0 +1,19 @@
+/*
+	PROTOTYPE — throwaway. The drained treatment, shared by all three variants.
+
+	Today's grid hatches a Blocked cell with `repeating-linear-gradient(135deg,#f5f5f5 0 6px,#fafafa
+	6px 12px)` — two hardcoded near-white hex values, which is one of the 48 hardcoded palette
+	utilities #69 counts and is invisible in dark mode. The same texture derived from
+	`--muted-foreground` instead works in both themes and needs no dark-mode branch.
+
+	CONTEXT.md's rule is the constraint: "a Blocked Day and a Blocked Slot drain the colour instead
+	— present-but-empty and removed must never read alike." So the hatch is what *replaces* the
+	tone, never something laid over it.
+*/
+.hatched {
+	background-image: repeating-linear-gradient(
+		135deg,
+		color-mix(in oklab, var(--muted-foreground) 14%, transparent) 0 5px,
+		transparent 5px 10px
+	);
+}
