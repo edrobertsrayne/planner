@@ -33,13 +33,16 @@ export const load: PageServerLoad = ({ params, url }) => {
 
 	const yearStart = academicYearStart(db);
 	const effectiveFrom = url.searchParams.get('from') || null;
-	const on = effectiveFrom ?? yearStart ?? today();
+	// The default position is today (ADR-0007) — start of year is one named stop the "Timetable
+	// as at" control offers, never the fallback, or the grid would default to reading history.
+	const on = effectiveFrom ?? today();
 
 	return {
 		class: selected,
 		lane: classLanes(db, { today: today(), classId: selected.id })[0] ?? null,
 		yearStart,
 		effectiveFrom,
+		today: today(),
 		on,
 		grid: activeSlots(db, on),
 		datedSlots: datedSlotsOf(db, selected.id),
@@ -59,7 +62,7 @@ export const actions: Actions = {
 		const day = Number(data.get('day'));
 		const period = Number(data.get('period'));
 		const from = trimmed(data, 'from') || null;
-		const on = from ?? academicYearStart(db) ?? today();
+		const on = from ?? today();
 
 		const holder = holderAt(db, { week, day, period, on });
 		try {

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { goto } from '$app/navigation';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { toast } from 'svelte-sonner';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
@@ -48,6 +49,40 @@
 				}
 			};
 	}
+
+	function setAsAt(date: string) {
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- carries a query string
+		goto(`?from=${date}`, {
+			replaceState: true,
+			noScroll: true,
+			keepFocus: true,
+			invalidateAll: true
+		});
+	}
+
+	// Named stops: start of year, today, and every date this Class's own Slots start or stop
+	// holding — the "Timetable as at" control's job is to make those, plus any date at all, a
+	// first-class position to view or edit from (issue #93).
+	const stops = $derived.by(() => {
+		const dates: string[] = [data.today];
+		if (data.yearStart) dates.push(data.yearStart);
+		for (const s of data.datedSlots) {
+			if (s.holdsFrom) dates.push(s.holdsFrom);
+			if (s.holdsTo) dates.push(s.holdsTo);
+		}
+		const unique = dates.filter((d, i) => dates.indexOf(d) === i);
+		return unique.sort().map((date) => ({
+			date,
+			label:
+				date === data.yearStart
+					? `Start of year — ${fmtLong(date)}`
+					: date === data.today
+						? `Today — ${fmtLong(date)}`
+						: fmtLong(date)
+		}));
+	});
+
+	const isPast = $derived(data.on < data.today);
 </script>
 
 <svelte:head><title>{data.class.label}</title></svelte:head>
@@ -69,6 +104,30 @@
 				<span class="text-xs text-muted-foreground tabular-nums">
 					{data.grid.filter((s) => s.classId === data.class.id).length} Slots a fortnight
 				</span>
+			</div>
+
+			<div class="mt-2 flex flex-wrap items-center gap-2">
+				<span class="text-xs font-medium text-muted-foreground">Timetable as at</span>
+				<Select.Root type="single" value={data.on} onValueChange={(v) => v && setAsAt(v)}>
+					<Select.Trigger size="sm" class="h-7 w-56 text-xs">
+						{fmtLong(data.on)}
+					</Select.Trigger>
+					<Select.Content>
+						{#each stops as s (s.date)}
+							<Select.Item value={s.date} label={s.label} />
+						{/each}
+					</Select.Content>
+				</Select.Root>
+				<input
+					type="date"
+					class="h-7 rounded-md border bg-transparent px-2 text-xs"
+					value={data.on}
+					onchange={(e) => setAsAt(e.currentTarget.value)}
+					aria-label="Timetable as at — pick any date"
+				/>
+				{#if isPast}
+					<Badge variant="outline" class="text-muted-foreground">Read-only — past</Badge>
+				{/if}
 			</div>
 
 			<div class="mt-3 rounded-xl border p-4">
@@ -109,7 +168,16 @@
 												{@const slot = slotAt(w, day, p)}
 												{@const mine = slot?.classId === data.class.id}
 												<td>
-													{#if mine}
+													{#if mine && isPast}
+														<div
+															class="flex h-8 w-full items-center justify-center rounded-md bg-primary/10 text-[11px] font-medium text-primary inset-ring inset-ring-primary/30"
+															aria-label="Week {w} {d} P{p} — {data.class.label}, as at {fmtLong(
+																data.on
+															)}"
+														>
+															{data.class.label.split('/')[0]}
+														</div>
+													{:else if mine}
 														<form
 															method="POST"
 															action="?/toggleSlot"
@@ -119,7 +187,7 @@
 															<input type="hidden" name="week" value={w} />
 															<input type="hidden" name="day" value={day} />
 															<input type="hidden" name="period" value={p} />
-															<input type="hidden" name="from" value="" />
+															<input type="hidden" name="from" value={data.on} />
 															<Button
 																type="submit"
 																size="xs"
@@ -137,6 +205,11 @@
 														>
 															{labelOf(slot.classId)}
 														</div>
+													{:else if isPast}
+														<div
+															class="h-8 w-full rounded-md border border-dashed opacity-40"
+															aria-label="Week {w} {d} P{p} — empty, as at {fmtLong(data.on)}"
+														></div>
 													{:else}
 														<form
 															method="POST"
@@ -147,7 +220,7 @@
 															<input type="hidden" name="week" value={w} />
 															<input type="hidden" name="day" value={day} />
 															<input type="hidden" name="period" value={p} />
-															<input type="hidden" name="from" value="" />
+															<input type="hidden" name="from" value={data.on} />
 															<Button
 																type="submit"
 																variant="outline"
