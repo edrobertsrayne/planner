@@ -234,7 +234,9 @@
 											{:else}
 												<button
 													type="button"
-													class="h-full min-h-16 w-40 rounded border-l-4 {tone.border} {tone.bg} px-2 py-1.5 text-left hover:brightness-95"
+													class="h-full min-h-16 w-40 rounded border-l-4 px-2 py-1.5 text-left hover:brightness-95"
+													style:background-color={tone.bg}
+													style:border-left-color={tone.ring}
 													onclick={() =>
 														sessionPanel.open({
 															classId: cell.classId,
@@ -242,7 +244,9 @@
 															period: cell.periodFrom
 														})}
 												>
-													<div class="text-xs font-bold {tone.text}">{cell.classLabel}</div>
+													<div class="text-xs font-bold" style:color={tone.fg}>
+														{cell.classLabel}
+													</div>
 													{#if cell.kind === 'lesson'}
 														<div
 															class="mt-0.5 line-clamp-3 text-[11px] leading-tight text-neutral-700"
