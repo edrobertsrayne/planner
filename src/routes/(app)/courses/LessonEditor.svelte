@@ -1,6 +1,13 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
+	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
+	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
+	import XIcon from '@lucide/svelte/icons/x';
+	import * as Dialog from '$lib/components/ui/dialog/index.js';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
+	import { Textarea } from '$lib/components/ui/textarea/index.js';
 	import LinkRow from './LinkRow.svelte';
 
 	let {
@@ -48,15 +55,19 @@
 
 	let addingLink = $state(false);
 
+	// The Dialog starts open every time this component mounts — it only exists while a Lesson is
+	// selected. Escape, overlay-click and the close button all flow through bits-ui setting this to
+	// false, which the effect below turns into the same URL-driven close as every other exit.
+	let dialogOpen = $state(true);
+
+	$effect(() => {
+		if (!dialogOpen) close();
+	});
+
 	function onkeydown(e: KeyboardEvent) {
 		const el = document.activeElement as HTMLElement | null;
 		const typing =
 			el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
-		if (e.key === 'Escape') {
-			e.preventDefault();
-			close();
-			return;
-		}
 		if (typing) return;
 		if (e.key === 'ArrowUp') {
 			e.preventDefault();
@@ -71,48 +82,49 @@
 
 <svelte:window {onkeydown} />
 
-<div
-	class="fixed inset-0 z-40 flex items-center justify-center bg-neutral-900/40 p-6 sm:p-12"
-	role="dialog"
-	aria-modal="true"
->
-	<div
-		class="flex max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl"
+<Dialog.Root bind:open={dialogOpen}>
+	<Dialog.Content
+		class="flex max-h-[85vh] w-full max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl"
+		showCloseButton={false}
 	>
-		<div class="flex items-center gap-3 border-b border-neutral-200 px-6 py-3">
-			<span class="text-[11px] font-bold tracking-wider text-neutral-400 uppercase">
+		<Dialog.Title class="sr-only">Edit Lesson</Dialog.Title>
+
+		<div class="flex items-center gap-3 border-b px-6 py-3">
+			<span class="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
 				Lesson {index + 1} of {count}
 			</span>
 			<span class="ml-auto flex items-center gap-0.5">
-				<button
-					type="button"
-					class="rounded px-2 py-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-900 disabled:opacity-25"
+				<Button
+					variant="ghost"
+					size="icon-sm"
 					disabled={!previousId}
 					onclick={() => step(previousId)}
 					aria-label="Previous Lesson"
 				>
-					↑
-				</button>
-				<button
-					type="button"
-					class="rounded px-2 py-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-900 disabled:opacity-25"
+					<ChevronUpIcon class="size-3.5" />
+				</Button>
+				<Button
+					variant="ghost"
+					size="icon-sm"
 					disabled={!nextId}
 					onclick={() => step(nextId)}
 					aria-label="Next Lesson"
 				>
-					↓
-				</button>
+					<ChevronDownIcon class="size-3.5" />
+				</Button>
+				<Dialog.Close>
+					{#snippet child({ props })}
+						<Button {...props} variant="ghost" size="icon-sm" aria-label="Close">
+							<XIcon class="size-3.5" />
+						</Button>
+					{/snippet}
+				</Dialog.Close>
 			</span>
-			<button
-				type="button"
-				class="ml-2 text-sm text-neutral-400 hover:text-neutral-900"
-				onclick={close}
-			>
-				Done <span class="font-mono text-[11px]">esc</span>
-			</button>
 		</div>
 
-		<div class="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_18rem] gap-6 px-6 pt-2 pb-6">
+		<div
+			class="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_18rem] gap-6 overflow-y-auto px-6 pt-2 pb-6"
+		>
 			<!-- title, body and Planned Length save together as one Lesson write; Links are their own
 			     forms and so cannot nest inside this one — `contents` keeps this form's fields as
 			     direct grid items instead of a wrapping box. -->
@@ -131,50 +143,51 @@
 			>
 				<input type="hidden" name="id" value={lesson.id} />
 				<div class="col-span-2">
-					<input
+					<Input
 						name="title"
 						value={lesson.title}
 						required
 						autocomplete="off"
-						class="w-full border-0 px-0 pt-4 pb-2 text-xl font-semibold tracking-tight focus:ring-0 focus:outline-none"
+						class="h-auto w-full border-0 bg-transparent px-0 pt-4 pb-2 text-xl font-semibold tracking-tight shadow-none focus-visible:ring-0 md:text-xl"
 						placeholder="Lesson title…"
 						onblur={(e) => e.currentTarget.form?.requestSubmit()}
 					/>
 				</div>
 
 				<label class="row-span-2 flex min-h-0 flex-col">
-					<span class="text-[11px] font-bold tracking-wider text-neutral-400 uppercase">
+					<span class="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
 						Notes & objectives
 					</span>
-					<textarea
+					<Textarea
 						name="body"
-						class="mt-1.5 min-h-72 flex-1 resize-none rounded-lg border border-neutral-300 px-4 py-3 font-mono text-xs leading-relaxed focus:border-neutral-900 focus:outline-none"
+						value={lesson.body ?? ''}
+						class="mt-1.5 min-h-72 flex-1 resize-none font-mono text-xs leading-relaxed"
 						placeholder="Markdown — objectives, what to set up, what went wrong last time…"
-						onblur={(e) => e.currentTarget.form?.requestSubmit()}>{lesson.body ?? ''}</textarea
-					>
+						onblur={(e) => e.currentTarget.form?.requestSubmit()}
+					/>
 				</label>
 
 				<label class="block">
-					<span class="text-[11px] font-bold tracking-wider text-neutral-400 uppercase">
+					<span class="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
 						Planned Length
 					</span>
 					<div class="mt-1 flex items-center gap-2">
-						<input
+						<Input
 							type="number"
 							name="plannedLength"
 							min="1"
 							value={lesson.plannedLength}
-							class="w-16 rounded border border-neutral-300 px-2 py-1 text-sm"
+							class="h-7 w-16"
 							onchange={(e) => e.currentTarget.form?.requestSubmit()}
 						/>
-						<span class="text-sm text-neutral-500">Periods</span>
+						<span class="text-sm text-muted-foreground">Periods</span>
 					</div>
 				</label>
 			</form>
 
 			<div>
 				<label class="block">
-					<span class="text-[11px] font-bold tracking-wider text-neutral-400 uppercase">
+					<span class="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
 						Topic
 					</span>
 					<form
@@ -202,7 +215,7 @@
 						<select
 							name="topicId"
 							value={topicId}
-							class="w-full rounded border border-neutral-300 px-2 py-1 text-sm"
+							class="w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
 							onchange={(e) => e.currentTarget.form?.requestSubmit()}
 						>
 							{#each topics as t (t.id)}
@@ -213,22 +226,24 @@
 				</label>
 
 				{#if taughtBy.length}
-					<p class="mt-2 text-[11px] text-neutral-400">
+					<p class="mt-2 text-[11px] text-muted-foreground">
 						Taught by {taughtBy.map((c) => c.label).join(', ')}.
 					</p>
 				{/if}
 			</div>
 
 			<div class="min-h-0 overflow-y-auto">
-				<span class="text-[11px] font-bold tracking-wider text-neutral-400 uppercase"> Links </span>
+				<span class="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
+					Links
+				</span>
 				<ul class="mt-1 space-y-1">
 					{#each links as link, i (link.id)}
-						<li class="rounded bg-neutral-50 px-2 py-1.5 text-sm">
+						<li class="rounded-md bg-muted px-2 py-1.5 text-sm">
 							<LinkRow {link} lessonId={lesson.id} first={i === 0} last={i === links.length - 1} />
 						</li>
 					{/each}
 					{#if !links.length}
-						<li class="px-1 py-1 text-xs text-neutral-400">No Links yet.</li>
+						<li class="px-1 py-1 text-xs text-muted-foreground">No Links yet.</li>
 					{/if}
 				</ul>
 
@@ -245,49 +260,47 @@
 						}}
 					>
 						<input type="hidden" name="lessonId" value={lesson.id} />
-						<!-- svelte-ignore a11y_autofocus -->
-						<input
+						<Input
 							autofocus
 							name="label"
 							required
 							autocomplete="off"
-							class="w-full rounded border border-neutral-300 px-2 py-1 text-xs"
+							class="h-7 text-xs md:text-xs"
 							placeholder="Label"
 						/>
 						<div class="flex gap-1">
-							<input
+							<Input
 								name="url"
 								type="url"
 								required
 								autocomplete="off"
-								class="min-w-0 flex-1 rounded border border-neutral-300 px-2 py-1 text-xs"
+								class="h-7 min-w-0 flex-1 text-xs md:text-xs"
 								placeholder="https://…"
 							/>
-							<button
-								type="submit"
-								class="shrink-0 rounded bg-neutral-900 px-2.5 text-xs text-white"
-							>
-								Add
-							</button>
-							<button
+							<Button type="submit" size="sm" class="shrink-0">Add</Button>
+							<Button
 								type="button"
-								class="shrink-0 rounded px-2.5 text-xs text-neutral-400 hover:text-neutral-900"
+								variant="ghost"
+								size="sm"
+								class="shrink-0"
 								onclick={() => (addingLink = false)}
 							>
 								Cancel
-							</button>
+							</Button>
 						</div>
 					</form>
 				{:else}
-					<button
+					<Button
 						type="button"
-						class="mt-2 text-xs text-neutral-500 hover:text-neutral-900"
+						variant="ghost"
+						size="sm"
+						class="mt-2 text-xs text-muted-foreground"
 						onclick={() => (addingLink = true)}
 					>
 						+ Add Link
-					</button>
+					</Button>
 				{/if}
 			</div>
 		</div>
-	</div>
-</div>
+	</Dialog.Content>
+</Dialog.Root>

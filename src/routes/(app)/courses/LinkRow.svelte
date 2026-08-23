@@ -1,5 +1,12 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import LinkIcon from '@lucide/svelte/icons/link';
+	import PencilIcon from '@lucide/svelte/icons/pencil';
+	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
+	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
+	import XIcon from '@lucide/svelte/icons/x';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
 
 	let {
 		link,
@@ -29,14 +36,13 @@
 		class="space-y-1"
 	>
 		<input type="hidden" name="id" value={link.id} />
-		<!-- svelte-ignore a11y_autofocus -->
-		<input
+		<Input
 			autofocus
 			name="label"
 			value={link.label}
 			required
 			autocomplete="off"
-			class="w-full rounded border border-neutral-300 px-2 py-1 text-xs"
+			class="h-7 text-xs md:text-xs"
 			placeholder="Label"
 			onkeydown={(e) => {
 				if (e.key === 'Escape') {
@@ -46,76 +52,91 @@
 			}}
 		/>
 		<div class="flex gap-1">
-			<input
+			<Input
 				name="url"
 				type="url"
 				value={link.url}
 				required
 				autocomplete="off"
-				class="min-w-0 flex-1 rounded border border-neutral-300 px-2 py-1 text-xs"
+				class="h-7 min-w-0 flex-1 text-xs md:text-xs"
 				placeholder="https://…"
 			/>
-			<button type="submit" class="shrink-0 rounded bg-neutral-900 px-2.5 text-xs text-white">
-				Save
-			</button>
-			<button
+			<Button type="submit" size="sm" class="shrink-0">Save</Button>
+			<Button
 				type="button"
-				class="shrink-0 rounded px-2.5 text-xs text-neutral-400 hover:text-neutral-900"
+				variant="ghost"
+				size="sm"
+				class="shrink-0"
 				onclick={() => (editing = false)}
 			>
 				Cancel
-			</button>
+			</Button>
 		</div>
 	</form>
 {:else}
 	<div class="group flex items-baseline gap-2">
-		<span class="text-neutral-300">🔗</span>
-		<button
-			type="button"
-			class="min-w-0 flex-1 truncate text-left"
-			onclick={() => (editing = true)}
+		<LinkIcon class="size-3.5 shrink-0 translate-y-0.5 text-muted-foreground" />
+		<!-- eslint-disable svelte/no-navigation-without-resolve -- a Link's url is external -->
+		<a
+			href={link.url}
+			target="_blank"
+			rel="noopener noreferrer"
+			class="min-w-0 flex-1 truncate hover:underline"
 		>
 			{link.label}
-		</button>
-		<span class="shrink-0 font-mono text-[10px] text-neutral-400">
+		</a>
+		<!-- eslint-enable svelte/no-navigation-without-resolve -->
+		<span class="shrink-0 font-mono text-[10px] text-muted-foreground">
 			{new URL(link.url).hostname.split('.')[0]}
 		</span>
 		<span class="flex shrink-0 items-center gap-0.5 opacity-0 group-hover:opacity-100">
+			<Button
+				variant="ghost"
+				size="icon-sm"
+				onclick={() => (editing = true)}
+				aria-label="Edit {link.label}"
+			>
+				<PencilIcon class="size-3.5" />
+			</Button>
 			<form method="POST" action="?/moveLink" use:enhance>
 				<input type="hidden" name="lessonId" value={lessonId} />
 				<input type="hidden" name="id" value={link.id} />
 				<input type="hidden" name="direction" value="up" />
-				<button
+				<Button
 					type="submit"
-					class="px-1 text-neutral-400 hover:text-neutral-900 disabled:opacity-25"
+					variant="ghost"
+					size="icon-sm"
 					disabled={first}
 					aria-label="Move {link.label} up"
 				>
-					↑
-				</button>
+					<ChevronUpIcon class="size-3.5" />
+				</Button>
 			</form>
 			<form method="POST" action="?/moveLink" use:enhance>
 				<input type="hidden" name="lessonId" value={lessonId} />
 				<input type="hidden" name="id" value={link.id} />
 				<input type="hidden" name="direction" value="down" />
-				<button
+				<Button
 					type="submit"
-					class="px-1 text-neutral-400 hover:text-neutral-900 disabled:opacity-25"
+					variant="ghost"
+					size="icon-sm"
 					disabled={last}
 					aria-label="Move {link.label} down"
 				>
-					↓
-				</button>
+					<ChevronDownIcon class="size-3.5" />
+				</Button>
 			</form>
 			<form method="POST" action="?/deleteLink" use:enhance>
 				<input type="hidden" name="id" value={link.id} />
-				<button
+				<Button
 					type="submit"
-					class="px-1 text-neutral-400 hover:text-red-600"
+					variant="ghost"
+					size="icon-sm"
+					class="hover:text-destructive"
 					aria-label="Remove {link.label}"
 				>
-					✕
-				</button>
+					<XIcon class="size-3.5" />
+				</Button>
 			</form>
 		</span>
 	</div>
