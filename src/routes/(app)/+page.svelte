@@ -21,6 +21,10 @@
 		});
 	}
 
+	function openOccasion(row: (typeof data.rows)[number]) {
+		sessionPanel.open({ classId: row.classId, date: row.date, period: row.periodFrom });
+	}
+
 	const fmtLongDay = (iso: string) =>
 		new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', {
 			weekday: 'long',
@@ -101,12 +105,7 @@
 						<button
 							type="button"
 							class="min-w-0 flex-1 py-3 text-left outline-none focus-visible:underline"
-							onclick={() =>
-								sessionPanel.open({
-									classId: row.classId,
-									date: row.date,
-									period: row.periodFrom
-								})}
+							onclick={() => openOccasion(row)}
 						>
 							{#if row.lesson}
 								<span class="block truncate text-sm font-medium">{row.lesson.title}</span>
@@ -123,12 +122,7 @@
 								variant="ghost"
 								size="sm"
 								class="h-7 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
-								onclick={() =>
-									sessionPanel.open({
-										classId: row.classId,
-										date: row.date,
-										period: row.periodFrom
-									})}
+								onclick={() => openOccasion(row)}
 							>
 								Plan
 							</Button>
