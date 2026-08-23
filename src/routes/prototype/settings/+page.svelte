@@ -3,9 +3,13 @@
 	one change-password form and nothing else?
 
 	Three variants (`?variant=A|B|C`) that disagree about how much screen one small form deserves:
-	a card on its own page, a section on a full-width page, or no page at all. Two more axes on the
-	bar: `?feedback=inline|toast` for where the result of the submit lands, and `?outcome=ok|bad`
-	for which result the stubbed action returns.
+	a card on its own page, a section on a full-width page, or no page at all. Three more axes on
+	the bar: `?feedback=inline|toast` for where the result of the submit lands, `?outcome=ok|bad`
+	for which result the stubbed action returns, and `?tint=rich|token` for where a coloured toast
+	takes its status colours from.
+
+	SETTLED: A, on `toast`, with `rich` — the card, its result in a coloured toast wearing sonner's
+	own status palette. See the resolution on #80.
 
 	The action is stubbed (see ./stub.ts) — no database, no login, nothing is written.
 -->
@@ -18,7 +22,9 @@
 	import VariantA from './VariantA.svelte';
 	import VariantB from './VariantB.svelte';
 	import VariantC from './VariantC.svelte';
+	import { mode } from 'mode-watcher';
 	import { changePassword, type Outcome, type Result } from './stub.js';
+	import { toasterStyle, type Tint } from './toast-tint.js';
 
 	const VARIANTS = [
 		{ key: 'A', name: 'The card' },
@@ -34,6 +40,9 @@
 	const key = $derived(param('variant', ['A', 'B', 'C'], 'A'));
 	const feedback = $derived(param('feedback', ['inline', 'toast'], 'inline'));
 	const outcome = $derived(param('outcome', ['ok', 'bad'], 'ok') as Outcome);
+	// `rich` is the settled answer: sonner's stock status palette, so colouring the toast costs the
+	// design system no new colour. `token` is the rejected alternative, kept for the record.
+	const tint = $derived(param('tint', ['rich', 'token'], 'rich') as Tint);
 
 	// The result is stamped with the axes it was produced under, so flipping a switch mid-flow
 	// retires a stale message without an effect that writes state back.
@@ -41,7 +50,7 @@
 	let pending = $state(false);
 	let dialogOpen = $state(true);
 
-	const axes = $derived(`${key}|${feedback}|${outcome}`);
+	const axes = $derived(`${key}|${feedback}|${outcome}|${tint}`);
 	const result = $derived(stamped?.axes === axes ? stamped.value : null);
 
 	// Inline feedback is only rendered where the variant can hold it. C on `inline` deliberately
@@ -67,7 +76,7 @@
 
 <svelte:head><title>Prototype — Settings</title></svelte:head>
 
-<Toaster position="bottom-right" />
+<Toaster position="bottom-right" richColors style={toasterStyle(tint, mode.current === 'dark')} />
 
 <SettingsShell
 	activeTab={key === 'C' ? 'Agenda' : null}
@@ -85,4 +94,4 @@
 	{/if}
 </SettingsShell>
 
-<PrototypeSwitcher variants={VARIANTS} current={key} {feedback} {outcome} />
+<PrototypeSwitcher variants={VARIANTS} current={key} {feedback} {outcome} {tint} />

@@ -11,13 +11,20 @@
 		variants,
 		current,
 		feedback,
-		outcome
+		outcome,
+		tint
 	}: {
 		variants: { key: string; name: string }[];
 		current: string;
 		feedback: string;
 		outcome: string;
+		tint: string;
 	} = $props();
+
+	const TINTS = [
+		{ key: 'token', name: 'Our tokens' },
+		{ key: 'rich', name: "Sonner's" }
+	];
 
 	const FEEDBACK = [
 		{ key: 'inline', name: 'Inline' },
@@ -79,6 +86,7 @@
 >
 	{@render pills(FEEDBACK, feedback, 'feedback', 'Where the result lands')}
 	{@render pills(OUTCOMES, outcome, 'outcome', 'What the stubbed action returns')}
+	{@render pills(TINTS, tint, 'tint', 'Where the toast takes its status colour from')}
 
 	<button type="button" onclick={() => go(-1)} aria-label="Previous variant" class="px-1">←</button>
 	<span class="min-w-40 text-center text-xs font-medium">
