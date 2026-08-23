@@ -9,6 +9,7 @@ import {
 	classLanes,
 	datedSlotsOf,
 	holderAt,
+	listClasses,
 	moveAssignedTopic,
 	takeSlot,
 	clearSlot,
@@ -43,7 +44,10 @@ export const load: PageServerLoad = ({ params, url }) => {
 		grid: activeSlots(db, on),
 		datedSlots: datedSlotsOf(db, selected.id),
 		assignedTopics: assignedTopicsOf(db, selected.id),
-		courseTopics: topicsOf(db, selected.courseId)
+		courseTopics: topicsOf(db, selected.courseId),
+		// Labels the grid needs for a Slot held by another Class — the grid itself carries only
+		// classId (activeSlots' shape is unchanged), so the label is looked up here.
+		classes: listClasses(db)
 	};
 };
 

@@ -1,40 +1,33 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { goto } from '$app/navigation';
+	import type { SubmitFunction } from '@sveltejs/kit';
+	import { toast } from 'svelte-sonner';
+	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
+	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
+	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
+	import PlusIcon from '@lucide/svelte/icons/plus';
+	import XIcon from '@lucide/svelte/icons/x';
 	import { openSession } from '$lib/client/session-panel.svelte';
+	import { Badge } from '$lib/components/ui/badge/index.js';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import * as Select from '$lib/components/ui/select/index.js';
+	import { Separator } from '$lib/components/ui/separator/index.js';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
+
+	let assignForm = $state<HTMLFormElement | undefined>();
 
 	const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 	const PERIODS = [1, 2, 3, 4, 5, 6];
 	const WEEKS = ['A', 'B'] as const;
 
-	let mode = $state<'year' | 'date'>('year');
-	let fromDate = $state('');
-
-	// Reset the local edit state whenever the server sends a new "changes apply from" — an
-	// accepted edit, never a keystroke in the date input itself.
-	$effect(() => {
-		mode = data.effectiveFrom ? 'date' : 'year';
-		fromDate = data.effectiveFrom ?? data.yearStart ?? '';
-	});
-
-	const effectiveFrom = $derived(mode === 'date' && fromDate ? fromDate : '');
-
-	function applyEffective() {
-		const params = [effectiveFrom && `from=${encodeURIComponent(effectiveFrom)}`].filter(Boolean);
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- carries a query string
-		goto(`?${params.join('&')}`, {
-			replaceState: true,
-			noScroll: true,
-			keepFocus: true,
-			invalidateAll: true
-		});
-	}
-
 	function slotAt(week: (typeof WEEKS)[number], day: number, period: number) {
 		return data.grid.find((s) => s.week === week && s.day === day && s.period === period) ?? null;
+	}
+
+	function labelOf(classId: string) {
+		return data.classes.find((c) => c.id === classId)?.label ?? classId;
 	}
 
 	const fmtLong = (iso: string) =>
@@ -45,320 +38,340 @@
 			timeZone: 'UTC'
 		});
 
-	let topicToAssign = $state('');
-	$effect(() => {
-		if (!data.courseTopics.some((t) => t.id === topicToAssign))
-			topicToAssign = data.courseTopics[0]?.id ?? '';
-	});
+	function onFail(fallback: string): SubmitFunction {
+		return () =>
+			async ({ result, update }) => {
+				if (result.type === 'failure') {
+					toast.error(String((result.data as { error?: string } | undefined)?.error ?? fallback));
+				} else {
+					await update({ invalidateAll: true });
+				}
+			};
+	}
 </script>
 
 <svelte:head><title>{data.class.label}</title></svelte:head>
 
-<div class="min-w-0 flex-1 overflow-y-auto">
-	<div class="border-b border-neutral-200 bg-white px-8 py-5">
-		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- static internal route -->
-		<a href="/classes" class="text-xs text-neutral-400 hover:text-neutral-700">&larr; Classes</a>
-		<div class="mt-1 flex items-baseline gap-3">
-			<h2 class="text-xl font-semibold tracking-tight">{data.class.label}</h2>
-			<span class="rounded bg-neutral-100 px-2 py-0.5 text-xs ring-1 ring-neutral-300"
-				>{data.class.courseName}</span
-			>
-		</div>
-		<p class="mt-1 text-xs text-neutral-400">
-			The Course is fixed at creation and cannot be changed here — a mis-pick means deleting the
-			Class and starting again.
-		</p>
-	</div>
+<div class="mx-auto max-w-6xl px-6 py-6">
+	<!-- eslint-disable svelte/no-navigation-without-resolve -- static internal route -->
+	<a
+		href="/classes"
+		class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+	>
+		<ChevronLeftIcon class="size-3" />Classes
+	</a>
+	<!-- eslint-enable svelte/no-navigation-without-resolve -->
 
-	{#if data.lane}
-		<section class="border-b border-neutral-200 bg-white px-8 py-4">
-			<div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-				<span class="text-neutral-600">
-					{data.lane.taught} / {data.lane.total} Lessons taught
-				</span>
-				<span class="text-neutral-600">
-					Runway:
-					<span class="font-medium text-neutral-900"
-						>{data.lane.runway.date ? fmtLong(data.lane.runway.date) : 'open-ended'}</span
-					>
-					{#if data.lane.runway.lessonsRemaining > 0}
-						<span class="text-neutral-400"
-							>({data.lane.runway.lessonsRemaining} Lesson{data.lane.runway.lessonsRemaining === 1
-								? ''
-								: 's'} with no Slot left to carry them)</span
-						>
-					{/if}
+	<div class="mt-3 grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+		<section class="min-w-0">
+			<div class="flex flex-wrap items-baseline justify-between gap-2">
+				<h2 class="text-sm font-semibold">Timetable</h2>
+				<span class="text-xs text-muted-foreground tabular-nums">
+					{data.grid.filter((s) => s.classId === data.class.id).length} Slots a fortnight
 				</span>
 			</div>
-			<div class="mt-2 flex flex-wrap gap-x-8 gap-y-1 text-xs">
-				{#if data.lane.lastTaught}
-					{@const lt = data.lane.lastTaught}
-					<button
-						type="button"
-						data-session-trigger
-						class="text-left text-neutral-600 hover:text-neutral-900"
-						onclick={() =>
-							openSession({ classId: data.class.id, date: lt.date, period: lt.period })}
-					>
-						<span class="text-neutral-400">Last taught:</span>
-						<span class="font-medium">{lt.title}</span>
-						{#if lt.note}<span class="text-neutral-400"> — {lt.note}</span>{/if}
-					</button>
-				{:else}
-					<span class="text-neutral-400">Not taught yet.</span>
+
+			<div class="mt-3 rounded-xl border p-4">
+				{#if form?.error}
+					<p role="alert" class="mb-3 text-xs text-destructive">{form.error}</p>
 				{/if}
-				{#if data.lane.nextUp}
-					<span class="text-neutral-600">
-						<span class="text-neutral-400">Next up:</span>
-						<span class="font-medium">{data.lane.nextUp.title}</span>
-					</span>
+
+				<div class="space-y-5">
+					{#each WEEKS as w (w)}
+						<div>
+							<div class="mb-2 flex items-baseline gap-2">
+								<h3 class="text-sm font-semibold">Week {w}</h3>
+								<span class="text-xs text-muted-foreground tabular-nums">
+									{data.grid.filter((s) => s.week === w && s.classId === data.class.id).length} Slots
+								</span>
+								<div class="ml-2 h-px flex-1 bg-border"></div>
+							</div>
+
+							<table class="w-full border-separate border-spacing-1">
+								<thead>
+									<tr>
+										<th class="w-10"></th>
+										{#each DAYS as d (d)}
+											<th class="w-1/5 pb-1 text-xs font-medium text-muted-foreground">{d}</th>
+										{/each}
+									</tr>
+								</thead>
+								<tbody>
+									{#each PERIODS as p (p)}
+										<tr>
+											<th
+												class="pr-2 text-right text-xs font-normal whitespace-nowrap text-muted-foreground"
+											>
+												P{p}
+											</th>
+											{#each DAYS as d, i (d)}
+												{@const day = i + 1}
+												{@const slot = slotAt(w, day, p)}
+												{@const mine = slot?.classId === data.class.id}
+												<td>
+													{#if mine}
+														<form
+															method="POST"
+															action="?/toggleSlot"
+															use:enhance={onFail('Could not change the Timetable.')}
+														>
+															<input type="hidden" name="classId" value={data.class.id} />
+															<input type="hidden" name="week" value={w} />
+															<input type="hidden" name="day" value={day} />
+															<input type="hidden" name="period" value={p} />
+															<input type="hidden" name="from" value="" />
+															<Button
+																type="submit"
+																size="xs"
+																class="h-8 w-full"
+																aria-label="Week {w} {d} P{p} — {data.class.label}, click to clear"
+															>
+																{data.class.label.split('/')[0]}
+															</Button>
+														</form>
+													{:else if slot}
+														<div
+															class="flex h-8 w-full cursor-not-allowed items-center justify-center rounded-md bg-muted/60 text-[11px] text-muted-foreground/80 inset-ring inset-ring-border"
+															title="Held by {labelOf(slot.classId)}"
+															aria-label="Week {w} {d} P{p} — held by {labelOf(slot.classId)}"
+														>
+															{labelOf(slot.classId)}
+														</div>
+													{:else}
+														<form
+															method="POST"
+															action="?/toggleSlot"
+															use:enhance={onFail('Could not change the Timetable.')}
+														>
+															<input type="hidden" name="classId" value={data.class.id} />
+															<input type="hidden" name="week" value={w} />
+															<input type="hidden" name="day" value={day} />
+															<input type="hidden" name="period" value={p} />
+															<input type="hidden" name="from" value="" />
+															<Button
+																type="submit"
+																variant="outline"
+																size="xs"
+																class="h-8 w-full border-dashed text-muted-foreground/40 hover:border-solid hover:text-foreground"
+																aria-label="Week {w} {d} P{p} — empty, click to give it to {data
+																	.class.label}"
+															>
+																<PlusIcon class="size-3" />
+															</Button>
+														</form>
+													{/if}
+												</td>
+											{/each}
+										</tr>
+									{/each}
+								</tbody>
+							</table>
+						</div>
+					{/each}
+				</div>
+
+				<p class="mt-3 text-xs text-muted-foreground">
+					A Period held by another Class carries its label. A double is two Periods, ticked
+					separately.
+				</p>
+
+				{#if data.datedSlots.length}
+					<div class="mt-4 rounded-lg bg-muted/40 px-3 py-2">
+						<p class="text-xs font-medium">Slots that do not hold all year</p>
+						<ul class="mt-1 space-y-0.5 text-xs text-muted-foreground">
+							{#each data.datedSlots as s (s.id)}
+								<li>
+									<span class="font-medium text-foreground">
+										Week {s.week} · {DAYS[s.day - 1]} · P{s.period}
+									</span>
+									{#if s.holdsFrom}from {fmtLong(s.holdsFrom)}{/if}
+									{#if s.holdsTo}{s.holdsFrom ? ', ' : ''}until {fmtLong(s.holdsTo)}{/if}
+								</li>
+							{/each}
+						</ul>
+					</div>
 				{/if}
 			</div>
 		</section>
-	{/if}
 
-	<section class="px-8 py-6">
-		<div class="flex flex-wrap items-baseline gap-3">
-			<h3 class="text-sm font-semibold">Timetable</h3>
-			<span class="ml-auto flex items-center gap-2 text-xs">
-				<span class="text-neutral-400">Changes apply from</span>
-				<select
-					class="rounded border border-neutral-300 px-2 py-1 text-xs"
-					bind:value={mode}
-					onchange={applyEffective}
-				>
-					<option value="year">the start of the year</option>
-					<option value="date">a date…</option>
-				</select>
-				{#if mode === 'date'}
-					<input
-						type="date"
-						class="rounded border border-neutral-300 px-2 py-1 text-xs"
-						bind:value={fromDate}
-						onchange={applyEffective}
-					/>
-				{/if}
-			</span>
-		</div>
+		<aside class="space-y-5 lg:sticky lg:top-6 lg:self-start">
+			<div>
+				<h1 class="text-lg font-semibold tracking-tight">{data.class.label}</h1>
+				<Badge variant="outline" class="mt-1">{data.class.courseName}</Badge>
+				<p class="mt-2 text-xs text-muted-foreground">
+					The Course is fixed at creation — a mis-pick means deleting the Class and starting again.
+				</p>
+			</div>
 
-		{#if form?.error}
-			<p role="alert" class="mt-2 text-xs text-neutral-500">{form.error}</p>
-		{/if}
+			{#if data.lane}
+				<div>
+					<div class="flex items-baseline justify-between text-xs">
+						<span class="text-muted-foreground">Through the plan</span>
+						<span class="font-medium tabular-nums">{data.lane.taught} / {data.lane.total}</span>
+					</div>
+					<div class="mt-1.5 h-1 overflow-hidden rounded-full bg-muted">
+						<div
+							class="h-full bg-primary"
+							style:width="{data.lane.total
+								? Math.round((data.lane.taught / data.lane.total) * 100)
+								: 0}%"
+						></div>
+					</div>
+					<dl class="mt-3 space-y-1.5 text-xs">
+						<div>
+							<dt class="text-muted-foreground">Last taught</dt>
+							<dd>
+								{#if data.lane.lastTaught}
+									{@const lt = data.lane.lastTaught}
+									<button
+										type="button"
+										data-session-trigger
+										class="text-left font-medium hover:underline"
+										onclick={() =>
+											openSession({ classId: data.class.id, date: lt.date, period: lt.period })}
+									>
+										{lt.title}
+									</button>
+									{#if lt.note}<p class="mt-0.5 text-muted-foreground">{lt.note}</p>{/if}
+								{:else}
+									<span class="text-muted-foreground">Not taught yet.</span>
+								{/if}
+							</dd>
+						</div>
+						<div>
+							<dt class="text-muted-foreground">Next up</dt>
+							<dd class="font-medium">{data.lane.nextUp?.title ?? '—'}</dd>
+						</div>
+						<div>
+							<dt class="text-muted-foreground">Runway</dt>
+							<dd class="font-medium">
+								{data.lane.runway.date ? fmtLong(data.lane.runway.date) : 'open-ended'}
+								{#if data.lane.runway.lessonsRemaining > 0}
+									<span class="font-normal text-muted-foreground">
+										({data.lane.runway.lessonsRemaining} Lesson{data.lane.runway
+											.lessonsRemaining === 1
+											? ''
+											: 's'} with no Slot left)
+									</span>
+								{/if}
+							</dd>
+						</div>
+					</dl>
+				</div>
+				<Separator />
+			{/if}
 
-		<div class="mt-3 flex flex-wrap gap-6">
-			{#each WEEKS as w (w)}
-				<table class="border-separate border-spacing-1 text-sm">
-					<thead>
-						<tr>
-							<th class="w-8 pb-1 text-left text-[11px] font-bold tracking-wider text-neutral-500"
-								>{w}</th
-							>
-							{#each DAYS as d (d)}
-								<th class="w-14 pb-1 text-xs font-semibold text-neutral-500">{d}</th>
-							{/each}
-						</tr>
-					</thead>
-					<tbody>
-						{#each PERIODS as p (p)}
-							<tr>
-								<th class="pr-1 text-right text-xs font-medium text-neutral-400">P{p}</th>
-								{#each DAYS as d, i (d)}
-									{@const day = i + 1}
-									{@const slot = slotAt(w, day, p)}
-									{@const mine = slot?.classId === data.class.id}
-									<td>
-										{#if mine}
-											<form
-												method="POST"
-												action="?/toggleSlot"
-												use:enhance={() =>
-													async ({ update }) =>
-														update({ invalidateAll: true })}
-											>
-												<input type="hidden" name="classId" value={data.class.id} />
-												<input type="hidden" name="week" value={w} />
-												<input type="hidden" name="day" value={day} />
-												<input type="hidden" name="period" value={p} />
-												<input type="hidden" name="from" value={effectiveFrom} />
-												<button
-													type="submit"
-													class="h-9 w-14 rounded bg-neutral-900 text-xs font-medium text-white ring-1 ring-neutral-900 ring-inset"
-													aria-label="Week {w} {d} P{p} — {data.class.label}, click to clear"
-												>
-													{data.class.label.split('/')[0]}
-												</button>
-											</form>
-										{:else if slot}
-											<button
-												type="button"
-												disabled
-												class="h-9 w-14 cursor-not-allowed rounded bg-[repeating-linear-gradient(45deg,#f5f5f5,#f5f5f5_4px,#e5e5e5_4px,#e5e5e5_8px)] text-[10px] text-neutral-400 ring-1 ring-neutral-200 ring-inset"
-												aria-label="Week {w} {d} P{p} — held by another Class"
-											>
-												·
-											</button>
-										{:else}
-											<form
-												method="POST"
-												action="?/toggleSlot"
-												use:enhance={() =>
-													async ({ update }) =>
-														update({ invalidateAll: true })}
-											>
-												<input type="hidden" name="classId" value={data.class.id} />
-												<input type="hidden" name="week" value={w} />
-												<input type="hidden" name="day" value={day} />
-												<input type="hidden" name="period" value={p} />
-												<input type="hidden" name="from" value={effectiveFrom} />
-												<button
-													type="submit"
-													class="h-9 w-14 rounded bg-white text-xs text-neutral-300 ring-1 ring-neutral-200 ring-inset hover:bg-neutral-100"
-													aria-label="Week {w} {d} P{p} — empty, click to give it to {data.class
-														.label}"
-												>
-													·
-												</button>
-											</form>
-										{/if}
-									</td>
-								{/each}
-							</tr>
+			<div>
+				<h2 class="mb-2 text-sm font-semibold">Assigned Topics</h2>
+				<p class="mb-2 text-xs text-muted-foreground">
+					{data.class.label} teaches these, in this order — decide the next one as you reach it.
+				</p>
+
+				<ul class="divide-y rounded-lg border">
+					{#if data.assignedTopics.length}
+						{#each data.assignedTopics as a, i (a.id)}
+							<li class="group flex items-stretch gap-2 py-1 pr-1 pl-3">
+								<span class="self-center text-xs text-muted-foreground tabular-nums">{i + 1}</span>
+								<span class="min-w-0 flex-1 self-center truncate text-sm">{a.topicName}</span>
+								<div class="flex flex-col justify-center opacity-0 group-hover:opacity-100">
+									<form
+										method="POST"
+										action="?/moveAssignedTopic"
+										use:enhance={onFail('Could not move the Topic.')}
+									>
+										<input type="hidden" name="classId" value={data.class.id} />
+										<input type="hidden" name="id" value={a.id} />
+										<input type="hidden" name="direction" value="up" />
+										<button
+											type="submit"
+											disabled={i === 0}
+											aria-label="Move {a.topicName} earlier"
+											class="rounded-t-sm px-1 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-20"
+										>
+											<ChevronUpIcon class="size-3" />
+										</button>
+									</form>
+									<form
+										method="POST"
+										action="?/moveAssignedTopic"
+										use:enhance={onFail('Could not move the Topic.')}
+									>
+										<input type="hidden" name="classId" value={data.class.id} />
+										<input type="hidden" name="id" value={a.id} />
+										<input type="hidden" name="direction" value="down" />
+										<button
+											type="submit"
+											disabled={i === data.assignedTopics.length - 1}
+											aria-label="Move {a.topicName} later"
+											class="rounded-b-sm px-1 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-20"
+										>
+											<ChevronDownIcon class="size-3" />
+										</button>
+									</form>
+								</div>
+								<form
+									method="POST"
+									action="?/unassignTopic"
+									use:enhance={onFail('Could not unassign the Topic.')}
+								>
+									<input type="hidden" name="classId" value={data.class.id} />
+									<input type="hidden" name="id" value={a.id} />
+									<Button
+										type="submit"
+										variant="ghost"
+										size="icon-xs"
+										class="self-center opacity-0 group-hover:opacity-100"
+										aria-label="Unassign {a.topicName}"
+									>
+										<XIcon />
+									</Button>
+								</form>
+							</li>
 						{/each}
-					</tbody>
-				</table>
-			{/each}
-		</div>
-		<p class="mt-2 text-[11px] text-neutral-400">
-			Hatched periods belong to another Class — you cannot be in two rooms at once. A double is two
-			periods, ticked separately.
-		</p>
+					{:else}
+						<li class="px-2 py-1.5 text-xs text-muted-foreground">No Topics assigned yet.</li>
+					{/if}
 
-		{#if data.datedSlots.length}
-			<div class="mt-4 rounded-lg bg-white p-3 ring-1 ring-neutral-200">
-				<p class="text-[11px] font-bold tracking-wider text-neutral-400 uppercase">Dated periods</p>
-				<ul class="mt-1 space-y-0.5 text-xs text-neutral-600">
-					{#each data.datedSlots as s (s.id)}
-						<li class="flex items-baseline gap-2">
-							<span class="font-medium">Week {s.week} · {DAYS[s.day - 1]} · P{s.period}</span>
-							<span class="text-neutral-400">
-								{#if s.holdsFrom}from {fmtLong(s.holdsFrom)}{/if}
-								{#if s.holdsTo}{s.holdsFrom ? ', ' : ''}until {fmtLong(s.holdsTo)}{/if}
-							</span>
+					{#if data.courseTopics.length}
+						<li class="p-1">
+							<form
+								method="POST"
+								action="?/assignTopic"
+								bind:this={assignForm}
+								use:enhance={onFail('Could not assign the Topic.')}
+							>
+								<input type="hidden" name="classId" value={data.class.id} />
+								<input type="hidden" name="topicId" />
+								<Select.Root
+									type="single"
+									onValueChange={(value) => {
+										if (!assignForm || !value) return;
+										(assignForm.elements.namedItem('topicId') as HTMLInputElement).value = value;
+										assignForm.requestSubmit();
+									}}
+								>
+									<Select.Trigger
+										size="sm"
+										class="w-full justify-start border-0 bg-transparent px-2 text-muted-foreground"
+									>
+										<PlusIcon class="size-3.5" />
+										Assign next Topic
+									</Select.Trigger>
+									<Select.Content>
+										{#each data.courseTopics as t (t.id)}
+											<Select.Item value={t.id} label={t.name} />
+										{/each}
+									</Select.Content>
+								</Select.Root>
+							</form>
 						</li>
-					{/each}
+					{:else}
+						<li class="px-2 py-1.5 text-[11px] text-muted-foreground">
+							This Course has no Topics yet.
+						</li>
+					{/if}
 				</ul>
 			</div>
-		{/if}
-	</section>
-
-	<section class="px-8 pb-8">
-		<h3 class="text-sm font-semibold">Assigned Topics</h3>
-		<p class="mt-1 text-xs text-neutral-400">
-			{data.class.label} teaches these, in this order — decide the next one as you reach it.
-		</p>
-
-		{#if form?.error}
-			<p role="alert" class="mt-2 text-xs text-neutral-500">{form.error}</p>
-		{/if}
-
-		{#if data.assignedTopics.length}
-			<ul class="mt-3 grid grid-cols-2 gap-2">
-				{#each data.assignedTopics as a, i (a.id)}
-					<li
-						class="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm ring-1 ring-neutral-200"
-					>
-						<span class="w-5 shrink-0 text-right text-xs text-neutral-400">{i + 1}</span>
-						<span class="min-w-0 flex-1 truncate">{a.topicName}</span>
-						<form
-							method="POST"
-							action="?/moveAssignedTopic"
-							use:enhance={() =>
-								async ({ update }) =>
-									update({ invalidateAll: true })}
-						>
-							<input type="hidden" name="classId" value={data.class.id} />
-							<input type="hidden" name="id" value={a.id} />
-							<input type="hidden" name="direction" value="up" />
-							<button
-								type="submit"
-								disabled={i === 0}
-								class="rounded px-1.5 py-0.5 text-xs text-neutral-500 hover:bg-neutral-100 disabled:opacity-20"
-								aria-label="Move {a.topicName} earlier"
-							>
-								↑
-							</button>
-						</form>
-						<form
-							method="POST"
-							action="?/moveAssignedTopic"
-							use:enhance={() =>
-								async ({ update }) =>
-									update({ invalidateAll: true })}
-						>
-							<input type="hidden" name="classId" value={data.class.id} />
-							<input type="hidden" name="id" value={a.id} />
-							<input type="hidden" name="direction" value="down" />
-							<button
-								type="submit"
-								disabled={i === data.assignedTopics.length - 1}
-								class="rounded px-1.5 py-0.5 text-xs text-neutral-500 hover:bg-neutral-100 disabled:opacity-20"
-								aria-label="Move {a.topicName} later"
-							>
-								↓
-							</button>
-						</form>
-						<form
-							method="POST"
-							action="?/unassignTopic"
-							use:enhance={() =>
-								async ({ update }) =>
-									update({ invalidateAll: true })}
-						>
-							<input type="hidden" name="classId" value={data.class.id} />
-							<input type="hidden" name="id" value={a.id} />
-							<button
-								type="submit"
-								class="rounded px-1.5 py-0.5 text-xs text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
-								aria-label="Unassign {a.topicName}"
-							>
-								✕
-							</button>
-						</form>
-					</li>
-				{/each}
-			</ul>
-		{:else}
-			<p class="mt-3 text-xs text-neutral-400">No Topics assigned yet.</p>
-		{/if}
-
-		<form
-			method="POST"
-			action="?/assignTopic"
-			class="mt-3 flex items-center gap-2"
-			use:enhance={() =>
-				async ({ update }) =>
-					update({ invalidateAll: true })}
-		>
-			<input type="hidden" name="classId" value={data.class.id} />
-			<select
-				name="topicId"
-				bind:value={topicToAssign}
-				class="rounded border border-neutral-300 px-2 py-1 text-xs"
-			>
-				{#each data.courseTopics as t (t.id)}
-					<option value={t.id}>{t.name}</option>
-				{/each}
-			</select>
-			<button
-				type="submit"
-				class="rounded bg-neutral-900 px-2 py-1 text-xs text-white disabled:opacity-40"
-				disabled={!data.courseTopics.length}
-			>
-				Assign next
-			</button>
-			{#if !data.courseTopics.length}
-				<span class="text-[11px] text-neutral-400">This Course has no Topics yet.</span>
-			{/if}
-		</form>
-	</section>
+		</aside>
+	</div>
 </div>
