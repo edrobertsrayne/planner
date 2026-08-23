@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
+	import { toast } from 'svelte-sonner';
 	import type { Occasion } from '$lib/client/session-panel.svelte';
+	import { createSessionNotes } from '$lib/client/session-note';
 	import type { SessionDetail } from '$lib/server/planner';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
@@ -8,14 +10,34 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 
 	// The one body every entry point renders (issue #88): plan first — the Lesson is the subject —
-	// with "How it went" beneath it. The note saves on blur by whatever means it does today; the
-	// autosave-and-flush rules are issue #89's.
+	// with "How it went" beneath it.
 	let { occasion }: { occasion: Occasion } = $props();
+
+	// The note's persistence rules (issue #89) live in the module; here they meet the exits.
+	// Every dismissal — click-away, Escape, ✕, Back, switching Session — unmounts the panel or
+	// re-runs the effect below, so the effect cleanup is the one flush point for them all;
+	// closing the tab has no Svelte hook, so pagehide covers it. None of them waits for the
+	// write, and there is no unsaved-changes prompt anywhere.
+	const notes = createSessionNotes({
+		// keepalive lets a flush fired from pagehide — closing the tab — reach the server
+		// through teardown; notes are small, so the request fits the keepalive budget.
+		write: async (target, value) => {
+			const r = await fetch('/session', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ ...target, note: value }),
+				keepalive: true
+			});
+			if (!r.ok) throw new Error(`Save failed: ${r.status}`);
+		},
+		onFailure: () =>
+			toast.error("Couldn't save your note", {
+				description: 'It is kept on this device and will be here when you reopen this Session.'
+			})
+	});
 
 	let detail = $state<SessionDetail | null>(null);
 	let note = $state('');
-	let saved = $state(true);
-	let saveFailed = $state(false);
 	let continuing = $state(false);
 	let continuationError = $state<string | null>(null);
 
@@ -32,37 +54,18 @@
 				// response if it's still the occasion this effect was fetching for.
 				if (!current) return;
 				detail = d;
-				note = d.note ?? '';
-				saved = true;
-				saveFailed = false;
+				note = notes.open(occasion, d.note);
 				continuationError = null;
+			})
+			.catch(() => {
+				// The panel has nothing to show without its Session; a silent miss beats an
+				// unhandled rejection. Any draft still waits in storage for a better reconnect.
 			});
 		return () => {
 			current = false;
+			notes.flush();
 		};
 	});
-
-	function saveNote() {
-		const target = occasion;
-		fetch('/session', {
-			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ ...target, note })
-		})
-			.then((r) => {
-				if (!r.ok) throw new Error(`Save failed: ${r.status}`);
-				if (target === occasion) {
-					saved = true;
-					saveFailed = false;
-				}
-			})
-			.catch(() => {
-				if (target === occasion) {
-					saved = false;
-					saveFailed = true;
-				}
-			});
-	}
 
 	function markContinuation() {
 		const target = occasion;
@@ -168,16 +171,14 @@
 		id="session-note"
 		rows={6}
 		placeholder="Notes on this Session…"
-		bind:value={note}
-		oninput={() => {
-			saved = false;
-			saveFailed = false;
+		value={note}
+		oninput={(e) => {
+			// Explicit value + handler rather than bind:value: the edit handed to notes must be
+			// the text in this very event, not whatever the binding has caught up to.
+			note = e.currentTarget.value;
+			notes.edit(occasion, note);
 		}}
-		onblur={saveNote}
 	/>
-	{#if saveFailed}
-		<p class="mt-1 text-xs text-destructive">Couldn't save — try again.</p>
-	{:else if !saved}
-		<p class="mt-1 text-xs text-muted-foreground">Saving…</p>
-	{/if}
 {/if}
+
+<svelte:window onpagehide={() => notes.flush()} />
