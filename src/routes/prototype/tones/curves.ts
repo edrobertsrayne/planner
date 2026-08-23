@@ -1,9 +1,10 @@
 /*
 	PROTOTYPE — throwaway. Issue #67: pick the OKLCH curve for the eight Class tones.
 
-	Eight fixed hue angles; one shared lightness/chroma curve per role for light, a second for
-	dark — the formula-driven approach settled by #59. A curve is the variable under test, so the
-	three variants here are three curves, and every surface below renders identically under each.
+	Eight hue angles; one shared lightness/chroma curve per role for light, a second for dark — the
+	formula-driven approach settled by #59. Two axes are under test here and they are independent:
+	the curve (`?variant=`) and the hue set (`?hues=`), because a curve cannot rescue two hues that
+	sit 20° apart and respacing the hues cannot fix a curve that clips.
 */
 
 export type Role = 'bg' | 'fg' | 'ring';
@@ -26,21 +27,87 @@ export type Variant = {
 	dark: Curve;
 };
 
+export type Tone = { name: string; h: number; cMul: number };
+export type Tones = readonly Tone[];
+
 /*
-	The eight hues, in the index order `classTone()` hashes into. `indigo` replaces `stone` at 0
-	(#59). Angles are Tailwind's own -500 hues, so the tones stay recognisably the same colours.
-	`cMul` is the per-hue override hatch the ticket allows: 1 everywhere until a clash forces it.
+	Three hue sets, all in the index order `classTone()` hashes into — index 0 is whatever #59's
+	`indigo` slot becomes, and so on, so a Class keeps its slot whichever set wins. `cMul` is the
+	per-hue chroma override the ticket allows: 1 everywhere until a clash forces it.
+
+	Spacing is the axis these disagree on. Eight hues over 360° want a 45° gap each; the inherited
+	set has four pairs under 35° and a 92° hole between amber and emerald, which is why the blues
+	crowd. Nothing in the *curve* can fix that — only moving the hues can.
 */
-export const TONES = [
-	{ name: 'indigo', h: 269.4, cMul: 1 },
-	{ name: 'emerald', h: 162.5, cMul: 1 },
-	{ name: 'sky', h: 237.3, cMul: 1 },
-	{ name: 'violet', h: 293.5, cMul: 1 },
-	{ name: 'amber', h: 70.1, cMul: 1 },
-	{ name: 'rose', h: 16.4, cMul: 1 },
-	{ name: 'teal', h: 182.5, cMul: 1 },
-	{ name: 'fuchsia', h: 322.2, cMul: 1 }
-] as const;
+export const HUE_SETS = {
+	/* Tailwind's own -500 hues, per #59: the tones stay recognisably the colours they are today. */
+	inherited: {
+		name: 'Inherited',
+		blurb: 'The hues #59 settled — Tailwind’s -500 angles. Four pairs sit under 35° apart.',
+		tones: [
+			{ name: 'indigo', h: 269.4, cMul: 1 },
+			{ name: 'emerald', h: 162.5, cMul: 1 },
+			{ name: 'sky', h: 237.3, cMul: 1 },
+			{ name: 'violet', h: 293.5, cMul: 1 },
+			{ name: 'amber', h: 70.1, cMul: 1 },
+			{ name: 'rose', h: 16.4, cMul: 1 },
+			{ name: 'teal', h: 182.5, cMul: 1 },
+			{ name: 'fuchsia', h: 322.2, cMul: 1 }
+		]
+	},
+	/*
+		The least movement that opens every gap to at least 35°, spending the amber–emerald hole to
+		do it. Every hue stays close enough to its name to keep it.
+	*/
+	relieved: {
+		name: 'Relieved',
+		blurb:
+			'Each hue nudged just far enough to open the tight pairs to 35°+, spending the amber–emerald gap. All eight keep their names.',
+		tones: [
+			{ name: 'indigo', h: 266, cMul: 1 },
+			{ name: 'emerald', h: 140, cMul: 1 },
+			{ name: 'sky', h: 225, cMul: 1 },
+			{ name: 'violet', h: 305, cMul: 1 },
+			{ name: 'amber', h: 66, cMul: 1 },
+			{ name: 'rose', h: 20, cMul: 1 },
+			{ name: 'teal', h: 185, cMul: 1 },
+			{ name: 'fuchsia', h: 340, cMul: 1 }
+		]
+	},
+	/*
+		Exactly 45° apart, at the rotation that moves the inherited set least (a least-squares fit,
+		which lands the first stop at 37°). Perfectly even spacing costs two names: the set has to
+		reach into orange and pink, so `rose` and `fuchsia` shift a slot and are relabelled.
+	*/
+	even: {
+		name: 'Even 45°',
+		blurb:
+			'Exactly 45° apart, rotated to move the inherited set as little as possible. Costs two names: rose slides to orange, fuchsia to pink.',
+		tones: [
+			{ name: 'indigo', h: 262, cMul: 1 },
+			{ name: 'green', h: 127, cMul: 1 },
+			{ name: 'cyan', h: 217, cMul: 1 },
+			{ name: 'purple', h: 307, cMul: 1 },
+			{ name: 'amber', h: 82, cMul: 1 },
+			{ name: 'orange', h: 37, cMul: 1 },
+			{ name: 'teal', h: 172, cMul: 1 },
+			{ name: 'pink', h: 352, cMul: 1 }
+		]
+	}
+} satisfies Record<string, { name: string; blurb: string; tones: Tone[] }>;
+
+export type HueSetKey = keyof typeof HUE_SETS;
+
+/** Neighbouring gaps round the wheel, tightest first. Even spacing would be 45° throughout. */
+export function hueGaps(tones: Tones) {
+	const byHue = [...tones].sort((a, b) => a.h - b.h);
+	return byHue
+		.map((t, i) => {
+			const next = byHue[(i + 1) % byHue.length];
+			return { pair: `${t.name}–${next.name}`, d: (next.h - t.h + 360) % 360 };
+		})
+		.sort((a, b) => a.d - b.d);
+}
 
 export const VARIANTS: Variant[] = [
 	{
@@ -70,21 +137,22 @@ export const VARIANTS: Variant[] = [
 ];
 
 /** The absolute chroma a stop resolves to for one tone. */
-export function chromaOf(v: Variant, theme: 'light' | 'dark', i: number, role: Role) {
+export function chromaOf(v: Variant, tones: Tones, theme: 'light' | 'dark', i: number, role: Role) {
 	const stop = v[theme][role];
-	return maxChroma(stop.l, TONES[i].h) * stop.sat * TONES[i].cMul;
+	return maxChroma(stop.l, tones[i].h) * stop.sat * tones[i].cMul;
 }
 
-export function toneColor(v: Variant, theme: 'light' | 'dark', i: number, role: Role) {
-	return `oklch(${v[theme][role].l} ${chromaOf(v, theme, i, role).toFixed(4)} ${TONES[i].h})`;
+export function toneColor(v: Variant, tones: Tones, theme: 'light' | 'dark', i: number, role: Role) {
+	const c = chromaOf(v, tones, theme, i, role).toFixed(4);
+	return `oklch(${v[theme][role].l} ${c} ${tones[i].h})`;
 }
 
 /** The whole table as CSS custom properties, for a `style=` on a themed wrapper. */
-export function toneVars(v: Variant, theme: 'light' | 'dark') {
+export function toneVars(v: Variant, tones: Tones, theme: 'light' | 'dark') {
 	const out: string[] = [];
-	TONES.forEach((_, i) => {
+	tones.forEach((_, i) => {
 		for (const role of ['bg', 'fg', 'ring'] as Role[]) {
-			out.push(`--tone-${i}-${role}: ${toneColor(v, theme, i, role)}`);
+			out.push(`--tone-${i}-${role}: ${toneColor(v, tones, theme, i, role)}`);
 		}
 	});
 	return out.join('; ');
@@ -135,12 +203,18 @@ export function maxChroma(l: number, h: number) {
 	return lo;
 }
 
-export function gamutOverflow(v: Variant, theme: 'light' | 'dark', i: number, role: Role) {
-	return overflowAt(v[theme][role].l, chromaOf(v, theme, i, role), TONES[i].h);
+export function gamutOverflow(
+	v: Variant,
+	tones: Tones,
+	theme: 'light' | 'dark',
+	i: number,
+	role: Role
+) {
+	return overflowAt(v[theme][role].l, chromaOf(v, tones, theme, i, role), tones[i].h);
 }
 
-export function outOfGamut(v: Variant, theme: 'light' | 'dark', i: number, role: Role) {
-	return gamutOverflow(v, theme, i, role) > CLIP_LIMIT;
+export function outOfGamut(v: Variant, tones: Tones, theme: 'light' | 'dark', i: number, role: Role) {
+	return gamutOverflow(v, tones, theme, i, role) > CLIP_LIMIT;
 }
 
 function relativeLuminance(l: number, c: number, h: number) {
@@ -149,10 +223,10 @@ function relativeLuminance(l: number, c: number, h: number) {
 }
 
 /** WCAG contrast of a tone's fg on its own bg. Small text wants 4.5, large/bold 3. */
-export function contrast(v: Variant, theme: 'light' | 'dark', i: number) {
-	const t = TONES[i];
-	const a = relativeLuminance(v[theme].fg.l, chromaOf(v, theme, i, 'fg'), t.h);
-	const b = relativeLuminance(v[theme].bg.l, chromaOf(v, theme, i, 'bg'), t.h);
+export function contrast(v: Variant, tones: Tones, theme: 'light' | 'dark', i: number) {
+	const t = tones[i];
+	const a = relativeLuminance(v[theme].fg.l, chromaOf(v, tones, theme, i, 'fg'), t.h);
+	const b = relativeLuminance(v[theme].bg.l, chromaOf(v, tones, theme, i, 'bg'), t.h);
 	const [hi, lo] = a > b ? [a, b] : [b, a];
 	return (hi + 0.05) / (lo + 0.05);
 }

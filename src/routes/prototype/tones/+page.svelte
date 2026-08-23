@@ -10,7 +10,7 @@
 -->
 <script lang="ts">
 	import { page } from '$app/state';
-	import { VARIANTS, TONES } from './curves';
+	import { VARIANTS, HUE_SETS, hueGaps, type HueSetKey } from './curves';
 	import ToneSheet from './ToneSheet.svelte';
 	import PrototypeSwitcher from './PrototypeSwitcher.svelte';
 
@@ -21,18 +21,19 @@
 	);
 	const variant = $derived(VARIANTS.find((v) => v.key === key)!);
 
+	const hueKey = $derived(
+		(page.url.searchParams.get('hues') ?? 'inherited') in HUE_SETS
+			? (page.url.searchParams.get('hues') as HueSetKey) ?? 'inherited'
+			: 'inherited'
+	);
+	const hueSet = $derived(HUE_SETS[hueKey]);
+
 	/*
 		Hue spacing is a property of the hue set, not of any curve — no curve rescues two hues that
 		sit 20° apart. Printed here because #59 fixed the eight hues and this ticket is the one
 		allowed to override them.
 	*/
-	const byHue = [...TONES].sort((a, b) => a.h - b.h);
-	const gaps = byHue
-		.map((t, i) => {
-			const next = byHue[(i + 1) % byHue.length];
-			return { pair: `${t.name}–${next.name}`, d: (next.h - t.h + 360) % 360 };
-		})
-		.sort((a, b) => a.d - b.d);
+	const gaps = $derived(hueGaps(hueSet.tones));
 </script>
 
 <svelte:head><title>Prototype — Class tone swatches</title></svelte:head>
@@ -40,9 +41,10 @@
 <div class="bg-muted min-h-screen p-6 pb-24">
 	<header class="mx-auto mb-4 max-w-6xl">
 		<h1 class="text-lg font-semibold">
-			{variant.key} — {variant.name}
+			{variant.key} — {variant.name} · {hueSet.name} hues
 		</h1>
 		<p class="text-muted-foreground max-w-2xl text-sm">{variant.blurb}</p>
+		<p class="text-muted-foreground max-w-2xl text-sm">{hueSet.blurb}</p>
 		<p class="text-muted-foreground mt-1.5 text-[11px]">
 			Hue gaps (even spacing would be 45°):
 			{#each gaps as g (g.pair)}
@@ -53,9 +55,14 @@
 	</header>
 
 	<div class="mx-auto grid max-w-6xl gap-4 lg:grid-cols-2">
-		<ToneSheet {variant} theme="light" />
-		<ToneSheet {variant} theme="dark" />
+		<ToneSheet {variant} tones={hueSet.tones} theme="light" />
+		<ToneSheet {variant} tones={hueSet.tones} theme="dark" />
 	</div>
 </div>
 
-<PrototypeSwitcher variants={VARIANTS.map((v) => ({ key: v.key, name: v.name }))} current={key} />
+<PrototypeSwitcher
+	variants={VARIANTS.map((v) => ({ key: v.key, name: v.name }))}
+	current={key}
+	hueSets={Object.entries(HUE_SETS).map(([k, s]) => ({ key: k, name: s.name }))}
+	currentHues={hueKey}
+/>

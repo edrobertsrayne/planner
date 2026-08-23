@@ -1,6 +1,7 @@
 <!--
-	PROTOTYPE — throwaway. Floating bar, one axis: which tone curve. Both themes are on screen at
-	once, so there is no theme axis to switch — #67 is judged by comparing them side by side.
+	PROTOTYPE — throwaway. Floating bar. Two axes, because #67 has two independent levers: the
+	curve (arrows, or ←/→) and the hue set (the pills). Both themes are always on screen, so there
+	is no theme axis — they are judged side by side.
 -->
 <script lang="ts">
 	import { goto } from '$app/navigation';
@@ -8,10 +9,14 @@
 
 	let {
 		variants,
-		current
+		current,
+		hueSets,
+		currentHues
 	}: {
 		variants: { key: string; name: string }[];
 		current: string;
+		hueSets: { key: string; name: string }[];
+		currentHues: string;
 	} = $props();
 
 	const index = $derived(variants.findIndex((v) => v.key === current));
@@ -42,6 +47,20 @@
 	data-prototype-chrome
 	class="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border bg-neutral-900 py-1.5 pr-3 pl-2 text-white shadow-lg dark:bg-neutral-100 dark:text-neutral-900"
 >
+	<div class="flex items-center rounded-full bg-white/10 p-0.5 dark:bg-black/10">
+		{#each hueSets as h (h.key)}
+			<button
+				type="button"
+				onclick={() => nav({ hues: h.key })}
+				class="rounded-full px-2.5 py-0.5 text-xs font-medium {currentHues === h.key
+					? 'bg-white text-neutral-900 dark:bg-neutral-900 dark:text-white'
+					: 'opacity-70'}"
+			>
+				{h.name}
+			</button>
+		{/each}
+	</div>
+
 	<button type="button" onclick={() => go(-1)} aria-label="Previous variant" class="px-1">←</button>
 	<span class="min-w-40 text-center text-xs font-medium">
 		{variants[index]?.key} — {variants[index]?.name}

@@ -4,21 +4,24 @@
 	because a curve that works in one theme and not the other is the failure mode being hunted.
 -->
 <script lang="ts">
-	import { VARIANTS, TONES, toneVars, contrast, outOfGamut, type Variant } from './curves';
+	import { toneVars, contrast, outOfGamut, type Variant, type Tones } from './curves';
 	import { CLASSES, DAYS, WEEK } from './fixtures';
 
-	let { variant, theme }: { variant: Variant; theme: 'light' | 'dark' } = $props();
+	let {
+		variant,
+		tones,
+		theme
+	}: { variant: Variant; tones: Tones; theme: 'light' | 'dark' } = $props();
 
-	const vars = $derived(toneVars(variant, theme));
+	const vars = $derived(toneVars(variant, tones, theme));
 	const rows = $derived(
-		TONES.map((t, i) => ({
+		tones.map((t, i) => ({
 			i,
 			name: t.name,
-			ratio: contrast(variant, theme, i),
-			clipped: (['bg', 'fg', 'ring'] as const).filter((r) => outOfGamut(variant, theme, i, r))
+			ratio: contrast(variant, tones, theme, i),
+			clipped: (['bg', 'fg', 'ring'] as const).filter((r) => outOfGamut(variant, tones, theme, i, r))
 		}))
 	);
-	void VARIANTS;
 </script>
 
 <div class={theme === 'dark' ? 'dark' : ''} style={vars}>
@@ -87,12 +90,12 @@
 				Adjacent
 			</div>
 			<div class="flex overflow-hidden rounded">
-				{#each TONES as t, i (t.name)}
+				{#each tones as t, i (t.name)}
 					<div class="h-8 flex-1" style="background: var(--tone-{i}-bg)"></div>
 				{/each}
 			</div>
 			<div class="mt-1 flex overflow-hidden rounded">
-				{#each TONES as t, i (t.name)}
+				{#each tones as t, i (t.name)}
 					<div class="h-8 flex-1" style="background: var(--tone-{i}-ring)"></div>
 				{/each}
 			</div>
