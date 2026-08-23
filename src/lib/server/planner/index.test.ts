@@ -1465,6 +1465,16 @@ describe('the Classes view', () => {
 		expect(lane.runway.lessonsRemaining).toBe(lane.unplacedCount);
 	});
 
+	test('a lane carries the Tone stored on the Class, so the tile can colour itself', () => {
+		const { db, classA } = setUp();
+
+		const [lane] = classLanes(db, { today: '2026-09-03', classId: classA.id });
+		const [stored] = listClasses(db).filter((c) => c.id === classA.id);
+
+		expect(stored.tone).toBeDefined();
+		expect(lane.tone).toBe(stored.tone);
+	});
+
 	test('covers every Class when no classId is given, in the same order as listClasses', () => {
 		const { db, course, classA, classB } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');

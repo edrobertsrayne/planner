@@ -1,167 +1,204 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { goto } from '$app/navigation';
-	import { openSession } from '$lib/client/session-panel.svelte';
+	import { classTone } from '$lib/class-tone';
+	import { toast } from 'svelte-sonner';
+	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
+	import PlusIcon from '@lucide/svelte/icons/plus';
+	import PageHeader from '$lib/components/page-header.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import * as Select from '$lib/components/ui/select/index.js';
+	import NewClassDialog from './NewClassDialog.svelte';
 	import type { PageProps } from './$types';
 
-	let { data, form }: PageProps = $props();
+	let { data }: PageProps = $props();
 
-	const fmtLong = (iso: string) =>
+	// One form per tile, found by its Class — the Select picks the Topic and submits on the pick,
+	// so the trigger stays a plain "Assign next Topic" affordance rather than growing a button.
+	const assignForms: Record<string, HTMLFormElement> = {};
+
+	function assignNextTopic(classId: string, topicId: string) {
+		const form = assignForms[classId];
+		if (!form || !topicId) return;
+		(form.elements.namedItem('topicId') as HTMLInputElement).value = topicId;
+		form.requestSubmit();
+	}
+
+	const fmtShort = (iso: string) =>
 		new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', {
 			day: 'numeric',
-			month: 'long',
+			month: 'short',
 			year: 'numeric',
 			timeZone: 'UTC'
 		});
 
-	let newLabel = $state('');
-	let newCourse = $state('');
-	$effect(() => {
-		if (!data.courses.some((c) => c.id === newCourse)) newCourse = data.courses[0]?.id ?? '';
-	});
+	const courseName = (courseId: string) => data.courses.find((c) => c.id === courseId)?.name ?? '';
 </script>
 
 <svelte:head><title>Classes</title></svelte:head>
 
-<div class="mx-auto max-w-4xl px-6 py-6">
-	<div class="mb-5 flex flex-wrap items-baseline justify-between gap-3">
-		<h2 class="text-lg font-semibold tracking-tight">Classes</h2>
+<div class="mx-auto max-w-5xl px-6 py-6">
+	<PageHeader
+		title="Classes"
+		description="Pick a Class to timetable it, or give it its next Topic from here."
+	/>
 
-		<form
-			method="POST"
-			action="?/createClass"
-			class="flex items-center gap-1.5"
-			use:enhance={() => {
-				return async ({ formElement, result }) => {
-					const created =
-						result.type === 'success' && (result.data as { class?: { id: string } })?.class;
-					if (created) {
-						formElement.reset();
-						newLabel = '';
-						// eslint-disable-next-line svelte/no-navigation-without-resolve -- carries a query string
-						await goto(`/classes/${created.id}`);
-					} else {
-						formElement.reset();
-					}
-				};
-			}}
-		>
-			<input
-				name="label"
-				required
-				autocomplete="off"
-				bind:value={newLabel}
-				class="w-32 rounded border border-neutral-300 px-2 py-1 text-sm focus:border-neutral-900 focus:outline-none"
-				placeholder="9B/Sc1"
-			/>
-			<select
-				name="courseId"
-				bind:value={newCourse}
-				class="rounded border border-neutral-300 px-2 py-1 text-xs"
-			>
-				{#each data.courses as course (course.id)}
-					<option value={course.id}>{course.name}</option>
-				{/each}
-			</select>
-			<button
-				type="submit"
-				class="rounded bg-neutral-900 px-2 py-1 text-xs text-white disabled:opacity-40"
-				disabled={!data.courses.length}
-			>
-				Create Class
-			</button>
-		</form>
-	</div>
 	{#if !data.courses.length}
-		<p class="mb-4 text-xs text-neutral-400">Write a Course first.</p>
-	{/if}
-	{#if form?.error}
-		<p role="alert" class="mb-4 text-xs text-neutral-500">{form.error}</p>
-	{/if}
+		<div class="mt-6 rounded-xl border border-dashed px-6 py-12 text-center">
+			<p class="text-sm font-medium">No Courses yet</p>
+			<p class="mt-1 text-sm text-muted-foreground">
+				A Class teaches one Course. Write a Course first, then come back to create your Classes.
+				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- static internal route -->
+				<a href="/courses" class="underline underline-offset-2">Go to Courses</a>.
+			</p>
+		</div>
+	{:else if data.lanes.length === 0}
+		<div class="mt-6 rounded-xl border border-dashed px-6 py-12 text-center">
+			<p class="text-sm font-medium">No Classes yet</p>
+			<p class="mt-1 text-sm text-muted-foreground">
+				Create your first Class, then timetable it onto the week it teaches.
+			</p>
+			<NewClassDialog courses={data.courses}>
+				{#snippet trigger(props)}
+					<Button {...props} size="sm" class="mt-4">
+						<PlusIcon data-icon="inline-start" />New Class
+					</Button>
+				{/snippet}
+			</NewClassDialog>
+		</div>
+	{:else}
+		<ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+			{#each data.lanes as lane (lane.classId)}
+				{@const tone = classTone(lane.tone)}
+				{@const pct = lane.total ? Math.round((lane.taught / lane.total) * 100) : 0}
+				<li class="flex flex-col overflow-hidden rounded-xl border bg-card">
+					<div class="flex flex-1 flex-col gap-3 p-4">
+						<div class="flex items-start gap-3">
+							<span
+								class="mt-0.5 size-2.5 shrink-0 rounded-full ring-2"
+								style:background-color={tone.bg}
+								style:--tw-ring-color={tone.ring}
+								aria-hidden="true"
+							></span>
+							<div class="min-w-0 flex-1">
+								<!-- eslint-disable svelte/no-navigation-without-resolve -- carries a Class id -->
+								<a
+									href={`/classes/${lane.classId}`}
+									class="block truncate text-sm font-semibold hover:underline"
+								>
+									{lane.classLabel}
+								</a>
+								<!-- eslint-enable svelte/no-navigation-without-resolve -->
+								<div class="truncate text-xs text-muted-foreground">
+									{courseName(lane.courseId)}
+								</div>
+							</div>
+							<div class="text-right text-xs text-muted-foreground tabular-nums">{pct}%</div>
+						</div>
 
-	{#if data.lanes.length === 0}
-		<p class="text-sm text-neutral-400">No Classes yet — create one above.</p>
-	{/if}
+						<div
+							class="h-1 overflow-hidden rounded-full bg-muted"
+							role="progressbar"
+							aria-valuenow={pct}
+							aria-valuemin={0}
+							aria-valuemax={100}
+							aria-label={`${lane.classLabel}: ${lane.taught} of ${lane.total} Lessons taught`}
+						>
+							<div class="h-full" style:width="{pct}%" style:background-color={tone.ring}></div>
+						</div>
 
-	<ul class="space-y-3">
-		{#each data.lanes as lane (lane.classId)}
-			<li class="rounded-lg bg-white p-4 ring-1 ring-neutral-200">
-				<div class="flex flex-wrap items-baseline justify-between gap-2">
-					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- static internal route -->
-					<a href={`/classes/${lane.classId}`} class="text-sm font-semibold hover:underline">
-						{lane.classLabel}
-					</a>
-					<span class="text-xs text-neutral-500">
-						{lane.taught} / {lane.total} Lessons taught
-					</span>
-				</div>
+						<dl class="mt-auto space-y-1 text-xs">
+							<!-- The Topic sits above the Lesson because the Lesson is inside it: the tile reads
+							     "you are in Electricity, and the next one is Resistance". -->
+							<div class="flex gap-1.5">
+								<dt class="shrink-0 text-muted-foreground">Topic</dt>
+								<dd class="truncate font-medium">{lane.nextUp?.topicName ?? '—'}</dd>
+							</div>
+							<div class="flex gap-1.5">
+								<dt class="shrink-0 text-muted-foreground">Next</dt>
+								<dd class="truncate">{lane.nextUp?.title ?? '—'}</dd>
+							</div>
+							<div class="flex gap-1.5">
+								<dt class="shrink-0 text-muted-foreground">Runway</dt>
+								<dd class="truncate tabular-nums">
+									{lane.runway.date ? fmtShort(lane.runway.date) : 'open-ended'}
+								</dd>
+							</div>
+						</dl>
+					</div>
 
-				<div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-neutral-100">
-					<div
-						class="h-full bg-neutral-900"
-						style:width="{lane.total ? Math.round((lane.taught / lane.total) * 100) : 0}%"
-					></div>
-				</div>
+					<div class="flex items-center gap-1 border-t px-2 py-1.5">
+						{#if data.courseTopics[lane.courseId]?.length}
+							<form
+								method="POST"
+								action="?/assignTopic"
+								class="min-w-0 flex-1"
+								bind:this={assignForms[lane.classId]}
+								use:enhance={() =>
+									async ({ result, update }) => {
+										if (result.type === 'failure') {
+											toast.error(
+												String(
+													(result.data as { error?: string } | undefined)?.error ??
+														'Could not assign the Topic.'
+												)
+											);
+										} else {
+											await update({ invalidateAll: true });
+										}
+									}}
+							>
+								<input type="hidden" name="classId" value={lane.classId} />
+								<input type="hidden" name="topicId" />
+								<Select.Root
+									type="single"
+									onValueChange={(value) => assignNextTopic(lane.classId, value ?? '')}
+								>
+									<Select.Trigger
+										size="sm"
+										class="w-full min-w-0 justify-start border-0 bg-transparent px-2 text-xs text-muted-foreground"
+									>
+										Assign next Topic
+									</Select.Trigger>
+									<Select.Content>
+										{#each data.courseTopics[lane.courseId] as topic (topic.id)}
+											<Select.Item value={topic.id} label={topic.name} />
+										{/each}
+									</Select.Content>
+								</Select.Root>
+							</form>
+						{:else}
+							<span class="min-w-0 flex-1 px-2 text-xs text-muted-foreground/60">
+								No Topics to assign
+							</span>
+						{/if}
+						<!-- eslint-disable svelte/no-navigation-without-resolve -- carries a Class id -->
+						<Button
+							variant="ghost"
+							size="sm"
+							class="shrink-0 px-2 text-xs"
+							href={`/classes/${lane.classId}`}
+						>
+							Open Class page<ChevronRightIcon />
+						</Button>
+						<!-- eslint-enable svelte/no-navigation-without-resolve -->
+					</div>
+				</li>
+			{/each}
 
-				<div class="mt-3 flex flex-wrap gap-x-8 gap-y-1 text-xs">
-					{#if lane.lastTaught}
-						{@const lt = lane.lastTaught}
+			<li>
+				<NewClassDialog courses={data.courses}>
+					{#snippet trigger(props)}
 						<button
+							{...props}
 							type="button"
-							data-session-trigger
-							class="text-left text-neutral-600 hover:text-neutral-900"
-							onclick={() =>
-								openSession({ classId: lane.classId, date: lt.date, period: lt.period })}
+							class="flex h-full min-h-44 w-full flex-col items-center justify-center gap-1 rounded-xl border border-dashed text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
 						>
-							<span class="text-neutral-400">Last taught:</span>
-							<span class="font-medium">{lt.title}</span>
-							{#if lt.note}<span class="text-neutral-400"> — {lt.note}</span>{/if}
+							<PlusIcon class="size-4" />
+							<span class="text-sm font-medium">New Class</span>
 						</button>
-					{:else}
-						<span class="text-neutral-400">Not taught yet.</span>
-					{/if}
-					{#if lane.nextUp}
-						<span class="text-neutral-600">
-							<span class="text-neutral-400">Next up:</span>
-							<span class="font-medium">{lane.nextUp.title}</span>
-						</span>
-					{/if}
-				</div>
-
-				<div class="mt-2 text-xs text-neutral-600">
-					<span class="text-neutral-400">Runway:</span>
-					<span class="font-medium"
-						>{lane.runway.date ? fmtLong(lane.runway.date) : 'open-ended'}</span
-					>
-					{#if lane.runway.lessonsRemaining > 0}
-						<span class="text-neutral-400"
-							>({lane.runway.lessonsRemaining} Lesson{lane.runway.lessonsRemaining === 1 ? '' : 's'} with
-							no Slot left to carry them)</span
-						>
-					{/if}
-				</div>
-
-				{#if data.courseTopics[lane.courseId]?.length}
-					<form
-						method="POST"
-						action="?/assignTopic"
-						class="mt-3 flex items-center gap-2"
-						use:enhance={() =>
-							async ({ update }) =>
-								update({ invalidateAll: true })}
-					>
-						<input type="hidden" name="classId" value={lane.classId} />
-						<select name="topicId" class="rounded border border-neutral-300 px-2 py-1 text-xs">
-							{#each data.courseTopics[lane.courseId] as t (t.id)}
-								<option value={t.id}>{t.name}</option>
-							{/each}
-						</select>
-						<button type="submit" class="rounded bg-neutral-900 px-2 py-1 text-xs text-white">
-							Assign next
-						</button>
-					</form>
-				{/if}
+					{/snippet}
+				</NewClassDialog>
 			</li>
-		{/each}
-	</ul>
+		</ul>
+	{/if}
 </div>

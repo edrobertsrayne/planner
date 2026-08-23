@@ -1111,6 +1111,7 @@ export interface ClassLane {
 	classId: string;
 	classLabel: string;
 	courseId: string;
+	tone: number;
 	taught: number;
 	total: number;
 	lastTaught: {
@@ -1198,6 +1199,7 @@ export function classLanes(
 			classId: cls.id,
 			classLabel: cls.label,
 			courseId: cls.courseId,
+			tone: cls.tone,
 			taught: result.history.length,
 			total,
 			lastTaught,
