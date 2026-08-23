@@ -1382,6 +1382,24 @@ describe('the Agenda', () => {
 		expect(rows.length).toBeGreaterThan(0);
 		expect(rows.every((r) => r.classId === classA.id && r.lesson === null)).toBe(true);
 	});
+
+	test('every row carries its Class Tone (issue #87)', () => {
+		const { db, course, classA, classB } = setUp();
+		const forces = makeTopic(db, course.id, 'Forces');
+		makeLessons(db, forces.id, 3);
+		assignTopic(db, { classId: classA.id, topicId: forces.id, today: '2026-09-03' });
+
+		const optics = makeTopic(db, course.id, 'Optics');
+		makeLessons(db, optics.id, 3);
+		assignTopic(db, { classId: classB.id, topicId: optics.id, today: '2026-09-03' });
+
+		const tones = new Map(listClasses(db).map((c) => [c.id, c.tone]));
+
+		const rows = agenda(db, { today: '2026-09-03', horizonDays: 14 });
+		expect(rows.length).toBeGreaterThan(0);
+		expect(new Set(rows.map((r) => r.classId))).toEqual(new Set([classA.id, classB.id]));
+		for (const row of rows) expect(row.tone).toBe(tones.get(row.classId));
+	});
 });
 
 describe('the Classes view', () => {

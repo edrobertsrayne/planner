@@ -3,7 +3,8 @@
 export const AGENDA_HORIZONS = [
 	[1, 'Today'],
 	[7, 'Next week'],
-	[14, 'Next two weeks']
+	[14, 'Next two weeks'],
+	[28, 'Fortnight']
 ] as const;
 
 export type AgendaHorizonDays = (typeof AGENDA_HORIZONS)[number][0];

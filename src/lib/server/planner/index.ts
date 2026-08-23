@@ -831,6 +831,7 @@ export function describeAtRisk(db: Db, atRisk: SessionRecord[]): AtRiskSession[]
 export interface AgendaEntry {
 	classId: string;
 	classLabel: string;
+	tone: number;
 	date: string;
 	week: 'A' | 'B';
 	periodFrom: number;
@@ -858,7 +859,7 @@ export function agenda(db: Db, { today, horizonDays }: { today: string; horizonD
 		});
 		return agendaRows(cls.id, result)
 			.filter((r) => r.date < horizonEnd)
-			.map((r) => ({ ...r, classLabel: cls.label }));
+			.map((r) => ({ ...r, classLabel: cls.label, tone: cls.tone }));
 	});
 
 	const lessonIds = [...new Set(rows.flatMap((r) => (r.lesson ? [r.lesson.lessonId] : [])))];
@@ -881,6 +882,7 @@ export function agenda(db: Db, { today, horizonDays }: { today: string; horizonD
 	const entries: AgendaEntry[] = rows.map((r) => ({
 		classId: r.classId,
 		classLabel: r.classLabel,
+		tone: r.tone,
 		date: r.date,
 		week: r.week,
 		periodFrom: r.periodFrom,
