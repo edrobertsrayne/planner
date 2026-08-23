@@ -21,6 +21,12 @@
 	} = $props();
 
 	let editing = $state(false);
+
+	// The server rejects anything but http(s) on write — this only guards against rows written
+	// before that check existed, so a stray javascript: url can never reach a real href.
+	let safeHref = $derived(
+		['http:', 'https:'].includes(new URL(link.url).protocol) ? link.url : undefined
+	);
 </script>
 
 {#if editing}
@@ -78,7 +84,7 @@
 		<LinkIcon class="size-3.5 shrink-0 translate-y-0.5 text-muted-foreground" />
 		<!-- eslint-disable svelte/no-navigation-without-resolve -- a Link's url is external -->
 		<a
-			href={link.url}
+			href={safeHref}
 			target="_blank"
 			rel="noopener noreferrer"
 			class="min-w-0 flex-1 truncate hover:underline"

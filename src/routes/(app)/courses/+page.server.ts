@@ -28,6 +28,16 @@ function today() {
 	return new Date().toISOString().slice(0, 10);
 }
 
+// A Link's url is rendered as a real href — restricting it to http(s) keeps a javascript: URL
+// from ever reaching an anchor, since the editor's own href-taking rows would otherwise execute it.
+function isHttpUrl(url: string) {
+	try {
+		return ['http:', 'https:'].includes(new URL(url).protocol);
+	} catch {
+		return false;
+	}
+}
+
 export const load: PageServerLoad = ({ url }) => {
 	const courses = listCourses(db);
 
@@ -166,6 +176,7 @@ export const actions: Actions = {
 		const url = trimmed(data, 'url');
 		if (!label) return fail(400, { error: 'A Link needs a label.' });
 		if (!url) return fail(400, { error: 'A Link needs a url.' });
+		if (!isHttpUrl(url)) return fail(400, { error: 'A Link must be an http(s) URL.' });
 		return { link: createLink(db, { lessonId, label, url }) };
 	},
 
@@ -176,6 +187,7 @@ export const actions: Actions = {
 		const url = trimmed(data, 'url');
 		if (!label) return fail(400, { error: 'A Link needs a label.' });
 		if (!url) return fail(400, { error: 'A Link needs a url.' });
+		if (!isHttpUrl(url)) return fail(400, { error: 'A Link must be an http(s) URL.' });
 		const link = updateLink(db, { id, label, url });
 		if (!link) return fail(404, { error: 'No such Link.' });
 		return { link };
