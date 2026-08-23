@@ -142,7 +142,13 @@ export function chromaOf(v: Variant, tones: Tones, theme: 'light' | 'dark', i: n
 	return maxChroma(stop.l, tones[i].h) * stop.sat * tones[i].cMul;
 }
 
-export function toneColor(v: Variant, tones: Tones, theme: 'light' | 'dark', i: number, role: Role) {
+export function toneColor(
+	v: Variant,
+	tones: Tones,
+	theme: 'light' | 'dark',
+	i: number,
+	role: Role
+) {
 	const c = chromaOf(v, tones, theme, i, role).toFixed(4);
 	return `oklch(${v[theme][role].l} ${c} ${tones[i].h})`;
 }
@@ -213,7 +219,13 @@ export function gamutOverflow(
 	return overflowAt(v[theme][role].l, chromaOf(v, tones, theme, i, role), tones[i].h);
 }
 
-export function outOfGamut(v: Variant, tones: Tones, theme: 'light' | 'dark', i: number, role: Role) {
+export function outOfGamut(
+	v: Variant,
+	tones: Tones,
+	theme: 'light' | 'dark',
+	i: number,
+	role: Role
+) {
 	return gamutOverflow(v, tones, theme, i, role) > CLIP_LIMIT;
 }
 

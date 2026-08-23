@@ -38,6 +38,32 @@
 	--sidebar-accent-foreground: oklch(0.205 0 0);
 	--sidebar-border: oklch(0.922 0 0);
 	--sidebar-ring: oklch(0.708 0 0);
+	/* The eight Class tones — Curve A (Tint) on the Relieved hue set, settled on issue #67.
+	   Literals, not a formula: the OKLCH curve is the derivation, not the runtime. */
+	--tone-0-bg: oklch(0.95 0.0201 266); /* indigo  */
+	--tone-0-fg: oklch(0.4 0.2597 266);
+	--tone-0-ring: oklch(0.78 0.0917 266);
+	--tone-1-bg: oklch(0.95 0.0823 140); /* emerald */
+	--tone-1-fg: oklch(0.4 0.1634 140);
+	--tone-1-ring: oklch(0.78 0.2125 140);
+	--tone-2-bg: oklch(0.95 0.0273 225); /* sky     */
+	--tone-2-fg: oklch(0.4 0.0877 225);
+	--tone-2-ring: oklch(0.78 0.1238 225);
+	--tone-3-bg: oklch(0.95 0.0252 305); /* violet  */
+	--tone-3-fg: oklch(0.4 0.2141 305);
+	--tone-3-ring: oklch(0.78 0.1158 305);
+	--tone-4-bg: oklch(0.95 0.0291 66); /* amber   */
+	--tone-4-fg: oklch(0.4 0.1188 66);
+	--tone-4-ring: oklch(0.78 0.1407 66);
+	--tone-5-bg: oklch(0.95 0.0212 20); /* rose    */
+	--tone-5-fg: oklch(0.4 0.1721 20);
+	--tone-5-ring: oklch(0.78 0.1066 20);
+	--tone-6-bg: oklch(0.95 0.0619 185); /* teal    */
+	--tone-6-fg: oklch(0.4 0.0802 185);
+	--tone-6-ring: oklch(0.78 0.1149 185);
+	--tone-7-bg: oklch(0.95 0.0287 340); /* fuchsia */
+	--tone-7-fg: oklch(0.4 0.1891 340);
+	--tone-7-ring: oklch(0.78 0.1453 340);
 }
 
 .dark {
@@ -72,6 +98,30 @@
 	--sidebar-accent-foreground: oklch(0.985 0 0);
 	--sidebar-border: oklch(1 0 0 / 10%);
 	--sidebar-ring: oklch(0.556 0 0);
+	--tone-0-bg: oklch(0.28 0.1381 266); /* indigo  */
+	--tone-0-fg: oklch(0.87 0.0533 266);
+	--tone-0-ring: oklch(0.6 0.1763 266);
+	--tone-1-bg: oklch(0.28 0.12 140); /* emerald */
+	--tone-1-fg: oklch(0.87 0.2333 140);
+	--tone-1-ring: oklch(0.6 0.1746 140);
+	--tone-2-bg: oklch(0.28 0.0629 225); /* sky     */
+	--tone-2-fg: oklch(0.87 0.0724 225);
+	--tone-2-ring: oklch(0.6 0.1004 225);
+	--tone-3-bg: oklch(0.28 0.1246 305); /* violet  */
+	--tone-3-fg: oklch(0.87 0.0671 305);
+	--tone-3-ring: oklch(0.6 0.224 305);
+	--tone-4-bg: oklch(0.28 0.1354 66); /* amber   */
+	--tone-4-fg: oklch(0.87 0.0792 66);
+	--tone-4-ring: oklch(0.6 0.122 66);
+	--tone-5-bg: oklch(0.28 0.106 20); /* rose    */
+	--tone-5-fg: oklch(0.87 0.0587 20);
+	--tone-5-ring: oklch(0.6 0.208 20);
+	--tone-6-bg: oklch(0.28 0.0551 185); /* teal    */
+	--tone-6-fg: oklch(0.87 0.1266 185);
+	--tone-6-ring: oklch(0.6 0.093 185);
+	--tone-7-bg: oklch(0.28 0.1193 340); /* fuchsia */
+	--tone-7-fg: oklch(0.87 0.0796 340);
+	--tone-7-ring: oklch(0.6 0.2262 340);
 }
 
 @theme inline {
