@@ -22,7 +22,7 @@ matter more than the rest, because four of them are traps you only discover afte
 you an afternoon:
 
 1. **The Drizzle adapter never touches DDL.** It contains no `CREATE TABLE` and no migration path,
-   and `auth migrate` explicitly does not support Drizzle. better-auth's CLI *generates* a Drizzle
+   and `auth migrate` explicitly does not support Drizzle. better-auth's CLI _generates_ a Drizzle
    schema file that you check in and migrate yourself. This is exactly what ADR-0003 wants, and it
    needs no compromise — see [§3](#3-tables-schema-generation-and-adr-0003).
 
@@ -38,7 +38,7 @@ you an afternoon:
    exist, you need a `hooks.before` deny-list. [§4](#4-creating-the-one-user) covers both.
 
 4. **The password hash format is stable and trivially reproducible**: `scrypt`, `N=16384 r=16 p=1
-   dkLen=64`, stored as `"<salt-hex>:<key-hex>"`. So agenix can hold either a plaintext password or
+dkLen=64`, stored as `"<salt-hex>:<key-hex>"`. So agenix can hold either a plaintext password or
    a pre-computed hash — [§5](#5-where-the-password-lives) argues for the hash.
 
 5. **SvelteKit's `handle` hook does not run for static assets**, so a deny-by-default guard needs no
@@ -75,16 +75,18 @@ From the shipped type declarations (`@better-auth/drizzle-adapter@1.6.27`,
 [`packages/drizzle-adapter/src/drizzle-adapter.ts`](https://github.com/better-auth/better-auth/blob/be47e9418b4a25a4ecd51ba781d2296373b65a03/packages/drizzle-adapter/src/drizzle-adapter.ts)):
 
 ```ts
-declare const drizzleAdapter: (db: DB, config: DrizzleAdapterConfig)
-  => (options: BetterAuthOptions) => DBAdapter<BetterAuthOptions>;
+declare const drizzleAdapter: (
+	db: DB,
+	config: DrizzleAdapterConfig
+) => (options: BetterAuthOptions) => DBAdapter<BetterAuthOptions>;
 
 interface DrizzleAdapterConfig {
-  schema?: Record<string, any> | undefined;
-  provider: "pg" | "mysql" | "sqlite";
-  usePlural?: boolean | undefined;
-  debugLogs?: DBAdapterDebugLogOption | undefined;
-  camelCase?: boolean | undefined;   // @default false
-  transaction?: boolean | undefined; // @default false
+	schema?: Record<string, any> | undefined;
+	provider: 'pg' | 'mysql' | 'sqlite';
+	usePlural?: boolean | undefined;
+	debugLogs?: DBAdapterDebugLogOption | undefined;
+	camelCase?: boolean | undefined; // @default false
+	transaction?: boolean | undefined; // @default false
 }
 ```
 
@@ -100,25 +102,25 @@ Points that matter for this app:
 - `transaction` defaults to `false`. Postgres supports transactions and the app is single-user, so
   set it to `true` — sign-up creates a `user` row and an `account` row and you want those atomic.
   (Confirmed present as a config key in the 1.6.27 declarations above.)
-- The docs note a constraint worth remembering: *"Drizzle schema property names must match Better
-  Auth field names, while actual database column names can differ."*
+- The docs note a constraint worth remembering: _"Drizzle schema property names must match Better
+  Auth field names, while actual database column names can differ."_
 
 ### Options relevant here
 
 From the [options reference](https://www.better-auth.com/docs/reference/options):
 
-| Option | Meaning |
-| --- | --- |
-| `secret` | Signing/hashing key. Defaults to `BETTER_AUTH_SECRET` or `AUTH_SECRET` env. |
-| `baseURL` | Root URL of the app. Falls back to `BETTER_AUTH_URL`, then to request inference. |
-| `basePath` | Where auth routes mount. Default `"/api/auth"`. |
-| `trustedOrigins` | Extra trusted origins *beyond* `baseURL`'s own origin. |
-| `emailAndPassword.enabled` | Turns on credential auth. |
-| `emailAndPassword.disableSignUp` | Makes `/sign-up/email` return 400. |
-| `session.expiresIn` | Default `604800` (7 days). |
-| `session.updateAge` | Default `86400` (1 day). |
-| `advanced.useSecureCookies` | Forces the `Secure` attribute. |
-| `advanced.database.generateId` | `false`, `"serial"`, `"uuid"`, or a function. Default base62 string. |
+| Option                           | Meaning                                                                          |
+| -------------------------------- | -------------------------------------------------------------------------------- |
+| `secret`                         | Signing/hashing key. Defaults to `BETTER_AUTH_SECRET` or `AUTH_SECRET` env.      |
+| `baseURL`                        | Root URL of the app. Falls back to `BETTER_AUTH_URL`, then to request inference. |
+| `basePath`                       | Where auth routes mount. Default `"/api/auth"`.                                  |
+| `trustedOrigins`                 | Extra trusted origins _beyond_ `baseURL`'s own origin.                           |
+| `emailAndPassword.enabled`       | Turns on credential auth.                                                        |
+| `emailAndPassword.disableSignUp` | Makes `/sign-up/email` return 400.                                               |
+| `session.expiresIn`              | Default `604800` (7 days).                                                       |
+| `session.updateAge`              | Default `86400` (1 day).                                                         |
+| `advanced.useSecureCookies`      | Forces the `Secure` attribute.                                                   |
+| `advanced.database.generateId`   | `false`, `"serial"`, `"uuid"`, or a function. Default base62 string.             |
 
 `rateLimit` is on by default in production (`window: 10`s, `max: 100`), storage `"memory"`. For a
 single user on one node process, in-memory is correct — leave it.
@@ -146,10 +148,15 @@ const svelteKitHandler = async ({ auth, event, resolve, building }) => {
 
 function isAuthPath(url, options) {
 	const _url = new URL(url);
-	const baseURLStr = typeof options.baseURL === "string" ? options.baseURL : void 0;
-	const baseURL = new URL(`${baseURLStr || _url.origin}${options.basePath || "/api/auth"}`);
+	const baseURLStr = typeof options.baseURL === 'string' ? options.baseURL : void 0;
+	const baseURL = new URL(`${baseURLStr || _url.origin}${options.basePath || '/api/auth'}`);
 	if (_url.origin !== baseURL.origin) return false;
-	if (!_url.pathname.startsWith(baseURL.pathname.endsWith("/") ? baseURL.pathname : `${baseURL.pathname}/`)) return false;
+	if (
+		!_url.pathname.startsWith(
+			baseURL.pathname.endsWith('/') ? baseURL.pathname : `${baseURL.pathname}/`
+		)
+	)
+		return false;
 	return true;
 }
 ```
@@ -163,32 +170,37 @@ See [§6](#6-session-and-cookie-configuration) for the fix.
 
 Note also that `svelteKitHandler` short-circuits — when the path is an auth path it returns
 `auth.handler(request)` and never calls `resolve`. That is what lets a deny-by-default guard sit
-*after* it in a `sequence` without blocking login ([§7](#7-deny-by-default-route-protection)).
+_after_ it in a `sequence` without blocking login ([§7](#7-deny-by-default-route-protection)).
 
 ### The `sveltekitCookies` plugin
 
-Cookies set during a *server action* (SvelteKit form action) do not automatically make it onto the
+Cookies set during a _server action_ (SvelteKit form action) do not automatically make it onto the
 response, because the auth call happens inside your action rather than through the mounted handler.
 The `sveltekitCookies` plugin bridges this: it registers an `after` hook that parses the
 `set-cookie` header better-auth produced and replays it through `event.cookies.set`. From the same
 source file:
 
 ```js
-const sveltekitCookies = (getRequestEvent) => { /* ... */
+const sveltekitCookies = (getRequestEvent) => {
+	/* ... */
 	handler: createAuthMiddleware(async (ctx) => {
 		const returned = ctx.context.responseHeaders;
-		if ("_flag" in ctx && ctx._flag === "router") return;
+		if ('_flag' in ctx && ctx._flag === 'router') return;
 		if (returned instanceof Headers) {
-			const setCookies = returned?.get("set-cookie");
+			const setCookies = returned?.get('set-cookie');
 			if (!setCookies) return;
 			const event = getRequestEvent();
 			if (!event) return;
 			const parsed = parseSetCookieHeader(setCookies);
-			for (const [name, attributes] of parsed) try {
-				event.cookies.set(name, attributes.value, { ...toCookieOptions(attributes), path: attributes.path || "/" });
-			} catch {}
+			for (const [name, attributes] of parsed)
+				try {
+					event.cookies.set(name, attributes.value, {
+						...toCookieOptions(attributes),
+						path: attributes.path || '/'
+					});
+				} catch {}
 		}
-	})
+	});
 };
 ```
 
@@ -203,8 +215,8 @@ The docs' pattern is a direct `auth.api.getSession` call inside `handle`:
 ```ts
 const session = await auth.api.getSession({ headers: event.request.headers });
 if (session) {
-  event.locals.session = session.session;
-  event.locals.user = session.user;
+	event.locals.session = session.session;
+	event.locals.user = session.user;
 }
 ```
 
@@ -213,10 +225,10 @@ typing — from `dist/types/auth.d.mts` in the published package:
 
 ```ts
 $Infer: /* ... */ {
-  Session: {
-    session: Session<Options["session"], Options["plugins"]>;
-    user: User<Options["user"], Options["plugins"]>;
-  };
+	Session: {
+		session: Session<Options['session'], Options['plugins']>;
+		user: User<Options['user'], Options['plugins']>;
+	}
 }
 ```
 
@@ -230,14 +242,14 @@ so `App.Locals` can be typed off `typeof auth.$Infer.Session` without hand-writi
 
 **No.** Two independent confirmations:
 
-- The [CLI docs](https://www.better-auth.com/docs/concepts/cli) state of `migrate`: *"This is
+- The [CLI docs](https://www.better-auth.com/docs/concepts/cli) state of `migrate`: _"This is
   available if you're using the built-in Kysely adapter. For other adapters, you'll need to apply
-  the schema using your ORM's migration tool."*
+  the schema using your ORM's migration tool."_
 - Grepping the published `@better-auth/drizzle-adapter@1.6.27` bundle
   (`dist/index.mjs`) for `create table` / `createTable` / `alter table` / `migrate` returns **zero
   matches**. The adapter is pure CRUD.
 
-So the arrangement ADR-0003 requires is the *only* arrangement available with Drizzle — there is no
+So the arrangement ADR-0003 requires is the _only_ arrangement available with Drizzle — there is no
 runtime-mutation mode to opt out of. Good.
 
 ### The workflow
@@ -265,54 +277,80 @@ This is **actual CLI output**, produced by running `auth@1.6.27 generate` agains
 `provider: "pg"` config — not a reconstruction:
 
 ```ts
-import { relations } from "drizzle-orm";
-import { pgTable, text, timestamp, boolean, index } from "drizzle-orm/pg-core";
+import { relations } from 'drizzle-orm';
+import { pgTable, text, timestamp, boolean, index } from 'drizzle-orm/pg-core';
 
-export const user = pgTable("user", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  email: text("email").notNull().unique(),
-  emailVerified: boolean("email_verified").default(false).notNull(),
-  image: text("image"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()).notNull(),
+export const user = pgTable('user', {
+	id: text('id').primaryKey(),
+	name: text('name').notNull(),
+	email: text('email').notNull().unique(),
+	emailVerified: boolean('email_verified').default(false).notNull(),
+	image: text('image'),
+	createdAt: timestamp('created_at').defaultNow().notNull(),
+	updatedAt: timestamp('updated_at')
+		.defaultNow()
+		.$onUpdate(() => new Date())
+		.notNull()
 });
 
-export const session = pgTable("session", {
-  id: text("id").primaryKey(),
-  expiresAt: timestamp("expires_at").notNull(),
-  token: text("token").notNull().unique(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").$onUpdate(() => new Date()).notNull(),
-  ipAddress: text("ip_address"),
-  userAgent: text("user_agent"),
-  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-}, (table) => [index("session_userId_idx").on(table.userId)]);
+export const session = pgTable(
+	'session',
+	{
+		id: text('id').primaryKey(),
+		expiresAt: timestamp('expires_at').notNull(),
+		token: text('token').notNull().unique(),
+		createdAt: timestamp('created_at').defaultNow().notNull(),
+		updatedAt: timestamp('updated_at')
+			.$onUpdate(() => new Date())
+			.notNull(),
+		ipAddress: text('ip_address'),
+		userAgent: text('user_agent'),
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' })
+	},
+	(table) => [index('session_userId_idx').on(table.userId)]
+);
 
-export const account = pgTable("account", {
-  id: text("id").primaryKey(),
-  accountId: text("account_id").notNull(),
-  providerId: text("provider_id").notNull(),
-  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-  accessToken: text("access_token"),
-  refreshToken: text("refresh_token"),
-  idToken: text("id_token"),
-  accessTokenExpiresAt: timestamp("access_token_expires_at"),
-  refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
-  scope: text("scope"),
-  password: text("password"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").$onUpdate(() => new Date()).notNull(),
-}, (table) => [index("account_userId_idx").on(table.userId)]);
+export const account = pgTable(
+	'account',
+	{
+		id: text('id').primaryKey(),
+		accountId: text('account_id').notNull(),
+		providerId: text('provider_id').notNull(),
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		accessToken: text('access_token'),
+		refreshToken: text('refresh_token'),
+		idToken: text('id_token'),
+		accessTokenExpiresAt: timestamp('access_token_expires_at'),
+		refreshTokenExpiresAt: timestamp('refresh_token_expires_at'),
+		scope: text('scope'),
+		password: text('password'),
+		createdAt: timestamp('created_at').defaultNow().notNull(),
+		updatedAt: timestamp('updated_at')
+			.$onUpdate(() => new Date())
+			.notNull()
+	},
+	(table) => [index('account_userId_idx').on(table.userId)]
+);
 
-export const verification = pgTable("verification", {
-  id: text("id").primaryKey(),
-  identifier: text("identifier").notNull(),
-  value: text("value").notNull(),
-  expiresAt: timestamp("expires_at").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()).notNull(),
-}, (table) => [index("verification_identifier_idx").on(table.identifier)]);
+export const verification = pgTable(
+	'verification',
+	{
+		id: text('id').primaryKey(),
+		identifier: text('identifier').notNull(),
+		value: text('value').notNull(),
+		expiresAt: timestamp('expires_at').notNull(),
+		createdAt: timestamp('created_at').defaultNow().notNull(),
+		updatedAt: timestamp('updated_at')
+			.defaultNow()
+			.$onUpdate(() => new Date())
+			.notNull()
+	},
+	(table) => [index('verification_identifier_idx').on(table.identifier)]
+);
 
 // plus userRelations / sessionRelations / accountRelations
 ```
@@ -320,7 +358,7 @@ export const verification = pgTable("verification", {
 Four gotchas in that output:
 
 1. **`session.updatedAt` and `account.updatedAt` are `.notNull()` with no `.defaultNow()`** — only
-   `$onUpdate`, which Drizzle applies on *update*, not insert. better-auth's own internal adapter
+   `$onUpdate`, which Drizzle applies on _update_, not insert. better-auth's own internal adapter
    always supplies the value, so this never bites at runtime, but a hand-written seed INSERT must
    set `updated_at` explicitly or hit a NOT NULL violation. (`user` and `verification` do have
    `.defaultNow()`. The inconsistency is real.)
@@ -373,7 +411,7 @@ That list looks alarming for a single-user app. It is mostly not:
   `if (!ctx.context.options.user?.deleteUser?.enabled)` at
   [`update-user.ts:288`](https://github.com/better-auth/better-auth/blob/be47e9418b4a25a4ecd51ba781d2296373b65a03/packages/better-auth/src/api/routes/update-user.ts)
   and `if (!ctx.context.options.user?.changeEmail?.enabled)` at the same file. The docs confirm both
-  are *"disabled by default"*. Leave them unset.
+  are _"disabled by default"_. Leave them unset.
 - **Password-reset routes** need `emailAndPassword.sendResetPassword` to be configured. Unset, they
   cannot send anything. Email verification likewise requires
   `emailVerification.sendVerificationEmail`.
@@ -386,11 +424,14 @@ That list looks alarming for a single-user app. It is mostly not:
 [`sign-up.ts`](https://github.com/better-auth/better-auth/blob/be47e9418b4a25a4ecd51ba781d2296373b65a03/packages/better-auth/src/api/routes/sign-up.ts):
 
 ```js
-if (!ctx.context.options.emailAndPassword?.enabled || ctx.context.options.emailAndPassword?.disableSignUp)
-  throw APIError.from("BAD_REQUEST", {
-    message: "Email and password sign up is not enabled",
-    code: "EMAIL_PASSWORD_SIGN_UP_DISABLED"
-  });
+if (
+	!ctx.context.options.emailAndPassword?.enabled ||
+	ctx.context.options.emailAndPassword?.disableSignUp
+)
+	throw APIError.from('BAD_REQUEST', {
+		message: 'Email and password sign up is not enabled',
+		code: 'EMAIL_PASSWORD_SIGN_UP_DISABLED'
+	});
 ```
 
 So: **the route remains mounted and returns HTTP 400.** No account can be created through it, which
@@ -418,14 +459,14 @@ script.
 
 This beats the alternatives:
 
-- *Hand-inserting rows with Drizzle* works — you need a `user` row plus an `account` row with
+- _Hand-inserting rows with Drizzle_ works — you need a `user` row plus an `account` row with
   `providerId: "credential"` and `accountId` equal to the user's id (from
   [`sign-up.ts`](https://github.com/better-auth/better-auth/blob/be47e9418b4a25a4ecd51ba781d2296373b65a03/packages/better-auth/src/api/routes/sign-up.ts):
   `linkAccount({ userId: createdUser.id, providerId: "credential", accountId: createdUser.id, password: hash })`)
   — but it duplicates better-auth's invariants in your code and will rot.
-- *Temporarily flipping `disableSignUp` in production config* means a window where the internet-
+- _Temporarily flipping `disableSignUp` in production config_ means a window where the internet-
   facing app accepts registrations. No.
-- *A one-off route you delete afterwards* leaves the risk that you forget.
+- _A one-off route you delete afterwards_ leaves the risk that you forget.
 
 Run it as an `npm run seed:user` after migrations, once, on the box.
 
@@ -444,24 +485,28 @@ import { randomBytes, scrypt } from 'node:crypto';
 const config = { N: 16384, r: 16, p: 1, dkLen: 64 };
 
 function generateKey(password, salt) {
-  return new Promise((resolve, reject) => {
-    scrypt(password.normalize("NFKC"), salt, config.dkLen,
-      { N: config.N, r: config.r, p: config.p, maxmem: 128 * config.N * config.r * 2 },
-      (err, key) => err ? reject(err) : resolve(key));
-  });
+	return new Promise((resolve, reject) => {
+		scrypt(
+			password.normalize('NFKC'),
+			salt,
+			config.dkLen,
+			{ N: config.N, r: config.r, p: config.p, maxmem: 128 * config.N * config.r * 2 },
+			(err, key) => (err ? reject(err) : resolve(key))
+		);
+	});
 }
 
 async function hashPassword(password) {
-  const salt = randomBytes(16).toString("hex");
-  const key = await generateKey(password, salt);
-  return `${salt}:${key.toString("hex")}`;
+	const salt = randomBytes(16).toString('hex');
+	const key = await generateKey(password, salt);
+	return `${salt}:${key.toString('hex')}`;
 }
 
 async function verifyPassword(hash, password) {
-  const [salt, key] = hash.split(":");
-  if (!salt || !key) throw new Error("Invalid password hash");
-  const targetKey = await generateKey(password, salt);
-  return targetKey.toString("hex") === key;
+	const [salt, key] = hash.split(':');
+	if (!salt || !key) throw new Error('Invalid password hash');
+	const targetKey = await generateKey(password, salt);
+	return targetKey.toString('hex') === key;
 }
 ```
 
@@ -494,11 +539,11 @@ generic scrypt tool's defaults will match.
 
 Three secrets are needed at runtime. Recommended handling of each:
 
-| Secret | How better-auth reads it | agenix arrangement |
-| --- | --- | --- |
-| `BETTER_AUTH_SECRET` | `secret` option, defaults to `BETTER_AUTH_SECRET` / `AUTH_SECRET` env | agenix file; load into env at boot |
-| `DATABASE_URL` | your Drizzle client, not better-auth | agenix file; load into env at boot |
-| The user's credential | never read at runtime — it lives hashed in `account.password` | agenix file, **seed-time only** |
+| Secret                | How better-auth reads it                                              | agenix arrangement                 |
+| --------------------- | --------------------------------------------------------------------- | ---------------------------------- |
+| `BETTER_AUTH_SECRET`  | `secret` option, defaults to `BETTER_AUTH_SECRET` / `AUTH_SECRET` env | agenix file; load into env at boot |
+| `DATABASE_URL`        | your Drizzle client, not better-auth                                  | agenix file; load into env at boot |
+| The user's credential | never read at runtime — it lives hashed in `account.password`         | agenix file, **seed-time only**    |
 
 The important structural point: **the user's password is not a runtime secret at all.** Once the
 seed script has run, the only copy the app needs is the scrypt hash in Postgres. Nothing in the
@@ -532,8 +577,8 @@ runtime.
 ### Reading them in SvelteKit
 
 Use `$env/dynamic/private`, not `$env/static/private`. Per the
-[SvelteKit docs](https://svelte.dev/docs/kit/$env-dynamic-private), static values are *"determined
-and embedded during build"* whereas dynamic ones are read from the runtime environment. Since the
+[SvelteKit docs](https://svelte.dev/docs/kit/$env-dynamic-private), static values are _"determined
+and embedded during build"_ whereas dynamic ones are read from the runtime environment. Since the
 NixOS build and the agenix secrets are decoupled, baking a secret into the build artefact would be
 both wrong and a leak. `$env/dynamic/private` cannot be imported into client code, which is the
 guarantee we want.
@@ -599,7 +644,11 @@ better-auth validates the `Origin` header against `trustedOrigins`, falling back
 is added automatically — from `getTrustedOrigins` in `dist/context/helpers.mjs`:
 
 ```js
-const baseURL = getBaseURL(typeof options.baseURL === "string" ? options.baseURL : void 0, options.basePath, request);
+const baseURL = getBaseURL(
+	typeof options.baseURL === 'string' ? options.baseURL : void 0,
+	options.basePath,
+	request
+);
 if (baseURL) trustedOrigins.push(new URL(baseURL).origin);
 ```
 
@@ -614,9 +663,9 @@ Do **not** set `advanced.disableCSRFCheck`.
 Two independent mechanisms must agree on the public origin:
 
 1. **SvelteKit / adapter-node** needs it to build `event.url` and to pass the form-action origin
-   check. The [adapter-node docs](https://svelte.dev/docs/kit/adapter-node) warn that if it *"can't
+   check. The [adapter-node docs](https://svelte.dev/docs/kit/adapter-node) warn that if it _"can't
    correctly determine the URL of your deployment, you may experience this error when using form
-   actions: Cross-site POST form submissions are forbidden"* — which is precisely how we log in.
+   actions: Cross-site POST form submissions are forbidden"_ — which is precisely how we log in.
 2. **better-auth** needs `event.url.origin` to match `baseURL`, or `isAuthPath` returns false and
    the handler never mounts ([§2](#2-sveltekit-wiring)).
 
@@ -628,7 +677,7 @@ BETTER_AUTH_URL=https://planner.greensroad.uk
 ```
 
 The alternative — `PROTOCOL_HEADER=x-forwarded-proto` and `HOST_HEADER=x-forwarded-host` — also
-works, and the docs note it is *"safer"* than a hardcoded ORIGIN in the general case, but only if
+works, and the docs note it is _"safer"_ than a hardcoded ORIGIN in the general case, but only if
 nginx overwrites those headers rather than passing client-supplied ones through. **For a
 single-origin deployment, hardcoding `ORIGIN` is simpler and strictly harder to get wrong.** Prefer
 it. (`ADDRESS_HEADER=CF-Connecting-IP` is separately worth setting if you want real client IPs in
@@ -652,12 +701,12 @@ the DB read is free; enabling it adds a revocation-latency window for no benefit
 ### Hook-level guard, not per-route `load`
 
 Per-route `load` guards are opt-in by construction: a new route is unprotected until someone
-remembers. For an app where *every* page is private except login, that is the wrong default. Put
+remembers. For an app where _every_ page is private except login, that is the wrong default. Put
 the guard in `handle`.
 
 The thing that makes this cheap in SvelteKit: per the
 [hooks docs](https://svelte.dev/docs/kit/hooks), requests for **static assets and prerendered pages
-do not invoke `handle` at all** — only dynamic routes do. So a hook guard needs *no* exclusion list
+do not invoke `handle` at all** — only dynamic routes do. So a hook guard needs _no_ exclusion list
 for `/favicon.png`, `_app/immutable/*`, or anything else in `static/`. The allowlist is just
 `/login`.
 
@@ -692,78 +741,78 @@ Paths assume the SvelteKit convention of `src/lib/server/` for server-only modul
 ### `src/lib/server/auth.ts`
 
 ```ts
-import { betterAuth } from "better-auth";
-import { drizzleAdapter } from "@better-auth/drizzle-adapter";
-import { sveltekitCookies } from "better-auth/svelte-kit";
-import { APIError, createAuthMiddleware } from "better-auth/api";
-import { getRequestEvent } from "$app/server";
-import { env } from "$env/dynamic/private";
+import { betterAuth } from 'better-auth';
+import { drizzleAdapter } from '@better-auth/drizzle-adapter';
+import { sveltekitCookies } from 'better-auth/svelte-kit';
+import { APIError, createAuthMiddleware } from 'better-auth/api';
+import { getRequestEvent } from '$app/server';
+import { env } from '$env/dynamic/private';
 
-import { db } from "./db";
-import * as authSchema from "./db/auth-schema";
+import { db } from './db';
+import * as authSchema from './db/auth-schema';
 
 /** Endpoints this app has no use for. Reached only if someone probes directly. */
 const BLOCKED_PATHS = [
-	"/sign-up/email",
-	"/request-password-reset",
-	"/reset-password",
-	"/send-verification-email",
-	"/verify-email",
-	"/sign-in/social",
-	"/link-social",
-	"/unlink-account",
+	'/sign-up/email',
+	'/request-password-reset',
+	'/reset-password',
+	'/send-verification-email',
+	'/verify-email',
+	'/sign-in/social',
+	'/link-social',
+	'/unlink-account'
 ];
 
 export const auth = betterAuth({
-	appName: "planner",
+	appName: 'planner',
 	secret: env.BETTER_AUTH_SECRET,
 	baseURL: env.BETTER_AUTH_URL, // https://planner.greensroad.uk
 
 	database: drizzleAdapter(db, {
-		provider: "pg",
+		provider: 'pg',
 		schema: authSchema,
-		transaction: true,
+		transaction: true
 	}),
 
 	emailAndPassword: {
 		enabled: true,
 		disableSignUp: true, // route stays mounted but 400s; see BLOCKED_PATHS
-		minPasswordLength: 12,
+		minPasswordLength: 12
 	},
 
 	session: {
 		expiresIn: 60 * 60 * 24 * 30, // 30 days
-		updateAge: 60 * 60 * 24, // refresh at most daily
+		updateAge: 60 * 60 * 24 // refresh at most daily
 	},
 
 	advanced: {
-		useSecureCookies: true, // implied by the https baseURL; explicit for clarity
+		useSecureCookies: true // implied by the https baseURL; explicit for clarity
 	},
 
 	hooks: {
 		before: createAuthMiddleware(async (ctx) => {
 			if (BLOCKED_PATHS.includes(ctx.path)) {
-				throw new APIError("NOT_FOUND", { message: "Not found" });
+				throw new APIError('NOT_FOUND', { message: 'Not found' });
 			}
-		}),
+		})
 	},
 
 	// Must be last.
-	plugins: [sveltekitCookies(getRequestEvent)],
+	plugins: [sveltekitCookies(getRequestEvent)]
 });
 ```
 
 ### `src/hooks.server.ts`
 
 ```ts
-import { redirect, type Handle } from "@sveltejs/kit";
-import { sequence } from "@sveltejs/kit/hooks";
-import { svelteKitHandler } from "better-auth/svelte-kit";
-import { building } from "$app/environment";
-import { auth } from "$lib/server/auth";
+import { redirect, type Handle } from '@sveltejs/kit';
+import { sequence } from '@sveltejs/kit/hooks';
+import { svelteKitHandler } from 'better-auth/svelte-kit';
+import { building } from '$app/environment';
+import { auth } from '$lib/server/auth';
 
 /** Routes reachable without a session. `handle` never runs for static assets. */
-const PUBLIC_ROUTES = ["/login"];
+const PUBLIC_ROUTES = ['/login'];
 
 const handleAuth: Handle = async ({ event, resolve }) => {
 	const session = await auth.api.getSession({ headers: event.request.headers });
@@ -777,7 +826,7 @@ const handleAuth: Handle = async ({ event, resolve }) => {
 
 const handleGuard: Handle = async ({ event, resolve }) => {
 	const isPublic = PUBLIC_ROUTES.some(
-		(p) => event.url.pathname === p || event.url.pathname.startsWith(`${p}/`),
+		(p) => event.url.pathname === p || event.url.pathname.startsWith(`${p}/`)
 	);
 
 	if (!isPublic && !event.locals.user) {
@@ -786,7 +835,7 @@ const handleGuard: Handle = async ({ event, resolve }) => {
 	}
 
 	if (isPublic && event.locals.user) {
-		redirect(303, "/");
+		redirect(303, '/');
 	}
 
 	return resolve(event);
@@ -798,15 +847,15 @@ export const handle = sequence(handleAuth, handleGuard);
 ### `src/app.d.ts`
 
 ```ts
-import type { auth } from "$lib/server/auth";
+import type { auth } from '$lib/server/auth';
 
 type Session = typeof auth.$Infer.Session;
 
 declare global {
 	namespace App {
 		interface Locals {
-			session: Session["session"] | null;
-			user: Session["user"] | null;
+			session: Session['session'] | null;
+			user: Session['user'] | null;
 		}
 	}
 }
@@ -834,23 +883,24 @@ Content is the CLI output quoted in [§3](#3-tables-schema-generation-and-adr-00
  *   PLANNER_USER_EMAIL=... PLANNER_USER_PASSWORD="$(cat /run/agenix/planner-password)" \
  *     node --experimental-strip-types scripts/seed-user.ts
  */
-import { betterAuth } from "better-auth";
-import { drizzleAdapter } from "@better-auth/drizzle-adapter";
-import { db } from "../src/lib/server/db";
-import * as authSchema from "../src/lib/server/db/auth-schema";
+import { betterAuth } from 'better-auth';
+import { drizzleAdapter } from '@better-auth/drizzle-adapter';
+import { db } from '../src/lib/server/db';
+import * as authSchema from '../src/lib/server/db/auth-schema';
 
 const email = process.env.PLANNER_USER_EMAIL;
 const password = process.env.PLANNER_USER_PASSWORD;
-const name = process.env.PLANNER_USER_NAME ?? "Planner";
+const name = process.env.PLANNER_USER_NAME ?? 'Planner';
 
-if (!email || !password) throw new Error("PLANNER_USER_EMAIL and PLANNER_USER_PASSWORD are required");
+if (!email || !password)
+	throw new Error('PLANNER_USER_EMAIL and PLANNER_USER_PASSWORD are required');
 
 // A throwaway instance with sign-up ENABLED and no hooks. Never served.
 const seedAuth = betterAuth({
 	secret: process.env.BETTER_AUTH_SECRET,
 	baseURL: process.env.BETTER_AUTH_URL,
-	database: drizzleAdapter(db, { provider: "pg", schema: authSchema, transaction: true }),
-	emailAndPassword: { enabled: true, disableSignUp: false, minPasswordLength: 12 },
+	database: drizzleAdapter(db, { provider: 'pg', schema: authSchema, transaction: true }),
+	emailAndPassword: { enabled: true, disableSignUp: false, minPasswordLength: 12 }
 });
 
 const existing = await db.query.user.findFirst();
@@ -872,7 +922,7 @@ Compute the hash on your own machine:
 
 ```ts
 // scripts/hash-password.ts — run locally, never on the server
-import { hashPassword } from "better-auth/crypto";
+import { hashPassword } from 'better-auth/crypto';
 console.log(await hashPassword(process.argv[2]));
 // -> "8f3c…(32 hex):4a1b…(128 hex)"
 ```
@@ -881,9 +931,9 @@ Then seed with a direct insert. Note `updated_at` must be set explicitly — the
 not default it on `session`/`account` (see §3):
 
 ```ts
-import { randomUUID } from "node:crypto";
-import { db } from "../src/lib/server/db";
-import { user, account } from "../src/lib/server/db/auth-schema";
+import { randomUUID } from 'node:crypto';
+import { db } from '../src/lib/server/db';
+import { user, account } from '../src/lib/server/db/auth-schema';
 
 const email = process.env.PLANNER_USER_EMAIL!;
 const passwordHash = process.env.PLANNER_USER_PASSWORD_HASH!; // from agenix
@@ -893,21 +943,21 @@ const userId = randomUUID();
 await db.transaction(async (tx) => {
 	await tx.insert(user).values({
 		id: userId,
-		name: process.env.PLANNER_USER_NAME ?? "Planner",
+		name: process.env.PLANNER_USER_NAME ?? 'Planner',
 		email,
 		emailVerified: false,
 		createdAt: now,
-		updatedAt: now,
+		updatedAt: now
 	});
 
 	await tx.insert(account).values({
 		id: randomUUID(),
 		userId,
-		providerId: "credential", // exactly this string
-		accountId: userId,        // credential accounts use the user id
+		providerId: 'credential', // exactly this string
+		accountId: userId, // credential accounts use the user id
 		password: passwordHash,
 		createdAt: now,
-		updatedAt: now,
+		updatedAt: now
 	});
 });
 ```
@@ -915,31 +965,31 @@ await db.transaction(async (tx) => {
 ### `src/routes/login/+page.server.ts`
 
 ```ts
-import { fail, redirect } from "@sveltejs/kit";
-import { APIError } from "better-auth/api";
-import { auth } from "$lib/server/auth";
-import type { Actions } from "./$types";
+import { fail, redirect } from '@sveltejs/kit';
+import { APIError } from 'better-auth/api';
+import { auth } from '$lib/server/auth';
+import type { Actions } from './$types';
 
 export const actions: Actions = {
 	default: async (event) => {
 		const data = await event.request.formData();
-		const email = String(data.get("email") ?? "");
-		const password = String(data.get("password") ?? "");
+		const email = String(data.get('email') ?? '');
+		const password = String(data.get('password') ?? '');
 
 		try {
 			// sveltekitCookies replays the Set-Cookie through event.cookies.
 			await auth.api.signInEmail({
 				body: { email, password },
-				headers: event.request.headers,
+				headers: event.request.headers
 			});
 		} catch (e) {
-			if (e instanceof APIError) return fail(400, { email, error: "Incorrect email or password." });
+			if (e instanceof APIError) return fail(400, { email, error: 'Incorrect email or password.' });
 			throw e;
 		}
 
-		const target = event.url.searchParams.get("redirectTo");
-		redirect(303, target?.startsWith("/") ? target : "/");
-	},
+		const target = event.url.searchParams.get('redirectTo');
+		redirect(303, target?.startsWith('/') ? target : '/');
+	}
 };
 ```
 
