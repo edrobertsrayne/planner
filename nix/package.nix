@@ -3,6 +3,7 @@
   bun,
   hook,
   fetchBunDeps,
+  runtimeShell,
   src,
 }:
 
@@ -53,11 +54,25 @@ stdenv.mkDerivation {
     bun install --production --frozen-lockfile --ignore-scripts --linker=hoisted
     cp -r node_modules "$out/node_modules"
 
+    # `nix run` looks for $out/bin/<mainProgram>. cd into $out first, not
+    # wherever the caller invoked `nix run` from: runMigrations' default
+    # migrationsFolder = 'drizzle' resolves relative to process.cwd()
+    # (src/lib/server/db/index.ts), and drizzle/ only exists next to build/
+    # inside $out.
+    mkdir -p "$out/bin"
+    cat > "$out/bin/planner" <<WRAPPER
+    #!${runtimeShell}
+    cd "$out"
+    exec ${bun}/bin/bun build/index.js "\$@"
+    WRAPPER
+    chmod +x "$out/bin/planner"
+
     runHook postInstall
   '';
 
   meta = {
     description = "Self-hosted teacher planner";
     homepage = "https://github.com/edrobertsrayne/planner";
+    mainProgram = "planner";
   };
 }

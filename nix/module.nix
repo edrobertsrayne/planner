@@ -99,7 +99,7 @@ in
         # usual cwd without breaking self-migration silently.
         WorkingDirectory = cfg.package;
         EnvironmentFile = lib.mkIf (cfg.environmentFile != null) cfg.environmentFile;
-        ExecStart = "${lib.getExe' pkgs.bun "bun"} ${cfg.package}/build/index.js";
+        ExecStart = lib.getExe cfg.package;
         Restart = "on-failure";
 
         # The app touches nothing outside its state directory.
