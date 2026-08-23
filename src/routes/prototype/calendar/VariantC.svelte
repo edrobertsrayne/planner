@@ -131,7 +131,6 @@
 											<span class="text-muted-foreground tabular-nums">
 												P{cell.periodFrom}{span > 1 ? `–${cell.periodTo}` : ''}
 											</span>
-											<span class="ml-auto text-muted-foreground">{cell.room}</span>
 										</span>
 
 										<span class="mt-0.5 flex items-baseline gap-1.5 {s.stripe ? 'pl-1.5' : ''}">

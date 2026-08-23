@@ -134,8 +134,6 @@
 												<span class="ml-auto shrink-0 text-muted-foreground tabular-nums">
 													P{cell.periodFrom}&ndash;{cell.periodTo}
 												</span>
-											{:else}
-												<span class="ml-auto shrink-0 text-muted-foreground">{cell.room}</span>
 											{/if}
 										</button>
 

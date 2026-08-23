@@ -141,7 +141,6 @@
 														>{cell.classLabel}</span
 													>
 												{/if}
-												<span class="ml-auto text-xs text-muted-foreground">{cell.room}</span>
 											</span>
 
 											{#if cell.lesson}

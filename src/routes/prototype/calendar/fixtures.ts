@@ -26,6 +26,11 @@ export interface Cell {
 	dayIndex: number;
 	periodFrom: number;
 	periodTo: number;
+	/**
+	 * Fixture-only, and the grid does not show it: Room is neither a term in CONTEXT.md nor a
+	 * column in the data, and at the tile's right edge it collided with the block control. Kept on
+	 * the fixture so this screen and the Agenda's (#68) stay the same data.
+	 */
 	room: string;
 	kind: CellKind;
 	lesson?: { title: string; topicName: string };
