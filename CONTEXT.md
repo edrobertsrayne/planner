@@ -46,8 +46,18 @@ A group of pupils taught as a unit, identified by a label such as "9B/Sc1". A Cl
 exactly one Course, fixed when the Class is created, which limits the Topics it may be given; what
 it actually teaches is the subset of those Topics assigned to it. It has its own Slots, and is
 scoped to one academic year — next year's teaching is new Classes, not these ones carried forward.
-It is a label, a Course and a timetable only — it holds no information about individual pupils.
+It is a label, a Course, a Timetable and a Tone only — it holds no information about individual
+pupils.
 _Avoid_: Group, set, form, cohort
+
+**Tone**:
+One of eight recurring colour identities that tell Classes apart. Every Class is given a Tone
+automatically when it is created — the next colour in a sequence that walks around the wheel rather
+than stepping through neighbouring hues — and keeps it for its whole life: no other Class's creation
+or deletion ever changes it. A deleted Class's Tone may be given to a later Class, and past eight
+live Classes Tones repeat; two Classes sharing one is accepted, not a fault. A Tone carries no
+meaning beyond recognition — it says nothing about year group, subject or Course.
+_Avoid_: Colour, theme
 
 **Assigned Topic**:
 One Topic given to one Class to teach, at a position in that Class's order. A Class begins the
@@ -167,21 +177,29 @@ Slot keeps its Class's colour and shows no Lesson; a Blocked Day and a Blocked S
 colour instead — present-but-empty and removed must never read alike.
 
 **Classes**:
-One card per Class — a **lane** — showing how far through its Assigned Topics it has got, what was
-last taught, what is queued next, and its Runway. Keyed by Class rather than by time. Opening a
-lane leads to that Class's Class page. The Runway is shown plainly on every lane and is never
-coloured or flagged: a Class approaching the end of its Assigned Topics is the normal condition
-several times a year, so a threshold warning would be on almost always and mean nothing. The
-Agenda showing Unplanned Slots inside its own horizon is the only alert the planner has.
+One tone-coloured tile per Class, keyed by Class rather than by time. Each tile carries the
+Class's label, Course and tone, its progress through its Assigned Topics, its current Topic with
+the Lesson queued next inside it, and its Runway; its footer holds Assign next Topic and Open
+Class page, and navigating to the Class page is the label's job — the tile as a whole is not one
+link. A Class is created here, in a dialog opened from this screen. The Runway is shown plainly on
+every tile and is never coloured or flagged: a Class approaching the end of its Assigned Topics is
+the normal condition several times a year, so a threshold warning would be on almost always and
+mean nothing. The Agenda showing Unplanned Slots inside its own horizon is the only alert the
+planner has.
 
 **Class page**:
-The single surface for one Class: its lane, its own view of the fortnight, and the Topics assigned
-to it. The only place a Class is created, timetabled or given a Topic — there is no screen showing
-every Class's Timetable at once, because the Timetable is only ever read or written one Class at a
-time. Periods belonging to another Class are shown as unavailable rather than hidden, since a
-position can hold only one Class on any given date; that is where the Slot uniqueness rule is
-enforced. Changes take effect from a date the teacher chooses, defaulting to the start of the
-year, so ending one Slot and starting another is ordinary editing rather than a special operation.
+The single surface for one Class, laid out as a two-column bench: the Slot grid — both weeks
+stacked, at editing density — fills the left column, and a rail beside it holds the Class's
+identity and its Assigned Topics in order. The only place a Class is timetabled. Creating a Class
+happens on the Classes screen, which also carries Assign next Topic; the Assigned Topics already
+given are ordered here. There is no screen showing every Class's Timetable at once, because the
+Timetable is only ever read or written one Class at a time. Periods held by another Class carry
+that Class's label rather than being hatched or hidden, since a position can hold only one Class
+on any given date; that is where the Slot uniqueness rule is enforced. An edit takes effect from a
+position in the year the teacher picks — the start of the year, today, a date on which this
+Class's Slots change, or any date — chosen through the same "Timetable as at" control that reads
+history, so ending one Slot and starting another is ordinary editing rather than a special
+operation.
 
 **Courses**:
 Where Course content is written. Three panes — Courses, then that Course's Topics, then that
