@@ -164,6 +164,42 @@ describe('reading Classes and their Timetable back', () => {
 	});
 });
 
+describe('Class Tones are assigned at creation, never derived (ADR-0013)', () => {
+	test('consecutive creations walk far apart on the wheel', () => {
+		const { db, course, classA, classB } = setUp();
+
+		const c3 = createClass(db, { label: '9C/Bi1', courseId: course.id });
+		const c4 = createClass(db, { label: '9D/Ch1', courseId: course.id });
+
+		// setUp created two Classes, so the walk has reached its third and fourth positions.
+		expect(listClasses(db).find((c) => c.id === classA.id)?.tone).toBe(0);
+		expect(listClasses(db).find((c) => c.id === classB.id)?.tone).toBe(4);
+		expect(listClasses(db).find((c) => c.id === c3!.id)?.tone).toBe(6);
+		expect(listClasses(db).find((c) => c.id === c4!.id)?.tone).toBe(7);
+	});
+
+	test('deleting a Class frees its position and moves nobody', () => {
+		const { db, course, classA, classB } = setUp();
+		db.delete(schema.slot).where(eq(schema.slot.classId, classB.id)).run();
+		db.delete(schema.classes).where(eq(schema.classes.id, classB.id)).run();
+
+		const replacement = createClass(db, { label: '10C/Ph2 later set', courseId: course.id })!;
+
+		expect(replacement.tone).toBe(classB.tone); // the freed position is reused
+		expect(listClasses(db).find((c) => c.id === classA.id)?.tone).toBe(classA.tone); // unmoved
+	});
+
+	test('calendar cells carry their Class Tone', () => {
+		const { db, classA, classB } = setUp();
+
+		const week = calendarWeek(db, { weekCommencing: '2026-08-31', today: '2026-09-03' });
+
+		const tones = new Map(week?.cells.map((c) => [c.classId, c.tone] as const));
+		expect(tones.get(classA.id)).toBe(classA.tone);
+		expect(tones.get(classB.id)).toBe(classB.tone);
+	});
+});
+
 describe('Slot uniqueness is window-aware, enforced in the server module', () => {
 	test('a Slot clashing with another Class over overlapping hold dates is rejected', () => {
 		const { db, course } = setUp();

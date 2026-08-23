@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { classTone } from '$lib/client/class-tone';
+	import { classTone } from '$lib/class-tone';
 	import { sessionPanel } from '$lib/client/session-panel.svelte';
 	import type { CalendarCell } from '$lib/server/planner';
 	import type { PageProps } from './$types';
@@ -187,7 +187,7 @@
 									{:else}
 										{@const cell = entry.cell}
 										{@const rowspan = cell.periodTo - cell.periodFrom + 1}
-										{@const tone = classTone(cell.classId)}
+										{@const tone = classTone(cell.tone)}
 										<td {rowspan} class="relative align-top">
 											{#if cell.kind === 'blocked'}
 												<div

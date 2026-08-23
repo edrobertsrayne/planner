@@ -49,7 +49,8 @@ export const classes = sqliteTable('class', {
 	label: text('label').notNull(),
 	courseId: text('course_id')
 		.notNull()
-		.references(() => course.id)
+		.references(() => course.id),
+	tone: integer('tone').notNull().default(0)
 });
 
 export const assignedTopic = sqliteTable('assigned_topic', {
