@@ -8,6 +8,3 @@ bun.lockb
 # Miscellaneous
 /static/
 /drizzle/
-
-# Vendored, must stay byte-identical to upstream
-src/lib/components/ui
