@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { classTone } from '$lib/class-tone';
-	import { sessionPanel } from '$lib/client/session-panel.svelte';
+	import { openSession } from '$lib/client/session-panel.svelte';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { ToggleGroup, ToggleGroupItem } from '$lib/components/ui/toggle-group';
@@ -22,7 +22,7 @@
 	}
 
 	function openOccasion(row: (typeof data.rows)[number]) {
-		sessionPanel.open({ classId: row.classId, date: row.date, period: row.periodFrom });
+		openSession({ classId: row.classId, date: row.date, period: row.periodFrom });
 	}
 
 	const fmtLongDay = (iso: string) =>
@@ -104,6 +104,7 @@
 
 						<button
 							type="button"
+							data-session-trigger
 							class="min-w-0 flex-1 py-3 text-left outline-none focus-visible:underline"
 							onclick={() => openOccasion(row)}
 						>
@@ -122,6 +123,7 @@
 								variant="ghost"
 								size="sm"
 								class="h-7 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
+								data-session-trigger
 								onclick={() => openOccasion(row)}
 							>
 								Plan

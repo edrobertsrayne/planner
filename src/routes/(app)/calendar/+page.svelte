@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { classTone } from '$lib/class-tone';
-	import { sessionPanel } from '$lib/client/session-panel.svelte';
+	import { openSession } from '$lib/client/session-panel.svelte';
 	import type { CalendarCell } from '$lib/server/planner';
 	import type { PageProps } from './$types';
 
@@ -234,11 +234,12 @@
 											{:else}
 												<button
 													type="button"
+													data-session-trigger
 													class="h-full min-h-16 w-40 rounded border-l-4 px-2 py-1.5 text-left hover:brightness-95"
 													style:background-color={tone.bg}
 													style:border-left-color={tone.ring}
 													onclick={() =>
-														sessionPanel.open({
+														openSession({
 															classId: cell.classId,
 															date: cell.date,
 															period: cell.periodFrom

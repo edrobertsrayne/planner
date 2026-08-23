@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
-	import { sessionPanel } from '$lib/client/session-panel.svelte';
+	import { openSession } from '$lib/client/session-panel.svelte';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -108,9 +108,10 @@
 						{@const lt = lane.lastTaught}
 						<button
 							type="button"
+							data-session-trigger
 							class="text-left text-neutral-600 hover:text-neutral-900"
 							onclick={() =>
-								sessionPanel.open({ classId: lane.classId, date: lt.date, period: lt.period })}
+								openSession({ classId: lane.classId, date: lt.date, period: lt.period })}
 						>
 							<span class="text-neutral-400">Last taught:</span>
 							<span class="font-medium">{lt.title}</span>

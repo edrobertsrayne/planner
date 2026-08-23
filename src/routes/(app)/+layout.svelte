@@ -10,11 +10,15 @@
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { Button } from '$lib/components/ui/button';
 	import { Toaster } from '$lib/components/ui/sonner';
-	import { sessionPanel } from '$lib/client/session-panel.svelte';
+	import { selectedOccasion } from '$lib/client/session-panel.svelte';
 	import SessionPanel from './SessionPanel.svelte';
 	import type { LayoutProps } from './$types';
 
 	let { children, data }: LayoutProps = $props();
+
+	// The panel is open exactly while the URL carries a Session (issue #88), so it survives a
+	// reload and Back closes it; the layout renders it once, beside whichever tab is active.
+	const occasion = $derived(selectedOccasion());
 
 	const TABS = [
 		['/', 'Agenda'],
@@ -105,8 +109,8 @@
 		<div class="min-w-0 flex-1 overflow-y-auto">
 			{@render children()}
 		</div>
-		{#if sessionPanel.selected}
-			<SessionPanel occasion={sessionPanel.selected} onclose={() => sessionPanel.close()} />
+		{#if occasion}
+			<SessionPanel {occasion} />
 		{/if}
 	</main>
 </div>
