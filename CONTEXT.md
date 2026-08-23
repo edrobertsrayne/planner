@@ -205,8 +205,8 @@ operation.
 Where Course content is written. Three panes — Courses, then that Course's Topics, then that
 Topic's Lessons in order — with a new Course, a new Topic and a new Lesson each created by typing
 a name into the foot of its own pane. The only screen that reads or writes Courses, Topics and
-Lessons. Unlike the other three it is a writing surface, and it is where the planner is used on a
-Sunday rather than during a teaching week.
+Lessons. Unlike the other three tabs it is a writing surface, and it is where the planner is used
+on a Sunday rather than during a teaching week.
 
 **Lesson editor**:
 The single surface for one Lesson — its title, its markdown body, its links and its Planned
@@ -220,3 +220,40 @@ the Continuation control. Opened from any of the three reading views; there is n
 Session is read or written. It opens on an Unplanned Slot too, showing no plan and offering the
 note — a Session is identified by its occasion, not by its Lesson, so a Slot carrying no Lesson is
 still an occasion the teacher may want to write about.
+
+**Settings**:
+The change-password form, and nothing else. Reached from a control in the header rather than from
+a tab, so no tab is lit while it is open — a narrow centred column under the same page header
+every screen carries, with the form in a single card that names itself. The only place the
+password is changed, and changing it signs out every other device, which the card says plainly:
+the forgotten session on a school machine is the reason to change a password at all. Three
+additions were each considered and declined, and their absence is the definition rather than an
+omission — **account identity**, because a single-user planner has no one to distinguish the
+teacher from; **a theme preference**, because the header toggle already is one and a second
+control for it would be two places to change the same thing; and **the academic year**, because
+Terms and Blocked Days are the calendar _model_ and belong wherever that is edited, not in a
+screen about the account. Settings gets no second section, so it will not become a list of them.
+The outcome of a submission is reported as a toast rather than inline, because it must outlive the
+form and because the design system has a colour for failure and none for success — an inline
+success would read as nothing.
+
+**Login**:
+Where the teacher signs in, and the only way into the planner. Sits outside the app shell: no
+tabs, no header controls, a wordmark above a centred card on the muted ground. It carries an email
+field, a password field and nothing beside them — no third-party sign-in, no link to create an
+account, and no password reset, all three deliberate. There is one account, it is created by Setup
+and nowhere else, and the planner has no way to send email, so the reset link that would normally
+sit here cannot exist. Signing in returns the teacher to whatever they were reaching for rather
+than always to the Agenda. Note that this is a sign-in, not a Session — the domain word is taken,
+and Login never uses it.
+
+**Setup**:
+The first-run screen that creates the single account — name, email, password and its confirmation
+— and then signs the teacher in. It is not merely available before there is an account, it is
+compulsory: every other screen redirects here until one exists, and afterwards Setup itself
+redirects away, so it is passed through exactly once in the planner's life. Shares Login's
+signed-out treatment, outside the app shell. One screen, not a stepped wizard: four fields and a
+confirmation do not earn steps, and stepping them is the one choice here that the end-to-end tests
+cannot survive. That there is no reset link is said on this screen rather than on Login, as small
+print under the password field, because this is where the irreversible choice is actually being
+made.
