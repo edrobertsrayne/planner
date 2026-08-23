@@ -7,11 +7,8 @@
 	import { toneVars, contrast, outOfGamut, type Variant, type Tones } from './curves';
 	import { CLASSES, DAYS, WEEK } from './fixtures';
 
-	let {
-		variant,
-		tones,
-		theme
-	}: { variant: Variant; tones: Tones; theme: 'light' | 'dark' } = $props();
+	let { variant, tones, theme }: { variant: Variant; tones: Tones; theme: 'light' | 'dark' } =
+		$props();
 
 	const vars = $derived(toneVars(variant, tones, theme));
 	const rows = $derived(
@@ -19,26 +16,29 @@
 			i,
 			name: t.name,
 			ratio: contrast(variant, tones, theme, i),
-			clipped: (['bg', 'fg', 'ring'] as const).filter((r) => outOfGamut(variant, tones, theme, i, r))
+			clipped: (['bg', 'fg', 'ring'] as const).filter((r) =>
+				outOfGamut(variant, tones, theme, i, r)
+			)
 		}))
 	);
 </script>
 
 <div class={theme === 'dark' ? 'dark' : ''} style={vars}>
-	<div class="bg-background text-foreground space-y-6 rounded-lg border p-4">
+	<div class="space-y-6 rounded-lg border bg-background p-4 text-foreground">
 		<div class="flex items-baseline justify-between">
 			<h2 class="text-sm font-semibold capitalize">{theme}</h2>
-			<span class="text-muted-foreground text-[11px]">
+			<span class="text-[11px] text-muted-foreground">
 				bg L{variant[theme].bg.l} / {Math.round(variant[theme].bg.sat * 100)}% chroma · fg L{variant[
 					theme
-				].fg.l} / {Math.round(variant[theme].fg.sat * 100)}% · ring L{variant[theme].ring
-					.l} / {Math.round(variant[theme].ring.sat * 100)}%
+				].fg.l} / {Math.round(variant[theme].fg.sat * 100)}% · ring L{variant[theme].ring.l} / {Math.round(
+					variant[theme].ring.sat * 100
+				)}%
 			</span>
 		</div>
 
 		<!-- 1. The raw table: 8 tones × 3 roles, plus the two readouts the eye can't do. -->
 		<section>
-			<div class="text-muted-foreground mb-1.5 text-[11px] font-medium tracking-wide uppercase">
+			<div class="mb-1.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
 				Roles
 			</div>
 			<table class="w-full text-[11px]">
@@ -56,8 +56,12 @@
 					{#each rows as row (row.i)}
 						<tr>
 							<td class="py-0.5 pr-2 font-mono">{row.i} {row.name}</td>
-							<td><div class="h-5 w-10 rounded" style="background: var(--tone-{row.i}-bg)"></div></td>
-							<td><div class="h-5 w-10 rounded" style="background: var(--tone-{row.i}-fg)"></div></td>
+							<td
+								><div class="h-5 w-10 rounded" style="background: var(--tone-{row.i}-bg)"></div></td
+							>
+							<td
+								><div class="h-5 w-10 rounded" style="background: var(--tone-{row.i}-fg)"></div></td
+							>
 							<td>
 								<div class="h-5 w-10 rounded" style="background: var(--tone-{row.i}-ring)"></div>
 							</td>
@@ -70,11 +74,15 @@
 								</div>
 							</td>
 							<td class="text-right tabular-nums">
-								<span class={row.ratio < 4.5 ? 'font-semibold text-red-500' : 'text-muted-foreground'}>
+								<span
+									class={row.ratio < 4.5 ? 'font-semibold text-red-500' : 'text-muted-foreground'}
+								>
 									{row.ratio.toFixed(1)}:1
 								</span>
 								{#if row.clipped.length}
-									<span class="ml-1 font-semibold text-red-500">clipped: {row.clipped.join(',')}</span>
+									<span class="ml-1 font-semibold text-red-500"
+										>clipped: {row.clipped.join(',')}</span
+									>
 								{/if}
 							</td>
 						</tr>
@@ -86,7 +94,7 @@
 		<!-- 2. Adjacency: the eight butted together, where near-hues (indigo/sky/violet,
 		     emerald/teal) either separate or collapse. -->
 		<section>
-			<div class="text-muted-foreground mb-1.5 text-[11px] font-medium tracking-wide uppercase">
+			<div class="mb-1.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
 				Adjacent
 			</div>
 			<div class="flex overflow-hidden rounded">
@@ -103,7 +111,7 @@
 
 		<!-- 3. Surface one: the Teaching Week / Calendar grid cell, at the grid's real density. -->
 		<section>
-			<div class="text-muted-foreground mb-1.5 text-[11px] font-medium tracking-wide uppercase">
+			<div class="mb-1.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
 				Teaching Week cell
 			</div>
 			<table class="w-full border-separate border-spacing-0.5 text-[10px]">
@@ -116,11 +124,11 @@
 				<tbody>
 					{#each WEEK as row, p (p)}
 						<tr>
-							<th class="text-muted-foreground pr-1 text-right font-medium">P{p + 1}</th>
+							<th class="pr-1 text-right font-medium text-muted-foreground">P{p + 1}</th>
 							{#each row as tone, di (di)}
 								<td>
 									{#if tone === null}
-										<div class="bg-muted/40 h-9 rounded border border-dashed"></div>
+										<div class="h-9 rounded border border-dashed bg-muted/40"></div>
 									{:else}
 										<div
 											class="h-9 rounded border px-1 py-0.5 text-left"
@@ -140,7 +148,7 @@
 
 		<!-- 4. Surface two: the Classes list, as the tone-coloured launcher tiles #63 settled. -->
 		<section>
-			<div class="text-muted-foreground mb-1.5 text-[11px] font-medium tracking-wide uppercase">
+			<div class="mb-1.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
 				Classes tiles
 			</div>
 			<div class="grid grid-cols-4 gap-2">
@@ -151,7 +159,10 @@
 					>
 						<div class="text-xs font-semibold">{c.label}</div>
 						<div class="text-[10px] opacity-80">{c.topic}</div>
-						<div class="mt-1.5 border-t pt-1 text-[10px]" style="border-color: var(--tone-{i}-ring)">
+						<div
+							class="mt-1.5 border-t pt-1 text-[10px]"
+							style="border-color: var(--tone-{i}-ring)"
+						>
 							Next: {c.next}
 						</div>
 					</div>
@@ -161,12 +172,12 @@
 
 		<!-- 5. Surface three: the Session panel — one tone alone, against neutral chrome. -->
 		<section>
-			<div class="text-muted-foreground mb-1.5 text-[11px] font-medium tracking-wide uppercase">
+			<div class="mb-1.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
 				Session panel
 			</div>
 			<div class="grid grid-cols-2 gap-2">
 				{#each [2, 4] as i (i)}
-					<div class="bg-card overflow-hidden rounded-lg border">
+					<div class="overflow-hidden rounded-lg border bg-card">
 						<div class="h-1" style="background: var(--tone-{i}-ring)"></div>
 						<div class="p-2.5">
 							<div class="flex items-center gap-1.5">
@@ -176,10 +187,10 @@
 								>
 									{CLASSES[i].label}
 								</span>
-								<span class="text-muted-foreground text-[10px]">Wed · P2 · Rm 14</span>
+								<span class="text-[10px] text-muted-foreground">Wed · P2 · Rm 14</span>
 							</div>
 							<div class="mt-1.5 text-xs font-medium">{CLASSES[i].next}</div>
-							<div class="text-muted-foreground mt-0.5 text-[10px]">{CLASSES[i].topic}</div>
+							<div class="mt-0.5 text-[10px] text-muted-foreground">{CLASSES[i].topic}</div>
 						</div>
 					</div>
 				{/each}

@@ -23,7 +23,7 @@
 
 	const hueKey = $derived(
 		(page.url.searchParams.get('hues') ?? 'inherited') in HUE_SETS
-			? (page.url.searchParams.get('hues') as HueSetKey) ?? 'inherited'
+			? ((page.url.searchParams.get('hues') as HueSetKey) ?? 'inherited')
 			: 'inherited'
 	);
 	const hueSet = $derived(HUE_SETS[hueKey]);
@@ -38,14 +38,14 @@
 
 <svelte:head><title>Prototype — Class tone swatches</title></svelte:head>
 
-<div class="bg-muted min-h-screen p-6 pb-24">
+<div class="min-h-screen bg-muted p-6 pb-24">
 	<header class="mx-auto mb-4 max-w-6xl">
 		<h1 class="text-lg font-semibold">
 			{variant.key} — {variant.name} · {hueSet.name} hues
 		</h1>
-		<p class="text-muted-foreground max-w-2xl text-sm">{variant.blurb}</p>
-		<p class="text-muted-foreground max-w-2xl text-sm">{hueSet.blurb}</p>
-		<p class="text-muted-foreground mt-1.5 text-[11px]">
+		<p class="max-w-2xl text-sm text-muted-foreground">{variant.blurb}</p>
+		<p class="max-w-2xl text-sm text-muted-foreground">{hueSet.blurb}</p>
+		<p class="mt-1.5 text-[11px] text-muted-foreground">
 			Hue gaps (even spacing would be 45°):
 			{#each gaps as g (g.pair)}
 				<span class={g.d < 35 ? 'font-semibold text-red-500' : ''}>{g.pair} {g.d.toFixed(0)}°</span
