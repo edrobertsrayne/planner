@@ -77,7 +77,7 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		const seedDir = mkdtempSync(path.join(tmpdir(), 'planner-e2e-'));
 		const seedPath = path.join(seedDir, 'seed.json');
 		writeFileSync(seedPath, JSON.stringify({ academicYear: 'e2e', terms, blockedDays: [] }));
-		execFileSync('node', ['scripts/seed.ts', seedPath], {
+		execFileSync('bun', ['scripts/seed.ts', seedPath], {
 			cwd: process.cwd(),
 			env: { ...process.env, DATABASE_URL: 'e2e.db' }
 		});
