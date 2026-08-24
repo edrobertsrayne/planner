@@ -25,7 +25,6 @@ import {
 	type Continuation,
 	type LessonInput,
 	type Runway,
-	type ScheduleResult,
 	type SessionRecord
 } from './engine';
 
@@ -126,11 +125,7 @@ function loadSessions(db: Db, classId: string): SessionRecord[] {
 // taught there, and is reported back as `atRisk` or `discarded` (ADR-0007) rather than silently
 // relabelled. An occasion that drops out of the plan entirely (its Slot was blocked) is deleted
 // along with any Continuation on it, for the same reason.
-function rederive(
-	db: Db,
-	classId: string,
-	boundary: string
-): ScheduleResult & { atRisk: SessionRecord[]; discarded: SessionRecord[] } {
+function rederive(db: Db, classId: string, boundary: string): WriteReport {
 	const existing = db
 		.select()
 		.from(schema.session)
@@ -210,9 +205,9 @@ function rederive(
 	const touchedWithLesson = touched.filter(
 		(row): row is typeof row & { lessonId: string } => row.lessonId !== null
 	);
-	const { atRisk, discarded } = rewind(touchedWithLesson, classId, boundary);
+	const { atRisk } = rewind(touchedWithLesson, classId, boundary);
 
-	return { ...result, atRisk, discarded };
+	return { atRisk: describeAtRisk(db, atRisk) };
 }
 
 // Every Class currently assigned this Topic — the Classes whose schedule a change to one of the
@@ -241,8 +236,8 @@ function allClassIds(db: Db): string[] {
 // Re-derives every Class from a boundary and collects the combined atRisk report — shared by
 // every scheduling input that isn't scoped to one Class (a Blocked Day, its removal, and the
 // Week letter), so the aggregation logic lives in exactly one place.
-function rederiveAllClasses(db: Db, boundary: string): SessionRecord[] {
-	const atRisk: SessionRecord[] = [];
+function rederiveAllClasses(db: Db, boundary: string): AtRiskSession[] {
+	const atRisk: AtRiskSession[] = [];
 	for (const classId of allClassIds(db)) atRisk.push(...rederive(db, classId, boundary).atRisk);
 	return atRisk;
 }
@@ -595,8 +590,7 @@ export function unassignTopic(
 	}
 
 	db.delete(schema.assignedTopic).where(eq(schema.assignedTopic.id, id)).run();
-	rederive(db, classId, today);
-	return row;
+	return rederive(db, classId, today);
 }
 
 // Swaps position with the previous or next Assigned Topic, and re-derives the Class's schedule.
@@ -614,7 +608,7 @@ export function moveAssignedTopic(
 	const assigned = assignedTopicsOf(db, classId);
 	const index = assigned.findIndex((a) => a.id === id);
 	const swapWith = direction === 'up' ? index - 1 : index + 1;
-	if (index < 0 || swapWith < 0 || swapWith >= assigned.length) return;
+	if (index < 0 || swapWith < 0 || swapWith >= assigned.length) return { atRisk: [] };
 
 	const a = assigned[index];
 	const b = assigned[swapWith];
@@ -627,7 +621,7 @@ export function moveAssignedTopic(
 		.where(eq(schema.assignedTopic.id, b.id))
 		.run();
 
-	rederive(db, classId, today);
+	return rederive(db, classId, today);
 }
 
 // A Blocked Day removes every Slot on that date for every Class. Entering one dated before today
@@ -798,10 +792,16 @@ export interface AtRiskSession {
 	lessonTitle: string;
 }
 
+// What every scheduling write answers in one call: the Rewind's report of noted Sessions whose
+// Lesson the re-derivation changed, already named by Class and Lesson — the describing lives
+// inside `rederive` so no caller can forget it.
+export type WriteReport = { atRisk: AtRiskSession[] };
+
 // A Rewind's report, made readable: each note-carrying Session whose Lesson changed, named by
 // Class and Lesson rather than left as bare ids — what blockDay, blockSlot and
 // setTeachingWeekLetter's `atRisk` is for (the point of the feature, not a nicety, per #38).
-export function describeAtRisk(db: Db, atRisk: SessionRecord[]): AtRiskSession[] {
+// Private by design: every write describes its own report before returning.
+function describeAtRisk(db: Db, atRisk: SessionRecord[]): AtRiskSession[] {
 	if (atRisk.length === 0) return [];
 
 	const classes = new Map(listClasses(db).map((c) => [c.id, c.label]));

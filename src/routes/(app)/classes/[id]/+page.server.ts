@@ -86,7 +86,8 @@ export const actions: Actions = {
 		const topicId = trimmed(data, 'topicId');
 		if (!topicId) return fail(400, { error: 'Pick a Topic to assign.' });
 		try {
-			assignTopic(db, { classId, topicId, today: today() });
+			const report = assignTopic(db, { classId, topicId, today: today() });
+			return { atRisk: report.atRisk };
 		} catch (error) {
 			return fail(400, {
 				error: error instanceof Error ? error.message : 'Could not assign the Topic.'
@@ -99,7 +100,8 @@ export const actions: Actions = {
 		const classId = trimmed(data, 'classId');
 		const id = trimmed(data, 'id');
 		try {
-			unassignTopic(db, { classId, id, today: today() });
+			const report = unassignTopic(db, { classId, id, today: today() });
+			return { atRisk: report?.atRisk ?? [] };
 		} catch (error) {
 			return fail(400, {
 				error: error instanceof Error ? error.message : 'Could not unassign the Topic.'
@@ -113,6 +115,7 @@ export const actions: Actions = {
 		const id = trimmed(data, 'id');
 		const direction = trimmed(data, 'direction');
 		if (direction !== 'up' && direction !== 'down') return fail(400, { error: 'Bad direction.' });
-		moveAssignedTopic(db, { classId, id, direction, today: today() });
+		const report = moveAssignedTopic(db, { classId, id, direction, today: today() });
+		return { atRisk: report.atRisk };
 	}
 };
