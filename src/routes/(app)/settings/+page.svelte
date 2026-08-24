@@ -1,62 +1,103 @@
 <script lang="ts">
-	import type { ActionData } from './$types';
+	import { enhance } from '$app/forms';
+	import { toast } from 'svelte-sonner';
+	import * as Card from '$lib/components/ui/card/index.js';
+	import * as Field from '$lib/components/ui/field/index.js';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
+	import PageHeader from '$lib/components/page-header.svelte';
+	import ToastMessage from './ToastMessage.svelte';
 
-	let { form }: { form: ActionData } = $props();
+	let pending = $state(false);
+	let invalid = $state(false);
+
+	function onsubmit() {
+		pending = true;
+		return async ({
+			result,
+			update
+		}: {
+			result: import('@sveltejs/kit').ActionResult;
+			update: () => Promise<void>;
+		}) => {
+			pending = false;
+			if (result.type === 'failure') {
+				invalid = true;
+				const message = String((result.data as { error?: string } | undefined)?.error ?? '');
+				toast.error(ToastMessage, { componentProps: { text: message, role: 'alert' } });
+			} else if (result.type === 'success') {
+				invalid = false;
+				toast.success(ToastMessage, {
+					componentProps: { text: 'Password changed.', role: 'status' }
+				});
+			}
+			await update();
+		};
+	}
 </script>
 
-<main class="mx-auto max-w-2xl px-6 py-8">
-	<h1 class="text-lg font-semibold tracking-tight">Settings</h1>
+<div class="mx-auto max-w-xl px-6 py-8">
+	<PageHeader title="Settings" description="This planner has one account." />
 
-	<h2 class="mt-6 text-sm font-medium">Change password</h2>
-	<p class="mt-1 text-sm text-neutral-500">
-		Changing your password logs out every other device. If you have forgotten it, there is no reset
-		by email — run <code>bun run reset:credentials</code> on the server.
-	</p>
+	<Card.Root>
+		<Card.Header>
+			<Card.Title>Change password</Card.Title>
+			<Card.Description>
+				There is no reset by email. If you forget it, run <code
+					class="rounded bg-muted px-1 py-0.5 font-mono text-xs">bun run reset:credentials</code
+				> on the server.
+			</Card.Description>
+		</Card.Header>
 
-	<form method="POST" action="?/changePassword" class="mt-4 flex flex-col gap-3">
-		<label class="flex flex-col gap-1 text-sm">
-			Current password
-			<input
-				type="password"
-				name="currentPassword"
-				autocomplete="current-password"
-				required
-				class="rounded border border-neutral-300 px-2 py-1"
-			/>
-		</label>
+		<form method="POST" action="?/changePassword" use:enhance={onsubmit}>
+			<Card.Content>
+				<Field.Group>
+					<Field.Field data-invalid={invalid || undefined}>
+						<Field.Label for="current">Current password</Field.Label>
+						<Input
+							id="current"
+							name="currentPassword"
+							type="password"
+							autocomplete="current-password"
+							required
+							class="h-7"
+							aria-invalid={invalid || undefined}
+						/>
+					</Field.Field>
 
-		<label class="flex flex-col gap-1 text-sm">
-			New password
-			<input
-				type="password"
-				name="newPassword"
-				autocomplete="new-password"
-				required
-				class="rounded border border-neutral-300 px-2 py-1"
-			/>
-		</label>
+					<Field.Field>
+						<Field.Label for="new">New password</Field.Label>
+						<Input
+							id="new"
+							name="newPassword"
+							type="password"
+							autocomplete="new-password"
+							required
+							class="h-7"
+						/>
+						<Field.Description>At least 12 characters.</Field.Description>
+					</Field.Field>
 
-		<label class="flex flex-col gap-1 text-sm">
-			Confirm new password
-			<input
-				type="password"
-				name="confirmPassword"
-				autocomplete="new-password"
-				required
-				class="rounded border border-neutral-300 px-2 py-1"
-			/>
-		</label>
+					<Field.Field>
+						<Field.Label for="confirm">Confirm new password</Field.Label>
+						<Input
+							id="confirm"
+							name="confirmPassword"
+							type="password"
+							autocomplete="new-password"
+							required
+							class="h-7"
+						/>
+					</Field.Field>
+				</Field.Group>
+			</Card.Content>
 
-		{#if form?.error}
-			<p role="alert" class="text-sm text-red-700">{form.error}</p>
-		{:else if form?.success}
-			<p role="status" class="text-sm text-green-700">Password changed.</p>
-		{/if}
-
-		<button
-			type="submit"
-			class="self-start rounded bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white"
-			>Change password</button
-		>
-	</form>
-</main>
+			<Card.Footer class="flex-wrap items-center justify-between gap-3">
+				<p class="text-xs text-muted-foreground">Logs out every other device.</p>
+				<Button type="submit" size="sm" class="h-7" disabled={pending}>
+					{pending ? 'Changing…' : 'Change password'}
+				</Button>
+			</Card.Footer>
+		</form>
+	</Card.Root>
+</div>
