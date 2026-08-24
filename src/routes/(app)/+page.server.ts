@@ -1,4 +1,4 @@
-import { db } from '$lib/server/db';
+import { db } from '$lib/server/db/client';
 import { agenda } from '$lib/server/planner';
 import { AGENDA_HORIZONS, type AgendaHorizonDays } from './agenda-horizons';
 import type { PageServerLoad } from './$types';

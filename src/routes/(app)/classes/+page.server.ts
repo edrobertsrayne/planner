@@ -1,5 +1,5 @@
 import { fail } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
+import { db } from '$lib/server/db/client';
 import { assignTopic, classLanes, createClass, listCourses, topicsOf } from '$lib/server/planner';
 import type { Actions, PageServerLoad } from './$types';
 

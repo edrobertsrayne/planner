@@ -1,7 +1,7 @@
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
-import adapter from '@sveltejs/adapter-node';
+import adapter from 'svelte-adapter-bun';
 import { sveltekit } from '@sveltejs/kit/vite';
 
 export default defineConfig({
@@ -14,9 +14,6 @@ export default defineConfig({
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
 
-			// adapter-auto only supports some environments, see https://svelte.dev/docs/kit/adapter-auto for a list.
-			// If your environment is not supported, or you settled on a specific environment, switch out the adapter.
-			// See https://svelte.dev/docs/kit/adapters for more information about adapters.
 			adapter: adapter(),
 
 			typescript: {
@@ -26,6 +23,10 @@ export default defineConfig({
 			}
 		})
 	],
+	ssr: {
+		external: ['bun:sqlite'],
+		noExternal: ['zod']
+	},
 	test: {
 		expect: { requireAssertions: true },
 		projects: [
@@ -48,6 +49,10 @@ export default defineConfig({
 				test: {
 					name: 'server',
 					environment: 'node',
+					// Several test files import $lib/server/auth (transitively) or $lib/server/db/client,
+					// which open and migrate the same real DATABASE_URL file as a module-level side effect.
+					// Running server test files across multiple processes races them against that one file.
+					fileParallelism: false,
 					include: ['src/**/*.{test,spec}.{js,ts}'],
 					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}']
 				}

@@ -18,9 +18,11 @@ test('booting against a fresh empty file produces the complete schema', () => {
 	runMigrations(client, 'drizzle');
 
 	const tables = client
-		.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
+		.prepare<{ name: string }, []>(
+			"SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name"
+		)
 		.all()
-		.map((row) => row.name as string);
+		.map((row) => row.name);
 
 	for (const expected of [
 		'course',

@@ -1,5 +1,5 @@
 import { fail } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
+import { db } from '$lib/server/db/client';
 import {
 	addDays,
 	blockDay,

@@ -23,3 +23,9 @@ The five canonical roles, each label string equal to its name. See `docs/agents/
 ### Domain docs
 
 Single-context — `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+## Communication style
+
+- Give brief context before the main point. Do not jump straight to the answer with no lead-in.
+- Write in ASD-STE100 Simplified Technical English: short sentences, one instruction per sentence, active voice, approved words only, no jargon beyond the approved technical vocabulary.
+- Use the ubiquitous language defined in `CONTEXT.md`. If `CONTEXT-MAP.md` exists, follow it to the `CONTEXT.md` for the relevant context. Do not drift to synonyms the glossary avoids.
