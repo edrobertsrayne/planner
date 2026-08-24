@@ -19,10 +19,9 @@ export const POST: RequestHandler = async ({ request }) => {
 		error(400, 'classId, date and period are required.');
 
 	try {
-		recordContinuation(db, { classId, date, period, today: today() });
+		const report = recordContinuation(db, { classId, date, period, today: today() });
+		return json({ ...sessionDetail(db, { classId, date, period }), atRisk: report.atRisk });
 	} catch (e) {
 		error(400, e instanceof Error ? e.message : 'Could not record the Continuation.');
 	}
-
-	return json(sessionDetail(db, { classId, date, period }));
 };

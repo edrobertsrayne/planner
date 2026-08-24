@@ -39,12 +39,12 @@ export const actions: Actions = {
 		const topicId = trimmed(data, 'topicId');
 		if (!topicId) return fail(400, { error: 'Pick a Topic to assign.' });
 		try {
-			assignTopic(db, { classId, topicId, today: today() });
+			const report = assignTopic(db, { classId, topicId, today: today() });
+			return { atRisk: report.atRisk };
 		} catch (error) {
 			return fail(400, {
 				error: error instanceof Error ? error.message : 'Could not assign the Topic.'
 			});
 		}
-		return {};
 	}
 };

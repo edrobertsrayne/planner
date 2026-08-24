@@ -5,7 +5,6 @@ import {
 	blockDay,
 	blockSlot,
 	calendarWeek,
-	describeAtRisk,
 	setTeachingWeekLetter,
 	teachingWeeksList,
 	unblockDay,
@@ -60,7 +59,7 @@ export const actions: Actions = {
 
 		const report = setTeachingWeekLetter(db, { weekCommencing, letter, today: today() });
 		if (!report) return fail(400, { error: 'No such Teaching Week.' });
-		return { atRisk: describeAtRisk(db, report.atRisk) };
+		return { atRisk: report.atRisk };
 	},
 
 	blockDay: async ({ request }) => {
@@ -70,7 +69,7 @@ export const actions: Actions = {
 		if (!date) return fail(400, { error: 'No date given.' });
 
 		const report = blockDay(db, { date, note: note || undefined, today: today() });
-		return { atRisk: describeAtRisk(db, report.atRisk) };
+		return { atRisk: report.atRisk };
 	},
 
 	unblockDay: async ({ request }) => {
@@ -79,7 +78,7 @@ export const actions: Actions = {
 
 		const report = unblockDay(db, { id, today: today() });
 		if (!report) return fail(400, { error: 'No such Blocked Day.' });
-		return { atRisk: describeAtRisk(db, report.atRisk) };
+		return { atRisk: report.atRisk };
 	},
 
 	blockSlot: async ({ request }) => {
@@ -92,7 +91,7 @@ export const actions: Actions = {
 		if (!note) return fail(400, { error: 'A Blocked Slot needs a note.' });
 
 		const report = blockSlot(db, { classId, date, slotId, note, today: today() });
-		return { atRisk: describeAtRisk(db, report.atRisk) };
+		return { atRisk: report.atRisk };
 	},
 
 	unblockSlot: async ({ request }) => {
@@ -101,6 +100,6 @@ export const actions: Actions = {
 
 		const report = unblockSlot(db, { id, today: today() });
 		if (!report) return fail(400, { error: 'No such Blocked Slot.' });
-		return { atRisk: describeAtRisk(db, report.atRisk) };
+		return { atRisk: report.atRisk };
 	}
 };
