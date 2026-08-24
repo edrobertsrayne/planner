@@ -1,0 +1,269 @@
+<script lang="ts">
+	import { applyAction, enhance } from '$app/forms';
+	import { goto } from '$app/navigation';
+	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
+	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
+	import XIcon from '@lucide/svelte/icons/x';
+	import PageHeader from '$lib/components/page-header.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
+	import LessonEditor from './LessonEditor.svelte';
+	import RenameableRow from './RenameableRow.svelte';
+	import type { PageProps } from './$types';
+
+	let { data, form }: PageProps = $props();
+
+	let courseNameInput: HTMLInputElement | null = $state(null);
+	let topicNameInput: HTMLInputElement | null = $state(null);
+	let lessonTitleInput: HTMLInputElement | null = $state(null);
+</script>
+
+<svelte:head><title>Courses</title></svelte:head>
+
+<div class="mx-auto flex min-h-0 max-w-6xl flex-1 flex-col px-6 py-6">
+	<PageHeader title="Courses" />
+
+	<div class="flex min-h-0 flex-1 rounded-lg border">
+		<!-- pane 1: Courses -->
+		<aside class="flex w-64 shrink-0 flex-col border-r py-3">
+			<h2 class="px-4 pb-2 text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
+				Courses
+			</h2>
+			<div class="flex-1 overflow-y-auto">
+				{#each data.courses as course (course.id)}
+					<RenameableRow
+						name={course.name}
+						selected={course.id === data.course?.id}
+						href={`?course=${course.id}`}
+						action="?/renameCourse"
+						hidden={{ id: course.id }}
+					/>
+				{/each}
+				{#if !data.courses.length}
+					<p class="px-4 text-sm text-muted-foreground">No Courses yet.</p>
+				{/if}
+			</div>
+			<form
+				method="POST"
+				action="?/createCourse"
+				class="px-4 pt-2"
+				use:enhance={() => {
+					return async ({ formElement, result }) => {
+						const course =
+							result.type === 'success' && (result.data as { course?: { id: string } })?.course;
+						if (course) {
+							formElement.reset();
+							// eslint-disable-next-line svelte/no-navigation-without-resolve -- carries a query string
+							await goto(`?course=${course.id}`, {
+								replaceState: true,
+								noScroll: true,
+								keepFocus: true,
+								invalidateAll: true
+							});
+							courseNameInput?.focus();
+						} else {
+							await applyAction(result);
+						}
+					};
+				}}
+			>
+				<Input
+					bind:ref={courseNameInput}
+					name="name"
+					required
+					autocomplete="off"
+					class="h-7 w-full"
+					placeholder="New Course name — press Enter"
+				/>
+			</form>
+		</aside>
+
+		<!-- pane 2: Topics -->
+		<aside class="flex w-64 shrink-0 flex-col border-r py-3">
+			<h2 class="px-4 pb-2 text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
+				Topics
+			</h2>
+			{#if !data.course}
+				<p class="px-4 text-sm text-muted-foreground">Pick a Course.</p>
+			{:else}
+				<div class="flex-1 overflow-y-auto">
+					{#each data.topics as topic (topic.id)}
+						<RenameableRow
+							name={topic.name}
+							selected={topic.id === data.topic?.id}
+							href={`?course=${data.course.id}&topic=${topic.id}`}
+							action="?/renameTopic"
+							hidden={{ id: topic.id }}
+						/>
+					{/each}
+					{#if !data.topics.length}
+						<p class="px-4 text-sm text-muted-foreground">No Topics yet.</p>
+					{/if}
+				</div>
+				<form
+					method="POST"
+					action="?/createTopic"
+					class="px-4 pt-2"
+					use:enhance={() => {
+						return async ({ formElement, result }) => {
+							const topic =
+								result.type === 'success' && (result.data as { topic?: { id: string } })?.topic;
+							if (topic && data.course) {
+								formElement.reset();
+								// eslint-disable-next-line svelte/no-navigation-without-resolve -- carries a query string
+								await goto(`?course=${data.course.id}&topic=${topic.id}`, {
+									replaceState: true,
+									noScroll: true,
+									keepFocus: true,
+									invalidateAll: true
+								});
+								topicNameInput?.focus();
+							} else {
+								await applyAction(result);
+							}
+						};
+					}}
+				>
+					<input type="hidden" name="courseId" value={data.course.id} />
+					<Input
+						bind:ref={topicNameInput}
+						name="name"
+						required
+						autocomplete="off"
+						class="h-7 w-full"
+						placeholder="New Topic name — press Enter"
+					/>
+				</form>
+			{/if}
+		</aside>
+
+		<!-- pane 3: Lessons -->
+		<main class="flex min-w-0 flex-1 flex-col">
+			{#if !data.topic}
+				<div class="p-10 text-sm text-muted-foreground">Pick a Topic.</div>
+			{:else}
+				<div class="border-b px-6 py-4">
+					<h2 class="text-base font-semibold">{data.topic.name}</h2>
+					<p class="mt-1 text-xs text-muted-foreground">
+						{data.lessons.length} Lesson{data.lessons.length === 1 ? '' : 's'}
+					</p>
+					<p class="mt-1 text-[11px] text-muted-foreground">
+						Editing these Lessons moves dates for every Class already teaching this Topic.
+					</p>
+					{#if form?.error}
+						<p role="alert" class="mt-1 text-xs text-destructive">{form.error}</p>
+					{/if}
+				</div>
+
+				<ol class="flex-1 divide-y overflow-y-auto">
+					{#each data.lessons as lesson, i (lesson.id)}
+						<li class="group flex items-baseline gap-3 pl-2">
+							<span class="w-6 shrink-0 pl-4 font-mono text-xs text-muted-foreground/60">
+								{i + 1}
+							</span>
+							<div class="min-w-0 flex-1">
+								<RenameableRow
+									name={lesson.title}
+									selected={lesson.id === data.lesson?.id}
+									href={`?course=${data.course?.id}&topic=${data.topic.id}&lesson=${lesson.id}`}
+									action="?/renameLesson"
+									hidden={{ id: lesson.id }}
+									field="title"
+								/>
+							</div>
+							<span
+								class="flex shrink-0 items-center gap-0.5 pr-2 opacity-0 group-hover:opacity-100"
+							>
+								<form method="POST" action="?/moveLesson" use:enhance>
+									<input type="hidden" name="topicId" value={data.topic.id} />
+									<input type="hidden" name="id" value={lesson.id} />
+									<input type="hidden" name="direction" value="up" />
+									<Button
+										type="submit"
+										variant="ghost"
+										size="icon-sm"
+										disabled={i === 0}
+										aria-label="Move {lesson.title} up"
+									>
+										<ChevronUpIcon class="size-3.5" />
+									</Button>
+								</form>
+								<form method="POST" action="?/moveLesson" use:enhance>
+									<input type="hidden" name="topicId" value={data.topic.id} />
+									<input type="hidden" name="id" value={lesson.id} />
+									<input type="hidden" name="direction" value="down" />
+									<Button
+										type="submit"
+										variant="ghost"
+										size="icon-sm"
+										disabled={i === data.lessons.length - 1}
+										aria-label="Move {lesson.title} down"
+									>
+										<ChevronDownIcon class="size-3.5" />
+									</Button>
+								</form>
+								<form method="POST" action="?/deleteLesson" use:enhance>
+									<input type="hidden" name="id" value={lesson.id} />
+									<Button
+										type="submit"
+										variant="ghost"
+										size="icon-sm"
+										class="hover:text-destructive"
+										aria-label="Delete {lesson.title}"
+									>
+										<XIcon class="size-3.5" />
+									</Button>
+								</form>
+							</span>
+						</li>
+					{/each}
+					{#if !data.lessons.length}
+						<li class="px-6 py-4 text-sm text-muted-foreground">No Lessons yet.</li>
+					{/if}
+				</ol>
+
+				<form
+					method="POST"
+					action="?/createLesson"
+					class="border-t px-6 py-3"
+					use:enhance={() => {
+						return async ({ update }) => {
+							await update();
+							lessonTitleInput?.focus();
+						};
+					}}
+				>
+					<input type="hidden" name="topicId" value={data.topic.id} />
+					<Input
+						bind:ref={lessonTitleInput}
+						name="title"
+						required
+						autocomplete="off"
+						class="h-8 w-full"
+						placeholder="New Lesson title — press Enter"
+					/>
+					<p class="mt-1.5 text-[11px] text-muted-foreground">
+						Title alone is a complete Lesson. Add notes and links whenever.
+					</p>
+				</form>
+			{/if}
+		</main>
+	</div>
+</div>
+
+{#if data.lesson && data.course && data.topic}
+	<LessonEditor
+		lesson={data.lesson}
+		links={data.links}
+		index={data.lessonIndex}
+		count={data.lessons.length}
+		previousId={data.lessonIndex > 0 ? data.lessons[data.lessonIndex - 1].id : null}
+		nextId={data.lessonIndex < data.lessons.length - 1
+			? data.lessons[data.lessonIndex + 1].id
+			: null}
+		courseId={data.course.id}
+		topicId={data.topic.id}
+		topics={data.topics}
+		taughtBy={data.taughtBy}
+	/>
+{/if}

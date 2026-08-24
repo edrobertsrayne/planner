@@ -91,6 +91,12 @@
 			"skillPath": "skills/engineering/setup-matt-pocock-skills/SKILL.md",
 			"computedHash": "f9c2b933dda18eea572e96f6ebbcd5b30e0d1bfdc074af53cc99728dc5f0bdac"
 		},
+		"shadcn-svelte": {
+			"source": "huntabyte/shadcn-svelte",
+			"sourceType": "github",
+			"skillPath": "skills/shadcn-svelte/SKILL.md",
+			"computedHash": "d4f3f983a71466a86649985a8a7fbce47da29f44de3a9d02540bbcf3167134e0"
+		},
 		"tdd": {
 			"source": "mattpocock/skills",
 			"sourceType": "github",

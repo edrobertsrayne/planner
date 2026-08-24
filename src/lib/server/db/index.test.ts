@@ -66,6 +66,48 @@ test('a foreign key violation is rejected', () => {
 	);
 });
 
+test('the tone backfill walks existing Classes in creation order and wraps past eight', () => {
+	dir = mkdtempSync(join(tmpdir(), 'planner-db-'));
+	const { client } = openDatabase(join(dir, 'backfill.db'));
+
+	// The database as it stood before the tone column existed (ADR-0013), with the migrations
+	// of that day already marked applied — so only the tone migration is pending.
+	client.exec(`CREATE TABLE __drizzle_migrations (
+		id INTEGER PRIMARY KEY,
+		hash TEXT NOT NULL,
+		created_at NUMERIC,
+		name TEXT,
+		applied_at TEXT
+	)`);
+	for (const earlier of ['20260814131415_pink_omega_red', '20260814200509_friendly_quicksilver'])
+		client.prepare('INSERT INTO __drizzle_migrations (hash, name) VALUES (?, ?)').run('x', earlier);
+
+	client.exec(`
+		CREATE TABLE course (id text PRIMARY KEY, name text NOT NULL);
+		CREATE TABLE class (
+			id text PRIMARY KEY,
+			label text NOT NULL,
+			course_id text NOT NULL,
+			CONSTRAINT fk_class_course_id_course_id_fk FOREIGN KEY (course_id) REFERENCES course(id)
+		);
+	`);
+	client.prepare("INSERT INTO course (id, name) VALUES ('c1', 'Science')").run();
+
+	const insertClass = client.prepare(
+		"INSERT INTO class (id, label, course_id) VALUES (?, ?, 'c1')"
+	);
+	for (let i = 1; i <= 10; i++) insertClass.run(`cls-${i}`, `9A/Ma${i}`);
+
+	runMigrations(client, 'drizzle');
+
+	// Creation order is rowid order; the walk hands out 0, 4, 6, 7, 1, 2, 5, 3, then wraps.
+	const tones = client
+		.prepare('SELECT label, tone FROM class ORDER BY rowid')
+		.all()
+		.map((row) => (row as { label: string; tone: number }).tone);
+	expect(tones).toEqual([0, 4, 6, 7, 1, 2, 5, 3, 0, 4]);
+});
+
 describe('runMigrations', () => {
 	test('refuses to apply a broken migration, naming which one failed', () => {
 		dir = mkdtempSync(join(tmpdir(), 'planner-db-'));

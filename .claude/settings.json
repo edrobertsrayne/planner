@@ -8,7 +8,9 @@
 		}
 	},
 	"enabledPlugins": {
-		"svelte@svelte": true
+		"svelte@svelte": true,
+		"context7@claude-plugins-official": true,
+		"mattpocock-skills@claude-plugins-official": true
 	},
 	"hooks": {
 		"PreToolUse": [

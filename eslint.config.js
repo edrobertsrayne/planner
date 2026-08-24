@@ -34,6 +34,13 @@ export default defineConfig(
 		}
 	},
 	{
+		// Generic primitives take caller-supplied hrefs, which resolve() cannot wrap
+		files: ['src/lib/components/ui/button/button.svelte'],
+		rules: {
+			'svelte/no-navigation-without-resolve': 'off'
+		}
+	},
+	{
 		// Override or add rule settings here, such as:
 		// 'svelte/button-has-type': 'error'
 		rules: {}

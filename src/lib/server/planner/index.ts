@@ -15,6 +15,7 @@
 import { and, asc, eq, gte, inArray, isNotNull, lt, or } from 'drizzle-orm';
 import type { drizzle } from 'drizzle-orm/bun-sqlite';
 import * as schema from '../db/schema';
+import { nextTone } from '$lib/class-tone';
 import {
 	agendaRows,
 	schedule,
@@ -246,8 +247,19 @@ function rederiveAllClasses(db: Db, boundary: string): SessionRecord[] {
 	return atRisk;
 }
 
+// The Tone is assigned once here, at creation — the next unused position of the fixed walk
+// (ADR-0013) — and never touched again by any other write.
 export function createClass(db: Db, { label, courseId }: { label: string; courseId: string }) {
-	const [row] = db.insert(schema.classes).values({ label, courseId }).returning().all();
+	const tonesInUse = db
+		.select({ tone: schema.classes.tone })
+		.from(schema.classes)
+		.all()
+		.map((row) => row.tone);
+	const [row] = db
+		.insert(schema.classes)
+		.values({ label, courseId, tone: nextTone(tonesInUse) })
+		.returning()
+		.all();
 	return row;
 }
 
@@ -257,7 +269,8 @@ export function listClasses(db: Db) {
 		.select({
 			id: schema.classes.id,
 			label: schema.classes.label,
-			courseId: schema.classes.courseId
+			courseId: schema.classes.courseId,
+			tone: schema.classes.tone
 		})
 		.from(schema.classes)
 		.orderBy(asc(schema.classes.label))
@@ -818,6 +831,7 @@ export function describeAtRisk(db: Db, atRisk: SessionRecord[]): AtRiskSession[]
 export interface AgendaEntry {
 	classId: string;
 	classLabel: string;
+	tone: number;
 	date: string;
 	week: 'A' | 'B';
 	periodFrom: number;
@@ -845,7 +859,7 @@ export function agenda(db: Db, { today, horizonDays }: { today: string; horizonD
 		});
 		return agendaRows(cls.id, result)
 			.filter((r) => r.date < horizonEnd)
-			.map((r) => ({ ...r, classLabel: cls.label }));
+			.map((r) => ({ ...r, classLabel: cls.label, tone: cls.tone }));
 	});
 
 	const lessonIds = [...new Set(rows.flatMap((r) => (r.lesson ? [r.lesson.lessonId] : [])))];
@@ -868,6 +882,7 @@ export function agenda(db: Db, { today, horizonDays }: { today: string; horizonD
 	const entries: AgendaEntry[] = rows.map((r) => ({
 		classId: r.classId,
 		classLabel: r.classLabel,
+		tone: r.tone,
 		date: r.date,
 		week: r.week,
 		periodFrom: r.periodFrom,
@@ -889,6 +904,7 @@ export interface CalendarCell {
 	periodTo: number;
 	classId: string;
 	classLabel: string;
+	tone: number;
 	kind: 'lesson' | 'unplanned' | 'blocked';
 	lesson: { title: string; topicName: string } | null;
 	blockedNote: string | null;
@@ -972,6 +988,7 @@ export function calendarWeek(
 				periodTo: r.periodTo,
 				classId: cls.id,
 				classLabel: cls.label,
+				tone: cls.tone,
 				kind: r.lesson ? 'lesson' : 'unplanned',
 				lesson: r.lesson ? (names.get(r.lesson.lessonId) ?? null) : null,
 				blockedNote: null,
@@ -1025,6 +1042,7 @@ export function calendarWeek(
 				periodTo: period,
 				classId: cls.id,
 				classLabel: cls.label,
+				tone: cls.tone,
 				kind: 'blocked',
 				lesson: null,
 				blockedNote: dayBlock?.note ?? slotBlock?.note ?? null,
@@ -1093,6 +1111,7 @@ export interface ClassLane {
 	classId: string;
 	classLabel: string;
 	courseId: string;
+	tone: number;
 	taught: number;
 	total: number;
 	lastTaught: {
@@ -1180,6 +1199,7 @@ export function classLanes(
 			classId: cls.id,
 			classLabel: cls.label,
 			courseId: cls.courseId,
+			tone: cls.tone,
 			taught: result.history.length,
 			total,
 			lastTaught,
