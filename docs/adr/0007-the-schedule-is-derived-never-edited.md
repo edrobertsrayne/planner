@@ -75,4 +75,13 @@ and returns the rest as unplaced. Silently dropping Lessons would make the tool 
 > The **Runway** — the date of a Class's first Unplanned Slot — is therefore derived, not stored,
 > like everything else about the schedule.
 
+> **Amended 2026-08-25 (issue #108).** **Unplanned Slot** is renamed **Open Slot**. Nothing about
+> this decision changes: the mirror case, the returned field and the derived Runway all stand
+> exactly as written above. Only the word moves, because #108 gave the Lesson a planning status
+> called **Planned** and one word cannot mean both "this Lesson is approved to teach from" and
+> "this Slot carries no Lesson". `CONTEXT.md` is the source of truth for the term; the prose above
+> keeps the old word because that is what this decision was written in. The returned field is still
+> named `unplanned` in `src/lib/server/planner/engine.ts`, and renaming it is implementation work
+> left to the Planning board spec (#107).
+
 Nothing may write a Session dated before today except a Rewind.

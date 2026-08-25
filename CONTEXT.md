@@ -26,18 +26,31 @@ fixed per Class by its Assigned Topics.
 _Avoid_: Unit, module, block, chapter
 
 **Lesson**:
-One planned teaching episode within a Topic — the plan, not the event. Exists whether or not it
+One teaching episode within a Topic — the plan, not the event. Exists whether or not it
 has ever been taught, and is shared by every Class assigned its Topic. A title alone constitutes
 a Lesson; the notes and the links to resources held elsewhere arrive as planning catches up.
 _Avoid_: Period, session, class
 
-**Planned Length**:
-The number of Periods a Lesson is planned to occupy, defaulting to one. Distinct from a
-Continuation: Planned Length belongs to the Lesson and so applies to every Class assigned its
+**Length**:
+The number of Periods a Lesson is intended to occupy, defaulting to one. Distinct from a
+Continuation: Length belongs to the Lesson and so applies to every Class assigned its
 Topic, whereas a Continuation is a reaction to how one Class's teaching actually went. A Lesson
 longer than one Period takes the next Available Slots in order like any other, and may therefore
 run across two days rather than falling on a timetabled double.
-_Avoid_: Duration, double, span, periods
+_Avoid_: Planned Length, duration, double, span, periods
+
+**Draft**:
+A Lesson the teacher has not yet marked Planned — it is written but not reviewed and approved.
+Typically carries no more than its title. Belongs to the Lesson, so every Class assigned its Topic
+sees the same. Says nothing about whether any Class is Ready to teach it.
+_Avoid_: Bare, empty, stub, untouched
+
+**Planned**:
+A Lesson the teacher has reviewed and approved as ready to teach from. Belongs to the Lesson,
+shared by every Class assigned its Topic. Marked by the teacher and never derived from the body or
+the links. Names the Lesson's state, never its place on the calendar — a Lesson takes a date by
+being Scheduled, and the two are unrelated.
+_Avoid_: Drafted, written, complete, scheduled
 
 ### Scheduling
 
@@ -123,14 +136,14 @@ _Avoid_: Cancellation, skip, gap, missed lesson
 A Slot on a date that falls within a Term, lies within the dates that Slot holds, and is neither a
 Blocked Day nor a Blocked Slot — that is, a Slot on which teaching can actually take place.
 
-**Unplanned Slot**:
+**Open Slot**:
 An Available Slot carrying no Lesson, because the Class's Assigned Topics ran out before its Slots
 did. The mirror of an unplaced Lesson, and the normal condition of a Class that has not yet been
 given its next Topic — not a fault, and never a Blocked Slot, which means the opposite.
-_Avoid_: Empty slot, gap, free period, unfilled
+_Avoid_: Unplanned Slot, empty slot, gap, free period, unfilled
 
 **Runway**:
-The date a Class's plan runs out — the date of its first Unplanned Slot. Measured as a date rather
+The date a Class's plan runs out — the date of its first Open Slot. Measured as a date rather
 than a count of Lessons, because Classes taught at different frequencies exhaust the same number of
 Lessons at different speeds, and because a Blocked Day or a Continuation moves the date without
 changing the count.
@@ -158,6 +171,21 @@ A Session marked as needing more time, so that its Lesson also occupies the foll
 Slot. The Course is unchanged; only that Class's Sessions shift.
 _Avoid_: Split, extend, carry over, overrun
 
+### Readiness
+
+**Ready**:
+One Class is prepared to teach one Lesson — printed, resourced, practicals set. Recorded per Class
+and Lesson, so Classes sharing a Topic differ freely, and the mark survives Shift-right and Rewind.
+Independent of the Lesson's planning status: a Draft Lesson may be Ready, and marking a Lesson
+Draft never clears the mark.
+_Avoid_: Printed, done, prepared
+
+**Readiness**:
+The record that one Class is Ready for one Lesson. Exists only once made; it dies when the pairing
+does — unassignment or deletion — and nothing derived ever disturbs it. Separate from Draft and
+Planned, which describe the shared plan rather than one Class's preparation to teach it.
+_Avoid_: Checklist, handout list, preparation
+
 ## Views
 
 Names for the screens, not for anything in the domain. Recorded so that issues, tests and code
@@ -165,14 +193,18 @@ agree on what to call them.
 
 **Agenda**:
 The chronological stream of upcoming Sessions across every Class, grouped by day, reaching a
-horizon the teacher chooses. Where the planner opens. An Unplanned Slot appears as an ordinary row
+horizon the teacher chooses. Where the planner opens. An Open Slot appears as an ordinary row
 in its own position, marked as carrying no Lesson, because the teacher is teaching that Period and
-an Agenda that omitted it would report a free one.
+an Agenda that omitted it would report a free one — it carries no Ready tick, since there is no
+(Lesson, Class) pairing to key one on. Every other row carries the Ready tick for its Class, and
+this is the only screen on which Readiness is written; a row can be ticked only while it is on
+screen, with no reach beyond the chosen horizon and no ticking a past day. A Continuation's two
+rows share one Readiness record, so ticking either moves both.
 
 **Calendar**:
 One Teaching Week as a grid of Periods against days, showing which Class is taught when and what
 each Session carries. Note that this names a _screen_; the Terms, Blocked Days and Blocked Slots
-it draws on are the calendar _model_, and "the calendar" unqualified means the model. An Unplanned
+it draws on are the calendar _model_, and "the calendar" unqualified means the model. An Open
 Slot keeps its Class's colour and shows no Lesson; a Blocked Day and a Blocked Slot drain the
 colour instead — present-but-empty and removed must never read alike.
 
@@ -184,7 +216,7 @@ Class page, and navigating to the Class page is the label's job — the tile as 
 link. A Class is created here, in a dialog opened from this screen. The Runway is shown plainly on
 every tile and is never coloured or flagged: a Class approaching the end of its Assigned Topics is
 the normal condition several times a year, so a threshold warning would be on almost always and
-mean nothing. The Agenda showing Unplanned Slots inside its own horizon is the only alert the
+mean nothing. The Agenda showing Open Slots inside its own horizon is the only alert the
 planner has.
 
 **Class page**:
@@ -208,18 +240,27 @@ a name into the foot of its own pane. The only screen that reads or writes Cours
 Lessons. Unlike the other three tabs it is a writing surface, and it is where the planner is used
 on a Sunday rather than during a teaching week.
 
+**Planning**:
+The stream of upcoming Lessons by planning status — which are still Draft, which are Planned —
+ordered by soonest next Scheduled occurrence, Lessons with no scheduled occurrence last. Keyed by
+Lesson rather than by Class, so it shows the shared plan and never shows Readiness: what the
+teacher has not yet written is one question, and whether one Class is set to be taught is another.
+Note that this names a _screen_; "planning" unqualified means the activity, and the Planning half
+of the Language above names its parts.
+
 **Lesson editor**:
-The single surface for one Lesson — its title, its markdown body, its links and its Planned
-Length. Opens as a modal over the Courses view, and steps to the next or previous Lesson in the
+The single surface for one Lesson — its title, its markdown body, its links and its Length. Opens as a modal over the Courses view, and steps to the next or previous Lesson in the
 Topic without closing. Distinct from the Session panel: the Lesson editor writes the plan shared
 by every Class, the Session panel writes one Class's occasion.
 
 **Session panel**:
 The single surface for one Session — its Lesson's plan and links, the note on the occasion, and
 the Continuation control. Opened from any of the three reading views; there is no other place a
-Session is read or written. It opens on an Unplanned Slot too, showing no plan and offering the
+Session is read or written. It opens on an Open Slot too, showing no plan and offering the
 note — a Session is identified by its occasion, not by its Lesson, so a Slot carrying no Lesson is
-still an occasion the teacher may want to write about.
+still an occasion the teacher may want to write about. Shows the Class's Readiness for this
+Lesson, read-only — the panel describes the exact (Lesson, Class) occasion the Agenda row already
+ticks, so it would otherwise hide a fact its own row displays. No other screen shows Readiness.
 
 **Settings**:
 The change-password form, and nothing else. Reached from a control in the header rather than from
