@@ -46,8 +46,10 @@
 				method="POST"
 				action="?/createCourse"
 				class="px-4 pt-2"
-				use:enhance={createThenSelect('course', (id) => `?course=${id}`, () =>
-					courseNameInput?.focus()
+				use:enhance={createThenSelect(
+					'course',
+					(id) => `?course=${id}`,
+					() => courseNameInput?.focus()
 				)}
 			>
 				<Input

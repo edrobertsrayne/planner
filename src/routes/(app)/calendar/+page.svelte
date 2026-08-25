@@ -56,7 +56,8 @@
 									: 'text-muted-foreground hover:bg-muted'}"
 								title="w/c {formatDayMonth(w.weekCommencing)}"
 							>
-								{w.letter}<span class="ml-1 font-normal opacity-70">{formatDayMonth(w.weekCommencing)}</span
+								{w.letter}<span class="ml-1 font-normal opacity-70"
+									>{formatDayMonth(w.weekCommencing)}</span
 								>
 							</a>
 						{/each}
@@ -73,11 +74,7 @@
 					</Button>
 					<!-- eslint-enable svelte/no-navigation-without-resolve -->
 
-					<form
-						method="POST"
-						action="?/setLetter"
-						use:enhance={refresh}
-					>
+					<form method="POST" action="?/setLetter" use:enhance={refresh}>
 						<input type="hidden" name="weekCommencing" value={data.week.weekCommencing} />
 						<input type="hidden" name="letter" value={otherLetter} />
 						<Button type="submit" variant="ghost" size="sm">
@@ -121,14 +118,11 @@
 							<th class="pb-1 text-left align-bottom">
 								<div class="flex items-baseline gap-1.5">
 									<span class="text-sm font-semibold">{d}</span>
-									<span class="text-xs font-normal text-muted-foreground">{formatDayMonth(date)}</span>
+									<span class="text-xs font-normal text-muted-foreground"
+										>{formatDayMonth(date)}</span
+									>
 									{#if blockedDay}
-										<form
-											method="POST"
-											action="?/unblockDay"
-											class="ml-auto"
-											use:enhance={refresh}
-										>
+										<form method="POST" action="?/unblockDay" class="ml-auto" use:enhance={refresh}>
 											<input type="hidden" name="id" value={blockedDay.id} />
 											<Button
 												type="submit"
