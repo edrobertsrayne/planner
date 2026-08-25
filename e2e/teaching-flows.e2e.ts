@@ -288,4 +288,87 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		await page.reload();
 		await expect.poll(isDark).toBe(!before);
 	});
+
+	test('the Planning tab filters, pages, and updates status with tones and counts', async () => {
+		// Create additional lessons in Courses to reach 11 total so stream trimming is testable.
+		await page.goto('/courses');
+		await page.getByRole('link', { name: 'KS3 Science' }).click();
+		await page.getByRole('link', { name: 'Forces' }).click();
+		for (let i = 1; i <= 9; i++) {
+			await page.getByPlaceholder('New Lesson title — press Enter').fill(`Extra Lesson ${i}`);
+			await page.getByPlaceholder('New Lesson title — press Enter').press('Enter');
+			await expect(
+				page.getByRole('link', { name: `Extra Lesson ${i}`, exact: true })
+			).toBeVisible();
+		}
+
+		await page.goto('/planning');
+
+		const speedRow = page.locator('li').filter({ hasText: 'Speed' });
+		const motionRow = page.locator('li').filter({ hasText: 'Motion' });
+
+		// Motion is scheduled next, so it sits in the top 10; Speed was taught in the past so it
+		// sits in the unscheduled tail past the initial 10-item limit.
+		await expect(motionRow).toBeVisible();
+		await expect(speedRow).toBeHidden();
+
+		// Initial counts: 11 lessons, all Draft.
+		const allFilter = page.getByRole('button', { name: /^All\s+\d+$/ });
+		const draftFilter = page.getByRole('button', { name: /^Draft\s+\d+$/ });
+		const plannedFilter = page.getByRole('button', { name: /^Planned\s+\d+$/ });
+		await expect(allFilter).toContainText('11');
+		await expect(draftFilter).toContainText('11');
+		await expect(plannedFilter).toContainText('0');
+
+		// Trimming line is visible with default Show 10.
+		await expect(page.getByText('Showing 10 of 11')).toBeVisible();
+
+		// Paging controls: Show all reveals all 11 items (including Speed) and hides trimming line.
+		const showAllBtn = page.getByRole('button', { name: 'Show all' });
+		const show10Btn = page.getByRole('button', { name: 'Show 10' });
+		await showAllBtn.click();
+		await expect(showAllBtn).toHaveAttribute('aria-pressed', 'true');
+		await expect(page.getByText('Showing 10 of 11')).toBeHidden();
+		await expect(speedRow).toBeVisible();
+
+		await show10Btn.click();
+		await expect(show10Btn).toHaveAttribute('aria-pressed', 'true');
+		await expect(page.getByText('Showing 10 of 11')).toBeVisible();
+		await expect(speedRow).toBeHidden();
+
+		// Filtering by Planned shows the dashed empty state.
+		await plannedFilter.click();
+		await expect(page.getByText('No Planned Lessons')).toBeVisible();
+		await expect(motionRow).toBeHidden();
+		await expect(plannedFilter).toHaveAttribute('style', /var\(--success-bg\)/);
+
+		// Filtering by Draft shows Draft tone on selected chip.
+		await draftFilter.click();
+		await expect(draftFilter).toHaveAttribute('style', /var\(--error-bg\)/);
+		await expect(motionRow).toBeVisible();
+
+		// Switch back to All to update status.
+		await allFilter.click();
+
+		// Advance 'Motion' to Planned from its row's segmented control.
+		const motionPlannedBtn = motionRow.getByRole('button', { name: 'Planned' });
+		await motionPlannedBtn.click();
+		await expect(motionPlannedBtn).toHaveAttribute('aria-pressed', 'true');
+		await expect(motionPlannedBtn).toHaveAttribute('style', /var\(--success-bg\)/);
+
+		// Live counts update across the whole stream.
+		await expect(allFilter).toContainText('11');
+		await expect(draftFilter).toContainText('10');
+		await expect(plannedFilter).toContainText('1');
+
+		// Filter to Planned — only 'Motion' shows.
+		await plannedFilter.click();
+		await expect(motionRow).toBeVisible();
+		await expect(page.getByText('Showing 10 of 11')).toBeHidden();
+
+		// Filter to Draft — 'Motion' is hidden.
+		await draftFilter.click();
+		await expect(motionRow).toBeHidden();
+		await expect(page.getByText('Showing 10 of 10')).toBeHidden();
+	});
 });
