@@ -1,5 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
+import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
+import { badRequest, trimmed } from '$lib/server/form';
 import {
 	academicYearStart,
 	activeSlots,
@@ -17,15 +19,6 @@ import {
 	unassignTopic
 } from '$lib/server/planner';
 import type { Actions, PageServerLoad } from './$types';
-
-// The scheduling boundary: a Timetable change re-derives the Class from today, never before.
-function today() {
-	return new Date().toISOString().slice(0, 10);
-}
-
-function trimmed(data: FormData, field: string) {
-	return String(data.get(field) ?? '').trim();
-}
 
 export const load: PageServerLoad = ({ params, url }) => {
 	const selected = classDetail(db, params.id);
@@ -74,9 +67,7 @@ export const actions: Actions = {
 			// Held by another Class: no-op — the grid shows it hatched and unclickable, so this
 			// is only reached by a stale click racing an edit made elsewhere.
 		} catch (error) {
-			return fail(400, {
-				error: error instanceof Error ? error.message : 'Could not change the Timetable.'
-			});
+			return badRequest(error, 'Could not change the Timetable.');
 		}
 	},
 
@@ -89,9 +80,7 @@ export const actions: Actions = {
 			const report = assignTopic(db, { classId, topicId, today: today() });
 			return { atRisk: report.atRisk };
 		} catch (error) {
-			return fail(400, {
-				error: error instanceof Error ? error.message : 'Could not assign the Topic.'
-			});
+			return badRequest(error, 'Could not assign the Topic.');
 		}
 	},
 
@@ -103,9 +92,7 @@ export const actions: Actions = {
 			const report = unassignTopic(db, { classId, id, today: today() });
 			return { atRisk: report?.atRisk ?? [] };
 		} catch (error) {
-			return fail(400, {
-				error: error instanceof Error ? error.message : 'Could not unassign the Topic.'
-			});
+			return badRequest(error, 'Could not unassign the Topic.');
 		}
 	},
 

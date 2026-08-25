@@ -1,5 +1,7 @@
 import { fail } from '@sveltejs/kit';
+import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
+import { badRequest, trimmed } from '$lib/server/form';
 import {
 	classesTaughtLesson,
 	createCourse,
@@ -22,11 +24,6 @@ import {
 	updateLink
 } from '$lib/server/planner';
 import type { Actions, PageServerLoad } from './$types';
-
-// The scheduling boundary: content edits re-derive every affected Class from today, never before.
-function today() {
-	return new Date().toISOString().slice(0, 10);
-}
 
 // A Link's url is rendered as a real href — restricting it to http(s) keeps a javascript: URL
 // from ever reaching an anchor, since the editor's own href-taking rows would otherwise execute it.
@@ -67,10 +64,6 @@ export const load: PageServerLoad = ({ url }) => {
 		taughtBy
 	};
 };
-
-function trimmed(data: FormData, field: string) {
-	return String(data.get(field) ?? '').trim();
-}
 
 export const actions: Actions = {
 	createCourse: async ({ request }) => {
@@ -145,7 +138,7 @@ export const actions: Actions = {
 			if (!lesson) return fail(404, { error: 'No such Lesson.' });
 			return {};
 		} catch (error) {
-			return fail(400, { error: error instanceof Error ? error.message : 'Could not delete.' });
+			return badRequest(error, 'Could not delete.');
 		}
 	},
 

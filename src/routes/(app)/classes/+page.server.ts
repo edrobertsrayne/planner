@@ -1,15 +1,9 @@
 import { fail } from '@sveltejs/kit';
+import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
+import { badRequest, trimmed } from '$lib/server/form';
 import { assignTopic, classLanes, createClass, listCourses, topicsOf } from '$lib/server/planner';
 import type { Actions, PageServerLoad } from './$types';
-
-function today() {
-	return new Date().toISOString().slice(0, 10);
-}
-
-function trimmed(data: FormData, field: string) {
-	return String(data.get(field) ?? '').trim();
-}
 
 export const load: PageServerLoad = () => {
 	const courses = listCourses(db);
@@ -42,9 +36,7 @@ export const actions: Actions = {
 			const report = assignTopic(db, { classId, topicId, today: today() });
 			return { atRisk: report.atRisk };
 		} catch (error) {
-			return fail(400, {
-				error: error instanceof Error ? error.message : 'Could not assign the Topic.'
-			});
+			return badRequest(error, 'Could not assign the Topic.');
 		}
 	}
 };
