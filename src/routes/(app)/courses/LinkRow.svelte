@@ -2,9 +2,8 @@
 	import { enhance } from '$app/forms';
 	import LinkIcon from '@lucide/svelte/icons/link';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
-	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import XIcon from '@lucide/svelte/icons/x';
+	import ReorderButtons from '$lib/components/reorder-buttons.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 
@@ -104,34 +103,13 @@
 			>
 				<PencilIcon class="size-3.5" />
 			</Button>
-			<form method="POST" action="?/moveLink" use:enhance>
-				<input type="hidden" name="lessonId" value={lessonId} />
-				<input type="hidden" name="id" value={link.id} />
-				<input type="hidden" name="direction" value="up" />
-				<Button
-					type="submit"
-					variant="ghost"
-					size="icon-sm"
-					disabled={first}
-					aria-label="Move {link.label} up"
-				>
-					<ChevronUpIcon class="size-3.5" />
-				</Button>
-			</form>
-			<form method="POST" action="?/moveLink" use:enhance>
-				<input type="hidden" name="lessonId" value={lessonId} />
-				<input type="hidden" name="id" value={link.id} />
-				<input type="hidden" name="direction" value="down" />
-				<Button
-					type="submit"
-					variant="ghost"
-					size="icon-sm"
-					disabled={last}
-					aria-label="Move {link.label} down"
-				>
-					<ChevronDownIcon class="size-3.5" />
-				</Button>
-			</form>
+			<ReorderButtons
+				action="?/moveLink"
+				fields={{ lessonId, id: link.id }}
+				label={link.label}
+				{first}
+				{last}
+			/>
 			<form method="POST" action="?/deleteLink" use:enhance>
 				<input type="hidden" name="id" value={link.id} />
 				<Button

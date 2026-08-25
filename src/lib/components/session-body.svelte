@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { toast } from 'svelte-sonner';
+	import { formatWeekday } from '$lib/date';
 	import type { Occasion } from '$lib/client/session-panel.svelte';
 	import { createSessionNotes } from '$lib/client/session-note';
 	import type { SessionDetail } from '$lib/server/planner';
@@ -92,20 +93,12 @@
 				continuationError = e.message;
 			});
 	}
-
-	const fmtLongDay = (iso: string) =>
-		new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', {
-			weekday: 'long',
-			day: 'numeric',
-			month: 'long',
-			timeZone: 'UTC'
-		});
 </script>
 
 <div class="flex items-center gap-2">
 	{#if detail}<Badge variant="outline">{detail.classLabel}</Badge>{/if}
 	<span class="text-xs text-muted-foreground">
-		{fmtLongDay(occasion.date)} · P{occasion.period}
+		{formatWeekday(occasion.date)} · P{occasion.period}
 	</span>
 </div>
 

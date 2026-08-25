@@ -5,6 +5,8 @@
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import { classTone } from '$lib/class-tone';
+	import { formatDayMonth } from '$lib/date';
+	import { refresh } from '$lib/client/enhance';
 	import { openSession } from '$lib/client/session-panel.svelte';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
@@ -22,13 +24,6 @@
 	// tile rather than silently collapsing to one Period.
 	const grid = $derived.by(() => toGrid(data.week?.dates ?? [], data.week?.cells ?? []));
 	const blockedByDate = $derived(new Map((data.week?.blockedDays ?? []).map((b) => [b.date, b])));
-
-	const fmtDay = (iso: string) =>
-		new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', {
-			day: 'numeric',
-			month: 'short',
-			timeZone: 'UTC'
-		});
 </script>
 
 <svelte:head><title>Calendar</title></svelte:head>
@@ -59,9 +54,9 @@
 								class="flex h-6 items-center rounded-sm px-2 text-xs font-medium tabular-nums {isSelected
 									? 'bg-secondary text-secondary-foreground'
 									: 'text-muted-foreground hover:bg-muted'}"
-								title="w/c {fmtDay(w.weekCommencing)}"
+								title="w/c {formatDayMonth(w.weekCommencing)}"
 							>
-								{w.letter}<span class="ml-1 font-normal opacity-70">{fmtDay(w.weekCommencing)}</span
+								{w.letter}<span class="ml-1 font-normal opacity-70">{formatDayMonth(w.weekCommencing)}</span
 								>
 							</a>
 						{/each}
@@ -81,9 +76,7 @@
 					<form
 						method="POST"
 						action="?/setLetter"
-						use:enhance={() =>
-							async ({ update }) =>
-								update({ invalidateAll: true })}
+						use:enhance={refresh}
 					>
 						<input type="hidden" name="weekCommencing" value={data.week.weekCommencing} />
 						<input type="hidden" name="letter" value={otherLetter} />
@@ -128,15 +121,13 @@
 							<th class="pb-1 text-left align-bottom">
 								<div class="flex items-baseline gap-1.5">
 									<span class="text-sm font-semibold">{d}</span>
-									<span class="text-xs font-normal text-muted-foreground">{fmtDay(date)}</span>
+									<span class="text-xs font-normal text-muted-foreground">{formatDayMonth(date)}</span>
 									{#if blockedDay}
 										<form
 											method="POST"
 											action="?/unblockDay"
 											class="ml-auto"
-											use:enhance={() =>
-												async ({ update }) =>
-													update({ invalidateAll: true })}
+											use:enhance={refresh}
 										>
 											<input type="hidden" name="id" value={blockedDay.id} />
 											<Button
@@ -154,7 +145,7 @@
 											triggerClass="ml-auto rounded px-1 text-xs font-normal text-muted-foreground/50 hover:text-foreground focus-visible:text-foreground"
 											action="?/blockDay"
 											fields={{ date }}
-											label={`Block ${d} ${fmtDay(date)}`}
+											label={`Block ${d} ${formatDayMonth(date)}`}
 											noteRequired={false}
 										>
 											{#snippet trigger()}Block day{/snippet}
@@ -199,9 +190,7 @@
 														method="POST"
 														action={cell.blockedSlotId ? '?/unblockSlot' : '?/unblockDay'}
 														class="mt-auto self-start"
-														use:enhance={() =>
-															async ({ update }) =>
-																update({ invalidateAll: true })}
+														use:enhance={refresh}
 													>
 														<input
 															type="hidden"
