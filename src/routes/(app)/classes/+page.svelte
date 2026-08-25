@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { classTone } from '$lib/class-tone';
-	import { toast } from 'svelte-sonner';
+	import { formatDateShort } from '$lib/date';
+	import { onFail, submitWithValue } from '$lib/client/enhance';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
@@ -16,21 +17,6 @@
 	// One form per tile, found by its Class — the Select picks the Topic and submits on the pick,
 	// so the trigger stays a plain "Assign next Topic" affordance rather than growing a button.
 	const assignForms: Record<string, HTMLFormElement> = {};
-
-	function assignNextTopic(classId: string, topicId: string) {
-		const form = assignForms[classId];
-		if (!form || !topicId) return;
-		(form.elements.namedItem('topicId') as HTMLInputElement).value = topicId;
-		form.requestSubmit();
-	}
-
-	const fmtShort = (iso: string) =>
-		new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', {
-			day: 'numeric',
-			month: 'short',
-			year: 'numeric',
-			timeZone: 'UTC'
-		});
 
 	const courseName = (courseId: string) => data.courses.find((c) => c.id === courseId)?.name ?? '';
 </script>
@@ -125,7 +111,7 @@
 							<div class="flex gap-1.5">
 								<dt class="shrink-0 text-muted-foreground">Runway</dt>
 								<dd class="truncate tabular-nums">
-									{lane.runway.date ? fmtShort(lane.runway.date) : 'open-ended'}
+									{lane.runway.date ? formatDateShort(lane.runway.date) : 'open-ended'}
 								</dd>
 							</div>
 						</dl>
@@ -138,25 +124,14 @@
 								action="?/assignTopic"
 								class="min-w-0 flex-1"
 								bind:this={assignForms[lane.classId]}
-								use:enhance={() =>
-									async ({ result, update }) => {
-										if (result.type === 'failure') {
-											toast.error(
-												String(
-													(result.data as { error?: string } | undefined)?.error ??
-														'Could not assign the Topic.'
-												)
-											);
-										} else {
-											await update({ invalidateAll: true });
-										}
-									}}
+								use:enhance={onFail('Could not assign the Topic.')}
 							>
 								<input type="hidden" name="classId" value={lane.classId} />
 								<input type="hidden" name="topicId" />
 								<Select.Root
 									type="single"
-									onValueChange={(value) => assignNextTopic(lane.classId, value ?? '')}
+									onValueChange={(value) =>
+										submitWithValue(assignForms[lane.classId], 'topicId', value)}
 								>
 									<Select.Trigger
 										size="sm"

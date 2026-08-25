@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { classTone } from '$lib/class-tone';
+	import { formatWeekday } from '$lib/date';
+	import { replaceQuery } from '$lib/client/enhance';
 	import { openSession } from '$lib/client/session-panel.svelte';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -11,27 +12,11 @@
 
 	let { data }: PageProps = $props();
 
-	function setHorizon(horizonDays: number) {
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- carries a query string
-		goto(`?horizon=${horizonDays}`, {
-			replaceState: true,
-			noScroll: true,
-			keepFocus: true,
-			invalidateAll: true
-		});
-	}
+	const setHorizon = (horizonDays: number) => replaceQuery(`?horizon=${horizonDays}`);
 
 	function openOccasion(row: (typeof data.rows)[number]) {
 		openSession({ classId: row.classId, date: row.date, period: row.periodFrom });
 	}
-
-	const fmtLongDay = (iso: string) =>
-		new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', {
-			weekday: 'long',
-			day: 'numeric',
-			month: 'long',
-			timeZone: 'UTC'
-		});
 
 	const days = $derived(groupByDay(data.rows));
 </script>
@@ -61,7 +46,7 @@
 		<div class="mt-6 rounded-xl border border-dashed px-6 py-12 text-center">
 			<p class="text-sm font-medium">Nothing in this window</p>
 			<p class="mt-1 text-sm text-muted-foreground">
-				No Class is timetabled between now and {fmtLongDay(
+				No Class is timetabled between now and {formatWeekday(
 					horizonEndsOn(data.today, data.horizonDays)
 				)}.
 			</p>
@@ -74,9 +59,9 @@
 			<h2 class="mb-2 flex items-baseline gap-2 text-sm font-semibold">
 				{#if isToday}
 					<span class="text-foreground">Today</span>
-					<span class="font-normal text-muted-foreground">— {fmtLongDay(day.date)}</span>
+					<span class="font-normal text-muted-foreground">— {formatWeekday(day.date)}</span>
 				{:else}
-					<span class="text-muted-foreground">{fmtLongDay(day.date)}</span>
+					<span class="text-muted-foreground">{formatWeekday(day.date)}</span>
 				{/if}
 			</h2>
 

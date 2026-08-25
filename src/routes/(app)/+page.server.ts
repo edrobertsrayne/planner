@@ -1,11 +1,8 @@
+import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
 import { agenda } from '$lib/server/planner';
 import { AGENDA_HORIZONS, type AgendaHorizonDays } from './agenda-horizons';
 import type { PageServerLoad } from './$types';
-
-function today() {
-	return new Date().toISOString().slice(0, 10);
-}
 
 export const load: PageServerLoad = ({ url }) => {
 	const requested = Number(url.searchParams.get('horizon'));
