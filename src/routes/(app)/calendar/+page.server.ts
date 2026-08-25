@@ -1,7 +1,7 @@
 import { fail } from '@sveltejs/kit';
+import { addDays, today } from '$lib/date';
 import { db } from '$lib/server/db/client';
 import {
-	addDays,
 	blockDay,
 	blockSlot,
 	calendarWeek,
@@ -11,10 +11,6 @@ import {
 	unblockSlot
 } from '$lib/server/planner';
 import type { Actions, PageServerLoad } from './$types';
-
-function today() {
-	return new Date().toISOString().slice(0, 10);
-}
 
 // The week to open on: the Teaching Week today falls inside, or — during a break, when no
 // Teaching Week covers today — the next one to come, or the last of the year once even that has

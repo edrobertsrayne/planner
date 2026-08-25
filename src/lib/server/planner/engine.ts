@@ -1,6 +1,7 @@
 // THE ENGINE. Pure: no DOM, no clock, no I/O, nothing from SvelteKit or Drizzle. Lifted from the
 // prototype validated against the real 2026/27 calendar (prototype/scheduling-engine,
 // prototypes/scheduling/PROTOTYPE-scheduling-engine.html) per ADR-0007 and ADR-0010.
+import { addDays } from '$lib/date';
 
 export interface Term {
 	opens: string;
@@ -83,18 +84,13 @@ export interface Runway {
 	lessonsRemaining: number;
 }
 
-function addDays(iso: string, days: number): string {
-	const [year, month, day] = iso.split('-').map(Number);
-	const date = new Date(Date.UTC(year, month - 1, day));
-	date.setUTCDate(date.getUTCDate() + days);
-	return date.toISOString().slice(0, 10);
-}
-
 const inAnyTerm = (terms: Term[], date: string) =>
 	terms.some((term) => date >= term.opens && date <= term.closes);
 
-const slotHolds = (slot: TimetableSlot, date: string) =>
-	(!slot.holdsFrom || date >= slot.holdsFrom) && (!slot.holdsTo || date <= slot.holdsTo);
+export const slotHolds = (
+	slot: { holdsFrom: string | null; holdsTo: string | null },
+	date: string
+) => (!slot.holdsFrom || date >= slot.holdsFrom) && (!slot.holdsTo || date <= slot.holdsTo);
 
 // Available Slot: a Slot on a date inside a Term, within the dates that Slot holds, not a Blocked
 // Day, and not individually a Blocked Slot. Returned in calendar order — that order IS the
