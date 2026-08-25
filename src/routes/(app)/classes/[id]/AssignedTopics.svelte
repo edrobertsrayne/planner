@@ -4,7 +4,7 @@
 	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import XIcon from '@lucide/svelte/icons/x';
-	import { onFail } from '$lib/client/enhance';
+	import { onFail, submitWithValue } from '$lib/client/enhance';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
 
@@ -25,11 +25,7 @@
 
 	let assignForm = $state<HTMLFormElement | undefined>();
 
-	function assign(topicId: string | undefined) {
-		if (!assignForm || !topicId) return;
-		(assignForm.elements.namedItem('topicId') as HTMLInputElement).value = topicId;
-		assignForm.requestSubmit();
-	}
+	const assign = (topicId: string | undefined) => submitWithValue(assignForm, 'topicId', topicId);
 
 	const MOVES = [
 		{ direction: 'up', described: 'earlier', rounding: 'rounded-t-sm' },

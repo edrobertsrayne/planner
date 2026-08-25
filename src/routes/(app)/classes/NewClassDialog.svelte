@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { toast } from 'svelte-sonner';
 	import type { Snippet } from 'svelte';
+	import { createdId, failureReason } from '$lib/client/enhance';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
@@ -44,21 +45,16 @@
 			method="POST"
 			action="?/createClass"
 			use:enhance={() => {
+				// A new Class opens on its own page, to be timetabled — so this navigates rather than
+				// refreshing the list behind the dialog.
 				return async ({ result }) => {
-					const created =
-						result.type === 'success' &&
-						(result.data as { class?: { id: string } } | undefined)?.class;
-					if (created) {
+					const id = createdId(result, 'class');
+					if (id !== null) {
 						label = '';
 						// eslint-disable-next-line svelte/no-navigation-without-resolve -- carries a fresh id
-						await goto(`/classes/${created.id}`);
+						await goto(`/classes/${id}`);
 					} else if (result.type === 'failure') {
-						toast.error(
-							String(
-								(result.data as { error?: string } | undefined)?.error ??
-									'Could not create the Class.'
-							)
-						);
+						toast.error(failureReason(result, 'Could not create the Class.'));
 					}
 				};
 			}}

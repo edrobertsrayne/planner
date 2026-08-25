@@ -19,7 +19,9 @@ export function replaceQuery(href: string): Promise<void> {
 	return goto(href, NAVIGATION);
 }
 
-function reasonFor(result: ActionResult, fallback: string): string {
+// A failed action's reason, as the seam wrote it for Ed to read. Narrowed rather than asserted:
+// an action can fail without setting one.
+export function failureReason(result: ActionResult, fallback: string): string {
 	if (result.type !== 'failure') return fallback;
 	const reason = result.data?.error;
 	return typeof reason === 'string' ? reason : fallback;
@@ -31,17 +33,20 @@ function reasonFor(result: ActionResult, fallback: string): string {
 export function onFail(fallback: string): SubmitFunction {
 	return () =>
 		async ({ result, update }) => {
-			if (result.type === 'failure') toast.error(reasonFor(result, fallback));
+			if (result.type === 'failure') toast.error(failureReason(result, fallback));
 			else await update({ invalidateAll: true });
 		};
 }
 
 // Refresh the page data and nothing else — the plain case, where the form has no failure of its
 // own to report.
-export const refresh: SubmitFunction = () => async ({ update }) => update({ invalidateAll: true });
+export const refresh: SubmitFunction =
+	() =>
+	async ({ update }) =>
+		update({ invalidateAll: true });
 
 // The id of the row an action just created, when it returned one under `key`.
-function createdId(result: ActionResult, key: string): string | null {
+export function createdId(result: ActionResult, key: string): string | null {
 	if (result.type !== 'success') return null;
 	const created = result.data?.[key];
 	if (typeof created !== 'object' || created === null) return null;
@@ -66,4 +71,19 @@ export function createThenSelect(
 			await replaceQuery(href(id));
 			focus?.();
 		};
+}
+
+// A Select that submits its own form: the picked value goes into the form's hidden input, which
+// then submits. A Select cannot be a submit button, and the alternative — a separate "Assign"
+// button beside it — is a second click for a one-step choice. `namedItem` is typed for the
+// general case (it can return a RadioNodeList), hence the one narrowing here rather than at each
+// call site.
+export function submitWithValue(
+	form: HTMLFormElement | undefined,
+	field: string,
+	value: string | undefined
+): void {
+	if (!form || !value) return;
+	(form.elements.namedItem(field) as HTMLInputElement).value = value;
+	form.requestSubmit();
 }

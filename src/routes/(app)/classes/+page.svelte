@@ -2,7 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { classTone } from '$lib/class-tone';
 	import { formatDateShort } from '$lib/date';
-	import { onFail } from '$lib/client/enhance';
+	import { onFail, submitWithValue } from '$lib/client/enhance';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import PageHeader from '$lib/components/page-header.svelte';
@@ -16,13 +16,6 @@
 	// One form per tile, found by its Class — the Select picks the Topic and submits on the pick,
 	// so the trigger stays a plain "Assign next Topic" affordance rather than growing a button.
 	const assignForms: Record<string, HTMLFormElement> = {};
-
-	function assignNextTopic(classId: string, topicId: string) {
-		const form = assignForms[classId];
-		if (!form || !topicId) return;
-		(form.elements.namedItem('topicId') as HTMLInputElement).value = topicId;
-		form.requestSubmit();
-	}
 
 	const courseName = (courseId: string) => data.courses.find((c) => c.id === courseId)?.name ?? '';
 </script>
@@ -132,7 +125,8 @@
 								<input type="hidden" name="topicId" />
 								<Select.Root
 									type="single"
-									onValueChange={(value) => assignNextTopic(lane.classId, value ?? '')}
+									onValueChange={(value) =>
+										submitWithValue(assignForms[lane.classId], 'topicId', value)}
 								>
 									<Select.Trigger
 										size="sm"
