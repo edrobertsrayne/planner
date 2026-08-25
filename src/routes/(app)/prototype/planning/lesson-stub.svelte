@@ -7,7 +7,7 @@
 	import type { MockLesson, Status } from './data';
 
 	// The Lesson editor, opened over the board by a title click (pinned on #102).
-	// Its Bare/Drafted control is #105's single-select chip group. It is here so the two
+	// Its Draft/Planned control is #105's single-select chip group. It is here so the two
 	// writing surfaces can be judged together: does the row need to match this, or not?
 
 	let {
@@ -39,8 +39,8 @@
 					onValueChange={(v) => v && setStatus(lesson.id, v as Status)}
 					class="justify-start"
 				>
-					<ToggleGroup.Item value="bare">Bare</ToggleGroup.Item>
-					<ToggleGroup.Item value="drafted">Drafted</ToggleGroup.Item>
+					<ToggleGroup.Item value="draft">Draft</ToggleGroup.Item>
+					<ToggleGroup.Item value="planned">Planned</ToggleGroup.Item>
 				</ToggleGroup.Root>
 				<p class="text-xs text-muted-foreground">
 					The chip group settled on #105 — one chip per status, exactly one always selected.

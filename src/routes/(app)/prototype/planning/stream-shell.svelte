@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { counts, ordered, type MockLesson, type Status } from './data';
+	import { counts, ordered, statusTone, type MockLesson, type Status } from './data';
 
 	// Settled on #103 and unchanged by #106: single-select filter chips with live counts,
 	// a Show 10/25/50/All control, a "Showing X of Y" line, and a dashed empty state.
@@ -19,8 +19,8 @@
 	type Filter = Status | 'all';
 	const FILTERS: { key: Filter; name: string }[] = [
 		{ key: 'all', name: 'All' },
-		{ key: 'bare', name: 'Bare' },
-		{ key: 'drafted', name: 'Drafted' }
+		{ key: 'draft', name: 'Draft' },
+		{ key: 'planned', name: 'Planned' }
 	];
 	const SIZES: { value: number | 'all'; label: string }[] = [
 		{ value: 10, label: 'Show 10' },
@@ -44,12 +44,16 @@
 <div class="flex flex-wrap items-center justify-between gap-2 pb-3">
 	<div class="flex items-center gap-1" role="group" aria-label="Filter by planning status">
 		{#each FILTERS as f (f.key)}
+			{@const on = filter === f.key}
+			{@const tone = f.key === 'all' ? null : statusTone(f.key)}
 			<button
 				type="button"
-				aria-pressed={filter === f.key}
-				class="rounded-full border px-3 py-1 text-xs transition-colors {filter === f.key
-					? 'border-transparent bg-primary text-primary-foreground'
-					: 'hover:bg-muted'}"
+				aria-pressed={on}
+				class="rounded-full border px-3 py-1 text-xs transition-colors {on
+					? 'border-transparent'
+					: 'hover:bg-muted'} {on && !tone ? 'bg-primary text-primary-foreground' : ''}"
+				style:background-color={on && tone ? tone.bg : undefined}
+				style:color={on && tone ? tone.fg : undefined}
 				onclick={() => (filter = f.key)}
 			>
 				{f.name} <span class="tabular-nums opacity-60">{tally[f.key]}</span>

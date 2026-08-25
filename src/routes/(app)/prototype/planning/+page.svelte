@@ -28,7 +28,7 @@
 <div class="mx-auto max-w-6xl px-6 py-6">
 	<PageHeader
 		title="Planning"
-		description="PROTOTYPE — the restated row (#108). Readiness has gone to the Agenda; only Bare and Drafted remain. Flip with the bar below or the arrow keys; nothing saves."
+		description="PROTOTYPE — the restated row (#108). Readiness has gone to the Agenda; only Draft and Planned remain. Flip with the bar below or the arrow keys; nothing saves."
 	/>
 
 	{#if variant === 'b'}

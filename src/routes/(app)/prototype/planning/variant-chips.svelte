@@ -18,8 +18,8 @@
 	} = $props();
 
 	const RUNGS: { key: Status; name: string }[] = [
-		{ key: 'bare', name: 'Bare' },
-		{ key: 'drafted', name: 'Drafted' }
+		{ key: 'draft', name: 'Draft' },
+		{ key: 'planned', name: 'Planned' }
 	];
 </script>
 

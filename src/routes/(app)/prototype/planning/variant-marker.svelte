@@ -5,8 +5,8 @@
 	import StreamShell from './stream-shell.svelte';
 
 	// C — no control that shows both states at once. Two states is a fact, not a choice between
-	// rungs, so the row states the fact and offers the one move available from it: a Bare row
-	// offers "Mark Drafted", a Drafted row wears the mark and offers a quiet step back.
+	// rungs, so the row states the fact and offers the one move available from it: a Draft row
+	// offers "Mark Planned", a Planned row wears the mark and offers a quiet step back.
 	// Status reads from the left rail, so the eye finds it while scanning titles.
 
 	let {
@@ -22,16 +22,16 @@
 
 <StreamShell
 	{lessons}
-	note="C — Status as a left rail and a single action. No two-state control: a Bare row offers Mark Drafted, a Drafted row wears the mark and offers a step back."
+	note="C — Status as a left rail and a single action. No two-state control: a Draft row offers Mark Planned, a Planned row wears the mark and offers a step back."
 >
 	{#snippet row(lesson: MockLesson)}
 		{@const s = soonest(lesson)}
-		{@const drafted = lesson.status === 'drafted'}
+		{@const planned = lesson.status === 'planned'}
 		<li
 			class="flex items-stretch gap-0 overflow-hidden rounded-lg border bg-card"
-			class:opacity-95={drafted}
+			class:opacity-95={planned}
 		>
-			<div class="w-1 shrink-0 {drafted ? 'bg-primary' : 'bg-border'}"></div>
+			<div class="w-1 shrink-0 {planned ? 'bg-primary' : 'bg-border'}"></div>
 
 			<div class="flex min-w-0 flex-1 items-center gap-3 px-3 py-2">
 				<div class="w-24 shrink-0 text-right">
@@ -48,11 +48,11 @@
 
 				<div class="min-w-0 flex-1 border-l pl-3">
 					<div class="flex items-center gap-2">
-						{#if drafted}
+						{#if planned}
 							<span
 								class="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
 							>
-								<CheckIcon class="size-3" /> Drafted
+								<CheckIcon class="size-3" /> Planned
 							</span>
 						{/if}
 						<button
@@ -69,13 +69,13 @@
 				</div>
 
 				<div class="shrink-0">
-					{#if drafted}
+					{#if planned}
 						<button
 							type="button"
-							title="Move back to Bare"
-							aria-label="Move {lesson.title} back to Bare"
+							title="Move back to Draft"
+							aria-label="Move {lesson.title} back to Draft"
 							class="rounded-md border px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted"
-							onclick={() => setStatus(lesson.id, 'bare')}
+							onclick={() => setStatus(lesson.id, 'draft')}
 						>
 							<UndoIcon class="size-3.5" />
 						</button>
@@ -83,9 +83,9 @@
 						<button
 							type="button"
 							class="rounded-md border px-2.5 py-1.5 text-xs transition-colors hover:bg-muted"
-							onclick={() => setStatus(lesson.id, 'drafted')}
+							onclick={() => setStatus(lesson.id, 'planned')}
 						>
-							Mark Drafted
+							Mark Planned
 						</button>
 					{/if}
 				</div>
