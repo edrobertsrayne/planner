@@ -1,10 +1,9 @@
 <script lang="ts">
-	import { applyAction, enhance } from '$app/forms';
-	import { goto } from '$app/navigation';
-	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
+	import { enhance } from '$app/forms';
+	import { createThenSelect } from '$lib/client/enhance';
 	import XIcon from '@lucide/svelte/icons/x';
 	import PageHeader from '$lib/components/page-header.svelte';
+	import ReorderButtons from '$lib/components/reorder-buttons.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import LessonEditor from './LessonEditor.svelte';
@@ -47,25 +46,11 @@
 				method="POST"
 				action="?/createCourse"
 				class="px-4 pt-2"
-				use:enhance={() => {
-					return async ({ formElement, result }) => {
-						const course =
-							result.type === 'success' && (result.data as { course?: { id: string } })?.course;
-						if (course) {
-							formElement.reset();
-							// eslint-disable-next-line svelte/no-navigation-without-resolve -- carries a query string
-							await goto(`?course=${course.id}`, {
-								replaceState: true,
-								noScroll: true,
-								keepFocus: true,
-								invalidateAll: true
-							});
-							courseNameInput?.focus();
-						} else {
-							await applyAction(result);
-						}
-					};
-				}}
+				use:enhance={createThenSelect(
+					'course',
+					(id) => `?course=${id}`,
+					() => courseNameInput?.focus()
+				)}
 			>
 				<Input
 					bind:ref={courseNameInput}
@@ -104,25 +89,11 @@
 					method="POST"
 					action="?/createTopic"
 					class="px-4 pt-2"
-					use:enhance={() => {
-						return async ({ formElement, result }) => {
-							const topic =
-								result.type === 'success' && (result.data as { topic?: { id: string } })?.topic;
-							if (topic && data.course) {
-								formElement.reset();
-								// eslint-disable-next-line svelte/no-navigation-without-resolve -- carries a query string
-								await goto(`?course=${data.course.id}&topic=${topic.id}`, {
-									replaceState: true,
-									noScroll: true,
-									keepFocus: true,
-									invalidateAll: true
-								});
-								topicNameInput?.focus();
-							} else {
-								await applyAction(result);
-							}
-						};
-					}}
+					use:enhance={createThenSelect(
+						'topic',
+						(id) => `?course=${data.course?.id}&topic=${id}`,
+						() => topicNameInput?.focus()
+					)}
 				>
 					<input type="hidden" name="courseId" value={data.course.id} />
 					<Input
@@ -174,34 +145,13 @@
 							<span
 								class="flex shrink-0 items-center gap-0.5 pr-2 opacity-0 group-hover:opacity-100"
 							>
-								<form method="POST" action="?/moveLesson" use:enhance>
-									<input type="hidden" name="topicId" value={data.topic.id} />
-									<input type="hidden" name="id" value={lesson.id} />
-									<input type="hidden" name="direction" value="up" />
-									<Button
-										type="submit"
-										variant="ghost"
-										size="icon-sm"
-										disabled={i === 0}
-										aria-label="Move {lesson.title} up"
-									>
-										<ChevronUpIcon class="size-3.5" />
-									</Button>
-								</form>
-								<form method="POST" action="?/moveLesson" use:enhance>
-									<input type="hidden" name="topicId" value={data.topic.id} />
-									<input type="hidden" name="id" value={lesson.id} />
-									<input type="hidden" name="direction" value="down" />
-									<Button
-										type="submit"
-										variant="ghost"
-										size="icon-sm"
-										disabled={i === data.lessons.length - 1}
-										aria-label="Move {lesson.title} down"
-									>
-										<ChevronDownIcon class="size-3.5" />
-									</Button>
-								</form>
+								<ReorderButtons
+									action="?/moveLesson"
+									fields={{ topicId: data.topic.id, id: lesson.id }}
+									label={lesson.title}
+									first={i === 0}
+									last={i === data.lessons.length - 1}
+								/>
 								<form method="POST" action="?/deleteLesson" use:enhance>
 									<input type="hidden" name="id" value={lesson.id} />
 									<Button

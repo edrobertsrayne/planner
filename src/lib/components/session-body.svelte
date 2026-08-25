@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { toast } from 'svelte-sonner';
+	import { formatWeekday } from '$lib/date';
 	import type { Occasion } from '$lib/client/session-panel.svelte';
 	import { createSessionNotes } from '$lib/client/session-note';
-	import type { SessionDetail } from '$lib/server/planner';
+	import type { AtRiskSession, SessionDetail } from '$lib/server/planner';
+	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
@@ -40,6 +42,7 @@
 	let note = $state('');
 	let continuing = $state(false);
 	let continuationError = $state<string | null>(null);
+	let continuationAtRisk = $state<AtRiskSession[]>([]);
 
 	$effect(() => {
 		const { classId, date, period } = occasion;
@@ -47,6 +50,7 @@
 		detail = null;
 		continuing = false;
 		continuationError = null;
+		continuationAtRisk = [];
 		fetch(`/session?classId=${encodeURIComponent(classId)}&date=${date}&period=${period}`)
 			.then((r) => r.json())
 			.then((d: SessionDetail) => {
@@ -71,6 +75,7 @@
 		const target = occasion;
 		continuing = true;
 		continuationError = null;
+		continuationAtRisk = [];
 		fetch('/session/continuation', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
@@ -78,12 +83,13 @@
 		})
 			.then(async (r) => {
 				if (!r.ok) throw new Error((await r.json().catch(() => null))?.message ?? 'Failed.');
-				return r.json() as Promise<SessionDetail>;
+				return r.json() as Promise<SessionDetail & { atRisk: AtRiskSession[] }>;
 			})
 			.then((d) => {
 				if (target !== occasion) return;
 				detail = d;
 				continuing = false;
+				continuationAtRisk = d.atRisk;
 				invalidateAll();
 			})
 			.catch((e: Error) => {
@@ -92,20 +98,12 @@
 				continuationError = e.message;
 			});
 	}
-
-	const fmtLongDay = (iso: string) =>
-		new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', {
-			weekday: 'long',
-			day: 'numeric',
-			month: 'long',
-			timeZone: 'UTC'
-		});
 </script>
 
 <div class="flex items-center gap-2">
 	{#if detail}<Badge variant="outline">{detail.classLabel}</Badge>{/if}
 	<span class="text-xs text-muted-foreground">
-		{fmtLongDay(occasion.date)} · P{occasion.period}
+		{formatWeekday(occasion.date)} · P{occasion.period}
 	</span>
 </div>
 
@@ -150,6 +148,11 @@
 			</p>
 			{#if continuationError}
 				<p class="mt-1 text-xs text-destructive">{continuationError}</p>
+			{/if}
+			{#if continuationAtRisk.length > 0}
+				<div class="mt-3">
+					<AtRiskAlert atRisk={continuationAtRisk} />
+				</div>
 			{/if}
 		</div>
 	{:else}

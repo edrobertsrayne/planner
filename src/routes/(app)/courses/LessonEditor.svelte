@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
+	import { replaceQuery } from '$lib/client/enhance';
 	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import XIcon from '@lucide/svelte/icons/x';
@@ -195,19 +196,12 @@
 						action="?/moveLessonToTopic"
 						class="mt-1"
 						use:enhance={() => {
+							// The Lesson stays open across the move, so the editor follows it to its new
+							// Topic rather than closing.
 							return async ({ formData, result, update }) => {
-								if (result.type === 'success') {
-									const newTopicId = String(formData.get('topicId'));
-									// eslint-disable-next-line svelte/no-navigation-without-resolve -- carries a query string
-									await goto(`?course=${courseId}&topic=${newTopicId}&lesson=${lesson.id}`, {
-										replaceState: true,
-										noScroll: true,
-										keepFocus: true,
-										invalidateAll: true
-									});
-								} else {
-									await update();
-								}
+								if (result.type !== 'success') return update();
+								const newTopicId = String(formData.get('topicId'));
+								await replaceQuery(`?course=${courseId}&topic=${newTopicId}&lesson=${lesson.id}`);
 							};
 						}}
 					>

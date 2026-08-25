@@ -1,21 +1,16 @@
 import { fail } from '@sveltejs/kit';
+import { addDays, today } from '$lib/date';
 import { db } from '$lib/server/db/client';
 import {
-	addDays,
 	blockDay,
 	blockSlot,
 	calendarWeek,
-	describeAtRisk,
 	setTeachingWeekLetter,
 	teachingWeeksList,
 	unblockDay,
 	unblockSlot
 } from '$lib/server/planner';
 import type { Actions, PageServerLoad } from './$types';
-
-function today() {
-	return new Date().toISOString().slice(0, 10);
-}
 
 // The week to open on: the Teaching Week today falls inside, or — during a break, when no
 // Teaching Week covers today — the next one to come, or the last of the year once even that has
@@ -60,7 +55,7 @@ export const actions: Actions = {
 
 		const report = setTeachingWeekLetter(db, { weekCommencing, letter, today: today() });
 		if (!report) return fail(400, { error: 'No such Teaching Week.' });
-		return { atRisk: describeAtRisk(db, report.atRisk) };
+		return { atRisk: report.atRisk };
 	},
 
 	blockDay: async ({ request }) => {
@@ -70,7 +65,7 @@ export const actions: Actions = {
 		if (!date) return fail(400, { error: 'No date given.' });
 
 		const report = blockDay(db, { date, note: note || undefined, today: today() });
-		return { atRisk: describeAtRisk(db, report.atRisk) };
+		return { atRisk: report.atRisk };
 	},
 
 	unblockDay: async ({ request }) => {
@@ -79,7 +74,7 @@ export const actions: Actions = {
 
 		const report = unblockDay(db, { id, today: today() });
 		if (!report) return fail(400, { error: 'No such Blocked Day.' });
-		return { atRisk: describeAtRisk(db, report.atRisk) };
+		return { atRisk: report.atRisk };
 	},
 
 	blockSlot: async ({ request }) => {
@@ -92,7 +87,7 @@ export const actions: Actions = {
 		if (!note) return fail(400, { error: 'A Blocked Slot needs a note.' });
 
 		const report = blockSlot(db, { classId, date, slotId, note, today: today() });
-		return { atRisk: describeAtRisk(db, report.atRisk) };
+		return { atRisk: report.atRisk };
 	},
 
 	unblockSlot: async ({ request }) => {
@@ -101,6 +96,6 @@ export const actions: Actions = {
 
 		const report = unblockSlot(db, { id, today: today() });
 		if (!report) return fail(400, { error: 'No such Blocked Slot.' });
-		return { atRisk: describeAtRisk(db, report.atRisk) };
+		return { atRisk: report.atRisk };
 	}
 };

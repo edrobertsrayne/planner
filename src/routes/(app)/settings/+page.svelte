@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import type { SubmitFunction } from '@sveltejs/kit';
 	import { toast } from 'svelte-sonner';
+	import { failureReason } from '$lib/client/enhance';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -11,20 +13,15 @@
 	let pending = $state(false);
 	let invalid = $state(false);
 
-	function onsubmit() {
+	const onsubmit: SubmitFunction = () => {
 		pending = true;
-		return async ({
-			result,
-			update
-		}: {
-			result: import('@sveltejs/kit').ActionResult;
-			update: () => Promise<void>;
-		}) => {
+		return async ({ result, update }) => {
 			pending = false;
 			if (result.type === 'failure') {
 				invalid = true;
-				const message = String((result.data as { error?: string } | undefined)?.error ?? '');
-				toast.error(ToastMessage, { componentProps: { text: message, role: 'alert' } });
+				toast.error(ToastMessage, {
+					componentProps: { text: failureReason(result, ''), role: 'alert' }
+				});
 			} else if (result.type === 'success') {
 				invalid = false;
 				toast.success(ToastMessage, {
@@ -33,7 +30,7 @@
 			}
 			await update();
 		};
-	}
+	};
 </script>
 
 <div class="mx-auto max-w-xl px-6 py-8">

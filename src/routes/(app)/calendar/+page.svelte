@@ -3,10 +3,11 @@
 	import BanIcon from '@lucide/svelte/icons/ban';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import { classTone } from '$lib/class-tone';
+	import { formatDayMonth } from '$lib/date';
+	import { refresh } from '$lib/client/enhance';
 	import { openSession } from '$lib/client/session-panel.svelte';
-	import * as Alert from '$lib/components/ui/alert';
+	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import BlockPopover from './BlockPopover.svelte';
@@ -22,13 +23,6 @@
 	// tile rather than silently collapsing to one Period.
 	const grid = $derived.by(() => toGrid(data.week?.dates ?? [], data.week?.cells ?? []));
 	const blockedByDate = $derived(new Map((data.week?.blockedDays ?? []).map((b) => [b.date, b])));
-
-	const fmtDay = (iso: string) =>
-		new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', {
-			day: 'numeric',
-			month: 'short',
-			timeZone: 'UTC'
-		});
 </script>
 
 <svelte:head><title>Calendar</title></svelte:head>
@@ -59,9 +53,10 @@
 								class="flex h-6 items-center rounded-sm px-2 text-xs font-medium tabular-nums {isSelected
 									? 'bg-secondary text-secondary-foreground'
 									: 'text-muted-foreground hover:bg-muted'}"
-								title="w/c {fmtDay(w.weekCommencing)}"
+								title="w/c {formatDayMonth(w.weekCommencing)}"
 							>
-								{w.letter}<span class="ml-1 font-normal opacity-70">{fmtDay(w.weekCommencing)}</span
+								{w.letter}<span class="ml-1 font-normal opacity-70"
+									>{formatDayMonth(w.weekCommencing)}</span
 								>
 							</a>
 						{/each}
@@ -78,13 +73,7 @@
 					</Button>
 					<!-- eslint-enable svelte/no-navigation-without-resolve -->
 
-					<form
-						method="POST"
-						action="?/setLetter"
-						use:enhance={() =>
-							async ({ update }) =>
-								update({ invalidateAll: true })}
-					>
+					<form method="POST" action="?/setLetter" use:enhance={refresh}>
 						<input type="hidden" name="weekCommencing" value={data.week.weekCommencing} />
 						<input type="hidden" name="letter" value={otherLetter} />
 						<Button type="submit" variant="ghost" size="sm">
@@ -96,22 +85,8 @@
 		{/snippet}
 	</PageHeader>
 
-	{#if form?.atRisk && form.atRisk.length > 0}
-		<Alert.Root class="mb-4">
-			<TriangleAlertIcon />
-			<Alert.Title>
-				The Rewind changed the Lesson on {form.atRisk.length === 1
-					? 'a noted Session'
-					: `${form.atRisk.length} noted Sessions`} — check the note still applies.
-			</Alert.Title>
-			<Alert.Description>
-				<ul class="mt-1 list-disc pl-4">
-					{#each form.atRisk as s (s.classId + s.date + s.period)}
-						<li>{s.classLabel} · {s.date} P{s.period} — now {s.lessonTitle}</li>
-					{/each}
-				</ul>
-			</Alert.Description>
-		</Alert.Root>
+	{#if form?.atRisk}
+		<AtRiskAlert atRisk={form.atRisk} />
 	{/if}
 
 	{#if data.ribbon.length === 0}
@@ -128,16 +103,11 @@
 							<th class="pb-1 text-left align-bottom">
 								<div class="flex items-baseline gap-1.5">
 									<span class="text-sm font-semibold">{d}</span>
-									<span class="text-xs font-normal text-muted-foreground">{fmtDay(date)}</span>
+									<span class="text-xs font-normal text-muted-foreground"
+										>{formatDayMonth(date)}</span
+									>
 									{#if blockedDay}
-										<form
-											method="POST"
-											action="?/unblockDay"
-											class="ml-auto"
-											use:enhance={() =>
-												async ({ update }) =>
-													update({ invalidateAll: true })}
-										>
+										<form method="POST" action="?/unblockDay" class="ml-auto" use:enhance={refresh}>
 											<input type="hidden" name="id" value={blockedDay.id} />
 											<Button
 												type="submit"
@@ -154,7 +124,7 @@
 											triggerClass="ml-auto rounded px-1 text-xs font-normal text-muted-foreground/50 hover:text-foreground focus-visible:text-foreground"
 											action="?/blockDay"
 											fields={{ date }}
-											label={`Block ${d} ${fmtDay(date)}`}
+											label={`Block ${d} ${formatDayMonth(date)}`}
 											noteRequired={false}
 										>
 											{#snippet trigger()}Block day{/snippet}
@@ -199,9 +169,7 @@
 														method="POST"
 														action={cell.blockedSlotId ? '?/unblockSlot' : '?/unblockDay'}
 														class="mt-auto self-start"
-														use:enhance={() =>
-															async ({ update }) =>
-																update({ invalidateAll: true })}
+														use:enhance={refresh}
 													>
 														<input
 															type="hidden"
