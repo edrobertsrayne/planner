@@ -9,6 +9,7 @@
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import XIcon from '@lucide/svelte/icons/x';
 	import { openSession } from '$lib/client/session-panel.svelte';
+	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
@@ -339,6 +340,10 @@
 				<p class="mb-2 text-xs text-muted-foreground">
 					{data.class.label} teaches these, in this order — decide the next one as you reach it.
 				</p>
+
+				{#if form?.atRisk}
+					<AtRiskAlert atRisk={form.atRisk} />
+				{/if}
 
 				<ul class="divide-y rounded-lg border">
 					{#if data.assignedTopics.length}
