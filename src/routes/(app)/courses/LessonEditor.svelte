@@ -23,7 +23,7 @@
 		topics,
 		taughtBy
 	}: {
-		lesson: { id: string; title: string; body: string | null; plannedLength: number };
+		lesson: { id: string; title: string; body: string | null; length: number };
 		links: { id: string; label: string; url: string }[];
 		index: number;
 		count: number;
@@ -126,7 +126,7 @@
 		<div
 			class="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_18rem] gap-6 overflow-y-auto px-6 pt-2 pb-6"
 		>
-			<!-- title, body and Planned Length save together as one Lesson write; Links are their own
+			<!-- title, body and Length save together as one Lesson write; Links are their own
 			     forms and so cannot nest inside this one — `contents` keeps this form's fields as
 			     direct grid items instead of a wrapping box. -->
 			<form
@@ -170,14 +170,14 @@
 
 				<label class="block">
 					<span class="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
-						Planned Length
+						Length
 					</span>
 					<div class="mt-1 flex items-center gap-2">
 						<Input
 							type="number"
-							name="plannedLength"
+							name="length"
 							min="1"
-							value={lesson.plannedLength}
+							value={lesson.length}
 							class="h-7 w-16"
 							onchange={(e) => e.currentTarget.form?.requestSubmit()}
 						/>

@@ -99,7 +99,7 @@
 									{row.lesson.topicName}
 								</span>
 							{:else}
-								<span class="block text-sm text-muted-foreground italic">Unplanned</span>
+								<span class="block text-sm text-muted-foreground italic">Open Slot</span>
 							{/if}
 						</button>
 

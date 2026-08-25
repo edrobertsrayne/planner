@@ -109,13 +109,13 @@ function makeLessons(
 	db: ReturnType<typeof setUp>['db'],
 	topicId: string,
 	count: number,
-	plannedLength = 1
+	length = 1
 ) {
 	const lessons = [];
 	for (let position = 0; position < count; position++) {
 		const [lesson] = db
 			.insert(schema.lesson)
-			.values({ topicId, title: `Lesson ${position + 1}`, position, plannedLength })
+			.values({ topicId, title: `Lesson ${position + 1}`, position, length })
 			.returning()
 			.all();
 		lessons.push(lesson);
@@ -133,10 +133,10 @@ describe('reading a Class schedule back', () => {
 
 		// Reads go through classSchedule — writes answer only their Rewind report.
 		const result = classSchedule(db, { classId: classA.id, today: '2026-09-03' });
-		expect(result.planned.slice(0, 3).map((s) => s.lessonId)).toEqual(lessons.map((l) => l.id));
+		expect(result.scheduled.slice(0, 3).map((s) => s.lessonId)).toEqual(lessons.map((l) => l.id));
 		// 9B/Sc1's first Available Slot is the Thursday double on the day Term 1 opens.
-		expect(result.planned[0].date).toBe('2026-09-03');
-		expect(result.planned[0].period).toBe(5);
+		expect(result.scheduled[0].date).toBe('2026-09-03');
+		expect(result.scheduled[0].period).toBe(5);
 	});
 });
 
@@ -382,7 +382,10 @@ describe('Slot uniqueness is window-aware, enforced in the server module', () =>
 			)
 			.all();
 
-		const plannedBefore = classSchedule(db, { classId: classA.id, today: '2026-11-24' }).planned;
+		const scheduledBefore = classSchedule(db, {
+			classId: classA.id,
+			today: '2026-11-24'
+		}).scheduled;
 
 		endSlot(db, { id: wednesday.id, from: '2027-05-15', today: '2026-11-24' });
 
@@ -393,13 +396,13 @@ describe('Slot uniqueness is window-aware, enforced in the server module', () =>
 			.all();
 		expect(stillTaught).toEqual(taughtBefore);
 
-		// The Wednesday P1 Slot is gone from 15 May, so from then on every planned Session has
+		// The Wednesday P1 Slot is gone from 15 May, so from then on every scheduled Session has
 		// moved onto one of the Class's remaining Slots — never that position, on or after that
 		// date — and the Class has fewer Available Slots to lay Lessons onto than before.
-		const plannedAfter = classSchedule(db, { classId: classA.id, today: '2026-11-24' }).planned;
-		expect(plannedAfter.length).toBeLessThan(plannedBefore.length);
+		const scheduledAfter = classSchedule(db, { classId: classA.id, today: '2026-11-24' }).scheduled;
+		expect(scheduledAfter.length).toBeLessThan(scheduledBefore.length);
 		expect(
-			plannedAfter.some((s) => s.date >= '2027-05-15' && s.period === 1 && s.week === 'A')
+			scheduledAfter.some((s) => s.date >= '2027-05-15' && s.period === 1 && s.week === 'A')
 		).toBe(false);
 	});
 });
@@ -422,8 +425,8 @@ describe('Blocked Day', () => {
 		// Mon 14 Sep is a Week A Monday inside term, with no existing Blocked Day — both Classes
 		// are taught that day (9B P3, 10C P1).
 		const blockedDate = '2026-09-14';
-		expect(before.a.planned.some((s) => s.date === blockedDate)).toBe(true);
-		expect(before.b.planned.some((s) => s.date === blockedDate)).toBe(true);
+		expect(before.a.scheduled.some((s) => s.date === blockedDate)).toBe(true);
+		expect(before.b.scheduled.some((s) => s.date === blockedDate)).toBe(true);
 
 		blockDay(db, { date: blockedDate, note: 'Snow day', today: '2026-09-03' });
 
@@ -431,19 +434,19 @@ describe('Blocked Day', () => {
 		const afterB = classSchedule(db, { classId: classB.id, today: '2026-09-03' });
 
 		// Nothing before the blocked date moved, and no Lesson was dropped.
-		const untilBlocked = (planned: typeof before.a.planned) =>
-			planned.filter((s) => s.date < blockedDate);
-		expect(untilBlocked(afterA.planned)).toEqual(untilBlocked(before.a.planned));
-		expect(untilBlocked(afterB.planned)).toEqual(untilBlocked(before.b.planned));
-		expect(afterA.planned.map((s) => s.lessonId)).toEqual(lessonsA.map((l) => l.id));
-		expect(afterB.planned.map((s) => s.lessonId)).toEqual(lessonsB.map((l) => l.id));
+		const untilBlocked = (scheduled: typeof before.a.scheduled) =>
+			scheduled.filter((s) => s.date < blockedDate);
+		expect(untilBlocked(afterA.scheduled)).toEqual(untilBlocked(before.a.scheduled));
+		expect(untilBlocked(afterB.scheduled)).toEqual(untilBlocked(before.b.scheduled));
+		expect(afterA.scheduled.map((s) => s.lessonId)).toEqual(lessonsA.map((l) => l.id));
+		expect(afterB.scheduled.map((s) => s.lessonId)).toEqual(lessonsB.map((l) => l.id));
 
 		// No Session lands on the blocked date, and every Session that was due on or after it
 		// slides right in order, onto the next Available Slots for that Class.
-		expect(afterA.planned.some((s) => s.date === blockedDate)).toBe(false);
-		expect(afterB.planned.some((s) => s.date === blockedDate)).toBe(false);
-		const oldFromBlocked = before.a.planned.filter((s) => s.date >= blockedDate);
-		const newFromBlocked = afterA.planned.filter((s) => s.date >= blockedDate);
+		expect(afterA.scheduled.some((s) => s.date === blockedDate)).toBe(false);
+		expect(afterB.scheduled.some((s) => s.date === blockedDate)).toBe(false);
+		const oldFromBlocked = before.a.scheduled.filter((s) => s.date >= blockedDate);
+		const newFromBlocked = afterA.scheduled.filter((s) => s.date >= blockedDate);
 		expect(newFromBlocked.map((s) => s.lessonId)).toEqual(oldFromBlocked.map((s) => s.lessonId));
 		expect(newFromBlocked[0]).not.toEqual(oldFromBlocked[0]);
 	});
@@ -481,10 +484,10 @@ describe('Blocked Slot', () => {
 		});
 
 		const afterB = classSchedule(db, { classId: classB.id, today: '2026-09-03' });
-		expect(afterB.planned).toEqual(before.planned);
+		expect(afterB.scheduled).toEqual(before.scheduled);
 
 		const afterA = classSchedule(db, { classId: classA.id, today: '2026-09-03' });
-		expect(afterA.planned.some((s) => s.date === '2026-09-14' && s.period === 3)).toBe(false);
+		expect(afterA.scheduled.some((s) => s.date === '2026-09-14' && s.period === 3)).toBe(false);
 	});
 
 	test('reports a noted Session that a Rewind relabels as atRisk rather than silently changing it', () => {
@@ -546,8 +549,8 @@ describe('Blocked Slot', () => {
 			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 4 && s.period === 5)!;
 
 		// The same Rewind as above, onto the noted occasion's own Slot — its Lesson is rescheduled
-		// elsewhere, so this occasion drops out of the plan entirely (it is neither still Planned
-		// nor Unplanned). The note is the one irreplaceable thing in the system (#38): it must stay
+		// elsewhere, so this occasion drops out of the plan entirely (it is neither still scheduled
+		// nor open). The note is the one irreplaceable thing in the system (#38): it must stay
 		// on (class_id, date, period) rather than being deleted along with the row that carried it.
 		blockSlot(db, {
 			classId: classA.id,
@@ -587,7 +590,7 @@ describe('removing a Blocked Day', () => {
 		expect(report?.atRisk).toEqual([]);
 
 		const after = classSchedule(db, { classId: classA.id, today: '2026-09-03' });
-		expect(after.planned).toEqual(before.planned);
+		expect(after.scheduled).toEqual(before.scheduled);
 		expect(
 			db.select().from(schema.blockedDay).where(eq(schema.blockedDay.date, blockedDate)).all()
 		).toHaveLength(0);
@@ -602,7 +605,7 @@ describe('removing a Blocked Day', () => {
 		// Blocking 3 Sep — classA's first Available Slot — pushes the Lesson onto whatever comes
 		// next; a note written there is what a Rewind onto the block's removal relabels.
 		blockDay(db, { date: '2026-09-03', note: 'Snow day', today: '2026-09-01' });
-		const pushed = classSchedule(db, { classId: classA.id, today: '2026-09-01' }).planned[0];
+		const pushed = classSchedule(db, { classId: classA.id, today: '2026-09-01' }).scheduled[0];
 		writeSessionNote(db, {
 			classId: classA.id,
 			date: pushed.date,
@@ -657,7 +660,7 @@ describe('removing a Blocked Slot', () => {
 		unblockSlot(db, { id: row.id, today: '2026-09-03' });
 
 		const after = classSchedule(db, { classId: classA.id, today: '2026-09-03' });
-		expect(after.planned).toEqual(before.planned);
+		expect(after.scheduled).toEqual(before.scheduled);
 		expect(
 			db.select().from(schema.blockedSlot).where(eq(schema.blockedSlot.id, row.id)).all()
 		).toHaveLength(0);
@@ -670,12 +673,12 @@ describe('removing a Blocked Slot', () => {
 // scheduling write now answers with that report itself, so no caller can drop it — these pin
 // the writes that used to discard theirs.
 describe('every scheduling write answers with its Rewind report', () => {
-	test('assignTopic answers an empty report when it gives a noted Unplanned Slot its first Lesson — a gain, not a loss', () => {
+	test('assignTopic answers an empty report when it gives a noted Open Slot its first Lesson — a gain, not a loss', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		makeLessons(db, topic.id, 1);
 
-		// An Unplanned Slot is still an occasion (ADR-0002), so the teacher may have noted it.
+		// An Open Slot is still an occasion (ADR-0002), so the teacher may have noted it.
 		writeSessionNote(db, {
 			classId: classA.id,
 			date: '2026-09-03',
@@ -709,7 +712,7 @@ describe('every scheduling write answers with its Rewind report', () => {
 
 		// Forces' two Lessons take 3 Sep P5 and P6; Waves' single Lesson queues on 8 Sep P2 —
 		// still untaught, so the Topic can be removed, and noted.
-		const queued = classSchedule(db, { classId: classA.id, today: '2026-09-01' }).planned[2];
+		const queued = classSchedule(db, { classId: classA.id, today: '2026-09-01' }).scheduled[2];
 		writeSessionNote(db, {
 			classId: classA.id,
 			date: queued.date,
@@ -743,7 +746,7 @@ describe('every scheduling write answers with its Rewind report', () => {
 		assignTopic(db, { classId: classA.id, topicId: forces.id, today: '2026-09-03' });
 		assignTopic(db, { classId: classA.id, topicId: waves.id, today: '2026-09-03' });
 
-		const second = classSchedule(db, { classId: classA.id, today: '2026-09-03' }).planned[1];
+		const second = classSchedule(db, { classId: classA.id, today: '2026-09-03' }).scheduled[1];
 		writeSessionNote(db, {
 			classId: classA.id,
 			date: second.date,
@@ -814,7 +817,7 @@ describe('Continuation', () => {
 		// "that one needed more time" being noticed after the fact.
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 		const before = classSchedule(db, { classId: classA.id, today: '2026-09-03' });
-		expect(before.planned[0]).toMatchObject({ lessonId: lessons[0].id, date: '2026-09-03' });
+		expect(before.scheduled[0]).toMatchObject({ lessonId: lessons[0].id, date: '2026-09-03' });
 
 		const today = '2026-10-24'; // inside the half-term break itself
 		recordContinuation(db, {
@@ -825,7 +828,7 @@ describe('Continuation', () => {
 		});
 		const after = classSchedule(db, { classId: classA.id, today });
 
-		const secondPart = after.planned.find((s) => s.lessonId === lessons[0].id && s.part === 2)!;
+		const secondPart = after.scheduled.find((s) => s.lessonId === lessons[0].id && s.part === 2)!;
 		expect(secondPart).toBeDefined();
 		expect(secondPart.of).toBe(2);
 		// The break has no Available Slots, so the widened Lesson's second part lands once Term 2
@@ -847,7 +850,7 @@ describe('Continuation', () => {
 		recordContinuation(db, occasion);
 		const after = classSchedule(db, { classId: classA.id, today });
 
-		const parts = after.planned
+		const parts = after.scheduled
 			.filter((s) => s.lessonId === lessons[0].id)
 			.sort((a, b) => a.part - b.part);
 		expect(parts.map((p) => p.part)).toEqual([2, 3]);
@@ -861,7 +864,7 @@ describe('Continuation', () => {
 
 		const today = '2026-09-03';
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today });
-		const stillToTeach = classSchedule(db, { classId: classA.id, today }).planned[0];
+		const stillToTeach = classSchedule(db, { classId: classA.id, today }).scheduled[0];
 
 		expect(() =>
 			recordContinuation(db, {
@@ -898,7 +901,7 @@ describe('Continuation', () => {
 		expect(report!.atRisk).toEqual([]);
 
 		const after = classSchedule(db, { classId: classA.id, today: '2026-09-10' });
-		const sessionsForLesson = [...after.history, ...after.planned].filter(
+		const sessionsForLesson = [...after.history, ...after.scheduled].filter(
 			(s) => s.lessonId === lessons[0].id
 		);
 		expect(sessionsForLesson).toHaveLength(1);
@@ -917,12 +920,12 @@ describe('running out of Available Slots', () => {
 		const result = classSchedule(db, { classId: classB.id, today: '2026-09-03' });
 
 		expect(result.unplaced.length).toBeGreaterThan(0);
-		expect(result.planned.length + result.unplaced.length).toBe(lessons.length);
-		expect(result.unplaced[0].lessonId).toBe(lessons[result.planned.length].id);
+		expect(result.scheduled.length + result.unplaced.length).toBe(lessons.length);
+		expect(result.unplaced[0].lessonId).toBe(lessons[result.scheduled.length].id);
 	});
 });
 
-describe('Unplanned Slots and Runway', () => {
+describe('Open Slots and Runway', () => {
 	test('are correct for a Class with Slots left over, which is the normal condition', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
@@ -932,16 +935,16 @@ describe('Unplanned Slots and Runway', () => {
 		const result = classSchedule(db, { classId: classA.id, today: '2026-09-03' });
 
 		expect(result.unplaced).toEqual([]);
-		expect(result.unplanned.length).toBeGreaterThan(0);
+		expect(result.openSlots.length).toBeGreaterThan(0);
 
 		const read = classSchedule(db, { classId: classA.id, today: '2026-09-03' });
-		expect(read.runway.date).toBe(read.unplanned[0]?.date);
+		expect(read.runway.date).toBe(read.openSlots[0]?.date);
 		expect(read.runway.lessonsRemaining).toBe(0);
 	});
 });
 
-describe('Planned Length', () => {
-	test('a Lesson with Planned Length > 1 occupies n consecutive Available Slots as one Lesson', () => {
+describe('Length', () => {
+	test('a Lesson with Length > 1 occupies n consecutive Available Slots as one Lesson', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		const [wideLesson] = makeLessons(db, topic.id, 1, 2);
@@ -949,13 +952,13 @@ describe('Planned Length', () => {
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 		const result = classSchedule(db, { classId: classA.id, today: '2026-09-03' });
 
-		const parts = result.planned
+		const parts = result.scheduled
 			.filter((s) => s.lessonId === wideLesson.id)
 			.sort((a, b) => a.part - b.part);
 		expect(parts.map((p) => `${p.part}/${p.of}`)).toEqual(['1/2', '2/2']);
 
 		const allSlots = result;
-		const stream = [...allSlots.history, ...allSlots.planned, ...allSlots.unplanned]
+		const stream = [...allSlots.history, ...allSlots.scheduled, ...allSlots.openSlots]
 			.map((s) => `${s.date}|${s.period}`)
 			.sort();
 		const iFirst = stream.indexOf(`${parts[0].date}|${parts[0].period}`);
@@ -1049,7 +1052,7 @@ describe('authoring Courses, Topics and Lessons', () => {
 		});
 
 		expect(first.body).toBeNull();
-		expect(first.plannedLength).toBe(1);
+		expect(first.length).toBe(1);
 		expect(lessonsOf(db, topic.id)).toEqual([first, second]);
 
 		const renamed = renameLesson(db, { id: first.id, title: 'Newton I — inertia' });
@@ -1083,14 +1086,14 @@ describe('reordering and moving Lessons', () => {
 		expect(lessonsOf(db, topic.id).map((l) => l.id)).toEqual([third.id, first.id, second.id]);
 	});
 
-	test('a Lesson moves to a different Topic, keeping its body, links and Planned Length', () => {
+	test('a Lesson moves to a different Topic, keeping its body, links and Length', () => {
 		const { db, topic, otherTopic } = setUpTopics();
 		const lesson = createLesson(db, { topicId: topic.id, title: 'Newton I', today: '2026-09-03' });
 		updateLesson(db, {
 			id: lesson.id,
 			title: 'Newton I',
 			body: 'Objectives: state the First Law.',
-			plannedLength: 2,
+			length: 2,
 			today: '2026-09-03'
 		});
 		const link = createLink(db, {
@@ -1113,7 +1116,7 @@ describe('reordering and moving Lessons', () => {
 		expect(moved).toMatchObject({
 			topicId: otherTopic.id,
 			body: 'Objectives: state the First Law.',
-			plannedLength: 2
+			length: 2
 		});
 		expect(lessonsOf(db, topic.id)).toEqual([]);
 		expect(lessonsOf(db, otherTopic.id).map((l) => l.id)).toEqual([existingLesson.id, lesson.id]);
@@ -1170,15 +1173,15 @@ describe('content edits re-derive the schedule from today', () => {
 
 		const after = classSchedule(db, { classId: classA.id, today });
 		expect(after.history).toEqual(historyBefore);
-		expect(after.planned.some((s) => s.lessonId === inserted.id)).toBe(true);
-		expect(after.planned.every((s) => s.date >= today)).toBe(true);
+		expect(after.scheduled.some((s) => s.lessonId === inserted.id)).toBe(true);
+		expect(after.scheduled.every((s) => s.date >= today)).toBe(true);
 	});
 
 	test('deleting a not-yet-taught Lesson from a half-taught Topic re-derives the rest', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		// 30 Lessons comfortably outlast the ~12 Sessions 9B/Sc1 has by "later" below, so the last
-		// one is still safely unplanned-for-teaching, not history.
+		// one is still safely open-for-teaching, not history.
 		const lessons = makeLessons(db, topic.id, 30);
 
 		const today = '2026-09-03';
@@ -1192,7 +1195,7 @@ describe('content edits re-derive the schedule from today', () => {
 
 		const after = classSchedule(db, { classId: classA.id, today: later });
 		expect(after.history).toEqual(historyBefore);
-		expect(after.planned.some((s) => s.lessonId === lastLesson.id)).toBe(false);
+		expect(after.scheduled.some((s) => s.lessonId === lastLesson.id)).toBe(false);
 	});
 
 	test('reordering Lessons in a half-taught Topic re-derives everything from today, not before', () => {
@@ -1211,12 +1214,12 @@ describe('content edits re-derive the schedule from today', () => {
 
 		const after = classSchedule(db, { classId: classA.id, today });
 		expect(after.history).toEqual(historyBefore);
-		const stillToTeach = after.planned.map((s) => s.lessonId);
+		const stillToTeach = after.scheduled.map((s) => s.lessonId);
 		expect(stillToTeach).toContain(last.id);
 		expect(stillToTeach.indexOf(last.id)).toBeLessThan(stillToTeach.length - 1);
 	});
 
-	test('changing a Planned Length re-derives every affected Class from today', () => {
+	test('changing a Length re-derives every affected Class from today', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		const lessons = makeLessons(db, topic.id, 30);
@@ -1232,13 +1235,13 @@ describe('content edits re-derive the schedule from today', () => {
 			id: lastLesson.id,
 			title: lastLesson.title,
 			body: null,
-			plannedLength: 2,
+			length: 2,
 			today: later
 		});
 
 		const after = classSchedule(db, { classId: classA.id, today: later });
 		expect(after.history).toEqual(historyBefore);
-		const parts = after.planned.filter((s) => s.lessonId === lastLesson.id);
+		const parts = after.scheduled.filter((s) => s.lessonId === lastLesson.id);
 		expect(parts).toHaveLength(2);
 	});
 
@@ -1300,26 +1303,26 @@ describe('the Lesson editor', () => {
 		expect(lessonDetail(db, lesson.id)).toEqual({ ...lesson, links: [] });
 	});
 
-	test('a Lesson holds a markdown body and a Planned Length in Periods', () => {
+	test('a Lesson holds a markdown body and a Length in Periods', () => {
 		const { db, lesson } = setUpLesson();
 
 		const updated = updateLesson(db, {
 			id: lesson.id,
 			title: 'Newton I — inertia',
 			body: 'Objectives: state the First Law.',
-			plannedLength: 2,
+			length: 2,
 			today: '2026-09-03'
 		});
 
 		expect(updated).toMatchObject({
 			title: 'Newton I — inertia',
 			body: 'Objectives: state the First Law.',
-			plannedLength: 2
+			length: 2
 		});
 		expect(lessonDetail(db, lesson.id)).toMatchObject({
 			title: 'Newton I — inertia',
 			body: 'Objectives: state the First Law.',
-			plannedLength: 2
+			length: 2
 		});
 	});
 
@@ -1445,7 +1448,7 @@ describe('assigning Topics to a Class', () => {
 
 		const schedule = classSchedule(db, { classId: classA.id, today: '2026-09-03' });
 		// Moving Waves up makes its Lesson the first taught — the teaching order is the shelf.
-		expect(schedule.planned[0].lessonId).toBe(wavesLessons[0].id);
+		expect(schedule.scheduled[0].lessonId).toBe(wavesLessons[0].id);
 	});
 
 	test('unassigns a Topic the Class has not reached', () => {
@@ -1478,7 +1481,7 @@ describe('assigning Topics to a Class', () => {
 describe('the Agenda', () => {
 	// 2026-09-03 is a Thursday, the day Term 1 opens. classA's first Available Slot is that
 	// Thursday's double (P5, P6); classB's is the following Monday (2026-09-07) P1.
-	test('runs chronologically across every Class, and a Lesson with Planned Length > 1 is one row', () => {
+	test('runs chronologically across every Class, and a Lesson with Length > 1 is one row', () => {
 		const { db, course, classA, classB } = setUp();
 		const forces = makeTopic(db, course.id, 'Forces');
 		const [wideLesson] = makeLessons(db, forces.id, 1, 2);
@@ -1520,9 +1523,9 @@ describe('the Agenda', () => {
 		expect(today.length).toBeGreaterThan(0);
 	});
 
-	test('an Unplanned Slot appears as an ordinary row carrying no Lesson', () => {
+	test('an Open Slot appears as an ordinary row carrying no Lesson', () => {
 		const { db, classA } = setUp();
-		// No Topic assigned at all: every Available Slot is unplanned.
+		// No Topic assigned at all: every Available Slot is open.
 
 		const rows = agenda(db, { today: '2026-09-03', horizonDays: 1 });
 
@@ -1595,7 +1598,7 @@ describe('the Classes view', () => {
 		expect(lane.total).toBe(0);
 		expect(lane.lastTaught).toBeNull();
 		expect(lane.nextUp).toBeNull();
-		// Every Available Slot is Unplanned — the Runway date is the first of them, straight away.
+		// Every Available Slot is Open — the Runway date is the first of them, straight away.
 		expect(lane.runway.date).toBe('2026-09-03');
 		expect(lane.runway.lessonsRemaining).toBe(0);
 	});
@@ -1639,7 +1642,7 @@ describe('the Calendar', () => {
 	// days before Term 1 opens Thursday 3 Sep — so Mon/Tue/Wed that week fall outside every Term
 	// even though it is a Teaching Week overall. classA's Slots that week are Mon P3, Wed P1, and
 	// the Thu P5/P6 double; classB's is Mon P1. Thu is the only in-term day either Class holds.
-	test('shows a Lesson, an Unplanned Slot, a Slot outside the Term, and a genuinely free position', () => {
+	test('shows a Lesson, an Open Slot, a Slot outside the Term, and a genuinely free position', () => {
 		const { db, course, classA, classB } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		const [lesson] = makeLessons(db, topic.id, 1);
@@ -1660,15 +1663,15 @@ describe('the Calendar', () => {
 			week?.cells.find((c) => c.date === date && c.periodFrom === period && c.classId === classId);
 
 		// Thursday, in term: the Lesson lands on P5, and P6 — still an Available Slot, just
-		// nothing left to teach — is Unplanned, not blocked.
+		// nothing left to teach — is open, not blocked.
 		expect(at('2026-09-03', 5, classA.id)).toMatchObject({
 			kind: 'lesson',
 			lesson: { title: lesson.title, topicName: 'Forces' }
 		});
-		expect(at('2026-09-03', 6, classA.id)).toMatchObject({ kind: 'unplanned', lesson: null });
+		expect(at('2026-09-03', 6, classA.id)).toMatchObject({ kind: 'open', lesson: null });
 
 		// Monday and Wednesday are outside every Term, even though the Timetable puts each Class
-		// there — blocked, the same as a Blocked Day, and never mistaken for Unplanned.
+		// there — blocked, the same as a Blocked Day, and never mistaken for an Open Slot.
 		expect(at('2026-08-31', 3, classA.id)).toMatchObject({ kind: 'blocked' });
 		expect(at('2026-08-31', 1, classB.id)).toMatchObject({ kind: 'blocked' });
 		expect(at('2026-09-02', 1, classA.id)).toMatchObject({ kind: 'blocked' });
@@ -1677,7 +1680,7 @@ describe('the Calendar', () => {
 		expect(week?.cells.some((c) => c.date === '2026-09-04')).toBe(false);
 	});
 
-	test('a Lesson with Planned Length > 1 is one cell spanning its Periods, not two', () => {
+	test('a Lesson with Length > 1 is one cell spanning its Periods, not two', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		const [wideLesson] = makeLessons(db, topic.id, 1, 2);
@@ -1695,7 +1698,7 @@ describe('the Calendar', () => {
 		});
 	});
 
-	test('a Blocked Slot drains the colour and carries its note, distinct from an Unplanned Slot', () => {
+	test('a Blocked Slot drains the colour and carries its note, distinct from an Open Slot', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		makeLessons(db, topic.id, 2);
@@ -1751,7 +1754,11 @@ describe('the Calendar', () => {
 		const [lesson] = makeLessons(db, topic.id, 1);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 		const before = classSchedule(db, { classId: classA.id, today: '2026-09-03' });
-		expect(before.planned[0]).toMatchObject({ lessonId: lesson.id, date: '2026-09-03', period: 5 });
+		expect(before.scheduled[0]).toMatchObject({
+			lessonId: lesson.id,
+			date: '2026-09-03',
+			period: 5
+		});
 
 		expect(teachingWeeksList(db).find((w) => w.weekCommencing === '2026-08-31')?.letter).toBe('A');
 
@@ -1766,13 +1773,17 @@ describe('the Calendar', () => {
 		// Relabelled as Week B, classA no longer holds a Thursday Slot that week (its Week B day 4
 		// is bare) but does hold Friday P4 — so the Lesson moves there instead.
 		const after = classSchedule(db, { classId: classA.id, today: '2026-09-03' });
-		expect(after.planned.some((s) => s.date === '2026-09-03')).toBe(false);
-		expect(after.planned[0]).toMatchObject({ lessonId: lesson.id, date: '2026-09-04', period: 4 });
+		expect(after.scheduled.some((s) => s.date === '2026-09-03')).toBe(false);
+		expect(after.scheduled[0]).toMatchObject({
+			lessonId: lesson.id,
+			date: '2026-09-04',
+			period: 4
+		});
 	});
 });
 
 describe('the Session panel', () => {
-	test('reads a planned occasion back with its Lesson, plan and Links', () => {
+	test('reads a scheduled occasion back with its Lesson, plan and Links', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		const [lesson] = makeLessons(db, topic.id, 1);
@@ -1800,9 +1811,9 @@ describe('the Session panel', () => {
 		expect(detail!.lesson!.links).toMatchObject([{ url: 'https://example.com', label: 'Slides' }]);
 	});
 
-	test('opens on an Unplanned Slot showing no plan, and still offers the note', () => {
+	test('opens on an Open Slot showing no plan, and still offers the note', () => {
 		const { db, classA } = setUp();
-		// No Topic assigned: 3 Sep P5 is an Unplanned Slot, with no Session row yet at all.
+		// No Topic assigned: 3 Sep P5 is an Open Slot, with no Session row yet at all.
 
 		const detail = sessionDetail(db, { classId: classA.id, date: '2026-09-03', period: 5 });
 
@@ -1828,9 +1839,9 @@ describe('the Session panel', () => {
 		expect(detail!.lesson).not.toBeNull();
 	});
 
-	test('a note on an Unplanned Slot survives an unrelated re-derive of the same Class', () => {
+	test('a note on an Open Slot survives an unrelated re-derive of the same Class', () => {
 		const { db, course, classA } = setUp();
-		// classA's first Available Slot, 3 Sep P5/6, is left Unplanned.
+		// classA's first Available Slot, 3 Sep P5/6, is left open.
 
 		writeSessionNote(db, {
 			classId: classA.id,

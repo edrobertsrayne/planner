@@ -228,7 +228,7 @@ export function classLanes(
 			cls,
 			result,
 			lastEntry: result.history[result.history.length - 1] ?? null,
-			nextEntry: result.planned[0] ?? null
+			nextEntry: result.scheduled[0] ?? null
 		};
 	});
 
@@ -249,7 +249,7 @@ export function classLanes(
 			courseId: cls.courseId,
 			tone: cls.tone,
 			taught: result.history.length,
-			total: result.history.length + result.planned.length + result.unplaced.length,
+			total: result.history.length + result.scheduled.length + result.unplaced.length,
 			lastTaught:
 				lastEntry && lastName
 					? {

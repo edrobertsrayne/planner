@@ -215,13 +215,13 @@
 													>
 												{:else}
 													<span class="mt-0.5 text-xs italic" style:color={tone.fg}>
-														Unplanned
+														Open Slot
 													</span>
 												{/if}
 											</button>
 
 											{#if cell.periodFrom === cell.periodTo}
-												<!-- A Lesson with Planned Length > 1 spans several Periods as one merged
+												<!-- A Lesson with Length > 1 spans several Periods as one merged
 												cell; a Blocked Slot is only ever one Period, so the control is offered
 												solely on a cell that is exactly one Period wide, never on a span where
 												"this Period" would be ambiguous. -->
@@ -248,7 +248,7 @@
 		</div>
 		<p class="mt-3 text-[11px] text-muted-foreground">
 			Drained = removed — a Blocked Day, a Blocked Slot, or a date outside every Term. Coloured with
-			no Lesson = Unplanned — the Class is taught, nothing is planned for it yet. An empty cell is a
+			no Lesson = Open Slot — the Class is taught, nothing is planned for it yet. An empty cell is a
 			Period no Class holds. Click any tile to open its Session.
 		</p>
 	{:else}

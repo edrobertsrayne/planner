@@ -197,7 +197,7 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 
 	test('opening a Session from the Calendar, and dismissing it by Escape', async () => {
 		await page.goto('/calendar');
-		await page.getByRole('button', { name: '9C/Sc1 Unplanned' }).click();
+		await page.getByRole('button', { name: '9C/Sc1 Open Slot' }).click();
 
 		await openSessionAndExpect(page);
 		await expect(page.locator('[data-session-panel]')).toContainText('9C/Sc1');

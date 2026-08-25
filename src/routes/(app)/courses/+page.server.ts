@@ -124,8 +124,8 @@ export const actions: Actions = {
 		const title = trimmed(data, 'title');
 		if (!title) return fail(400, { error: 'A Lesson needs a title.' });
 		const body = String(data.get('body') ?? '').trim() || null;
-		const plannedLength = Math.max(1, Math.round(Number(data.get('plannedLength'))) || 1);
-		const lesson = updateLesson(db, { id, title, body, plannedLength, today: today() });
+		const length = Math.max(1, Math.round(Number(data.get('length'))) || 1);
+		const lesson = updateLesson(db, { id, title, body, length, today: today() });
 		if (!lesson) return fail(404, { error: 'No such Lesson.' });
 		return { lesson };
 	},

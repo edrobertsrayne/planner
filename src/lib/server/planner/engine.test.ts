@@ -5,17 +5,17 @@ function resultOf(partial: Partial<ScheduleResult>): ScheduleResult {
 	return {
 		boundary: '2026-09-03',
 		history: [],
-		planned: [],
+		scheduled: [],
 		unplaced: [],
-		unplanned: [],
+		openSlots: [],
 		...partial
 	};
 }
 
 describe('agendaRows', () => {
-	test('a Lesson with Planned Length 1 is one row', () => {
+	test('a Lesson with Length 1 is one row', () => {
 		const result = resultOf({
-			planned: [
+			scheduled: [
 				{
 					classId: 'c1',
 					date: '2026-09-03',
@@ -42,10 +42,10 @@ describe('agendaRows', () => {
 		]);
 	});
 
-	test('a Lesson with Planned Length > 1 in consecutive Periods on the same date is one row spanning them', () => {
+	test('a Lesson with Length > 1 in consecutive Periods on the same date is one row spanning them', () => {
 		// 9B/Sc1's Thursday double, P5 and P6 on the same date.
 		const result = resultOf({
-			planned: [
+			scheduled: [
 				{
 					classId: 'c1',
 					date: '2026-09-03',
@@ -84,7 +84,7 @@ describe('agendaRows', () => {
 
 	test('a Lesson split across two dates is never merged into one row', () => {
 		const result = resultOf({
-			planned: [
+			scheduled: [
 				{
 					classId: 'c1',
 					date: '2026-09-03',
@@ -116,7 +116,7 @@ describe('agendaRows', () => {
 
 	test('two different Lessons in adjacent Periods on the same date are never merged', () => {
 		const result = resultOf({
-			planned: [
+			scheduled: [
 				{
 					classId: 'c1',
 					date: '2026-09-03',
@@ -143,9 +143,9 @@ describe('agendaRows', () => {
 		expect(agendaRows('c1', result)).toHaveLength(2);
 	});
 
-	test('an Unplanned Slot is a row carrying no Lesson', () => {
+	test('an Open Slot is a row carrying no Lesson', () => {
 		const result = resultOf({
-			unplanned: [{ date: '2026-09-03', period: 5, slotId: 's1', week: 'A' }]
+			openSlots: [{ date: '2026-09-03', period: 5, slotId: 's1', week: 'A' }]
 		});
 
 		expect(agendaRows('c1', result)).toEqual([
@@ -161,9 +161,9 @@ describe('agendaRows', () => {
 		]);
 	});
 
-	test('planned rows precede unplanned rows, both tagged with the given Class', () => {
+	test('scheduled rows precede open rows, both tagged with the given Class', () => {
 		const result = resultOf({
-			planned: [
+			scheduled: [
 				{
 					classId: 'c1',
 					date: '2026-09-03',
@@ -175,7 +175,7 @@ describe('agendaRows', () => {
 					of: 1
 				}
 			],
-			unplanned: [{ date: '2026-09-08', period: 1, slotId: 's2', week: 'B' }]
+			openSlots: [{ date: '2026-09-08', period: 1, slotId: 's2', week: 'B' }]
 		});
 
 		const rows = agendaRows('c1', result);

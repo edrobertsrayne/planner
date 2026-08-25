@@ -90,6 +90,14 @@ test('the tone backfill walks existing Classes in creation order and wraps past 
 			course_id text NOT NULL,
 			CONSTRAINT fk_class_course_id_course_id_fk FOREIGN KEY (course_id) REFERENCES course(id)
 		);
+		CREATE TABLE lesson (
+			id text PRIMARY KEY,
+			topic_id text,
+			title text NOT NULL,
+			body text,
+			planned_length integer DEFAULT 1 NOT NULL,
+			position integer NOT NULL
+		);
 	`);
 	client.prepare("INSERT INTO course (id, name) VALUES ('c1', 'Science')").run();
 

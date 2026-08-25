@@ -28,7 +28,7 @@ export const lesson = sqliteTable('lesson', {
 		.references(() => topic.id),
 	title: text('title').notNull(),
 	body: text('body'),
-	plannedLength: integer('planned_length').notNull().default(1),
+	length: integer('length').notNull().default(1),
 	position: integer('position').notNull()
 });
 

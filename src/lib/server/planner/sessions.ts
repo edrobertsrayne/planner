@@ -34,7 +34,7 @@ export interface SessionDetail extends Occasion {
 
 // The Session panel's one read (issue #35) — the only place a Session is read or written. A
 // Session is identified by its occasion, not by its Lesson, so this never fails to resolve just
-// because the occasion carries no Lesson: an Unplanned Slot is still an occasion Ed may want to
+// because the occasion carries no Lesson: an Open Slot is still an occasion Ed may want to
 // write about.
 export function sessionDetail(db: Db, occasion: Occasion): SessionDetail | null {
 	const cls = classDetail(db, occasion.classId);
@@ -66,7 +66,7 @@ export function sessionDetail(db: Db, occasion: Occasion): SessionDetail | null 
 
 // The Session panel's one write (issue #35): a free-text note against the occasion, never against
 // the Lesson (ADR-0002). Upserts on the occasion's unique key without touching lessonId, so
-// writing a note never disturbs the schedule — and an Unplanned Slot, which has no Session row
+// writing a note never disturbs the schedule — and an Open Slot, which has no Session row
 // until now, gets one carrying no Lesson, purely to hold the note.
 export function writeSessionNote(
 	db: Db,

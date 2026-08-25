@@ -46,7 +46,7 @@ export interface AvailableSlot {
 
 export interface LessonInput {
 	id: string;
-	plannedLength: number;
+	length: number;
 }
 
 export interface Continuation {
@@ -67,16 +67,16 @@ export interface RemainingPart {
 	of: number;
 }
 
-export interface PlannedSession extends RemainingPart, AvailableSlot {
+export interface ScheduledSession extends RemainingPart, AvailableSlot {
 	classId: string;
 }
 
 export interface ScheduleResult {
 	boundary: string;
 	history: SessionRecord[];
-	planned: PlannedSession[];
+	scheduled: ScheduledSession[];
 	unplaced: RemainingPart[];
-	unplanned: AvailableSlot[];
+	openSlots: AvailableSlot[];
 }
 
 export interface Runway {
@@ -126,11 +126,11 @@ export function availableSlots(cal: Calendar, classId: string, from?: string): A
 	return out;
 }
 
-// How many Available Slots a Lesson needs for this Class: its Planned Length, plus one per
-// Continuation recorded against it. Planned Length and Continuation both widen a Lesson; neither
+// How many Available Slots a Lesson needs for this Class: its Length, plus one per
+// Continuation recorded against it. Length and Continuation both widen a Lesson; neither
 // creates a second Lesson.
 const demandFor = (lesson: LessonInput, classId: string, continuations: Continuation[]) =>
-	lesson.plannedLength +
+	lesson.length +
 	continuations.filter((c) => c.lessonId === lesson.id && c.classId === classId).length;
 
 // The Lesson-parts still owed to this Class, in Assigned-Topic order then Lesson order.
@@ -150,20 +150,20 @@ export function remainingParts(
 }
 
 // Zip the owed parts onto the stream of Available Slots. The whole of shift-right is this line.
-// `unplaced` is the mirror of `unplanned`: whichever of the two streams runs out first leaves the
+// `unplaced` is the mirror of `openSlots`: whichever of the two streams runs out first leaves the
 // other's tail unconsumed.
 export function layOut(
 	parts: RemainingPart[],
 	stream: AvailableSlot[]
-): { sessions: PlannedSession[]; unplaced: RemainingPart[]; unplanned: AvailableSlot[] } {
+): { sessions: ScheduledSession[]; unplaced: RemainingPart[]; openSlots: AvailableSlot[] } {
 	const sessions = parts
 		.slice(0, stream.length)
-		.map((part, i) => ({ ...part, ...stream[i] }) as PlannedSession);
+		.map((part, i) => ({ ...part, ...stream[i] }) as ScheduledSession);
 
 	return {
 		sessions,
 		unplaced: parts.slice(stream.length),
-		unplanned: stream.slice(parts.length)
+		openSlots: stream.slice(parts.length)
 	};
 }
 
@@ -193,9 +193,9 @@ export function schedule({
 	for (const s of history) delivered[s.lessonId] = (delivered[s.lessonId] || 0) + 1;
 
 	const {
-		sessions: planned,
+		sessions: scheduled,
 		unplaced,
-		unplanned
+		openSlots
 	} = layOut(
 		remainingParts(lessons, classId, continuations, delivered),
 		availableSlots(cal, classId, boundary)
@@ -204,9 +204,9 @@ export function schedule({
 	return {
 		boundary,
 		history,
-		planned: planned.map((p) => ({ ...p, classId })),
+		scheduled: scheduled.map((p) => ({ ...p, classId })),
 		unplaced,
-		unplanned
+		openSlots
 	};
 }
 
@@ -227,11 +227,11 @@ export function rewind(
 	};
 }
 
-// Runway is derived, not stored — the date of a Class's first Unplanned Slot, with the count of
+// Runway is derived, not stored — the date of a Class's first Open Slot, with the count of
 // Lesson-parts still owed but with nowhere to go alongside it.
 export function runway(result: ScheduleResult): Runway {
 	return {
-		date: result.unplanned[0]?.date ?? null,
+		date: result.openSlots[0]?.date ?? null,
 		lessonsRemaining: result.unplaced.length
 	};
 }
@@ -246,15 +246,15 @@ export interface AgendaRow {
 	lesson: { lessonId: string; part: number; of: number } | null;
 }
 
-// A view of a ScheduleResult for the Agenda: one row per occasion, a Lesson with Planned Length
+// A view of a ScheduleResult for the Agenda: one row per occasion, a Lesson with Length
 // (or a Continuation) above 1 collapsed into a single row spanning its Periods rather than
-// reported once per Period. Only ever merges within one date — `planned` is chronological, so a
+// reported once per Period. Only ever merges within one date — `scheduled` is chronological, so a
 // Lesson that runs into the next day's first Slot never lands in adjacent array positions with
 // contiguous Periods, and the Agenda groups by day regardless.
 export function agendaRows(classId: string, result: ScheduleResult): AgendaRow[] {
 	const rows: AgendaRow[] = [];
 
-	for (const p of result.planned) {
+	for (const p of result.scheduled) {
 		const prev = rows[rows.length - 1];
 		if (
 			prev?.lesson &&
@@ -278,14 +278,14 @@ export function agendaRows(classId: string, result: ScheduleResult): AgendaRow[]
 		}
 	}
 
-	for (const u of result.unplanned) {
+	for (const slot of result.openSlots) {
 		rows.push({
 			classId,
-			date: u.date,
-			week: u.week,
-			periodFrom: u.period,
-			periodTo: u.period,
-			slotId: u.slotId,
+			date: slot.date,
+			week: slot.week,
+			periodFrom: slot.period,
+			periodTo: slot.period,
+			slotId: slot.slotId,
 			lesson: null
 		});
 	}

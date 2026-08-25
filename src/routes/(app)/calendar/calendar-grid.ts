@@ -1,7 +1,7 @@
 import type { CalendarCell } from '$lib/server/planner';
 
 // One entry per (day, Period): the cell that starts there, a Period covered by an earlier cell's
-// rowspan (a Lesson with Planned Length > 1), or genuinely free. A Blocked Day or Blocked Slot
+// rowspan (a Lesson with Length > 1), or genuinely free. A Blocked Day or Blocked Slot
 // arrives as an ordinary `blocked` cell that *starts* here; a Period no Class holds is never a
 // cell at all (calendarWeek leaves it out), so "removed" and "never applicable" stay distinct.
 export type GridEntry =

@@ -156,7 +156,7 @@
 			{/if}
 		</div>
 	{:else}
-		<h2 class="text-lg font-semibold text-muted-foreground italic">Unplanned</h2>
+		<h2 class="text-lg font-semibold text-muted-foreground italic">Open Slot</h2>
 		<p class="mt-1 text-xs text-muted-foreground">No Lesson planned for this occasion.</p>
 	{/if}
 

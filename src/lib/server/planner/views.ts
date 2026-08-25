@@ -91,7 +91,7 @@ export interface CalendarCell {
 	classId: string;
 	classLabel: string;
 	tone: number;
-	kind: 'lesson' | 'unplanned' | 'blocked';
+	kind: 'lesson' | 'open' | 'blocked';
 	lesson: LessonName | null;
 	blockedNote: string | null;
 	slotId: string;
@@ -223,7 +223,7 @@ export function calendarWeek(
 				classId: cls.id,
 				classLabel: cls.label,
 				tone: cls.tone,
-				kind: r.lesson ? 'lesson' : 'unplanned',
+				kind: r.lesson ? 'lesson' : 'open',
 				lesson: r.lesson ? (names.get(r.lesson.lessonId) ?? null) : null,
 				blockedNote: null,
 				slotId: r.slotId,

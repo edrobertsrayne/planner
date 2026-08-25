@@ -109,7 +109,7 @@ export function lessonDetail(db: Db, id: string) {
 	return { ...row, links: linksOf(db, id) };
 }
 
-// Planned Length is a scheduling input, so this re-derives every Class assigned this Lesson's
+// Length is a scheduling input, so this re-derives every Class assigned this Lesson's
 // Topic from `today`. Title and body are cosmetic and never move a date, but re-deriving
 // regardless is harmless — `rederive` only writes where something actually changed.
 export function updateLesson(
@@ -118,13 +118,13 @@ export function updateLesson(
 		id,
 		title,
 		body,
-		plannedLength,
+		length,
 		today
-	}: { id: string; title: string; body: string | null; plannedLength: number; today: string }
+	}: { id: string; title: string; body: string | null; length: number; today: string }
 ) {
 	const [row] = db
 		.update(schema.lesson)
-		.set({ title, body, plannedLength })
+		.set({ title, body, length })
 		.where(eq(schema.lesson.id, id))
 		.returning()
 		.all();
@@ -185,7 +185,7 @@ export function moveLesson(
 	rederiveTopic(db, topicId, today);
 }
 
-// Moves a Lesson to a different Topic, keeping its body, links and Planned Length — appended at
+// Moves a Lesson to a different Topic, keeping its body, links and Length — appended at
 // the end of the new Topic's order. Re-derives every Class assigned either Topic: the old one
 // lost a Lesson, the new one gained one.
 export function moveLessonToTopic(
