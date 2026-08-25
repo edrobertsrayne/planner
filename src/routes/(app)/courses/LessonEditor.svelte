@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { replaceQuery } from '$lib/client/enhance';
 	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
@@ -43,6 +44,9 @@
 	} = $props();
 
 	function hrefFor(lessonId: string | null) {
+		if (page.url.pathname.startsWith('/planning')) {
+			return lessonId ? `?lesson=${lessonId}` : '/planning';
+		}
 		const base = `?course=${courseId}&topic=${topicId}`;
 		return lessonId ? `${base}&lesson=${lessonId}` : base;
 	}
@@ -235,7 +239,11 @@
 							return async ({ formData, result, update }) => {
 								if (result.type !== 'success') return update();
 								const newTopicId = String(formData.get('topicId'));
-								await replaceQuery(`?course=${courseId}&topic=${newTopicId}&lesson=${lesson.id}`);
+								if (page.url.pathname.startsWith('/planning')) {
+									await replaceQuery(`?lesson=${lesson.id}`);
+								} else {
+									await replaceQuery(`?course=${courseId}&topic=${newTopicId}&lesson=${lesson.id}`);
+								}
 							};
 						}}
 					>

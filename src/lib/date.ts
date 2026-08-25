@@ -39,3 +39,7 @@ export const formatDayMonth = (iso: string) => format(iso, { day: 'numeric', mon
 // 'Tuesday 25 August' — a day heading, where which weekday it is matters more than the year.
 export const formatWeekday = (iso: string) =>
 	format(iso, { weekday: 'long', day: 'numeric', month: 'long' });
+
+// 'Tue 25 Aug' — a date with its short weekday, where day of the week matters but the year is known.
+export const formatShortWeekday = (iso: string) =>
+	format(iso, { weekday: 'short', day: 'numeric', month: 'short' });

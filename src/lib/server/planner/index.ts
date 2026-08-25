@@ -63,9 +63,12 @@ export {
 export {
 	agenda,
 	calendarWeek,
+	planningStream,
 	type AgendaEntry,
 	type CalendarCell,
-	type CalendarWeek
+	type CalendarWeek,
+	type PlanningEntry,
+	type PlanningOccurrence
 } from './views';
 
 export {

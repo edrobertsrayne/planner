@@ -39,6 +39,7 @@ import {
 	moveLesson,
 	moveLessonToTopic,
 	moveLink,
+	planningStream,
 	recordContinuation,
 	renameCourse,
 	renameLesson,
@@ -1946,5 +1947,98 @@ describe('the Session panel', () => {
 		const detail = sessionDetail(db, { classId: classA.id, date: '2026-09-03', period: 6 });
 		expect(detail!.note).toBe('went badly — redo the practical');
 		expect(detail!.lesson?.title).toBe(lessons[0].title);
+	});
+});
+
+describe('the Planning stream', () => {
+	test('ordered by soonest next Scheduled occurrence', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [l1, l2, l3] = makeLessons(db, topic.id, 3);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+
+		const stream = planningStream(db, '2026-09-03');
+		expect(stream.map((s) => s.id)).toEqual([l1.id, l2.id, l3.id]);
+		expect(stream[0]).toMatchObject({
+			id: l1.id,
+			title: 'Lesson 1',
+			topicName: 'Forces',
+			courseName: 'Year 9 Science',
+			status: 'draft',
+			occurrence: {
+				classId: classA.id,
+				label: '9B/Sc1',
+				tone: classA.tone,
+				date: '2026-09-03',
+				period: 5
+			}
+		});
+	});
+
+	test('a Lesson taught by two Classes takes the sooner of the two', () => {
+		const { db, course, classA, classB } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [l1] = makeLessons(db, topic.id, 1);
+		// classA's first slot is 2026-09-03 P5 (Thu)
+		// classB's first slot is 2026-09-07 P1 (Mon)
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+		assignTopic(db, { classId: classB.id, topicId: topic.id, today: '2026-09-03' });
+
+		const stream = planningStream(db, '2026-09-03');
+		const entry = stream.find((s) => s.id === l1.id);
+		expect(entry?.occurrence).toMatchObject({
+			classId: classA.id,
+			label: '9B/Sc1',
+			date: '2026-09-03',
+			period: 5
+		});
+	});
+
+	test('a Lesson with no scheduled occurrence sits at the bottom', () => {
+		const { db, course, classA } = setUp();
+		const topic1 = makeTopic(db, course.id, 'Forces');
+		const topic2 = makeTopic(db, course.id, 'Electricity');
+		const [l1, l2] = makeLessons(db, topic1.id, 2);
+		const [u1, u2] = makeLessons(db, topic2.id, 2);
+
+		// Only topic1 is assigned to classA
+		assignTopic(db, { classId: classA.id, topicId: topic1.id, today: '2026-09-03' });
+
+		const stream = planningStream(db, '2026-09-03');
+		expect(stream.map((s) => s.id)).toEqual([l1.id, l2.id, u1.id, u2.id]);
+		expect(stream[2].occurrence).toBeNull();
+		expect(stream[3].occurrence).toBeNull();
+	});
+
+	test('a Blocked Day moves a row up the stream because the schedule re-derived beneath it', () => {
+		const { db, course, classA, classB } = setUp();
+		// classB teaches on Friday P2 in Week A
+		addSlot(db, { classId: classB.id, week: 'A', day: 5, period: 2 });
+
+		const topicA = makeTopic(db, course.id, 'Forces');
+		const topicB = makeTopic(db, course.id, 'Chemistry');
+		const [la] = makeLessons(db, topicA.id, 1);
+		const [lb] = makeLessons(db, topicB.id, 1);
+
+		// classA (9B/Sc1) teaches la on Thu 2026-09-03 P5
+		assignTopic(db, { classId: classA.id, topicId: topicA.id, today: '2026-09-03' });
+		// classB (10C/Ph2) teaches lb on Fri 2026-09-04 P2
+		assignTopic(db, { classId: classB.id, topicId: topicB.id, today: '2026-09-03' });
+
+		let stream = planningStream(db, '2026-09-03');
+		expect(stream[0].id).toBe(la.id); // la is on 2026-09-03
+		expect(stream[0].occurrence).toMatchObject({ date: '2026-09-03', period: 5 });
+		expect(stream[1].id).toBe(lb.id); // lb is on 2026-09-04
+		expect(stream[1].occurrence).toMatchObject({ date: '2026-09-04', period: 2 });
+
+		// Block 2026-09-03: classA's first available slot shifts to Tue 2026-09-08 P2.
+		// classB still teaches lb on Fri 2026-09-04 P2, so lb moves up to the top of the stream.
+		blockDay(db, { date: '2026-09-03', today: '2026-09-03' });
+
+		stream = planningStream(db, '2026-09-03');
+		expect(stream[0].id).toBe(lb.id);
+		expect(stream[0].occurrence).toMatchObject({ date: '2026-09-04', period: 2 });
+		expect(stream[1].id).toBe(la.id);
+		expect(stream[1].occurrence).toMatchObject({ date: '2026-09-08', period: 2 });
 	});
 });

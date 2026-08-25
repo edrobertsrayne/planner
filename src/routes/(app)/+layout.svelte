@@ -24,7 +24,8 @@
 		['/', 'Agenda'],
 		['/calendar', 'Calendar'],
 		['/classes', 'Classes'],
-		['/courses', 'Courses']
+		['/courses', 'Courses'],
+		['/planning', 'Planning']
 	] as const;
 </script>
 
