@@ -86,7 +86,9 @@ export {
 	renameCourse,
 	renameLesson,
 	renameTopic,
+	setLessonStatus,
 	topicsOf,
 	updateLesson,
-	updateLink
+	updateLink,
+	type LessonStatus
 } from './authoring';

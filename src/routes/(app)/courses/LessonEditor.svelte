@@ -9,6 +9,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
+	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.js';
 	import LinkRow from './LinkRow.svelte';
 
 	let {
@@ -23,7 +24,13 @@
 		topics,
 		taughtBy
 	}: {
-		lesson: { id: string; title: string; body: string | null; length: number };
+		lesson: {
+			id: string;
+			title: string;
+			body: string | null;
+			status: 'draft' | 'planned';
+			length: number;
+		};
 		links: { id: string; label: string; url: string }[];
 		index: number;
 		count: number;
@@ -54,6 +61,7 @@
 		await goto(hrefFor(null), { replaceState: true, noScroll: true, keepFocus: true });
 	}
 
+	let statusInput: HTMLInputElement | null = $state(null);
 	let addingLink = $state(false);
 
 	// The Dialog starts open every time this component mounts — it only exists while a Lesson is
@@ -185,6 +193,32 @@
 					</div>
 				</label>
 			</form>
+
+			<div>
+				<span class="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
+					Planning status
+				</span>
+				<form method="POST" action="?/setLessonStatus" class="mt-1" use:enhance>
+					<input type="hidden" name="id" value={lesson.id} />
+					<input type="hidden" name="status" value={lesson.status} bind:this={statusInput} />
+					<ToggleGroup.Root
+						type="single"
+						variant="outline"
+						size="sm"
+						value={lesson.status}
+						onValueChange={(v) => {
+							if (v && v !== lesson.status && statusInput) {
+								statusInput.value = v;
+								statusInput.form?.requestSubmit();
+							}
+						}}
+						class="justify-start"
+					>
+						<ToggleGroup.Item value="draft">Draft</ToggleGroup.Item>
+						<ToggleGroup.Item value="planned">Planned</ToggleGroup.Item>
+					</ToggleGroup.Root>
+				</form>
+			</div>
 
 			<div>
 				<label class="block">

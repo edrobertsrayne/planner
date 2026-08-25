@@ -116,6 +116,60 @@ test('the tone backfill walks existing Classes in creation order and wraps past 
 	expect(tones).toEqual([0, 4, 6, 7, 1, 2, 5, 3, 0, 4]);
 });
 
+test('the lesson status migration writes draft as default for existing lessons and enforces check constraint', () => {
+	dir = mkdtempSync(join(tmpdir(), 'planner-db-'));
+	const { client } = openDatabase(join(dir, 'status-migration.db'));
+
+	client.exec(`CREATE TABLE __drizzle_migrations (
+		id INTEGER PRIMARY KEY,
+		hash TEXT NOT NULL,
+		created_at NUMERIC,
+		name TEXT,
+		applied_at TEXT
+	)`);
+	for (const earlier of [
+		'20260814131415_pink_omega_red',
+		'20260814200509_friendly_quicksilver',
+		'20260823000000_class_tone',
+		'20260825000000_lesson_length'
+	]) {
+		client.prepare('INSERT INTO __drizzle_migrations (hash, name) VALUES (?, ?)').run('x', earlier);
+	}
+
+	client.exec(`
+		CREATE TABLE course (id text PRIMARY KEY, name text NOT NULL);
+		CREATE TABLE topic (id text PRIMARY KEY, name text NOT NULL, course_id text NOT NULL);
+		CREATE TABLE lesson (
+			id text PRIMARY KEY,
+			topic_id text NOT NULL,
+			title text NOT NULL,
+			body text,
+			length integer DEFAULT 1 NOT NULL,
+			position integer NOT NULL
+		);
+	`);
+	client.prepare("INSERT INTO course (id, name) VALUES ('c1', 'Physics')").run();
+	client.prepare("INSERT INTO topic (id, name, course_id) VALUES ('t1', 'Forces', 'c1')").run();
+	client
+		.prepare("INSERT INTO lesson (id, topic_id, title, position) VALUES ('l1', 't1', 'Speed', 1)")
+		.run();
+
+	runMigrations(client, 'drizzle');
+
+	const row = client.prepare('SELECT status FROM lesson WHERE id = ?').get('l1') as {
+		status: string;
+	};
+	expect(row.status).toBe('draft');
+
+	expect(() => {
+		client
+			.prepare(
+				"INSERT INTO lesson (id, topic_id, title, position, status) VALUES ('l2', 't1', 'Velocity', 2, 'invalid')"
+			)
+			.run();
+	}).toThrow(/CHECK constraint failed/i);
+});
+
 describe('runMigrations', () => {
 	test('refuses to apply a broken migration, naming which one failed', () => {
 		dir = mkdtempSync(join(tmpdir(), 'planner-db-'));

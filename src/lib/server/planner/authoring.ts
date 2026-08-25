@@ -83,10 +83,43 @@ export function createLesson(
 	return row;
 }
 
+export type LessonStatus = 'draft' | 'planned';
+
 export function renameLesson(db: Db, { id, title }: { id: string; title: string }) {
 	const [row] = db
 		.update(schema.lesson)
 		.set({ title })
+		.where(eq(schema.lesson.id, id))
+		.returning()
+		.all();
+	return row;
+}
+
+// Planning status is a fact about the Lesson (ADR-0014), shared by every Class assigned its Topic.
+// Setting it never re-derives the schedule: a status says nothing about a date. It never touches Readiness.
+export function setLessonStatus(
+	db: Db,
+	lessonId: string,
+	status: LessonStatus
+): typeof schema.lesson.$inferSelect | undefined;
+export function setLessonStatus(
+	db: Db,
+	options: { id?: string; lessonId?: string; status: LessonStatus }
+): typeof schema.lesson.$inferSelect | undefined;
+export function setLessonStatus(
+	db: Db,
+	lessonIdOrOptions: string | { id?: string; lessonId?: string; status: LessonStatus },
+	statusArg?: LessonStatus
+) {
+	const id =
+		typeof lessonIdOrOptions === 'string'
+			? lessonIdOrOptions
+			: (lessonIdOrOptions.id ?? lessonIdOrOptions.lessonId!);
+	const status = typeof lessonIdOrOptions === 'string' ? statusArg! : lessonIdOrOptions.status;
+
+	const [row] = db
+		.update(schema.lesson)
+		.set({ status })
 		.where(eq(schema.lesson.id, id))
 		.returning()
 		.all();

@@ -21,16 +21,23 @@ export const topic = sqliteTable('topic', {
 		.references(() => course.id)
 });
 
-export const lesson = sqliteTable('lesson', {
-	id: id(),
-	topicId: text('topic_id')
-		.notNull()
-		.references(() => topic.id),
-	title: text('title').notNull(),
-	body: text('body'),
-	length: integer('length').notNull().default(1),
-	position: integer('position').notNull()
-});
+export const lesson = sqliteTable(
+	'lesson',
+	{
+		id: id(),
+		topicId: text('topic_id')
+			.notNull()
+			.references(() => topic.id),
+		title: text('title').notNull(),
+		body: text('body'),
+		status: text('status', { enum: ['draft', 'planned'] })
+			.notNull()
+			.default('draft'),
+		length: integer('length').notNull().default(1),
+		position: integer('position').notNull()
+	},
+	(table) => [check('lesson_status', sql`${table.status} in ('draft','planned')`)]
+);
 
 export const link = sqliteTable('link', {
 	id: id(),

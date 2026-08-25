@@ -19,6 +19,7 @@ import {
 	renameCourse,
 	renameLesson,
 	renameTopic,
+	setLessonStatus,
 	topicsOf,
 	updateLesson,
 	updateLink
@@ -126,6 +127,18 @@ export const actions: Actions = {
 		const body = String(data.get('body') ?? '').trim() || null;
 		const length = Math.max(1, Math.round(Number(data.get('length'))) || 1);
 		const lesson = updateLesson(db, { id, title, body, length, today: today() });
+		if (!lesson) return fail(404, { error: 'No such Lesson.' });
+		return { lesson };
+	},
+
+	setLessonStatus: async ({ request }) => {
+		const data = await request.formData();
+		const id = trimmed(data, 'id');
+		const status = trimmed(data, 'status');
+		if (status !== 'draft' && status !== 'planned') {
+			return fail(400, { error: 'Bad status.' });
+		}
+		const lesson = setLessonStatus(db, id, status);
 		if (!lesson) return fail(404, { error: 'No such Lesson.' });
 		return { lesson };
 	},

@@ -1,7 +1,7 @@
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { and, eq, lt } from 'drizzle-orm';
+import { and, eq, lt, sql } from 'drizzle-orm';
 import { afterEach, describe, expect, test } from 'vitest';
 import { openDatabase, runMigrations } from '../db';
 import * as schema from '../db/schema';
@@ -44,6 +44,7 @@ import {
 	renameLesson,
 	renameTopic,
 	sessionDetail,
+	setLessonStatus,
 	setTeachingWeekLetter,
 	takeSlot,
 	teachingWeeksList,
@@ -1057,6 +1058,58 @@ describe('authoring Courses, Topics and Lessons', () => {
 
 		const renamed = renameLesson(db, { id: first.id, title: 'Newton I — inertia' });
 		expect(lessonsOf(db, topic.id).map((l) => l.title)).toEqual([renamed.title, second.title]);
+	});
+});
+
+describe("a Lesson's planning status", () => {
+	function setUpLesson() {
+		const { db } = setUpAuthoring();
+		const course = createCourse(db, { name: 'Year 9 Physics' });
+		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
+		const lesson = createLesson(db, { topicId: topic.id, title: 'Newton I', today: '2026-09-03' });
+		return { db, topic, lesson };
+	}
+
+	test('a new Lesson is Draft, and can be set to Planned and back', () => {
+		const { db, lesson } = setUpLesson();
+
+		expect(lesson.status).toBe('draft');
+		expect(lessonDetail(db, lesson.id)!.status).toBe('draft');
+
+		const planned = setLessonStatus(db, lesson.id, 'planned');
+		expect(planned?.status).toBe('planned');
+		expect(lessonDetail(db, lesson.id)!.status).toBe('planned');
+
+		const draft = setLessonStatus(db, { id: lesson.id, status: 'draft' });
+		expect(draft?.status).toBe('draft');
+		expect(lessonDetail(db, lesson.id)!.status).toBe('draft');
+	});
+
+	test("setting a Lesson's planning status moves no date", () => {
+		const { db, course, classA } = setUp();
+		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
+		const lesson = createLesson(db, { topicId: topic.id, title: 'Newton I', today: '2026-09-03' });
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+
+		const before = classSchedule(db, { classId: classA.id, today: '2026-09-03' });
+		expect(before.scheduled.length).toBeGreaterThan(0);
+		expect(before.scheduled[0].lessonId).toBe(lesson.id);
+
+		setLessonStatus(db, lesson.id, 'planned');
+		const after = classSchedule(db, { classId: classA.id, today: '2026-09-03' });
+
+		expect(after.scheduled).toEqual(before.scheduled);
+		expect(after.openSlots).toEqual(before.openSlots);
+	});
+
+	test('the database refuses a planning status outside the enum', () => {
+		const { db, topic } = setUpLesson();
+
+		expect(() =>
+			db.run(
+				sql`INSERT INTO lesson (id, topic_id, title, length, position, status) VALUES ('bad', ${topic.id}, 'Bad', 1, 1, 'invalid')`
+			)
+		).toThrow();
 	});
 });
 
