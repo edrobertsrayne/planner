@@ -3,10 +3,9 @@
 	import BanIcon from '@lucide/svelte/icons/ban';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import { classTone } from '$lib/class-tone';
 	import { openSession } from '$lib/client/session-panel.svelte';
-	import * as Alert from '$lib/components/ui/alert';
+	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import BlockPopover from './BlockPopover.svelte';
@@ -96,22 +95,8 @@
 		{/snippet}
 	</PageHeader>
 
-	{#if form?.atRisk && form.atRisk.length > 0}
-		<Alert.Root class="mb-4">
-			<TriangleAlertIcon />
-			<Alert.Title>
-				The Rewind changed the Lesson on {form.atRisk.length === 1
-					? 'a noted Session'
-					: `${form.atRisk.length} noted Sessions`} — check the note still applies.
-			</Alert.Title>
-			<Alert.Description>
-				<ul class="mt-1 list-disc pl-4">
-					{#each form.atRisk as s (s.classId + s.date + s.period)}
-						<li>{s.classLabel} · {s.date} P{s.period} — now {s.lessonTitle}</li>
-					{/each}
-				</ul>
-			</Alert.Description>
-		</Alert.Root>
+	{#if form?.atRisk}
+		<AtRiskAlert atRisk={form.atRisk} />
 	{/if}
 
 	{#if data.ribbon.length === 0}

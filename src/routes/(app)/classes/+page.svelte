@@ -4,13 +4,14 @@
 	import { toast } from 'svelte-sonner';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import PlusIcon from '@lucide/svelte/icons/plus';
+	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import NewClassDialog from './NewClassDialog.svelte';
 	import type { PageProps } from './$types';
 
-	let { data }: PageProps = $props();
+	let { data, form }: PageProps = $props();
 
 	// One form per tile, found by its Class — the Select picks the Topic and submits on the pick,
 	// so the trigger stays a plain "Assign next Topic" affordance rather than growing a button.
@@ -41,6 +42,10 @@
 		title="Classes"
 		description="Pick a Class to timetable it, or give it its next Topic from here."
 	/>
+
+	{#if form?.atRisk}
+		<AtRiskAlert atRisk={form.atRisk} />
+	{/if}
 
 	{#if !data.courses.length}
 		<div class="mt-6 rounded-xl border border-dashed px-6 py-12 text-center">
