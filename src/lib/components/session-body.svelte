@@ -105,6 +105,11 @@
 	<span class="text-xs text-muted-foreground">
 		{formatWeekday(occasion.date)} · P{occasion.period}
 	</span>
+	{#if detail?.ready !== null && detail?.ready !== undefined}
+		<Badge variant="outline" class="ml-auto text-xs {detail.ready ? '' : 'text-muted-foreground'}">
+			{detail.ready ? 'Ready' : 'Not ready'}
+		</Badge>
+	{/if}
 </div>
 
 {#if detail}

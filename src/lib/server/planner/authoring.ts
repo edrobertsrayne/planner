@@ -217,6 +217,7 @@ export function deleteLesson(db: Db, { id, today }: { id: string; today: string 
 	}
 	db.delete(schema.session).where(eq(schema.session.lessonId, id)).run();
 
+	db.delete(schema.readiness).where(eq(schema.readiness.lessonId, id)).run();
 	db.delete(schema.link).where(eq(schema.link.lessonId, id)).run();
 	db.delete(schema.lesson).where(eq(schema.lesson.id, id)).run();
 

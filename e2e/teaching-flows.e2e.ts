@@ -393,6 +393,13 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		const reloadedCheckbox = reloadedRow.getByRole('checkbox', { name: /Ready to teach/ });
 		await expect(reloadedCheckbox).toBeChecked();
 
+		// Open the Session and verify that the Session panel shows Ready read-only
+		await reloadedRow.getByRole('button').first().click();
+		await openSessionAndExpect(page);
+		await expect(page.locator('[data-session-panel]')).toContainText('Ready');
+		await page.getByRole('button', { name: 'Close Session' }).click();
+		await expectSessionClosed(page);
+
 		// Untick Ready and verify
 		await reloadedCheckbox.click();
 		await expect(reloadedCheckbox).not.toBeChecked();

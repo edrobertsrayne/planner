@@ -29,6 +29,7 @@ export interface SessionDetail extends Occasion {
 		body: string | null;
 		links: ReturnType<typeof linksOf>;
 	} | null;
+	ready: boolean | null;
 	note: string | null;
 }
 
@@ -47,6 +48,7 @@ export function sessionDetail(db: Db, occasion: Occasion): SessionDetail | null 
 		.all();
 
 	let lesson: SessionDetail['lesson'] = null;
+	let ready: boolean | null = null;
 	if (row?.lessonId) {
 		const [lessonRow] = db
 			.select({
@@ -58,10 +60,23 @@ export function sessionDetail(db: Db, occasion: Occasion): SessionDetail | null 
 			.innerJoin(schema.topic, eq(schema.topic.id, schema.lesson.topicId))
 			.where(eq(schema.lesson.id, row.lessonId))
 			.all();
-		if (lessonRow) lesson = { ...lessonRow, links: linksOf(db, row.lessonId) };
+		if (lessonRow) {
+			lesson = { ...lessonRow, links: linksOf(db, row.lessonId) };
+			const [readyRow] = db
+				.select()
+				.from(schema.readiness)
+				.where(
+					and(
+						eq(schema.readiness.lessonId, row.lessonId),
+						eq(schema.readiness.classId, occasion.classId)
+					)
+				)
+				.all();
+			ready = readyRow !== undefined;
+		}
 	}
 
-	return { ...occasion, classLabel: cls.label, lesson, note: row?.note ?? null };
+	return { ...occasion, classLabel: cls.label, lesson, ready, note: row?.note ?? null };
 }
 
 // The Session panel's one write (issue #35): a free-text note against the occasion, never against
