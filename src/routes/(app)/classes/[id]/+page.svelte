@@ -142,6 +142,7 @@
 				classLabel={data.class.label}
 				assigned={data.assignedTopics}
 				courseTopics={data.courseTopics}
+				atRisk={form?.atRisk}
 			/>
 		</aside>
 	</div>
