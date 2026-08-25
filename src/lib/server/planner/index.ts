@@ -90,6 +90,7 @@ export {
 	renameLesson,
 	renameTopic,
 	setLessonStatus,
+	setReadiness,
 	topicsOf,
 	updateLesson,
 	updateLink,

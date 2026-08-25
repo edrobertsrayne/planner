@@ -126,6 +126,33 @@ export function setLessonStatus(
 	return row;
 }
 
+// Readiness is recorded per Class and Lesson (ADR-0014).
+// Ticking inserts the row, unticking deletes it; both idempotent. No re-derive.
+export function setReadiness(db: Db, lessonId: string, classId: string, ready: boolean): void;
+export function setReadiness(
+	db: Db,
+	options: { lessonId: string; classId: string; ready: boolean }
+): void;
+export function setReadiness(
+	db: Db,
+	lessonIdOrOptions: string | { lessonId: string; classId: string; ready: boolean },
+	classIdArg?: string,
+	readyArg?: boolean
+) {
+	const lessonId =
+		typeof lessonIdOrOptions === 'string' ? lessonIdOrOptions : lessonIdOrOptions.lessonId;
+	const classId = typeof lessonIdOrOptions === 'string' ? classIdArg! : lessonIdOrOptions.classId;
+	const ready = typeof lessonIdOrOptions === 'string' ? readyArg! : lessonIdOrOptions.ready;
+
+	if (ready) {
+		db.insert(schema.readiness).values({ lessonId, classId }).onConflictDoNothing().run();
+	} else {
+		db.delete(schema.readiness)
+			.where(and(eq(schema.readiness.lessonId, lessonId), eq(schema.readiness.classId, classId)))
+			.run();
+	}
+}
+
 export function linksOf(db: Db, lessonId: string) {
 	return db
 		.select()

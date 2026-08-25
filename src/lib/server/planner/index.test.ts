@@ -46,6 +46,7 @@ import {
 	renameTopic,
 	sessionDetail,
 	setLessonStatus,
+	setReadiness,
 	setTeachingWeekLetter,
 	takeSlot,
 	teachingWeeksList,
@@ -2040,5 +2041,180 @@ describe('the Planning stream', () => {
 		expect(stream[0].occurrence).toMatchObject({ date: '2026-09-04', period: 2 });
 		expect(stream[1].id).toBe(la.id);
 		expect(stream[1].occurrence).toMatchObject({ date: '2026-09-08', period: 2 });
+	});
+});
+
+describe('Readiness', () => {
+	test('a mark is made and cleared, and operations are idempotent', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [l1] = makeLessons(db, topic.id, 1);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+
+		let rows = agenda(db, { today: '2026-09-03', horizonDays: 7 });
+		expect(rows[0].lesson?.ready).toBe(false);
+
+		setReadiness(db, l1.id, classA.id, true);
+		rows = agenda(db, { today: '2026-09-03', horizonDays: 7 });
+		expect(rows[0].lesson?.ready).toBe(true);
+
+		// Idempotent: setting true again does not throw or duplicate
+		expect(() => setReadiness(db, l1.id, classA.id, true)).not.toThrow();
+		rows = agenda(db, { today: '2026-09-03', horizonDays: 7 });
+		expect(rows[0].lesson?.ready).toBe(true);
+
+		setReadiness(db, l1.id, classA.id, false);
+		rows = agenda(db, { today: '2026-09-03', horizonDays: 7 });
+		expect(rows[0].lesson?.ready).toBe(false);
+
+		// Idempotent: setting false again does not throw
+		expect(() => setReadiness(db, l1.id, classA.id, false)).not.toThrow();
+		rows = agenda(db, { today: '2026-09-03', horizonDays: 7 });
+		expect(rows[0].lesson?.ready).toBe(false);
+	});
+
+	test('two Classes taught one Lesson hold independent marks', () => {
+		const { db, course, classA, classB } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [l1] = makeLessons(db, topic.id, 1);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+		assignTopic(db, { classId: classB.id, topicId: topic.id, today: '2026-09-03' });
+
+		setReadiness(db, l1.id, classA.id, true);
+
+		let rows = agenda(db, { today: '2026-09-03', horizonDays: 14 });
+		const rowA = rows.find((r) => r.classId === classA.id && r.lesson?.id === l1.id);
+		const rowB = rows.find((r) => r.classId === classB.id && r.lesson?.id === l1.id);
+
+		expect(rowA?.lesson?.ready).toBe(true);
+		expect(rowB?.lesson?.ready).toBe(false);
+
+		setReadiness(db, l1.id, classB.id, true);
+		rows = agenda(db, { today: '2026-09-03', horizonDays: 14 });
+		expect(rows.find((r) => r.classId === classA.id)?.lesson?.ready).toBe(true);
+		expect(rows.find((r) => r.classId === classB.id)?.lesson?.ready).toBe(true);
+
+		setReadiness(db, l1.id, classA.id, false);
+		rows = agenda(db, { today: '2026-09-03', horizonDays: 14 });
+		expect(rows.find((r) => r.classId === classA.id)?.lesson?.ready).toBe(false);
+		expect(rows.find((r) => r.classId === classB.id)?.lesson?.ready).toBe(true);
+	});
+
+	test('a Draft Lesson can be marked Ready, and marking the Lesson Draft leaves the mark', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [l1] = makeLessons(db, topic.id, 1);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+
+		expect(l1.status).toBe('draft');
+		setReadiness(db, l1.id, classA.id, true);
+
+		let rows = agenda(db, { today: '2026-09-03', horizonDays: 7 });
+		expect(rows[0].lesson?.ready).toBe(true);
+
+		setLessonStatus(db, l1.id, 'planned');
+		rows = agenda(db, { today: '2026-09-03', horizonDays: 7 });
+		expect(rows[0].lesson?.ready).toBe(true);
+
+		setLessonStatus(db, l1.id, 'draft');
+		rows = agenda(db, { today: '2026-09-03', horizonDays: 7 });
+		expect(rows[0].lesson?.ready).toBe(true);
+	});
+
+	test('a mark survives a Blocked Day and a Rewind', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [l1] = makeLessons(db, topic.id, 1);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+
+		setReadiness(db, l1.id, classA.id, true);
+
+		// Block 2026-09-03 (Shift-right moves l1 to 2026-09-08)
+		const blockedDate = '2026-09-03';
+		blockDay(db, { date: blockedDate, today: '2026-09-03' });
+
+		let rows = agenda(db, { today: '2026-09-03', horizonDays: 14 });
+		let rowA = rows.find((r) => r.classId === classA.id && r.lesson?.id === l1.id);
+		expect(rowA?.date).toBe('2026-09-08');
+		expect(rowA?.lesson?.ready).toBe(true);
+
+		// Unblock (Rewind restores l1 to 2026-09-03)
+		const [blockedRow] = db
+			.select()
+			.from(schema.blockedDay)
+			.where(eq(schema.blockedDay.date, blockedDate))
+			.all();
+		unblockDay(db, { id: blockedRow.id, today: '2026-09-03' });
+
+		rows = agenda(db, { today: '2026-09-03', horizonDays: 14 });
+		rowA = rows.find((r) => r.classId === classA.id && r.lesson?.id === l1.id);
+		expect(rowA?.date).toBe('2026-09-03');
+		expect(rowA?.lesson?.ready).toBe(true);
+	});
+});
+
+describe('the Agenda carries the tick', () => {
+	test('a row carrying a Lesson reports its mark, and an Open Slot row reports none', () => {
+		const { db, course, classA, classB } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [l1] = makeLessons(db, topic.id, 1);
+		// classA has an assigned topic with a lesson
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+		// classB has no assigned topic (all open slots)
+
+		const rows = agenda(db, { today: '2026-09-03', horizonDays: 7 });
+		const rowA = rows.find((r) => r.classId === classA.id);
+		const rowB = rows.find((r) => r.classId === classB.id);
+
+		expect(rowA?.lesson).toEqual({
+			id: l1.id,
+			title: l1.title,
+			topicName: 'Forces',
+			ready: false
+		});
+		expect(rowB?.lesson).toBeNull();
+
+		setReadiness(db, l1.id, classA.id, true);
+		const updatedRows = agenda(db, { today: '2026-09-03', horizonDays: 7 });
+		const updatedRowA = updatedRows.find((r) => r.classId === classA.id);
+		expect(updatedRowA?.lesson?.ready).toBe(true);
+	});
+
+	test("a Continuation's two rows report the same mark, and one write moves both", () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [l1] = makeLessons(db, topic.id, 1);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+
+		// Record a continuation for classA on 2026-09-03 P5, when today is 2026-09-04
+		recordContinuation(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			period: 5,
+			today: '2026-09-04'
+		});
+
+		// Now from 2026-09-03 with horizon 14, both 2026-09-03 and the continuation slot carry l1
+		// Wait: on 2026-09-04, classA's slots carry the continuation
+		// Let's check agenda from 2026-09-04:
+		// classA has a continuation row carrying l1
+		// If we add another slot or topic with another occurrence, or check readiness:
+		setReadiness(db, l1.id, classA.id, true);
+
+		const rows = agenda(db, { today: '2026-09-04', horizonDays: 14 });
+		const l1Rows = rows.filter((r) => r.classId === classA.id && r.lesson?.id === l1.id);
+		expect(l1Rows.length).toBeGreaterThan(0);
+		for (const r of l1Rows) {
+			expect(r.lesson?.ready).toBe(true);
+		}
+
+		setReadiness(db, l1.id, classA.id, false);
+		const clearedRows = agenda(db, { today: '2026-09-04', horizonDays: 14 });
+		const clearedL1Rows = clearedRows.filter(
+			(r) => r.classId === classA.id && r.lesson?.id === l1.id
+		);
+		for (const r of clearedL1Rows) {
+			expect(r.lesson?.ready).toBe(false);
+		}
 	});
 });

@@ -5,6 +5,7 @@
 	import { openSession } from '$lib/client/session-panel.svelte';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { ToggleGroup, ToggleGroupItem } from '$lib/components/ui/toggle-group';
 	import { AGENDA_HORIZONS } from './agenda-horizons';
 	import { groupByDay, horizonEndsOn } from './agenda-days';
@@ -16,6 +17,31 @@
 
 	function openOccasion(row: (typeof data.rows)[number]) {
 		openSession({ classId: row.classId, date: row.date, period: row.periodFrom });
+	}
+
+	let readinessOverrides = $state<Record<string, boolean>>({});
+
+	function isReady(lessonId: string, classId: string, initial: boolean): boolean {
+		const key = `${lessonId}|${classId}`;
+		return readinessOverrides[key] ?? initial;
+	}
+
+	async function toggleReady(lessonId: string, classId: string, next: boolean) {
+		const key = `${lessonId}|${classId}`;
+		readinessOverrides[key] = next;
+
+		try {
+			const res = await fetch('/readiness', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ lessonId, classId, ready: next })
+			});
+			if (!res.ok) {
+				readinessOverrides[key] = !next;
+			}
+		} catch {
+			readinessOverrides[key] = !next;
+		}
 	}
 
 	const days = $derived(groupByDay(data.rows));
@@ -63,6 +89,7 @@
 				{:else}
 					<span class="text-muted-foreground">{formatWeekday(day.date)}</span>
 				{/if}
+				<span class="ml-auto text-xs font-normal text-muted-foreground">Ready to teach?</span>
 			</h2>
 
 			<ul class="divide-y divide-border overflow-hidden rounded-xl border bg-card">
@@ -113,6 +140,15 @@
 							>
 								Plan
 							</Button>
+						{:else}
+							<div class="mr-2 flex shrink-0 items-center">
+								<Checkbox
+									checked={isReady(row.lesson.id, row.classId, row.lesson.ready)}
+									onCheckedChange={(checked) =>
+										toggleReady(row.lesson!.id, row.classId, checked === true)}
+									aria-label="Ready to teach {row.lesson.title} to {row.classLabel}"
+								/>
+							</div>
 						{/if}
 					</li>
 				{/each}

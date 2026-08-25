@@ -371,4 +371,35 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		await expect(motionRow).toBeHidden();
 		await expect(page.getByText('Showing 10 of 10')).toBeHidden();
 	});
+
+	test('ticking Ready on an Agenda row updates state and survives a reload', async () => {
+		await page.goto('/');
+		// Check that the heading carries "Ready to teach?"
+		await expect(page.getByText('Ready to teach?').first()).toBeVisible();
+
+		// Find the row for 9B/Sc1 (Motion)
+		const row = page.locator('li').filter({ hasText: '9B/Sc1' }).first();
+		const checkbox = row.getByRole('checkbox', { name: /Ready to teach/ });
+		await expect(checkbox).toBeVisible();
+		await expect(checkbox).not.toBeChecked();
+
+		// Tick Ready
+		await checkbox.click();
+		await expect(checkbox).toBeChecked();
+
+		// Reload and verify persistence
+		await page.reload();
+		const reloadedRow = page.locator('li').filter({ hasText: '9B/Sc1' }).first();
+		const reloadedCheckbox = reloadedRow.getByRole('checkbox', { name: /Ready to teach/ });
+		await expect(reloadedCheckbox).toBeChecked();
+
+		// Untick Ready and verify
+		await reloadedCheckbox.click();
+		await expect(reloadedCheckbox).not.toBeChecked();
+
+		await page.reload();
+		const finalRow = page.locator('li').filter({ hasText: '9B/Sc1' }).first();
+		const finalCheckbox = finalRow.getByRole('checkbox', { name: /Ready to teach/ });
+		await expect(finalCheckbox).not.toBeChecked();
+	});
 });

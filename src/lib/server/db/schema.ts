@@ -49,6 +49,20 @@ export const link = sqliteTable('link', {
 	position: integer('position').notNull()
 });
 
+export const readiness = sqliteTable(
+	'readiness',
+	{
+		id: id(),
+		lessonId: text('lesson_id')
+			.notNull()
+			.references(() => lesson.id, { onDelete: 'cascade' }),
+		classId: text('class_id')
+			.notNull()
+			.references(() => classes.id, { onDelete: 'cascade' })
+	},
+	(table) => [unique('readiness_pairing').on(table.lessonId, table.classId)]
+);
+
 // Scheduling
 
 export const classes = sqliteTable('class', {

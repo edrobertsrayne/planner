@@ -50,7 +50,12 @@ export interface AgendaEntry {
 	week: 'A' | 'B';
 	periodFrom: number;
 	periodTo: number;
-	lesson: LessonName | null;
+	lesson: {
+		id: string;
+		title: string;
+		topicName: string;
+		ready: boolean;
+	} | null;
 }
 
 // The chronological stream of upcoming Sessions across every Class, grouped by day (issue #34).
@@ -68,19 +73,41 @@ export function agenda(
 		keep: (r) => r.date < horizonEnd
 	});
 	const names = namesFor(db, batches);
+	const readinessSet = new Set(
+		db
+			.select({
+				lessonId: schema.readiness.lessonId,
+				classId: schema.readiness.classId
+			})
+			.from(schema.readiness)
+			.all()
+			.map((r) => `${r.lessonId}|${r.classId}`)
+	);
 
 	return batches
 		.flatMap(({ cls, rows }) =>
-			rows.map((r) => ({
-				classId: cls.id,
-				classLabel: cls.label,
-				tone: cls.tone,
-				date: r.date,
-				week: r.week,
-				periodFrom: r.periodFrom,
-				periodTo: r.periodTo,
-				lesson: r.lesson ? (names.get(r.lesson.lessonId) ?? null) : null
-			}))
+			rows.map((r) => {
+				const lessonId = r.lesson?.lessonId;
+				const lessonInfo = lessonId ? names.get(lessonId) : undefined;
+				return {
+					classId: cls.id,
+					classLabel: cls.label,
+					tone: cls.tone,
+					date: r.date,
+					week: r.week,
+					periodFrom: r.periodFrom,
+					periodTo: r.periodTo,
+					lesson:
+						lessonId && lessonInfo
+							? {
+									id: lessonId,
+									title: lessonInfo.title,
+									topicName: lessonInfo.topicName,
+									ready: readinessSet.has(`${lessonId}|${cls.id}`)
+								}
+							: null
+				};
+			})
 		)
 		.sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
 }
