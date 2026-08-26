@@ -4,7 +4,7 @@ set -euo pipefail
 MODEL="${IMPLEMENT_MODEL:-opencode-go/minimax-m3}"
 DONE_TOKEN="<promise>COMPLETE</promise>"
 COUNT="${1:-5}"
-PROMPT="Implement the first available issue with a ready-for-agent label that is not blocked then commit the code, close the issue, and stop.
+PROMPT="Implement the first available issue with a ready-for-agent label then commit the code, close the issue, and stop.
 
 When there are no open ready-for-agent issues remaining, output exactly:
 
@@ -31,7 +31,7 @@ for ((i = 1; i <= COUNT; i++)); do
     continue
   fi
   echo "$agent_output"
-  if [[ "$agent_output" == *"${DONE_TOKEN}"* ]]; then
+  if grep -qx "${DONE_TOKEN}" <<<"$agent_output"; then
     echo "Queue complete after $i iteration(s)."
     exit 0
   fi
