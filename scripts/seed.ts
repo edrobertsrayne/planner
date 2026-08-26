@@ -5,13 +5,17 @@
  *
  *   DATABASE_URL=local.db bun scripts/seed.ts seed/2026-27.json
  *
+ * Applies any pending migrations first (openDatabase/runMigrations, same as the app itself), so
+ * this also works against a brand-new, empty database file — needed for running it before the app
+ * has ever started, e.g. from a container entrypoint or a systemd ExecStartPre.
+ * migrationsFolder defaults to 'drizzle' relative to cwd, so run this from wherever drizzle/ lives.
+ *
  * Destructive: rebuilds the calendar tables from scratch every run, and refuses to run once any
  * Session exists — there is no --force. Use `bun db:studio` to inspect or fix the database by hand.
  */
 import { readFileSync } from 'node:fs';
-import { Database } from 'bun:sqlite';
-import { drizzle } from 'drizzle-orm/bun-sqlite';
 import * as schema from '../src/lib/server/db/schema.ts';
+import { openDatabase, runMigrations } from '../src/lib/server/db/index.ts';
 import { seedFileSchema } from '../src/lib/server/calendar/seed-file.schema.ts';
 import { generateTeachingWeeks } from '../src/lib/server/calendar/generate-teaching-weeks.ts';
 
@@ -32,11 +36,8 @@ if (!parsed.success) {
 }
 const { academicYear, terms, blockedDays } = parsed.data;
 
-const client = new Database(databaseUrl);
-client.run('PRAGMA foreign_keys = ON');
-client.run('PRAGMA journal_mode = WAL');
-client.run('PRAGMA busy_timeout = 5000');
-const db = drizzle({ client });
+const { client, db } = openDatabase(databaseUrl);
+runMigrations(client);
 
 const existingSession = client.prepare('SELECT id FROM session LIMIT 1').get();
 if (existingSession) {

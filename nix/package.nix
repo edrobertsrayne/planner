@@ -34,6 +34,9 @@ stdenv.mkDerivation {
   buildPhase = ''
     runHook preBuild
     bun run build
+    # bundle scripts/seed.ts into a single file so the installed package can
+    # run it without devDependencies (drizzle-orm) or src/ present
+    bun build scripts/seed.ts --outfile seed.js --target bun
     runHook postBuild
   '';
 
@@ -44,6 +47,8 @@ stdenv.mkDerivation {
     cp -r build "$out/build"
     cp -r drizzle "$out/drizzle"
     cp package.json "$out/package.json"
+    cp seed.js "$out/seed.js"
+    cp -r seed "$out/seed"
 
     # bunNodeModulesInstallPhase (run by the hook before buildPhase) installs
     # every dependency, including devDependencies, so svelte/vite/playwright
@@ -66,6 +71,13 @@ stdenv.mkDerivation {
     exec ${bun}/bin/bun build/index.js "\$@"
     WRAPPER
     chmod +x "$out/bin/planner"
+
+    cat > "$out/bin/planner-seed" <<WRAPPER
+    #!${runtimeShell}
+    cd "$out"
+    exec ${bun}/bin/bun seed.js "\$@"
+    WRAPPER
+    chmod +x "$out/bin/planner-seed"
 
     runHook postInstall
   '';
