@@ -87,7 +87,9 @@ export const assignedTopic = sqliteTable('assigned_topic', {
 	classId: text('class_id')
 		.notNull()
 		.references(() => classes.id),
-	topicId: text('topic_id').references(() => topic.id),
+	topicId: text('topic_id')
+		.notNull()
+		.references(() => topic.id),
 	position: integer('position').notNull()
 });
 

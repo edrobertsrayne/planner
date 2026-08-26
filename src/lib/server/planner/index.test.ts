@@ -31,8 +31,10 @@ import {
 	deleteLink,
 	endSlot,
 	holderAt,
+	importTopic,
 	lessonDetail,
 	lessonsOf,
+	linksOf,
 	listClasses,
 	listCourses,
 	moveAssignedTopic,
@@ -1014,7 +1016,7 @@ function setUpAuthoring() {
 	dir = mkdtempSync(join(tmpdir(), 'planner-authoring-'));
 	const { client, db } = openDatabase(join(dir, 'test.db'));
 	runMigrations(client, 'drizzle');
-	return { db };
+	return { db, client };
 }
 
 describe('authoring Courses, Topics and Lessons', () => {
@@ -1155,6 +1157,126 @@ describe('name collisions', () => {
 		expect(() =>
 			db.insert(schema.course).values({ id: 'bypass', name: 'YEAR 9 PHYSICS' }).run()
 		).toThrow();
+	});
+});
+
+// Import creates one Topic with its Lessons and Links in a single all-or-nothing transaction
+// (issue #139). It targets a Course by existing id or by name, creating the Course inline when
+// the name is new.
+describe('importing a Topic with its Lessons and Links', () => {
+	test('creates a new Course, its Topic, Lessons and Links in one call', () => {
+		const { db, client } = setUpAuthoring();
+
+		const result = importTopic(
+			db,
+			client,
+			{
+				courseName: 'Year 9 Physics',
+				topicName: 'Forces',
+				lessons: [
+					{
+						title: 'Newton I',
+						links: [{ url: 'https://example.com/a', label: 'Reading' }]
+					},
+					{ title: 'Newton II' }
+				]
+			},
+			'2026-09-03'
+		);
+
+		if (!result.ok) throw new Error(`expected ok, got ${result.error}`);
+		expect(result.courseCreated).toBe(true);
+		expect(result.course.name).toBe('Year 9 Physics');
+		expect(result.topic.name).toBe('Forces');
+		expect(result.lessons.map((l) => l.title)).toEqual(['Newton I', 'Newton II']);
+
+		expect(listCourses(db)).toHaveLength(1);
+		expect(topicsOf(db, result.course.id).map((t) => t.name)).toEqual(['Forces']);
+		expect(lessonsOf(db, result.topic.id).map((l) => l.title)).toEqual(['Newton I', 'Newton II']);
+		expect(linksOf(db, result.lessons[0].id).map((l) => l.url)).toEqual(['https://example.com/a']);
+	});
+
+	test('targets an existing Course by id and leaves it uncreated', () => {
+		const { db, client } = setUpAuthoring();
+		const course = createCourse(db, { name: 'Year 9 Physics' });
+
+		const result = importTopic(
+			db,
+			client,
+			{ courseId: course.id, topicName: 'Waves', lessons: [{ title: 'Reflection' }] },
+			'2026-09-03'
+		);
+
+		if (!result.ok) throw new Error(`expected ok, got ${result.error}`);
+		expect(result.courseCreated).toBe(false);
+		expect(result.course.id).toBe(course.id);
+		expect(listCourses(db)).toHaveLength(1);
+	});
+
+	test('refuses when the course field carries both id and name, or neither', () => {
+		const { db, client } = setUpAuthoring();
+		const course = createCourse(db, { name: 'Year 9 Physics' });
+
+		const both = importTopic(
+			db,
+			client,
+			{
+				courseId: course.id,
+				courseName: 'Year 9 Physics',
+				topicName: 'Waves',
+				lessons: []
+			},
+			'2026-09-03'
+		);
+		expect(both).toMatchObject({ ok: false, status: 400 });
+
+		const neither = importTopic(db, client, { topicName: 'Waves', lessons: [] }, '2026-09-03');
+		expect(neither).toMatchObject({ ok: false, status: 400 });
+
+		expect(topicsOf(db, course.id)).toHaveLength(0);
+	});
+
+	test('refuses a Topic name that collides in the target Course, creating nothing', () => {
+		const { db, client } = setUpAuthoring();
+		const course = createCourse(db, { name: 'Year 9 Physics' });
+		createTopic(db, { courseId: course.id, name: 'Forces' });
+
+		const result = importTopic(
+			db,
+			client,
+			{ courseId: course.id, topicName: 'forces', lessons: [{ title: 'Newton I' }] },
+			'2026-09-03'
+		);
+
+		expect(result).toMatchObject({ ok: false, status: 409 });
+		expect(topicsOf(db, course.id)).toHaveLength(1);
+		expect(lessonsOf(db, topicsOf(db, course.id)[0].id)).toHaveLength(0);
+	});
+
+	test('a failure partway through leaves no Course, Topic, Lesson or Link behind', () => {
+		const { db, client } = setUpAuthoring();
+
+		// A Link missing its NOT NULL label reaches the database and throws mid-transaction —
+		// the route validates this away in practice, but importTopic must still roll back cleanly
+		// if anything downstream of the Topic insert fails.
+		const result = importTopic(
+			db,
+			client,
+			{
+				courseName: 'Year 9 Physics',
+				topicName: 'Forces',
+				lessons: [
+					{
+						title: 'Newton I',
+						links: [{ url: 'https://example.com/a', label: undefined as unknown as string }]
+					}
+				]
+			},
+			'2026-09-03'
+		);
+
+		expect(result).toMatchObject({ ok: false, status: 500 });
+		expect(listCourses(db)).toHaveLength(0);
 	});
 });
 
