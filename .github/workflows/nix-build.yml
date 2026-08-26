@@ -1,0 +1,36 @@
+name: Nix Build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Nix package
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v4
+
+      - name: Set up the environment
+        uses: DeterminateSystems/nix-installer-action@v22
+        with:
+          extra-conf: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Build package
+        run: nix build .#default --accept-flake-config -L
