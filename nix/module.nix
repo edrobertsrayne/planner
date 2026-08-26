@@ -72,9 +72,37 @@ in
         module - point it at whatever secrets mechanism the host uses.
       '';
     };
+
+    seedOnStart = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Run the calendar seed script once before each start via
+        `ExecStartPre`, populating Term/Blocked Day/Teaching Week from
+        `seedFile`. The seed script refuses to touch a database that
+        already has a Session, so this is safe to leave enabled
+        indefinitely - it's a no-op after first real use. `ExecStartPre` is
+        `-`-prefixed so a failure only logs to the journal; it never blocks
+        the service from starting.
+      '';
+    };
+
+    seedFile = lib.mkOption {
+      type = lib.types.nullOr lib.types.path;
+      default = null;
+      example = ../seed/2026-27.json;
+      description = "Seed file passed to `planner-seed` when `seedOnStart` is enabled.";
+    };
   };
 
   config = lib.mkIf cfg.enable {
+    assertions = [
+      {
+        assertion = !cfg.seedOnStart || cfg.seedFile != null;
+        message = "services.planner.seedFile must be set when services.planner.seedOnStart is enabled.";
+      }
+    ];
+
     systemd.services.planner = {
       description = "planner - self-hosted teacher planner";
       after = [ "network.target" ];
@@ -99,6 +127,7 @@ in
         # usual cwd without breaking self-migration silently.
         WorkingDirectory = cfg.package;
         EnvironmentFile = lib.mkIf (cfg.environmentFile != null) cfg.environmentFile;
+        ExecStartPre = lib.mkIf cfg.seedOnStart "-${lib.getExe' cfg.package "planner-seed"} ${cfg.seedFile}";
         ExecStart = lib.getExe cfg.package;
         Restart = "on-failure";
 

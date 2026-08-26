@@ -26,6 +26,9 @@ COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 COPY . .
 RUN bun --bun run build
+# bundle scripts/seed.ts into a single file so the release stage can run it
+# without devDependencies (drizzle-orm) or src/ present
+RUN bun build scripts/seed.ts --outfile seed.js --target bun
 
 
 # fresh image for the final stage so build-time env vars (including the
@@ -36,10 +39,19 @@ COPY --from=build /app/build build/
 COPY --from=deps /app/node_modules node_modules
 COPY --from=build /app/package.json .
 COPY --from=build /app/drizzle drizzle
+COPY --from=build /app/seed.js seed.js
+COPY --from=build /app/seed seed
+COPY scripts/docker-entrypoint.sh docker-entrypoint.sh
+RUN chmod +x docker-entrypoint.sh
 
 EXPOSE 3000
 ENV NODE_ENV=production
 ENV ORIGIN="http://localhost:3000"
 ENV BETTER_AUTH_URL="http://localhost:3000"
 ENV DATABASE_URL=local.db
+# Set SEED_ON_START=true and SEED_FILE=seed/<file>.json to populate
+# Term/Blocked Day/Teaching Week on startup. Safe to leave on indefinitely -
+# see scripts/docker-entrypoint.sh.
+ENV SEED_ON_START=false
+ENTRYPOINT [ "./docker-entrypoint.sh" ]
 CMD [ "bun", "--bun", "run", "build/index.js" ]
