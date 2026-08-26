@@ -8,4 +8,4 @@ const { client, db } = openDatabase(env.DATABASE_URL);
 
 if (!building) runMigrations(client);
 
-export { db };
+export { client, db };

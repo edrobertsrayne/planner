@@ -31,14 +31,17 @@ import {
 	deleteLink,
 	endSlot,
 	holderAt,
+	importTopic,
 	lessonDetail,
 	lessonsOf,
+	linksOf,
 	listClasses,
 	listCourses,
 	moveAssignedTopic,
 	moveLesson,
 	moveLessonToTopic,
 	moveLink,
+	NameCollision,
 	planningStream,
 	recordContinuation,
 	renameCourse,
@@ -1013,7 +1016,7 @@ function setUpAuthoring() {
 	dir = mkdtempSync(join(tmpdir(), 'planner-authoring-'));
 	const { client, db } = openDatabase(join(dir, 'test.db'));
 	runMigrations(client, 'drizzle');
-	return { db };
+	return { db, client };
 }
 
 describe('authoring Courses, Topics and Lessons', () => {
@@ -1060,6 +1063,220 @@ describe('authoring Courses, Topics and Lessons', () => {
 
 		const renamed = renameLesson(db, { id: first.id, title: 'Newton I — inertia' });
 		expect(lessonsOf(db, topic.id).map((l) => l.title)).toEqual([renamed.title, second.title]);
+	});
+});
+
+// Course names are globally unique; Topic names are unique within their Course (issue #131).
+// The seam refuses the write with a readable message — the database indexes are the guard of last
+// resort, not the user-facing one. Matching is case-insensitive, and stored values are trimmed at
+// write time, so "Forces" and "forces" and "  Forces  " all collide.
+describe('name collisions', () => {
+	test('creating a Course whose name duplicates another throws NameCollision', () => {
+		const { db } = setUpAuthoring();
+		createCourse(db, { name: 'Year 9 Physics' });
+
+		expect(() => createCourse(db, { name: 'Year 10 Physics' })).not.toThrow();
+		expect(() => createCourse(db, { name: 'Year 9 Physics' })).toThrow(NameCollision);
+		expect(() => createCourse(db, { name: 'YEAR 9 PHYSICS' })).toThrow(NameCollision);
+		expect(() => createCourse(db, { name: '  Year 9 Physics  ' })).toThrow(NameCollision);
+
+		// No row landed from any of the refused attempts.
+		expect(listCourses(db)).toHaveLength(2);
+	});
+
+	test('renaming a Course to a name in use throws NameCollision', () => {
+		const { db } = setUpAuthoring();
+		const a = createCourse(db, { name: 'Year 9 Physics' });
+		const b = createCourse(db, { name: 'Year 10 Physics' });
+
+		expect(() => renameCourse(db, { id: b.id, name: 'Year 9 Physics' })).toThrow(NameCollision);
+		expect(() => renameCourse(db, { id: b.id, name: 'year 9 physics' })).toThrow(NameCollision);
+
+		// A rename to its own name is not a collision — the seam excludes the row being renamed.
+		expect(() => renameCourse(db, { id: a.id, name: 'Year 9 Physics' })).not.toThrow();
+		expect(() => renameCourse(db, { id: a.id, name: 'YEAR 9 PHYSICS' })).not.toThrow();
+	});
+
+	test('creating a Topic whose name duplicates one in the same Course throws NameCollision', () => {
+		const { db } = setUpAuthoring();
+		const course = createCourse(db, { name: 'Year 9 Physics' });
+		const other = createCourse(db, { name: 'Year 10 Physics' });
+
+		createTopic(db, { courseId: course.id, name: 'Forces' });
+
+		// Same Course, same name (any case): refused.
+		expect(() => createTopic(db, { courseId: course.id, name: 'Forces' })).toThrow(NameCollision);
+		expect(() => createTopic(db, { courseId: course.id, name: 'forces' })).toThrow(NameCollision);
+
+		// Different Course, same name: accepted.
+		expect(() => createTopic(db, { courseId: other.id, name: 'Forces' })).not.toThrow();
+
+		expect(topicsOf(db, course.id)).toHaveLength(1);
+	});
+
+	test('renaming a Topic to a name used in the same Course throws NameCollision', () => {
+		const { db } = setUpAuthoring();
+		const course = createCourse(db, { name: 'Year 9 Physics' });
+		const forces = createTopic(db, { courseId: course.id, name: 'Forces' });
+		const waves = createTopic(db, { courseId: course.id, name: 'Waves' });
+
+		expect(() => renameTopic(db, { id: waves.id, name: 'Forces' })).toThrow(NameCollision);
+		expect(() => renameTopic(db, { id: waves.id, name: 'FORCES' })).toThrow(NameCollision);
+
+		// A rename to its own name is not a collision — the seam excludes the row being renamed.
+		expect(() => renameTopic(db, { id: forces.id, name: 'Forces' })).not.toThrow();
+		expect(() => renameTopic(db, { id: forces.id, name: 'forces' })).not.toThrow();
+
+		// Renaming Waves to "Forces" into a different Course is still fine — Topic uniqueness is
+		// scoped to its Course.
+		const other = createCourse(db, { name: 'Year 10 Physics' });
+		const forcesInOther = createTopic(db, { courseId: other.id, name: 'Forces' });
+		expect(forcesInOther.name).toBe('Forces');
+	});
+
+	test('two Lessons in one Topic may still share a title', () => {
+		const { db } = setUpAuthoring();
+		const course = createCourse(db, { name: 'Year 9 Physics' });
+		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
+
+		expect(() =>
+			createLesson(db, { topicId: topic.id, title: 'Revision', today: '2026-09-03' })
+		).not.toThrow();
+		expect(() =>
+			createLesson(db, { topicId: topic.id, title: 'Revision', today: '2026-09-03' })
+		).not.toThrow();
+
+		expect(lessonsOf(db, topic.id).map((l) => l.title)).toEqual(['Revision', 'Revision']);
+	});
+
+	test('the database index refuses a write that bypasses the seam', () => {
+		const { db } = setUpAuthoring();
+		createCourse(db, { name: 'Year 9 Physics' });
+
+		// Raw insert — the application's collision check is skipped.
+		expect(() =>
+			db.insert(schema.course).values({ id: 'bypass', name: 'YEAR 9 PHYSICS' }).run()
+		).toThrow();
+	});
+});
+
+// Import creates one Topic with its Lessons and Links in a single all-or-nothing transaction
+// (issue #139). It targets a Course by existing id or by name, creating the Course inline when
+// the name is new.
+describe('importing a Topic with its Lessons and Links', () => {
+	test('creates a new Course, its Topic, Lessons and Links in one call', () => {
+		const { db, client } = setUpAuthoring();
+
+		const result = importTopic(
+			db,
+			client,
+			{
+				courseName: 'Year 9 Physics',
+				topicName: 'Forces',
+				lessons: [
+					{
+						title: 'Newton I',
+						links: [{ url: 'https://example.com/a', label: 'Reading' }]
+					},
+					{ title: 'Newton II' }
+				]
+			},
+			'2026-09-03'
+		);
+
+		if (!result.ok) throw new Error(`expected ok, got ${result.error}`);
+		expect(result.courseCreated).toBe(true);
+		expect(result.course.name).toBe('Year 9 Physics');
+		expect(result.topic.name).toBe('Forces');
+		expect(result.lessons.map((l) => l.title)).toEqual(['Newton I', 'Newton II']);
+
+		expect(listCourses(db)).toHaveLength(1);
+		expect(topicsOf(db, result.course.id).map((t) => t.name)).toEqual(['Forces']);
+		expect(lessonsOf(db, result.topic.id).map((l) => l.title)).toEqual(['Newton I', 'Newton II']);
+		expect(linksOf(db, result.lessons[0].id).map((l) => l.url)).toEqual(['https://example.com/a']);
+	});
+
+	test('targets an existing Course by id and leaves it uncreated', () => {
+		const { db, client } = setUpAuthoring();
+		const course = createCourse(db, { name: 'Year 9 Physics' });
+
+		const result = importTopic(
+			db,
+			client,
+			{ courseId: course.id, topicName: 'Waves', lessons: [{ title: 'Reflection' }] },
+			'2026-09-03'
+		);
+
+		if (!result.ok) throw new Error(`expected ok, got ${result.error}`);
+		expect(result.courseCreated).toBe(false);
+		expect(result.course.id).toBe(course.id);
+		expect(listCourses(db)).toHaveLength(1);
+	});
+
+	test('refuses when the course field carries both id and name, or neither', () => {
+		const { db, client } = setUpAuthoring();
+		const course = createCourse(db, { name: 'Year 9 Physics' });
+
+		const both = importTopic(
+			db,
+			client,
+			{
+				courseId: course.id,
+				courseName: 'Year 9 Physics',
+				topicName: 'Waves',
+				lessons: []
+			},
+			'2026-09-03'
+		);
+		expect(both).toMatchObject({ ok: false, status: 400 });
+
+		const neither = importTopic(db, client, { topicName: 'Waves', lessons: [] }, '2026-09-03');
+		expect(neither).toMatchObject({ ok: false, status: 400 });
+
+		expect(topicsOf(db, course.id)).toHaveLength(0);
+	});
+
+	test('refuses a Topic name that collides in the target Course, creating nothing', () => {
+		const { db, client } = setUpAuthoring();
+		const course = createCourse(db, { name: 'Year 9 Physics' });
+		createTopic(db, { courseId: course.id, name: 'Forces' });
+
+		const result = importTopic(
+			db,
+			client,
+			{ courseId: course.id, topicName: 'forces', lessons: [{ title: 'Newton I' }] },
+			'2026-09-03'
+		);
+
+		expect(result).toMatchObject({ ok: false, status: 409 });
+		expect(topicsOf(db, course.id)).toHaveLength(1);
+		expect(lessonsOf(db, topicsOf(db, course.id)[0].id)).toHaveLength(0);
+	});
+
+	test('a failure partway through leaves no Course, Topic, Lesson or Link behind', () => {
+		const { db, client } = setUpAuthoring();
+
+		// A Link missing its NOT NULL label reaches the database and throws mid-transaction —
+		// the route validates this away in practice, but importTopic must still roll back cleanly
+		// if anything downstream of the Topic insert fails.
+		const result = importTopic(
+			db,
+			client,
+			{
+				courseName: 'Year 9 Physics',
+				topicName: 'Forces',
+				lessons: [
+					{
+						title: 'Newton I',
+						links: [{ url: 'https://example.com/a', label: undefined as unknown as string }]
+					}
+				]
+			},
+			'2026-09-03'
+		);
+
+		expect(result).toMatchObject({ ok: false, status: 500 });
+		expect(listCourses(db)).toHaveLength(0);
 	});
 });
 
@@ -1183,9 +1400,12 @@ describe('reordering and moving Lessons', () => {
 		const lesson = createLesson(db, { topicId: topic.id, title: 'Newton I', today: '2026-09-03' });
 		const link = createLink(db, { lessonId: lesson.id, label: 'Slides', url: 'https://a.example' });
 
-		const deleted = deleteLesson(db, { id: lesson.id, today: '2026-09-03' });
+		const result = deleteLesson(db, { id: lesson.id, today: '2026-09-03' });
 
-		expect(deleted).toMatchObject({ id: lesson.id });
+		expect(result).toMatchObject({
+			ok: true,
+			lesson: { id: lesson.id }
+		});
 		expect(lessonsOf(db, topic.id)).toEqual([]);
 		expect(lessonDetail(db, lesson.id)).toBeNull();
 		expect(() =>
@@ -1200,7 +1420,8 @@ describe('reordering and moving Lessons', () => {
 
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 
-		expect(() => deleteLesson(db, { id: lessons[0].id, today: '2026-09-10' })).toThrow();
+		const result = deleteLesson(db, { id: lessons[0].id, today: '2026-09-10' });
+		expect(result).toEqual({ ok: false, reason: 'taught' });
 	});
 });
 
@@ -2316,5 +2537,68 @@ describe('Readiness dies with its pairing', () => {
 			.where(and(eq(schema.readiness.lessonId, l1.id), eq(schema.readiness.classId, classA.id)))
 			.all();
 		expect(marks).toHaveLength(1);
+	});
+});
+
+describe('a Standalone Lesson', () => {
+	test('a taught Lesson whose Topic is cleared still shows its title in the Session panel, the Agenda and the Calendar, with no Topic name', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [l1] = makeLessons(db, topic.id, 2);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+
+		// Teach the first two lessons by advancing past their dates.
+		// classA's slots: Thu 3 Sep P5 (l1), P6 (l2). today=5 Sep puts both in the past.
+		expect(classSchedule(db, { classId: classA.id, today: '2026-09-05' }).history).toHaveLength(2);
+
+		// Record readiness on l1 — it must survive clearing the Topic.
+		setReadiness(db, l1.id, classA.id, true);
+
+		// Clear the Topic, making l1 a Standalone Lesson.
+		db.run(sql`update "lesson" set "topic_id" = NULL where "id" = ${l1.id}`);
+
+		// 1) Session panel: still shows l1's title and no topic name
+		const detail = sessionDetail(db, { classId: classA.id, date: '2026-09-03', period: 5 });
+		expect(detail).not.toBeNull();
+		expect(detail!.lesson).not.toBeNull();
+		expect(detail!.lesson!.title).toBe(l1.title);
+
+		// 2) Agenda: l1 appears with no topic name (topicName is null)
+		const agendaRows = agenda(db, { today: '2026-09-03', horizonDays: 14 });
+		const l1AgendaRows = agendaRows.filter((r) => r.lesson?.id === l1.id);
+		for (const row of l1AgendaRows) {
+			expect(row.lesson!.topicName).toBeNull();
+		}
+
+		// 3) Calendar: lesson cell shows no topic name
+		const week = calendarWeek(db, { weekCommencing: '2026-08-31', today: '2026-09-05' });
+		expect(week).not.toBeNull();
+		const l1CalendarCells = week!.cells.filter(
+			(c) => c.kind === 'lesson' && c.lesson?.title === l1.title
+		);
+		for (const cell of l1CalendarCells) {
+			expect(cell.lesson!.topicName).toBeNull();
+		}
+
+		// 4) Planning tab lists l1 with no topic name and no course name
+		const stream = planningStream(db, '2026-09-05');
+		const l1Entry = stream.find((e) => e.id === l1.id);
+		expect(l1Entry).not.toBeUndefined();
+		expect(l1Entry!.topicName).toBeNull();
+		expect(l1Entry!.courseName).toBeNull();
+		expect(l1Entry!.occurrence).toBeNull();
+
+		// 5) Readiness rows survive clearing the Topic
+		const marks = db
+			.select()
+			.from(schema.readiness)
+			.where(and(eq(schema.readiness.lessonId, l1.id), eq(schema.readiness.classId, classA.id)))
+			.all();
+		expect(marks).toHaveLength(1);
+
+		// 6) l1 is never Scheduled (Standalone Lessons reach no Class's Lesson stream)
+		const result = classSchedule(db, { classId: classA.id, today: '2026-09-05' });
+		const l1Scheduled = result.scheduled.filter((s) => s.lessonId === l1.id);
+		expect(l1Scheduled).toHaveLength(0);
 	});
 });

@@ -25,7 +25,7 @@ export interface SessionDetail extends Occasion {
 	classLabel: string;
 	lesson: {
 		title: string;
-		topicName: string;
+		topicName: string | null;
 		body: string | null;
 		links: ReturnType<typeof linksOf>;
 	} | null;
@@ -57,7 +57,7 @@ export function sessionDetail(db: Db, occasion: Occasion): SessionDetail | null 
 				topicName: schema.topic.name
 			})
 			.from(schema.lesson)
-			.innerJoin(schema.topic, eq(schema.topic.id, schema.lesson.topicId))
+			.leftJoin(schema.topic, eq(schema.topic.id, schema.lesson.topicId))
 			.where(eq(schema.lesson.id, row.lessonId))
 			.all();
 		if (lessonRow) {

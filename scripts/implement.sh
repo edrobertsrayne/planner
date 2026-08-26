@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MODEL="${IMPLEMENT_MODEL:-opencode-go/ox-alpha-free}"
+MODEL="${IMPLEMENT_MODEL:-opencode-go/minimax-m3}"
+DONE_TOKEN="<promise>COMPLETE</promise>"
 COUNT="${1:-5}"
-PROMPT="Implement the next available issue with a ready-for-agent label then commit the code and close the issue."
+PROMPT="Implement the first available issue with a ready-for-agent label then commit the code, close the issue, and stop.
+
+When there are no open ready-for-agent issues remaining, output exactly:
+
+${DONE_TOKEN}
+
+on its own line, and no other output."
 
 if ! [[ "$COUNT" =~ ^[0-9]+$ ]] || [[ "$COUNT" -eq 0 ]]; then
   echo "error: argument must be a positive integer (got '$COUNT')" >&2
@@ -18,9 +25,15 @@ FAILED=()
 for ((i = 1; i <= COUNT; i++)); do
   echo ""
   echo "=== Iteration $i of $COUNT ==="
-  if ! opencode run -m "$MODEL" "$PROMPT"; then
+  if ! agent_output=$(opencode run -m "$MODEL" "$PROMPT"); then
     echo "warning: opencode exited non-zero for iteration $i, continuing..." >&2
     FAILED+=("$i")
+    continue
+  fi
+  echo "$agent_output"
+  if grep -qx "${DONE_TOKEN}" <<<"$agent_output"; then
+    echo "Queue complete after $i iteration(s)."
+    exit 0
   fi
 done
 

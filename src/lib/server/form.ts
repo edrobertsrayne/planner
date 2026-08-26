@@ -12,3 +12,10 @@ export function trimmed(data: FormData, field: string): string {
 export function badRequest(error: unknown, fallback: string) {
 	return fail(400, { error: error instanceof Error ? error.message : fallback });
 }
+
+// A name collision is a 409, not a 400 — the request was well-formed and answered with its real
+// outcome. Same message-passes-through shape as `badRequest`, kept as a separate function so the
+// status code carries meaning on the wire.
+export function conflict(error: unknown, fallback: string) {
+	return fail(409, { error: error instanceof Error ? error.message : fallback });
+}

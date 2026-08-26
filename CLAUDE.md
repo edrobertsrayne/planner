@@ -28,6 +28,10 @@ Single-context — `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agen
 
 What this project's SQLite and `drizzle-kit` can actually do. Read before writing a migration. See `docs/agents/migrations.md`.
 
+### Backlog
+
+Out-of-scope ideas for later. See `docs/backlog.md`.
+
 ## Browser preview
 
 When Claude in Chrome is not available, drive the browser with `Bun.WebView` — the headless browser built into the Bun runtime. It navigates, clicks, types, and takes screenshots. See <https://bun.com/docs/runtime/webview.md>.

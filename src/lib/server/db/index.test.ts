@@ -84,6 +84,7 @@ test('the tone backfill walks existing Classes in creation order and wraps past 
 
 	client.exec(`
 		CREATE TABLE course (id text PRIMARY KEY, name text NOT NULL);
+		CREATE TABLE topic (id text PRIMARY KEY, name text NOT NULL, course_id text NOT NULL);
 		CREATE TABLE class (
 			id text PRIMARY KEY,
 			label text NOT NULL,
@@ -100,6 +101,7 @@ test('the tone backfill walks existing Classes in creation order and wraps past 
 		);
 	`);
 	client.prepare("INSERT INTO course (id, name) VALUES ('c1', 'Science')").run();
+	client.prepare("INSERT INTO topic (id, name, course_id) VALUES ('t1', 'Forces', 'c1')").run();
 
 	const insertClass = client.prepare(
 		"INSERT INTO class (id, label, course_id) VALUES (?, ?, 'c1')"

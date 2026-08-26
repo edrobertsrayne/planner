@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { guardRedirect, isPublicRoute } from './hooks.server';
+import { guardRedirect, isPublicRoute } from '$lib/server/guard';
 
 describe('isPublicRoute', () => {
 	test('the login page is public', () => {
@@ -28,6 +28,11 @@ describe('guardRedirect', () => {
 		test('sends every route to the wizard', () => {
 			expect(request({ pathname: '/', userExists: false, signedIn: false })).toBe('/setup');
 			expect(request({ pathname: '/calendar', userExists: false, signedIn: false })).toBe('/setup');
+		});
+
+		test('lets /api/* through even before setup (it returns 401 on its own)', () => {
+			expect(request({ pathname: '/api/courses', userExists: false, signedIn: false })).toBeNull();
+			expect(request({ pathname: '/api', userExists: false, signedIn: false })).toBeNull();
 		});
 
 		test('sends the login page to the wizard too — there is nothing to log in to', () => {
@@ -69,6 +74,21 @@ describe('guardRedirect', () => {
 		test('lets a signed-in visitor through to the app', () => {
 			expect(request({ pathname: '/calendar', signedIn: true })).toBeNull();
 			expect(request({ pathname: '/settings', signedIn: true })).toBeNull();
+		});
+
+		test('lets /api/* through when signed out', () => {
+			expect(request({ pathname: '/api/courses', signedIn: false })).toBeNull();
+			expect(request({ pathname: '/api', signedIn: false })).toBeNull();
+		});
+
+		test('lets /api/* through when signed in', () => {
+			expect(request({ pathname: '/api/courses', signedIn: true })).toBeNull();
+			expect(request({ pathname: '/api', signedIn: true })).toBeNull();
+		});
+
+		test('protects non-API routes when signed out', () => {
+			const target = request({ pathname: '/courses', signedIn: false });
+			expect(target).toContain('/login');
 		});
 	});
 });

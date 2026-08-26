@@ -1,7 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
-import { badRequest, trimmed } from '$lib/server/form';
+import { badRequest, conflict, trimmed } from '$lib/server/form';
 import { lessonActions } from '$lib/server/lesson-actions';
 import {
 	classesTaughtLesson,
@@ -13,12 +13,22 @@ import {
 	lessonsOf,
 	listCourses,
 	moveLesson,
+	NameCollision,
 	renameCourse,
 	renameLesson,
 	renameTopic,
 	topicsOf
 } from '$lib/server/planner';
 import type { Actions, PageServerLoad } from './$types';
+
+// A name collision is the seam's only expected throw from the four authoring actions below; it
+// carries a status the spec assigns meaning to (409 — issue #131 / §6.3 of planning-api.md). Any
+// other throw is a 400 — the same shape the existing Lesson writes use, so the page renders it
+// the same way.
+function mapAuthoringError(error: unknown, fallback: string) {
+	if (error instanceof NameCollision) return conflict(error, fallback);
+	return badRequest(error, fallback);
+}
 
 export const load: PageServerLoad = ({ url }) => {
 	const courses = listCourses(db);
@@ -56,7 +66,11 @@ export const actions: Actions = {
 	createCourse: async ({ request }) => {
 		const name = trimmed(await request.formData(), 'name');
 		if (!name) return fail(400, { error: 'A Course needs a name.' });
-		return { course: createCourse(db, { name }) };
+		try {
+			return { course: createCourse(db, { name }) };
+		} catch (error) {
+			return mapAuthoringError(error, 'Could not create the Course.');
+		}
 	},
 
 	renameCourse: async ({ request }) => {
@@ -64,9 +78,13 @@ export const actions: Actions = {
 		const id = trimmed(data, 'id');
 		const name = trimmed(data, 'name');
 		if (!name) return fail(400, { error: 'A Course needs a name.' });
-		const course = renameCourse(db, { id, name });
-		if (!course) return fail(404, { error: 'No such Course.' });
-		return { course };
+		try {
+			const course = renameCourse(db, { id, name });
+			if (!course) return fail(404, { error: 'No such Course.' });
+			return { course };
+		} catch (error) {
+			return mapAuthoringError(error, 'Could not rename the Course.');
+		}
 	},
 
 	createTopic: async ({ request }) => {
@@ -74,7 +92,11 @@ export const actions: Actions = {
 		const courseId = trimmed(data, 'courseId');
 		const name = trimmed(data, 'name');
 		if (!name) return fail(400, { error: 'A Topic needs a name.' });
-		return { topic: createTopic(db, { courseId, name }) };
+		try {
+			return { topic: createTopic(db, { courseId, name }) };
+		} catch (error) {
+			return mapAuthoringError(error, 'Could not create the Topic.');
+		}
 	},
 
 	renameTopic: async ({ request }) => {
@@ -82,9 +104,13 @@ export const actions: Actions = {
 		const id = trimmed(data, 'id');
 		const name = trimmed(data, 'name');
 		if (!name) return fail(400, { error: 'A Topic needs a name.' });
-		const topic = renameTopic(db, { id, name });
-		if (!topic) return fail(404, { error: 'No such Topic.' });
-		return { topic };
+		try {
+			const topic = renameTopic(db, { id, name });
+			if (!topic) return fail(404, { error: 'No such Topic.' });
+			return { topic };
+		} catch (error) {
+			return mapAuthoringError(error, 'Could not rename the Topic.');
+		}
 	},
 
 	createLesson: async ({ request }) => {
@@ -108,13 +134,12 @@ export const actions: Actions = {
 	deleteLesson: async ({ request }) => {
 		const data = await request.formData();
 		const id = trimmed(data, 'id');
-		try {
-			const lesson = deleteLesson(db, { id, today: today() });
-			if (!lesson) return fail(404, { error: 'No such Lesson.' });
-			return {};
-		} catch (error) {
-			return badRequest(error, 'Could not delete.');
+		const result = deleteLesson(db, { id, today: today() });
+		if (!result.ok) {
+			if (result.reason === 'not found') return fail(404, { error: 'No such Lesson.' });
+			return fail(409, { error: 'This Lesson has already been taught and cannot be deleted.' });
 		}
+		return {};
 	},
 
 	moveLesson: async ({ request }) => {

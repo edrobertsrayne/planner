@@ -22,6 +22,10 @@
 <div class="mx-auto flex min-h-0 max-w-6xl flex-1 flex-col px-6 py-6">
 	<PageHeader title="Courses" />
 
+	{#if form?.error}
+		<p role="alert" class="mb-3 text-sm text-destructive">{form.error}</p>
+	{/if}
+
 	<div class="flex min-h-0 flex-1 rounded-lg border">
 		<!-- pane 1: Courses -->
 		<aside class="flex w-64 shrink-0 flex-col border-r py-3">
@@ -121,9 +125,6 @@
 					<p class="mt-1 text-[11px] text-muted-foreground">
 						Editing these Lessons moves dates for every Class already teaching this Topic.
 					</p>
-					{#if form?.error}
-						<p role="alert" class="mt-1 text-xs text-destructive">{form.error}</p>
-					{/if}
 				</div>
 
 				<ol class="flex-1 divide-y overflow-y-auto">

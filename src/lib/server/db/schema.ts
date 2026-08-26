@@ -1,4 +1,4 @@
-import { check, integer, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
+import { check, integer, sqliteTable, text, unique, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 const id = () =>
@@ -8,26 +8,34 @@ const id = () =>
 
 // Planning
 
-export const course = sqliteTable('course', {
-	id: id(),
-	name: text('name').notNull()
-});
+export const course = sqliteTable(
+	'course',
+	{
+		id: id(),
+		name: text('name').notNull()
+	},
+	(table) => [uniqueIndex('course_name_unique').on(sql`${table.name} COLLATE NOCASE`)]
+);
 
-export const topic = sqliteTable('topic', {
-	id: id(),
-	name: text('name').notNull(),
-	courseId: text('course_id')
-		.notNull()
-		.references(() => course.id)
-});
+export const topic = sqliteTable(
+	'topic',
+	{
+		id: id(),
+		name: text('name').notNull(),
+		courseId: text('course_id')
+			.notNull()
+			.references(() => course.id)
+	},
+	(table) => [
+		uniqueIndex('topic_name_per_course').on(sql`${table.courseId}, ${table.name} COLLATE NOCASE`)
+	]
+);
 
 export const lesson = sqliteTable(
 	'lesson',
 	{
 		id: id(),
-		topicId: text('topic_id')
-			.notNull()
-			.references(() => topic.id),
+		topicId: text('topic_id').references(() => topic.id),
 		title: text('title').notNull(),
 		body: text('body'),
 		status: text('status', { enum: ['draft', 'planned'] })
@@ -145,6 +153,16 @@ export const blockedDay = sqliteTable('blocked_day', {
 	id: id(),
 	date: text('date').notNull(),
 	note: text('note')
+});
+
+export const apiKey = sqliteTable('api_key', {
+	id: id(),
+	name: text('name').notNull(),
+	hash: text('hash').notNull().unique(),
+	createdAt: integer('created_at')
+		.notNull()
+		.$defaultFn(() => Date.now()),
+	lastUsedAt: integer('last_used_at')
 });
 
 export const blockedSlot = sqliteTable('blocked_slot', {

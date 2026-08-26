@@ -259,7 +259,7 @@ export type WriteReport = { atRisk: AtRiskSession[] };
 
 export interface LessonName {
 	title: string;
-	topicName: string;
+	topicName: string | null;
 }
 
 // The engine speaks Lesson ids; every view built on it needs titles. One query for the whole
@@ -276,7 +276,7 @@ export function lessonNames(db: Db, ids: readonly string[]): Map<string, LessonN
 				topicName: schema.topic.name
 			})
 			.from(schema.lesson)
-			.innerJoin(schema.topic, eq(schema.topic.id, schema.lesson.topicId))
+			.leftJoin(schema.topic, eq(schema.topic.id, schema.lesson.topicId))
 			.where(inArray(schema.lesson.id, [...ids]))
 			.all()
 			.map(({ id, title, topicName }) => [id, { title, topicName }])

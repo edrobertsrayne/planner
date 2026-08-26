@@ -16,20 +16,37 @@ the model follows from keeping those two apart.
 The body of teaching material for a subject and year group, such as "Year 9 Physics". Composed of
 Topics, which it holds in no particular order — a Course is what a Class _may_ be taught, not a
 sequence it works through. It outlives the Classes drawing on it, and a Class typically teaches
-only part of one in a year.
+only part of one in a year. Course names are unique across the planner, case-insensitive, so
+"Year 9 Physics" and "YEAR 9 PHYSICS" are the same name.
 _Avoid_: Scheme of work, syllabus, curriculum, module, unit
 
 **Topic**:
 A named block of teaching within a Course, such as "Forces". Composed of Lessons, in order.
 Belongs to exactly one Course and holds no position within it; the order teaching happens in is
-fixed per Class by its Assigned Topics.
+fixed per Class by its Assigned Topics. Topic names are unique within their Course —
+case-insensitive, and trimmed — so two Courses may each hold a "Forces", but one Course may not
+hold two "Forces" Topics.
 _Avoid_: Unit, module, block, chapter
 
 **Lesson**:
 One teaching episode within a Topic — the plan, not the event. Exists whether or not it
 has ever been taught, and is shared by every Class assigned its Topic. A title alone constitutes
 a Lesson; the notes and the links to resources held elsewhere arrive as planning catches up.
+Lesson titles are not unique: one Topic may hold two Lessons called "Revision", so a Lesson is
+addressed by its identity and never by its title.
 _Avoid_: Period, session, class
+
+**Standalone Lesson**:
+A Lesson belonging to no Topic. It sits in no Course, so it reaches no Class's Lesson stream and
+is never Scheduled, but every Session that already taught it still names it. This is what lets a
+taught Lesson leave the plan without erasing what a Class was taught (ADR-0015).
+_Avoid_: Orphan, archived Lesson, deleted Lesson, loose Lesson
+
+**Detach**:
+Removing a Lesson from its Topic, making it a Standalone Lesson. The Lesson keeps its title, body,
+Links and Length; only its place in the plan goes. Distinct from deleting a Lesson, which removes
+the Lesson itself and is refused once a Class has been taught it.
+_Avoid_: Archive, retire, unfile, soft delete
 
 **Length**:
 The number of Periods a Lesson is intended to occupy, defaulting to one. Distinct from a
@@ -51,6 +68,13 @@ shared by every Class assigned its Topic. Marked by the teacher and never derive
 the links. Names the Lesson's state, never its place on the calendar — a Lesson takes a date by
 being Scheduled, and the two are unrelated.
 _Avoid_: Drafted, written, complete, scheduled
+
+**Import**:
+Creating one Topic, with its Lessons and their Links, in a single request — optionally creating
+its Course inline if it doesn't yet exist. Always create-only and all-or-nothing: an Import that
+collides with an existing Topic, or fails partway, commits nothing. Distinct from an ordinary
+create, which adds one record at a time and leaves partial results in place.
+_Avoid_: Bulk create, batch upload, sync
 
 ### Scheduling
 
@@ -263,20 +287,15 @@ Lesson, read-only — the panel describes the exact (Lesson, Class) occasion the
 ticks, so it would otherwise hide a fact its own row displays. No other screen shows Readiness.
 
 **Settings**:
-The change-password form, and nothing else. Reached from a control in the header rather than from
-a tab, so no tab is lit while it is open — a narrow centred column under the same page header
-every screen carries, with the form in a single card that names itself. The only place the
-password is changed, and changing it signs out every other device, which the card says plainly:
-the forgotten session on a school machine is the reason to change a password at all. Three
-additions were each considered and declined, and their absence is the definition rather than an
-omission — **account identity**, because a single-user planner has no one to distinguish the
-teacher from; **a theme preference**, because the header toggle already is one and a second
-control for it would be two places to change the same thing; and **the academic year**, because
-Terms and Blocked Days are the calendar _model_ and belong wherever that is edited, not in a
-screen about the account. Settings gets no second section, so it will not become a list of them.
-The outcome of a submission is reported as a toast rather than inline, because it must outlive the
-form and because the design system has a colour for failure and none for success — an inline
-success would read as nothing.
+The change-password form and the API key manager, side by side. Reached from a control in the
+header rather than from a tab, so no tab is lit while it is open — a narrow centred column under
+the same page header every screen carries. The only place the password is changed, and changing it
+signs out every other device, which the card says plainly: the forgotten session on a school machine
+is the reason to change a password at all. API keys belong here because they identify the account
+(the single user), not the calendar model and not any Course — the only other thing that belongs to
+the account and nothing else. The outcome of a submission is reported as a toast rather than inline,
+because it must outlive the form and because the design system has a colour for failure and none for
+success — an inline success would read as nothing.
 
 **Login**:
 Where the teacher signs in, and the only way into the planner. Sits outside the app shell: no
