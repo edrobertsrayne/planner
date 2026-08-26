@@ -49,3 +49,22 @@ export function getDateToday(): string {
 	const now = new Date();
 	return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
+
+export function validateUrl(value: unknown): string | Response {
+	if (typeof value !== 'string') {
+		return json({ error: 'The "url" field must be a string.' }, { status: 400 });
+	}
+	const trimmed = value.trim();
+	if (trimmed.length === 0 || trimmed.length > 2000) {
+		return json({ error: 'The "url" field must be 1 to 2000 characters.' }, { status: 400 });
+	}
+	try {
+		const url = new URL(trimmed);
+		if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+			return json({ error: 'The "url" field must be an http: or https: URL.' }, { status: 400 });
+		}
+	} catch {
+		return json({ error: 'The "url" field must be a valid URL.' }, { status: 400 });
+	}
+	return trimmed;
+}
