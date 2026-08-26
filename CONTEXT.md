@@ -29,7 +29,21 @@ _Avoid_: Unit, module, block, chapter
 One teaching episode within a Topic — the plan, not the event. Exists whether or not it
 has ever been taught, and is shared by every Class assigned its Topic. A title alone constitutes
 a Lesson; the notes and the links to resources held elsewhere arrive as planning catches up.
+Lesson titles are not unique: one Topic may hold two Lessons called "Revision", so a Lesson is
+addressed by its identity and never by its title.
 _Avoid_: Period, session, class
+
+**Standalone Lesson**:
+A Lesson belonging to no Topic. It sits in no Course, so it reaches no Class's Lesson stream and
+is never Scheduled, but every Session that already taught it still names it. This is what lets a
+taught Lesson leave the plan without erasing what a Class was taught (ADR-0015).
+_Avoid_: Orphan, archived Lesson, deleted Lesson, loose Lesson
+
+**Detach**:
+Removing a Lesson from its Topic, making it a Standalone Lesson. The Lesson keeps its title, body,
+Links and Length; only its place in the plan goes. Distinct from deleting a Lesson, which removes
+the Lesson itself and is refused once a Class has been taught it.
+_Avoid_: Archive, retire, unfile, soft delete
 
 **Length**:
 The number of Periods a Lesson is intended to occupy, defaulting to one. Distinct from a

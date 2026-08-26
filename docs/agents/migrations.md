@@ -33,6 +33,18 @@ ALTER TABLE lesson ADD COLUMN status TEXT NOT NULL DEFAULT 'bare'
   CHECK (status in ('bare','drafted'));
 ```
 
+**Drop `NOT NULL` from an existing column.** `ALTER TABLE <table> ALTER COLUMN <col> DROP NOT NULL`
+works, with foreign keys on, on a table that holds rows and that other tables reference. The column
+really becomes nullable and the inbound foreign keys are left intact. **No table rebuild.** Verified
+on SQLite 3.53.2 against `lesson.topic_id`, referenced by `session`, `link` and `readiness`.
+
+```sql
+ALTER TABLE lesson ALTER COLUMN topic_id DROP NOT NULL;
+```
+
+Most written guidance says SQLite has no `ALTER COLUMN` at all. On this version it does — which is
+exactly why this file says to test before designing around a limit.
+
 **Change a `CHECK` constraint later.** `ALTER TABLE ... DROP CONSTRAINT <name>` and
 `ALTER TABLE ... ADD CONSTRAINT <name> CHECK (...)` both work. This needs the constraint to be
 **named**, so always name them — Drizzle's `check('name', ...)` does.
