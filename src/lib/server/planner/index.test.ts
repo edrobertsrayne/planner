@@ -1082,7 +1082,7 @@ describe("a Lesson's planning status", () => {
 		expect(planned?.status).toBe('planned');
 		expect(lessonDetail(db, lesson.id)!.status).toBe('planned');
 
-		const draft = setLessonStatus(db, { id: lesson.id, status: 'draft' });
+		const draft = setLessonStatus(db, lesson.id, 'draft');
 		expect(draft?.status).toBe('draft');
 		expect(lessonDetail(db, lesson.id)!.status).toBe('draft');
 	});

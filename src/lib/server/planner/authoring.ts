@@ -101,26 +101,11 @@ export function setLessonStatus(
 	db: Db,
 	lessonId: string,
 	status: LessonStatus
-): typeof schema.lesson.$inferSelect | undefined;
-export function setLessonStatus(
-	db: Db,
-	options: { id?: string; lessonId?: string; status: LessonStatus }
-): typeof schema.lesson.$inferSelect | undefined;
-export function setLessonStatus(
-	db: Db,
-	lessonIdOrOptions: string | { id?: string; lessonId?: string; status: LessonStatus },
-	statusArg?: LessonStatus
-) {
-	const id =
-		typeof lessonIdOrOptions === 'string'
-			? lessonIdOrOptions
-			: (lessonIdOrOptions.id ?? lessonIdOrOptions.lessonId!);
-	const status = typeof lessonIdOrOptions === 'string' ? statusArg! : lessonIdOrOptions.status;
-
+): typeof schema.lesson.$inferSelect | undefined {
 	const [row] = db
 		.update(schema.lesson)
 		.set({ status })
-		.where(eq(schema.lesson.id, id))
+		.where(eq(schema.lesson.id, lessonId))
 		.returning()
 		.all();
 	return row;
@@ -128,22 +113,7 @@ export function setLessonStatus(
 
 // Readiness is recorded per Class and Lesson (ADR-0014).
 // Ticking inserts the row, unticking deletes it; both idempotent. No re-derive.
-export function setReadiness(db: Db, lessonId: string, classId: string, ready: boolean): void;
-export function setReadiness(
-	db: Db,
-	options: { lessonId: string; classId: string; ready: boolean }
-): void;
-export function setReadiness(
-	db: Db,
-	lessonIdOrOptions: string | { lessonId: string; classId: string; ready: boolean },
-	classIdArg?: string,
-	readyArg?: boolean
-) {
-	const lessonId =
-		typeof lessonIdOrOptions === 'string' ? lessonIdOrOptions : lessonIdOrOptions.lessonId;
-	const classId = typeof lessonIdOrOptions === 'string' ? classIdArg! : lessonIdOrOptions.classId;
-	const ready = typeof lessonIdOrOptions === 'string' ? readyArg! : lessonIdOrOptions.ready;
-
+export function setReadiness(db: Db, lessonId: string, classId: string, ready: boolean): void {
 	if (ready) {
 		db.insert(schema.readiness).values({ lessonId, classId }).onConflictDoNothing().run();
 	} else {
