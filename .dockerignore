@@ -21,10 +21,11 @@ coverage*
 /build
 test-results
 
-# SQLite (local dev/e2e data)
+# SQLite (local dev/e2e/docker-test data)
 *.db
 *.db-shm
 *.db-wal
+data
 
 # Repo/agent metadata not needed to build or run
 .github

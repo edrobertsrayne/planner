@@ -1,0 +1,15 @@
+services:
+  planner:
+    image: ghcr.io/edrobertsrayne/planner:latest
+    ports:
+      - '3000:3000'
+    environment:
+      DATABASE_URL: /app/data/planner.db
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET in .env}
+      ORIGIN: https://odin.dusky-bellatrix.ts.net
+      BETTER_AUTH_URL: https://odin.dusky-bellatrix.ts.net
+      PROTOCOL_HEADER: x-forwarded-proto
+      HOST_HEADER: x-forwarded-host
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
