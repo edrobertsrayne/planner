@@ -52,6 +52,13 @@ the links. Names the Lesson's state, never its place on the calendar — a Lesso
 being Scheduled, and the two are unrelated.
 _Avoid_: Drafted, written, complete, scheduled
 
+**Import**:
+Creating one Topic, with its Lessons and their Links, in a single request — optionally creating
+its Course inline if it doesn't yet exist. Always create-only and all-or-nothing: an Import that
+collides with an existing Topic, or fails partway, commits nothing. Distinct from an ordinary
+create, which adds one record at a time and leaves partial results in place.
+_Avoid_: Bulk create, batch upload, sync
+
 ### Scheduling
 
 **Class**:
