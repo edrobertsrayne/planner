@@ -240,7 +240,7 @@ export function updateLesson(
 		.returning()
 		.all();
 	if (!row) return row;
-	rederiveTopic(db, row.topicId, today);
+	if (row.topicId) rederiveTopic(db, row.topicId, today);
 	return row;
 }
 
@@ -272,7 +272,7 @@ export function deleteLesson(db: Db, { id, today }: { id: string; today: string 
 	db.delete(schema.link).where(eq(schema.link.lessonId, id)).run();
 	db.delete(schema.lesson).where(eq(schema.lesson.id, id)).run();
 
-	rederiveTopic(db, row.topicId, today);
+if (row.topicId) rederiveTopic(db, row.topicId, today);
 	return row;
 }
 
@@ -315,7 +315,7 @@ export function moveLessonToTopic(
 		.returning()
 		.all();
 
-	rederiveTopic(db, oldTopicId, today);
+	if (oldTopicId) rederiveTopic(db, oldTopicId, today);
 	if (topicId !== oldTopicId) rederiveTopic(db, topicId, today);
 	return updated;
 }

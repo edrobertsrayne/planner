@@ -53,7 +53,7 @@ export interface AgendaEntry {
 	lesson: {
 		id: string;
 		title: string;
-		topicName: string;
+		topicName: string | null;
 		ready: boolean;
 	} | null;
 }
@@ -287,8 +287,8 @@ export interface PlanningOccurrence {
 export interface PlanningEntry {
 	id: string;
 	title: string;
-	topicName: string;
-	courseName: string;
+	topicName: string | null;
+	courseName: string | null;
 	status: LessonStatus;
 	occurrence: PlanningOccurrence | null;
 }
@@ -309,8 +309,8 @@ export function planningStream(db: Db, today: string): PlanningEntry[] {
 			courseName: schema.course.name
 		})
 		.from(schema.lesson)
-		.innerJoin(schema.topic, eq(schema.topic.id, schema.lesson.topicId))
-		.innerJoin(schema.course, eq(schema.course.id, schema.topic.courseId))
+		.leftJoin(schema.topic, eq(schema.topic.id, schema.lesson.topicId))
+		.leftJoin(schema.course, eq(schema.course.id, schema.topic.courseId))
 		.all();
 
 	const cal = loadCalendar(db);
@@ -350,9 +350,13 @@ export function planningStream(db: Db, today: string): PlanningEntry[] {
 	}));
 
 	const compareSecondary = (a: EntryWithPosition, b: EntryWithPosition) => {
-		const c = a.courseName.localeCompare(b.courseName);
+		const ca = a.courseName ?? '';
+		const cb = b.courseName ?? '';
+		const c = ca.localeCompare(cb);
 		if (c !== 0) return c;
-		const t = a.topicName.localeCompare(b.topicName);
+		const ta = a.topicName ?? '';
+		const tb = b.topicName ?? '';
+		const t = ta.localeCompare(tb);
 		if (t !== 0) return t;
 		return a.position - b.position;
 	};

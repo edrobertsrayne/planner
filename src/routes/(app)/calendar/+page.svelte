@@ -209,10 +209,12 @@
 														class="mt-0.5 line-clamp-2 text-xs leading-tight font-medium"
 														style:color={tone.fg}>{cell.lesson?.title}</span
 													>
+													{#if cell.lesson?.topicName}
 													<span
 														class="mt-auto line-clamp-1 text-[11px] opacity-80"
-														style:color={tone.fg}>{cell.lesson?.topicName}</span
+														style:color={tone.fg}>{cell.lesson.topicName}</span
 													>
+												{/if}
 												{:else}
 													<span class="mt-0.5 text-xs italic" style:color={tone.fg}>
 														Open Slot

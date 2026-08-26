@@ -117,7 +117,9 @@
 
 	{#if detail.lesson}
 		<h2 class="text-lg leading-snug font-semibold">{detail.lesson.title}</h2>
-		<p class="mt-1 text-xs text-muted-foreground">{detail.lesson.topicName}</p>
+		{#if detail.lesson.topicName}
+			<p class="mt-1 text-xs text-muted-foreground">{detail.lesson.topicName}</p>
+		{/if}
 
 		{#if detail.lesson.body}
 			<p class="mt-4 text-sm whitespace-pre-line text-foreground/80">{detail.lesson.body}</p>

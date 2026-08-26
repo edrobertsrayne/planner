@@ -136,7 +136,9 @@
 								{lesson.title}
 							</button>
 							<div class="truncate text-xs text-muted-foreground">
-								{lesson.topicName} · {lesson.courseName}
+								{#if lesson.topicName}
+									{lesson.topicName} · {lesson.courseName}
+								{/if}
 							</div>
 						</div>
 

@@ -4,7 +4,7 @@ set -euo pipefail
 MODEL="${IMPLEMENT_MODEL:-opencode-go/minimax-m3}"
 DONE_TOKEN="<promise>COMPLETE</promise>"
 COUNT="${1:-5}"
-PROMPT="Implement the next available issue with a ready-for-agent label then commit the code and close the issue.
+PROMPT="Implement the first available issue with a ready-for-agent label that is not blocked then commit the code, close the issue, and stop.
 
 When there are no open ready-for-agent issues remaining, output exactly:
 

@@ -2413,3 +2413,66 @@ describe('Readiness dies with its pairing', () => {
 		expect(marks).toHaveLength(1);
 	});
 });
+
+describe('a Standalone Lesson', () => {
+	test('a taught Lesson whose Topic is cleared still shows its title in the Session panel, the Agenda and the Calendar, with no Topic name', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [l1, l2] = makeLessons(db, topic.id, 2);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+
+		// Teach the first two lessons by advancing past their dates.
+		// classA's slots: Thu 3 Sep P5 (l1), P6 (l2). today=5 Sep puts both in the past.
+		expect(classSchedule(db, { classId: classA.id, today: '2026-09-05' }).history).toHaveLength(2);
+
+		// Record readiness on l1 — it must survive clearing the Topic.
+		setReadiness(db, l1.id, classA.id, true);
+
+		// Clear the Topic, making l1 a Standalone Lesson.
+		db.run(sql`update "lesson" set "topic_id" = NULL where "id" = ${l1.id}`);
+
+		// 1) Session panel: still shows l1's title and no topic name
+		const detail = sessionDetail(db, { classId: classA.id, date: '2026-09-03', period: 5 });
+		expect(detail).not.toBeNull();
+		expect(detail!.lesson).not.toBeNull();
+		expect(detail!.lesson!.title).toBe(l1.title);
+
+		// 2) Agenda: l1 appears with no topic name (topicName is null)
+		const agendaRows = agenda(db, { today: '2026-09-03', horizonDays: 14 });
+		const l1AgendaRows = agendaRows.filter((r) => r.lesson?.id === l1.id);
+		for (const row of l1AgendaRows) {
+			expect(row.lesson!.topicName).toBeNull();
+		}
+
+		// 3) Calendar: lesson cell shows no topic name
+		const week = calendarWeek(db, { weekCommencing: '2026-08-31', today: '2026-09-05' });
+		expect(week).not.toBeNull();
+		const l1CalendarCells = week!.cells.filter(
+			(c) => c.kind === 'lesson' && c.lesson?.title === l1.title
+		);
+		for (const cell of l1CalendarCells) {
+			expect(cell.lesson!.topicName).toBeNull();
+		}
+
+		// 4) Planning tab lists l1 with no topic name and no course name
+		const stream = planningStream(db, '2026-09-05');
+		const l1Entry = stream.find((e) => e.id === l1.id);
+		expect(l1Entry).not.toBeUndefined();
+		expect(l1Entry!.topicName).toBeNull();
+		expect(l1Entry!.courseName).toBeNull();
+		expect(l1Entry!.occurrence).toBeNull();
+
+		// 5) Readiness rows survive clearing the Topic
+		const marks = db
+			.select()
+			.from(schema.readiness)
+			.where(and(eq(schema.readiness.lessonId, l1.id), eq(schema.readiness.classId, classA.id)))
+			.all();
+		expect(marks).toHaveLength(1);
+
+		// 6) l1 is never Scheduled (Standalone Lessons reach no Class's Lesson stream)
+		const result = classSchedule(db, { classId: classA.id, today: '2026-09-05' });
+		const l1Scheduled = result.scheduled.filter((s) => s.lessonId === l1.id);
+		expect(l1Scheduled).toHaveLength(0);
+	});
+});
