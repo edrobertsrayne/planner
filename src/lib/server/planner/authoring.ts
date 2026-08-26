@@ -205,11 +205,32 @@ const endOfTopic = (db: Db, topicId: string) =>
 // left to teach.
 export function createLesson(
 	db: Db,
-	{ topicId, title, today }: { topicId: string; title: string; today: string }
+	{
+		topicId,
+		title,
+		body,
+		length,
+		status,
+		today
+	}: {
+		topicId: string;
+		title: string;
+		body?: string | null;
+		length?: number;
+		status?: 'draft' | 'planned';
+		today: string;
+	}
 ) {
 	const [row] = db
 		.insert(schema.lesson)
-		.values({ topicId, title, position: endOfTopic(db, topicId) })
+		.values({
+			topicId,
+			title,
+			position: endOfTopic(db, topicId),
+			...(body !== undefined ? { body } : {}),
+			...(length !== undefined ? { length } : {}),
+			...(status !== undefined ? { status } : {})
+		})
 		.returning()
 		.all();
 	rederiveTopic(db, topicId, today);
@@ -300,12 +321,18 @@ export function updateLesson(
 // Topic. Refuses when a Class has already been taught this Lesson: the historical Session rows
 // reference it (ADR-0002), so deleting it would erase part of the record of what happened —
 // the taught-by block in the Lesson editor is what warns Ed before he tries this and it fails.
-export function deleteLesson(db: Db, { id, today }: { id: string; today: string }) {
+export function deleteLesson(
+	db: Db,
+	{ id, today }: { id: string; today: string }
+):
+	| { ok: false; reason: 'not found' }
+	| { ok: false; reason: 'taught' }
+	| { ok: true; lesson: typeof schema.lesson.$inferSelect } {
 	const [row] = db.select().from(schema.lesson).where(eq(schema.lesson.id, id)).all();
-	if (!row) return null;
+	if (!row) return { ok: false, reason: 'not found' };
 
 	if (classesTaughtLesson(db, { lessonId: id, today }).length > 0) {
-		throw new Error('This Lesson has already been taught and cannot be deleted.');
+		return { ok: false, reason: 'taught' };
 	}
 
 	// Not-yet-taught Sessions carrying this Lesson are about to be replaced by `rederiveTopic`
@@ -324,8 +351,66 @@ export function deleteLesson(db: Db, { id, today }: { id: string; today: string 
 	db.delete(schema.link).where(eq(schema.link.lessonId, id)).run();
 	db.delete(schema.lesson).where(eq(schema.lesson.id, id)).run();
 
-if (row.topicId) rederiveTopic(db, row.topicId, today);
-	return row;
+	if (row.topicId) rederiveTopic(db, row.topicId, today);
+	return { ok: true, lesson: row };
+}
+
+// Partial PATCH for the API. Only the fields present in `fields` change; absent fields leave
+// their values alone. Re-derives every Class assigned the Topic if anything scheduling-relevant
+// changed, or if the Lesson moved to a different Topic.
+export function patchLesson(
+	db: Db,
+	{
+		id,
+		fields,
+		today
+	}: {
+		id: string;
+		fields: {
+			title?: string;
+			body?: string | null;
+			length?: number;
+			status?: 'draft' | 'planned';
+			topicId?: string;
+		};
+		today: string;
+	}):
+	| { ok: true; lesson: typeof schema.lesson.$inferSelect }
+	| { ok: false; reason: 'not found' | 'topic not found' } {
+	const [row] = db.select().from(schema.lesson).where(eq(schema.lesson.id, id)).all();
+	if (!row) return { ok: false, reason: 'not found' };
+
+	const update: Record<string, unknown> = {};
+
+	if (fields.title !== undefined) update.title = fields.title;
+	if (fields.body !== undefined) update.body = fields.body;
+	if (fields.length !== undefined) update.length = fields.length;
+	if (fields.status !== undefined) update.status = fields.status;
+
+	const oldTopicId = row.topicId;
+	const newTopicId = fields.topicId;
+
+	if (newTopicId !== undefined && newTopicId !== oldTopicId) {
+		const [existing] = db.select().from(schema.topic).where(eq(schema.topic.id, newTopicId)).all();
+		if (!existing) return { ok: false, reason: 'topic not found' };
+		update.topicId = newTopicId;
+	}
+
+	if (Object.keys(update).length === 0 && newTopicId === undefined) return { ok: true, lesson: row };
+
+	db.update(schema.lesson).set(update as Partial<typeof schema.lesson.$inferInsert>).where(eq(schema.lesson.id, id)).run();
+
+	const [updated] = db.select().from(schema.lesson).where(eq(schema.lesson.id, id)).all();
+	if (!updated) return { ok: false, reason: 'not found' };
+
+	if (newTopicId !== undefined && newTopicId !== oldTopicId) {
+		if (oldTopicId) rederiveTopic(db, oldTopicId, today);
+		if (newTopicId) rederiveTopic(db, newTopicId, today);
+	} else if (updated.topicId && (fields.length !== undefined || fields.title !== undefined || fields.body !== undefined)) {
+		rederiveTopic(db, updated.topicId, today);
+	}
+
+	return { ok: true, lesson: updated };
 }
 
 // Swaps position with the previous or next Lesson in the same Topic, and re-derives every Class

@@ -134,13 +134,12 @@ export const actions: Actions = {
 	deleteLesson: async ({ request }) => {
 		const data = await request.formData();
 		const id = trimmed(data, 'id');
-		try {
-			const lesson = deleteLesson(db, { id, today: today() });
-			if (!lesson) return fail(404, { error: 'No such Lesson.' });
-			return {};
-		} catch (error) {
-			return badRequest(error, 'Could not delete.');
+		const result = deleteLesson(db, { id, today: today() });
+		if (!result.ok) {
+			if (result.reason === 'not found') return fail(404, { error: 'No such Lesson.' });
+			return fail(409, { error: 'This Lesson has already been taught and cannot be deleted.' });
 		}
+		return {};
 	},
 
 	moveLesson: async ({ request }) => {

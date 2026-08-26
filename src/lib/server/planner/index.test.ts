@@ -1295,7 +1295,8 @@ describe('reordering and moving Lessons', () => {
 
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 
-		expect(() => deleteLesson(db, { id: lessons[0].id, today: '2026-09-10' })).toThrow();
+		const result = deleteLesson(db, { id: lessons[0].id, today: '2026-09-10' });
+		expect(result).toEqual({ ok: false, reason: 'taught' });
 	});
 });
 
