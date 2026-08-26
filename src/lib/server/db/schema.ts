@@ -155,6 +155,16 @@ export const blockedDay = sqliteTable('blocked_day', {
 	note: text('note')
 });
 
+export const apiKey = sqliteTable('api_key', {
+	id: id(),
+	name: text('name').notNull(),
+	hash: text('hash').notNull().unique(),
+	createdAt: integer('created_at')
+		.notNull()
+		.$defaultFn(() => Date.now()),
+	lastUsedAt: integer('last_used_at')
+});
+
 export const blockedSlot = sqliteTable('blocked_slot', {
 	id: id(),
 	classId: text('class_id')

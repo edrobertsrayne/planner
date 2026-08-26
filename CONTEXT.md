@@ -287,20 +287,15 @@ Lesson, read-only — the panel describes the exact (Lesson, Class) occasion the
 ticks, so it would otherwise hide a fact its own row displays. No other screen shows Readiness.
 
 **Settings**:
-The change-password form, and nothing else. Reached from a control in the header rather than from
-a tab, so no tab is lit while it is open — a narrow centred column under the same page header
-every screen carries, with the form in a single card that names itself. The only place the
-password is changed, and changing it signs out every other device, which the card says plainly:
-the forgotten session on a school machine is the reason to change a password at all. Three
-additions were each considered and declined, and their absence is the definition rather than an
-omission — **account identity**, because a single-user planner has no one to distinguish the
-teacher from; **a theme preference**, because the header toggle already is one and a second
-control for it would be two places to change the same thing; and **the academic year**, because
-Terms and Blocked Days are the calendar _model_ and belong wherever that is edited, not in a
-screen about the account. Settings gets no second section, so it will not become a list of them.
-The outcome of a submission is reported as a toast rather than inline, because it must outlive the
-form and because the design system has a colour for failure and none for success — an inline
-success would read as nothing.
+The change-password form and the API key manager, side by side. Reached from a control in the
+header rather than from a tab, so no tab is lit while it is open — a narrow centred column under
+the same page header every screen carries. The only place the password is changed, and changing it
+signs out every other device, which the card says plainly: the forgotten session on a school machine
+is the reason to change a password at all. API keys belong here because they identify the account
+(the single user), not the calendar model and not any Course — the only other thing that belongs to
+the account and nothing else. The outcome of a submission is reported as a toast rather than inline,
+because it must outlive the form and because the design system has a colour for failure and none for
+success — an inline success would read as nothing.
 
 **Login**:
 Where the teacher signs in, and the only way into the planner. Sits outside the app shell: no
