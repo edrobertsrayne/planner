@@ -1278,9 +1278,12 @@ describe('reordering and moving Lessons', () => {
 		const lesson = createLesson(db, { topicId: topic.id, title: 'Newton I', today: '2026-09-03' });
 		const link = createLink(db, { lessonId: lesson.id, label: 'Slides', url: 'https://a.example' });
 
-		const deleted = deleteLesson(db, { id: lesson.id, today: '2026-09-03' });
+		const result = deleteLesson(db, { id: lesson.id, today: '2026-09-03' });
 
-		expect(deleted).toMatchObject({ id: lesson.id });
+		expect(result).toMatchObject({
+			ok: true,
+			lesson: { id: lesson.id }
+		});
 		expect(lessonsOf(db, topic.id)).toEqual([]);
 		expect(lessonDetail(db, lesson.id)).toBeNull();
 		expect(() =>
