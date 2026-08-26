@@ -1,17 +1,4 @@
 {
-	"extraKnownMarketplaces": {
-		"svelte": {
-			"source": {
-				"source": "github",
-				"repo": "sveltejs/ai-tools"
-			}
-		}
-	},
-	"enabledPlugins": {
-		"svelte@svelte": true,
-		"context7@claude-plugins-official": true,
-		"mattpocock-skills@claude-plugins-official": true
-	},
 	"hooks": {
 		"PreToolUse": [
 			{
@@ -35,5 +22,18 @@
 				]
 			}
 		]
+	},
+	"enabledPlugins": {
+		"svelte@svelte": true,
+		"context7@claude-plugins-official": true,
+		"mattpocock-skills@claude-plugins-official": true
+	},
+	"extraKnownMarketplaces": {
+		"svelte": {
+			"source": {
+				"source": "github",
+				"repo": "sveltejs/ai-tools"
+			}
+		}
 	}
 }

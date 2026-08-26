@@ -9,6 +9,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
+	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.js';
 	import LinkRow from './LinkRow.svelte';
 
 	let {
@@ -18,32 +19,33 @@
 		count,
 		previousId,
 		nextId,
-		courseId,
 		topicId,
 		topics,
-		taughtBy
+		taughtBy,
+		hrefFor
 	}: {
-		lesson: { id: string; title: string; body: string | null; plannedLength: number };
+		lesson: {
+			id: string;
+			title: string;
+			body: string | null;
+			status: 'draft' | 'planned';
+			length: number;
+		};
 		links: { id: string; label: string; url: string }[];
 		index: number;
 		count: number;
 		previousId: string | null;
 		nextId: string | null;
-		courseId: string;
 		topicId: string;
 		topics: { id: string; name: string }[];
 		taughtBy: { id: string; label: string }[];
+		hrefFor: (lessonId: string | null, topicId: string) => string;
 	} = $props();
-
-	function hrefFor(lessonId: string | null) {
-		const base = `?course=${courseId}&topic=${topicId}`;
-		return lessonId ? `${base}&lesson=${lessonId}` : base;
-	}
 
 	async function step(lessonId: string | null) {
 		if (!lessonId) return;
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- carries a query string
-		await goto(hrefFor(lessonId), { replaceState: true, noScroll: true, keepFocus: true });
+		await goto(hrefFor(lessonId, topicId), { replaceState: true, noScroll: true, keepFocus: true });
 	}
 
 	async function close() {
@@ -51,9 +53,10 @@
 		// commits a pending edit when Ed closes with Escape mid-field rather than by clicking away.
 		(document.activeElement as HTMLElement | null)?.blur();
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- carries a query string
-		await goto(hrefFor(null), { replaceState: true, noScroll: true, keepFocus: true });
+		await goto(hrefFor(null, topicId), { replaceState: true, noScroll: true, keepFocus: true });
 	}
 
+	let statusInput: HTMLInputElement | null = $state(null);
 	let addingLink = $state(false);
 
 	// The Dialog starts open every time this component mounts — it only exists while a Lesson is
@@ -126,7 +129,7 @@
 		<div
 			class="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_18rem] gap-6 overflow-y-auto px-6 pt-2 pb-6"
 		>
-			<!-- title, body and Planned Length save together as one Lesson write; Links are their own
+			<!-- title, body and Length save together as one Lesson write; Links are their own
 			     forms and so cannot nest inside this one — `contents` keeps this form's fields as
 			     direct grid items instead of a wrapping box. -->
 			<form
@@ -170,14 +173,14 @@
 
 				<label class="block">
 					<span class="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
-						Planned Length
+						Length
 					</span>
 					<div class="mt-1 flex items-center gap-2">
 						<Input
 							type="number"
-							name="plannedLength"
+							name="length"
 							min="1"
-							value={lesson.plannedLength}
+							value={lesson.length}
 							class="h-7 w-16"
 							onchange={(e) => e.currentTarget.form?.requestSubmit()}
 						/>
@@ -185,6 +188,32 @@
 					</div>
 				</label>
 			</form>
+
+			<div>
+				<span class="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
+					Planning status
+				</span>
+				<form method="POST" action="?/setLessonStatus" class="mt-1" use:enhance>
+					<input type="hidden" name="id" value={lesson.id} />
+					<input type="hidden" name="status" value={lesson.status} bind:this={statusInput} />
+					<ToggleGroup.Root
+						type="single"
+						variant="outline"
+						size="sm"
+						value={lesson.status}
+						onValueChange={(v) => {
+							if (v && v !== lesson.status && statusInput) {
+								statusInput.value = v;
+								statusInput.form?.requestSubmit();
+							}
+						}}
+						class="justify-start"
+					>
+						<ToggleGroup.Item value="draft">Draft</ToggleGroup.Item>
+						<ToggleGroup.Item value="planned">Planned</ToggleGroup.Item>
+					</ToggleGroup.Root>
+				</form>
+			</div>
 
 			<div>
 				<label class="block">
@@ -201,7 +230,7 @@
 							return async ({ formData, result, update }) => {
 								if (result.type !== 'success') return update();
 								const newTopicId = String(formData.get('topicId'));
-								await replaceQuery(`?course=${courseId}&topic=${newTopicId}&lesson=${lesson.id}`);
+								await replaceQuery(hrefFor(lesson.id, newTopicId));
 							};
 						}}
 					>

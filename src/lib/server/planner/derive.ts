@@ -72,7 +72,7 @@ export function loadCalendar(db: Db): Calendar {
 // order (ADR-0010) — never a Course's Lessons.
 function loadLessonStream(db: Db, classId: string): LessonInput[] {
 	return db
-		.select({ id: schema.lesson.id, plannedLength: schema.lesson.plannedLength })
+		.select({ id: schema.lesson.id, length: schema.lesson.length })
 		.from(schema.assignedTopic)
 		.innerJoin(schema.topic, eq(schema.topic.id, schema.assignedTopic.topicId))
 		.innerJoin(schema.lesson, eq(schema.lesson.topicId, schema.topic.id))
@@ -163,35 +163,35 @@ export function rederive(db: Db, classId: string, boundary: string): WriteReport
 		db.update(schema.session).set({ lessonId }).where(eq(schema.session.id, row.id)).run();
 	}
 
-	const stillPlanned = new Set<string>();
-	for (const planned of result.planned) {
-		const key = occasionKey(planned);
-		stillPlanned.add(key);
+	const stillScheduled = new Set<string>();
+	for (const scheduled of result.scheduled) {
+		const key = occasionKey(scheduled);
+		stillScheduled.add(key);
 		const row = byOccasion.get(key);
 
 		if (!row) {
 			db.insert(schema.session)
 				.values({
 					classId,
-					date: planned.date,
-					period: planned.period,
-					lessonId: planned.lessonId
+					date: scheduled.date,
+					period: scheduled.period,
+					lessonId: scheduled.lessonId
 				})
 				.run();
 		} else {
-			relabel(row, planned.lessonId);
+			relabel(row, scheduled.lessonId);
 		}
 	}
 
-	// An occasion still an Available Slot but carrying no Lesson (Unplanned) keeps its row rather
+	// An occasion still an Available Slot but carrying no Lesson (Open Slot) keeps its row rather
 	// than losing it — a note written against it (issue #35) must stay put even though it was
-	// never part of `stillPlanned` to begin with.
-	const stillUnplanned = new Set(result.unplanned.map(occasionKey));
+	// never part of `stillScheduled` to begin with.
+	const stillOpen = new Set(result.openSlots.map(occasionKey));
 
 	for (const [key, row] of byOccasion) {
-		if (stillPlanned.has(key)) continue;
+		if (stillScheduled.has(key)) continue;
 
-		if (stillUnplanned.has(key)) {
+		if (stillOpen.has(key)) {
 			relabel(row, null);
 			continue;
 		}

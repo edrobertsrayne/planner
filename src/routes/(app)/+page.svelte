@@ -8,6 +8,7 @@
 	import { ToggleGroup, ToggleGroupItem } from '$lib/components/ui/toggle-group';
 	import { AGENDA_HORIZONS } from './agenda-horizons';
 	import { groupByDay, horizonEndsOn } from './agenda-days';
+	import ReadyTick from './ready-tick.svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -63,6 +64,7 @@
 				{:else}
 					<span class="text-muted-foreground">{formatWeekday(day.date)}</span>
 				{/if}
+				<span class="ml-auto text-xs font-normal text-muted-foreground">Ready to teach?</span>
 			</h2>
 
 			<ul class="divide-y divide-border overflow-hidden rounded-xl border bg-card">
@@ -99,7 +101,7 @@
 									{row.lesson.topicName}
 								</span>
 							{:else}
-								<span class="block text-sm text-muted-foreground italic">Unplanned</span>
+								<span class="block text-sm text-muted-foreground italic">Open Slot</span>
 							{/if}
 						</button>
 
@@ -113,6 +115,13 @@
 							>
 								Plan
 							</Button>
+						{:else}
+							<ReadyTick
+								lessonId={row.lesson.id}
+								classId={row.classId}
+								ready={row.lesson.ready}
+								label="Ready to teach {row.lesson.title} to {row.classLabel}"
+							/>
 						{/if}
 					</li>
 				{/each}

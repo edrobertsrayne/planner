@@ -21,16 +21,23 @@ export const topic = sqliteTable('topic', {
 		.references(() => course.id)
 });
 
-export const lesson = sqliteTable('lesson', {
-	id: id(),
-	topicId: text('topic_id')
-		.notNull()
-		.references(() => topic.id),
-	title: text('title').notNull(),
-	body: text('body'),
-	plannedLength: integer('planned_length').notNull().default(1),
-	position: integer('position').notNull()
-});
+export const lesson = sqliteTable(
+	'lesson',
+	{
+		id: id(),
+		topicId: text('topic_id')
+			.notNull()
+			.references(() => topic.id),
+		title: text('title').notNull(),
+		body: text('body'),
+		status: text('status', { enum: ['draft', 'planned'] })
+			.notNull()
+			.default('draft'),
+		length: integer('length').notNull().default(1),
+		position: integer('position').notNull()
+	},
+	(table) => [check('lesson_status', sql`${table.status} in ('draft','planned')`)]
+);
 
 export const link = sqliteTable('link', {
 	id: id(),
@@ -41,6 +48,20 @@ export const link = sqliteTable('link', {
 	label: text('label').notNull(),
 	position: integer('position').notNull()
 });
+
+export const readiness = sqliteTable(
+	'readiness',
+	{
+		id: id(),
+		lessonId: text('lesson_id')
+			.notNull()
+			.references(() => lesson.id, { onDelete: 'cascade' }),
+		classId: text('class_id')
+			.notNull()
+			.references(() => classes.id, { onDelete: 'cascade' })
+	},
+	(table) => [unique('readiness_pairing').on(table.lessonId, table.classId)]
+);
 
 // Scheduling
 

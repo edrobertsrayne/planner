@@ -83,6 +83,8 @@ export function createLesson(
 	return row;
 }
 
+export type LessonStatus = 'draft' | 'planned';
+
 export function renameLesson(db: Db, { id, title }: { id: string; title: string }) {
 	const [row] = db
 		.update(schema.lesson)
@@ -91,6 +93,34 @@ export function renameLesson(db: Db, { id, title }: { id: string; title: string 
 		.returning()
 		.all();
 	return row;
+}
+
+// Planning status is a fact about the Lesson (ADR-0014), shared by every Class assigned its Topic.
+// Setting it never re-derives the schedule: a status says nothing about a date. It never touches Readiness.
+export function setLessonStatus(
+	db: Db,
+	lessonId: string,
+	status: LessonStatus
+): typeof schema.lesson.$inferSelect | undefined {
+	const [row] = db
+		.update(schema.lesson)
+		.set({ status })
+		.where(eq(schema.lesson.id, lessonId))
+		.returning()
+		.all();
+	return row;
+}
+
+// Readiness is recorded per Class and Lesson (ADR-0014).
+// Ticking inserts the row, unticking deletes it; both idempotent. No re-derive.
+export function setReadiness(db: Db, lessonId: string, classId: string, ready: boolean): void {
+	if (ready) {
+		db.insert(schema.readiness).values({ lessonId, classId }).onConflictDoNothing().run();
+	} else {
+		db.delete(schema.readiness)
+			.where(and(eq(schema.readiness.lessonId, lessonId), eq(schema.readiness.classId, classId)))
+			.run();
+	}
 }
 
 export function linksOf(db: Db, lessonId: string) {
@@ -109,7 +139,7 @@ export function lessonDetail(db: Db, id: string) {
 	return { ...row, links: linksOf(db, id) };
 }
 
-// Planned Length is a scheduling input, so this re-derives every Class assigned this Lesson's
+// Length is a scheduling input, so this re-derives every Class assigned this Lesson's
 // Topic from `today`. Title and body are cosmetic and never move a date, but re-deriving
 // regardless is harmless — `rederive` only writes where something actually changed.
 export function updateLesson(
@@ -118,13 +148,13 @@ export function updateLesson(
 		id,
 		title,
 		body,
-		plannedLength,
+		length,
 		today
-	}: { id: string; title: string; body: string | null; plannedLength: number; today: string }
+	}: { id: string; title: string; body: string | null; length: number; today: string }
 ) {
 	const [row] = db
 		.update(schema.lesson)
-		.set({ title, body, plannedLength })
+		.set({ title, body, length })
 		.where(eq(schema.lesson.id, id))
 		.returning()
 		.all();
@@ -157,6 +187,7 @@ export function deleteLesson(db: Db, { id, today }: { id: string; today: string 
 	}
 	db.delete(schema.session).where(eq(schema.session.lessonId, id)).run();
 
+	db.delete(schema.readiness).where(eq(schema.readiness.lessonId, id)).run();
 	db.delete(schema.link).where(eq(schema.link.lessonId, id)).run();
 	db.delete(schema.lesson).where(eq(schema.lesson.id, id)).run();
 
@@ -185,7 +216,7 @@ export function moveLesson(
 	rederiveTopic(db, topicId, today);
 }
 
-// Moves a Lesson to a different Topic, keeping its body, links and Planned Length — appended at
+// Moves a Lesson to a different Topic, keeping its body, links and Length — appended at
 // the end of the new Topic's order. Re-derives every Class assigned either Topic: the old one
 // lost a Lesson, the new one gained one.
 export function moveLessonToTopic(

@@ -4,6 +4,7 @@
 import { eq } from 'drizzle-orm';
 import { addDays } from '$lib/date';
 import * as schema from '../db/schema';
+import { type LessonStatus } from './authoring';
 import { lessonNames, loadCalendar, scheduleFor, type Db, type LessonName } from './derive';
 import { agendaRows, slotHolds, type AgendaRow, type Calendar } from './engine';
 import { listClasses } from './classes';
@@ -49,7 +50,12 @@ export interface AgendaEntry {
 	week: 'A' | 'B';
 	periodFrom: number;
 	periodTo: number;
-	lesson: LessonName | null;
+	lesson: {
+		id: string;
+		title: string;
+		topicName: string;
+		ready: boolean;
+	} | null;
 }
 
 // The chronological stream of upcoming Sessions across every Class, grouped by day (issue #34).
@@ -67,19 +73,41 @@ export function agenda(
 		keep: (r) => r.date < horizonEnd
 	});
 	const names = namesFor(db, batches);
+	const readinessSet = new Set(
+		db
+			.select({
+				lessonId: schema.readiness.lessonId,
+				classId: schema.readiness.classId
+			})
+			.from(schema.readiness)
+			.all()
+			.map((r) => `${r.lessonId}|${r.classId}`)
+	);
 
 	return batches
 		.flatMap(({ cls, rows }) =>
-			rows.map((r) => ({
-				classId: cls.id,
-				classLabel: cls.label,
-				tone: cls.tone,
-				date: r.date,
-				week: r.week,
-				periodFrom: r.periodFrom,
-				periodTo: r.periodTo,
-				lesson: r.lesson ? (names.get(r.lesson.lessonId) ?? null) : null
-			}))
+			rows.map((r) => {
+				const lessonId = r.lesson?.lessonId;
+				const lessonInfo = lessonId ? names.get(lessonId) : undefined;
+				return {
+					classId: cls.id,
+					classLabel: cls.label,
+					tone: cls.tone,
+					date: r.date,
+					week: r.week,
+					periodFrom: r.periodFrom,
+					periodTo: r.periodTo,
+					lesson:
+						lessonId && lessonInfo
+							? {
+									id: lessonId,
+									title: lessonInfo.title,
+									topicName: lessonInfo.topicName,
+									ready: readinessSet.has(`${lessonId}|${cls.id}`)
+								}
+							: null
+				};
+			})
 		)
 		.sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
 }
@@ -91,7 +119,7 @@ export interface CalendarCell {
 	classId: string;
 	classLabel: string;
 	tone: number;
-	kind: 'lesson' | 'unplanned' | 'blocked';
+	kind: 'lesson' | 'open' | 'blocked';
 	lesson: LessonName | null;
 	blockedNote: string | null;
 	slotId: string;
@@ -223,7 +251,7 @@ export function calendarWeek(
 				classId: cls.id,
 				classLabel: cls.label,
 				tone: cls.tone,
-				kind: r.lesson ? 'lesson' : 'unplanned',
+				kind: r.lesson ? 'lesson' : 'open',
 				lesson: r.lesson ? (names.get(r.lesson.lessonId) ?? null) : null,
 				blockedNote: null,
 				slotId: r.slotId,
@@ -246,4 +274,108 @@ export function calendarWeek(
 			return row ? [{ id: row.id, date, note: row.note }] : [];
 		})
 	};
+}
+
+export interface PlanningOccurrence {
+	classId: string;
+	label: string;
+	tone: number;
+	date: string;
+	period: number;
+}
+
+export interface PlanningEntry {
+	id: string;
+	title: string;
+	topicName: string;
+	courseName: string;
+	status: LessonStatus;
+	occurrence: PlanningOccurrence | null;
+}
+
+// The Planning stream: one row per Lesson across every Course and Topic, ordered by soonest next
+// Scheduled occurrence on or after `today` across all Classes (ADR-0007). Lessons with no scheduled
+// occurrence sit at the bottom.
+export function planningStream(db: Db, today: string): PlanningEntry[] {
+	const lessons = db
+		.select({
+			id: schema.lesson.id,
+			title: schema.lesson.title,
+			status: schema.lesson.status,
+			position: schema.lesson.position,
+			topicId: schema.topic.id,
+			topicName: schema.topic.name,
+			courseId: schema.course.id,
+			courseName: schema.course.name
+		})
+		.from(schema.lesson)
+		.innerJoin(schema.topic, eq(schema.topic.id, schema.lesson.topicId))
+		.innerJoin(schema.course, eq(schema.course.id, schema.topic.courseId))
+		.all();
+
+	const cal = loadCalendar(db);
+	const classes = listClasses(db);
+
+	const soonestByLesson = new Map<string, PlanningOccurrence>();
+
+	for (const cls of classes) {
+		const result = scheduleFor(db, { classId: cls.id, boundary: today, cal });
+		for (const s of result.scheduled) {
+			const current = soonestByLesson.get(s.lessonId);
+			const isSooner =
+				!current || s.date < current.date || (s.date === current.date && s.period < current.period);
+
+			if (isSooner) {
+				soonestByLesson.set(s.lessonId, {
+					classId: cls.id,
+					label: cls.label,
+					tone: cls.tone,
+					date: s.date,
+					period: s.period
+				});
+			}
+		}
+	}
+
+	type EntryWithPosition = PlanningEntry & { position: number };
+
+	const entries: EntryWithPosition[] = lessons.map((l) => ({
+		id: l.id,
+		title: l.title,
+		topicName: l.topicName,
+		courseName: l.courseName,
+		status: l.status,
+		position: l.position,
+		occurrence: soonestByLesson.get(l.id) ?? null
+	}));
+
+	const compareSecondary = (a: EntryWithPosition, b: EntryWithPosition) => {
+		const c = a.courseName.localeCompare(b.courseName);
+		if (c !== 0) return c;
+		const t = a.topicName.localeCompare(b.topicName);
+		if (t !== 0) return t;
+		return a.position - b.position;
+	};
+
+	entries.sort((a, b) => {
+		if (a.occurrence && b.occurrence) {
+			const d = a.occurrence.date.localeCompare(b.occurrence.date);
+			if (d !== 0) return d;
+			const p = a.occurrence.period - b.occurrence.period;
+			if (p !== 0) return p;
+			return compareSecondary(a, b);
+		}
+		if (a.occurrence) return -1;
+		if (b.occurrence) return 1;
+		return compareSecondary(a, b);
+	});
+
+	return entries.map((entry) => ({
+		id: entry.id,
+		title: entry.title,
+		topicName: entry.topicName,
+		courseName: entry.courseName,
+		status: entry.status,
+		occurrence: entry.occurrence
+	}));
 }

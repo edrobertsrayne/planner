@@ -202,6 +202,7 @@
 </div>
 
 {#if data.lesson && data.course && data.topic}
+	{@const courseId = data.course.id}
 	<LessonEditor
 		lesson={data.lesson}
 		links={data.links}
@@ -211,9 +212,10 @@
 		nextId={data.lessonIndex < data.lessons.length - 1
 			? data.lessons[data.lessonIndex + 1].id
 			: null}
-		courseId={data.course.id}
 		topicId={data.topic.id}
 		topics={data.topics}
 		taughtBy={data.taughtBy}
+		hrefFor={(lessonId, topicId) =>
+			`?course=${courseId}&topic=${topicId}${lessonId ? `&lesson=${lessonId}` : ''}`}
 	/>
 {/if}

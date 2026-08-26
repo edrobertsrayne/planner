@@ -1,6 +1,6 @@
 // A Class: its identity, the Topics assigned to it, and how far through them it has got. The
 // Class is what the engine schedules, so assigning or reordering its Topics re-derives it.
-import { and, asc, eq, lt } from 'drizzle-orm';
+import { and, asc, eq, inArray, lt } from 'drizzle-orm';
 import { nextTone } from '$lib/class-tone';
 import * as schema from '../db/schema';
 import { lessonNames, rederive, scheduleFor, type Db, type WriteReport } from './derive';
@@ -138,6 +138,20 @@ export function unassignTopic(
 		throw new Error('This Topic has already been taught and cannot be unassigned.');
 	}
 
+	const topicLessons = db
+		.select({ id: schema.lesson.id })
+		.from(schema.lesson)
+		.where(eq(schema.lesson.topicId, row.topicId))
+		.all();
+	const lessonIds = topicLessons.map((l) => l.id);
+	if (lessonIds.length > 0) {
+		db.delete(schema.readiness)
+			.where(
+				and(eq(schema.readiness.classId, classId), inArray(schema.readiness.lessonId, lessonIds))
+			)
+			.run();
+	}
+
 	db.delete(schema.assignedTopic).where(eq(schema.assignedTopic.id, id)).run();
 	return rederive(db, classId, today);
 }
@@ -228,7 +242,7 @@ export function classLanes(
 			cls,
 			result,
 			lastEntry: result.history[result.history.length - 1] ?? null,
-			nextEntry: result.planned[0] ?? null
+			nextEntry: result.scheduled[0] ?? null
 		};
 	});
 
@@ -249,7 +263,7 @@ export function classLanes(
 			courseId: cls.courseId,
 			tone: cls.tone,
 			taught: result.history.length,
-			total: result.history.length + result.planned.length + result.unplaced.length,
+			total: result.history.length + result.scheduled.length + result.unplaced.length,
 			lastTaught:
 				lastEntry && lastName
 					? {

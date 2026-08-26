@@ -103,6 +103,12 @@
 			"skillPath": "skills/engineering/tdd/SKILL.md",
 			"computedHash": "614ac2e45fb0ec02f6ce422d26bd9aa4e33aa4867323f5a3a5c0c20b96f78ff4"
 		},
+		"thermo-nuclear-code-quality-review": {
+			"source": "cursor/plugins",
+			"sourceType": "github",
+			"skillPath": "cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md",
+			"computedHash": "9052b01b46b1d8dbf94c45f9313ec1983443f9a460e83d49cdc7fe0f640ca476"
+		},
 		"to-questionnaire": {
 			"source": "mattpocock/skills",
 			"sourceType": "github",
