@@ -112,6 +112,32 @@ export function renameCourse(db: Db, { id, name }: { id: string; name: string })
 	return row;
 }
 
+export function deleteCourse(db: Db, id: string): { ok: false; reason: string } | { ok: true } {
+	const [course] = db.select().from(schema.course).where(eq(schema.course.id, id)).all();
+	if (!course) return { ok: false, reason: 'not found' };
+
+	const topics = db
+		.select({ id: schema.topic.id })
+		.from(schema.topic)
+		.where(eq(schema.topic.courseId, id))
+		.all();
+	if (topics.length > 0) {
+		return { ok: false, reason: 'This Course still holds Topics. Remove them first.' };
+	}
+
+	const classes = db
+		.select({ id: schema.classes.id })
+		.from(schema.classes)
+		.where(eq(schema.classes.courseId, id))
+		.all();
+	if (classes.length > 0) {
+		return { ok: false, reason: 'A Class follows this Course, so it cannot be removed.' };
+	}
+
+	db.delete(schema.course).where(eq(schema.course.id, id)).run();
+	return { ok: true };
+}
+
 export function createTopic(db: Db, { courseId, name }: { courseId: string; name: string }) {
 	const trimmed = name.trim();
 	assertTopicNameAvailable(db, { courseId, name: trimmed });
