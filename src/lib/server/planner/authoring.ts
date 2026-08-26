@@ -163,6 +163,32 @@ export function renameTopic(db: Db, { id, name }: { id: string; name: string }) 
 	return row;
 }
 
+export function deleteTopic(db: Db, id: string): { ok: false; reason: string } | { ok: true } {
+	const [topic] = db.select().from(schema.topic).where(eq(schema.topic.id, id)).all();
+	if (!topic) return { ok: false, reason: 'not found' };
+
+	const lessons = db
+		.select({ id: schema.lesson.id })
+		.from(schema.lesson)
+		.where(eq(schema.lesson.topicId, id))
+		.all();
+	if (lessons.length > 0) {
+		return { ok: false, reason: 'This Topic still holds Lessons. Remove or detach them first.' };
+	}
+
+	const assigned = db
+		.select({ id: schema.assignedTopic.id })
+		.from(schema.assignedTopic)
+		.where(eq(schema.assignedTopic.topicId, id))
+		.all();
+	if (assigned.length > 0) {
+		return { ok: false, reason: 'This Topic is assigned to a Class, so it cannot be removed.' };
+	}
+
+	db.delete(schema.topic).where(eq(schema.topic.id, id)).run();
+	return { ok: true };
+}
+
 // Where a new Lesson lands in its Topic's order (ADR-0010: Lessons, unlike Topics, are explicitly
 // ordered) — at the end, both for a new Lesson and for one moved in from another Topic.
 const endOfTopic = (db: Db, topicId: string) =>
