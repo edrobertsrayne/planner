@@ -371,7 +371,7 @@ export function patchLesson(
 			body?: string | null;
 			length?: number;
 			status?: 'draft' | 'planned';
-			topicId?: string;
+			topicId?: string | null;
 		};
 		today: string;
 	}):
@@ -390,10 +390,12 @@ export function patchLesson(
 	const oldTopicId = row.topicId;
 	const newTopicId = fields.topicId;
 
-	if (newTopicId !== undefined && newTopicId !== oldTopicId) {
+	if (newTopicId !== undefined && newTopicId !== null && newTopicId !== oldTopicId) {
 		const [existing] = db.select().from(schema.topic).where(eq(schema.topic.id, newTopicId)).all();
 		if (!existing) return { ok: false, reason: 'topic not found' };
 		update.topicId = newTopicId;
+	} else if (newTopicId === null && newTopicId !== oldTopicId) {
+		update.topicId = null;
 	}
 
 	if (Object.keys(update).length === 0 && newTopicId === undefined) return { ok: true, lesson: row };
@@ -439,7 +441,7 @@ export function moveLesson(
 // lost a Lesson, the new one gained one.
 export function moveLessonToTopic(
 	db: Db,
-	{ id, topicId, today }: { id: string; topicId: string; today: string }
+	{ id, topicId, today }: { id: string; topicId: string | null; today: string }
 ) {
 	const [row] = db.select().from(schema.lesson).where(eq(schema.lesson.id, id)).all();
 	if (!row) return null;
@@ -447,13 +449,16 @@ export function moveLessonToTopic(
 
 	const [updated] = db
 		.update(schema.lesson)
-		.set({ topicId, position: endOfTopic(db, topicId) })
+		.set({
+			topicId,
+			...(topicId !== null ? { position: endOfTopic(db, topicId) } : {})
+		})
 		.where(eq(schema.lesson.id, id))
 		.returning()
 		.all();
 
 	if (oldTopicId) rederiveTopic(db, oldTopicId, today);
-	if (topicId !== oldTopicId) rederiveTopic(db, topicId, today);
+	if (topicId && topicId !== oldTopicId) rederiveTopic(db, topicId, today);
 	return updated;
 }
 

@@ -63,8 +63,8 @@ export const PATCH: RequestHandler = async (event) => {
 	}
 
 	if (data.topicId !== undefined) {
-		if (typeof data.topicId !== 'string') {
-			return json({ error: 'The "topicId" field must be a string.' }, { status: 400 });
+		if (data.topicId !== null && typeof data.topicId !== 'string') {
+			return json({ error: 'The "topicId" field must be a string or null.' }, { status: 400 });
 		}
 		fields.topicId = data.topicId;
 	}

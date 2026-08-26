@@ -25,7 +25,7 @@ export const load: PageServerLoad = ({ url }) => {
 	let lessonIndex = -1;
 	let taughtBy: ReturnType<typeof classesTaughtLesson> = [];
 
-	if (detail) {
+	if (detail && detail.topicId) {
 		const [t] = db.select().from(schema.topic).where(eq(schema.topic.id, detail.topicId)).all();
 		topic = t ?? null;
 		if (topic) {

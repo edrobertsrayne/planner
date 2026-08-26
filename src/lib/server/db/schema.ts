@@ -36,7 +36,6 @@ export const lesson = sqliteTable(
 	{
 		id: id(),
 		topicId: text('topic_id')
-			.notNull()
 			.references(() => topic.id),
 		title: text('title').notNull(),
 		body: text('body'),
