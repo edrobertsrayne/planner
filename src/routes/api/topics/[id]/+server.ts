@@ -2,7 +2,12 @@ import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db/client';
 import { topic } from '$lib/server/db/schema';
 import { requireApiKey } from '$lib/server/api-key';
-import { rejectUnknownFields, validateString } from '$lib/server/api-helpers';
+import {
+	MAX_NAME_LENGTH,
+	rejectUnknownFields,
+	requireExisting,
+	validateString
+} from '$lib/server/api-helpers';
 import { renameTopic, deleteTopic, NameCollision } from '$lib/server/planner/authoring';
 import { eq } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
@@ -28,12 +33,8 @@ export const PATCH: RequestHandler = async (event) => {
 	const auth = await requireApiKey(event);
 	if (auth) return auth;
 
-	const [existing] = db
-		.select({ id: topic.id })
-		.from(topic)
-		.where(eq(topic.id, event.params.id))
-		.all();
-	if (!existing) return json({ error: 'Topic not found.' }, { status: 404 });
+	const missing = requireExisting(db, topic, event.params.id, 'Topic not found.');
+	if (missing) return missing;
 
 	const body = await event.request.json();
 
@@ -49,7 +50,7 @@ export const PATCH: RequestHandler = async (event) => {
 		return json(record);
 	}
 
-	const name = validateString(body.name, 'name', 200);
+	const name = validateString(body.name, 'name', MAX_NAME_LENGTH);
 	if (name instanceof Response) return name;
 
 	try {

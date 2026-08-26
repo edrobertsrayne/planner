@@ -2,9 +2,13 @@ import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db/client';
 import { course } from '$lib/server/db/schema';
 import { requireApiKey } from '$lib/server/api-key';
-import { rejectUnknownFields, validateString } from '$lib/server/api-helpers';
+import {
+	MAX_NAME_LENGTH,
+	rejectUnknownFields,
+	requireExisting,
+	validateString
+} from '$lib/server/api-helpers';
 import { topicsOf, createTopic, NameCollision } from '$lib/server/planner/authoring';
-import { eq } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
 const TOPIC_FIELDS = new Set(['name']);
@@ -13,12 +17,8 @@ export const GET: RequestHandler = async (event) => {
 	const auth = await requireApiKey(event);
 	if (auth) return auth;
 
-	const [existing] = db
-		.select({ id: course.id })
-		.from(course)
-		.where(eq(course.id, event.params.id))
-		.all();
-	if (!existing) return json({ error: 'Course not found.' }, { status: 404 });
+	const missing = requireExisting(db, course, event.params.id, 'Course not found.');
+	if (missing) return missing;
 
 	const topics = topicsOf(db, event.params.id);
 	topics.sort((a, b) => a.name.localeCompare(b.name));
@@ -30,19 +30,15 @@ export const POST: RequestHandler = async (event) => {
 	const auth = await requireApiKey(event);
 	if (auth) return auth;
 
-	const [existing] = db
-		.select({ id: course.id })
-		.from(course)
-		.where(eq(course.id, event.params.id))
-		.all();
-	if (!existing) return json({ error: 'Course not found.' }, { status: 404 });
+	const missing = requireExisting(db, course, event.params.id, 'Course not found.');
+	if (missing) return missing;
 
 	const body = await event.request.json();
 
 	const unknown = rejectUnknownFields(body, TOPIC_FIELDS);
 	if (unknown) return unknown;
 
-	const name = validateString(body.name, 'name', 200);
+	const name = validateString(body.name, 'name', MAX_NAME_LENGTH);
 	if (name instanceof Response) return name;
 
 	try {

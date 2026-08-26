@@ -51,9 +51,10 @@ function assertCourseNameAvailable(
 	}
 }
 
-// A Topic is refused on create or rename if the same Course already holds a Topic of that name.
-// Two Courses may each hold a "Forces", so the check is scoped to course_id.
-function assertTopicNameAvailable(
+// The Topic-name-collision query, shared by the refusing form (assertTopicNameAvailable, used by
+// create/rename) and the reporting form (importTopic, which turns a collision into a 409 instead
+// of a throw). Two Courses may each hold a "Forces", so the check is scoped to course_id.
+function findTopicNameCollision(
 	db: Db,
 	{ courseId, name, exceptId }: { courseId: string; name: string; exceptId?: string }
 ) {
@@ -70,7 +71,15 @@ function assertTopicNameAvailable(
 			)
 		)
 		.all();
-	const collision = rows.find((row) => nameMatchesIgnoringCaseAndWhitespace(row.name, name));
+	return rows.find((row) => nameMatchesIgnoringCaseAndWhitespace(row.name, name));
+}
+
+// A Topic is refused on create or rename if the same Course already holds a Topic of that name.
+function assertTopicNameAvailable(
+	db: Db,
+	{ courseId, name, exceptId }: { courseId: string; name: string; exceptId?: string }
+) {
+	const collision = findTopicNameCollision(db, { courseId, name, exceptId });
 	if (collision) {
 		throw new NameCollision(`This Course already has a Topic called "${collision.name.trim()}".`);
 	}
@@ -627,19 +636,10 @@ export function importTopic(
 		}
 
 		const trimmedTopicName = topicName.trim();
-		const existingTopic = db
-			.select({ id: schema.topic.id, name: schema.topic.name })
-			.from(schema.topic)
-			.where(
-				and(
-					eq(schema.topic.courseId, resolvedCourseId),
-					sql`lower(${schema.topic.name}) = lower(${trimmedTopicName})`
-				)
-			)
-			.all();
-		const topicCollision = existingTopic.find(
-			(t) => t.name.trim().toLowerCase() === trimmedTopicName.toLowerCase()
-		);
+		const topicCollision = findTopicNameCollision(db, {
+			courseId: resolvedCourseId,
+			name: topicName
+		});
 		if (topicCollision) {
 			client.run('ROLLBACK');
 			return {

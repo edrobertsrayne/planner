@@ -1,6 +1,24 @@
 import { json } from '@sveltejs/kit';
+import { eq } from 'drizzle-orm';
+import type { SQLiteTable, SQLiteColumn } from 'drizzle-orm/sqlite-core';
+import type { Db } from './planner/derive';
 
 const ALLOWED_STATUSES = new Set(['draft', 'planned']);
+
+// The name/title/label ceiling every API route enforces (issue #129, §6 of the planning API spec).
+export const MAX_NAME_LENGTH = 200;
+
+// Every route needs its target row to exist before it reads or writes further. Returns the 404
+// Response to return as-is, or null once the row is confirmed present.
+export function requireExisting<T extends SQLiteTable & { id: SQLiteColumn }>(
+	db: Db,
+	table: T,
+	id: string,
+	notFoundMessage: string
+): Response | null {
+	const [existing] = db.select({ id: table.id }).from(table).where(eq(table.id, id)).all();
+	return existing ? null : json({ error: notFoundMessage }, { status: 404 });
+}
 
 export function validateString(value: unknown, name: string, maxLength: number): string | Response {
 	if (typeof value !== 'string') {

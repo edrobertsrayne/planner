@@ -1,9 +1,8 @@
 import { json } from '@sveltejs/kit';
 import { client, db } from '$lib/server/db/client';
 import { requireApiKey } from '$lib/server/api-key';
-import { validateString } from '$lib/server/api-helpers';
+import { MAX_NAME_LENGTH, validateString, getDateToday } from '$lib/server/api-helpers';
 import { importTopic } from '$lib/server/planner/authoring';
-import { getDateToday } from '$lib/server/api-helpers';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async (event) => {
@@ -20,7 +19,7 @@ export const POST: RequestHandler = async (event) => {
 		return json({ error: 'The "topic" field is required.' }, { status: 400 });
 	}
 
-	const topicName = validateString(data.topic.name, 'name', 200);
+	const topicName = validateString(data.topic.name, 'name', MAX_NAME_LENGTH);
 	if (topicName instanceof Response) return topicName;
 
 	const lessons = Array.isArray(data.topic.lessons) ? data.topic.lessons : [];
@@ -30,8 +29,11 @@ export const POST: RequestHandler = async (event) => {
 			return json({ error: 'Every Lesson needs a title.' }, { status: 400 });
 		}
 		const trimmed = lesson.title.trim();
-		if (trimmed.length > 200) {
-			return json({ error: 'The "title" field must be at most 200 characters.' }, { status: 400 });
+		if (trimmed.length > MAX_NAME_LENGTH) {
+			return json(
+				{ error: `The "title" field must be at most ${MAX_NAME_LENGTH} characters.` },
+				{ status: 400 }
+			);
 		}
 		if (lesson.links) {
 			if (!Array.isArray(lesson.links)) {

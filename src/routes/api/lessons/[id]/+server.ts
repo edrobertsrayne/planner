@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db/client';
 import { requireApiKey } from '$lib/server/api-key';
 import {
+	MAX_NAME_LENGTH,
 	rejectUnknownFields,
 	validateString,
 	validateStatus,
@@ -41,7 +42,7 @@ export const PATCH: RequestHandler = async (event) => {
 	} = {};
 
 	if (data.title !== undefined) {
-		const title = validateString(data.title, 'title', 200);
+		const title = validateString(data.title, 'title', MAX_NAME_LENGTH);
 		if (title instanceof Response) return title;
 		fields.title = title;
 	}

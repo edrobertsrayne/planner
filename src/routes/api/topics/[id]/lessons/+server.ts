@@ -3,14 +3,15 @@ import { db } from '$lib/server/db/client';
 import { topic } from '$lib/server/db/schema';
 import { requireApiKey } from '$lib/server/api-key';
 import {
+	MAX_NAME_LENGTH,
 	rejectUnknownFields,
+	requireExisting,
 	validateString,
 	validateStatus,
 	validateLength,
 	getDateToday
 } from '$lib/server/api-helpers';
 import { lessonsOf, createLesson } from '$lib/server/planner/authoring';
-import { eq } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
 const LESSON_FIELDS = new Set(['title', 'body', 'length', 'status']);
@@ -19,12 +20,8 @@ export const GET: RequestHandler = async (event) => {
 	const auth = await requireApiKey(event);
 	if (auth) return auth;
 
-	const [existing] = db
-		.select({ id: topic.id })
-		.from(topic)
-		.where(eq(topic.id, event.params.id))
-		.all();
-	if (!existing) return json({ error: 'Topic not found.' }, { status: 404 });
+	const missing = requireExisting(db, topic, event.params.id, 'Topic not found.');
+	if (missing) return missing;
 
 	const lessons = lessonsOf(db, event.params.id);
 	return json(lessons);
@@ -34,19 +31,15 @@ export const POST: RequestHandler = async (event) => {
 	const auth = await requireApiKey(event);
 	if (auth) return auth;
 
-	const [existing] = db
-		.select({ id: topic.id })
-		.from(topic)
-		.where(eq(topic.id, event.params.id))
-		.all();
-	if (!existing) return json({ error: 'Topic not found.' }, { status: 404 });
+	const missing = requireExisting(db, topic, event.params.id, 'Topic not found.');
+	if (missing) return missing;
 
 	const data = await event.request.json();
 
 	const unknown = rejectUnknownFields(data, LESSON_FIELDS);
 	if (unknown) return unknown;
 
-	const title = validateString(data.title ?? '', 'title', 200);
+	const title = validateString(data.title ?? '', 'title', MAX_NAME_LENGTH);
 	if (title instanceof Response) return title;
 
 	let lessonLength: number | undefined;

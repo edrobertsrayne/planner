@@ -2,7 +2,13 @@ import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db/client';
 import { link } from '$lib/server/db/schema';
 import { requireApiKey } from '$lib/server/api-key';
-import { rejectUnknownFields, validateUrl, validateString } from '$lib/server/api-helpers';
+import {
+	MAX_NAME_LENGTH,
+	rejectUnknownFields,
+	requireExisting,
+	validateUrl,
+	validateString
+} from '$lib/server/api-helpers';
 import { deleteLink } from '$lib/server/planner/authoring';
 import { eq } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
@@ -27,17 +33,13 @@ export const PATCH: RequestHandler = async (event) => {
 	}
 
 	if (data.label !== undefined) {
-		const label = validateString(data.label, 'label', 200);
+		const label = validateString(data.label, 'label', MAX_NAME_LENGTH);
 		if (label instanceof Response) return label;
 		update.label = label;
 	}
 
-	const [existing] = db
-		.select({ id: link.id })
-		.from(link)
-		.where(eq(link.id, event.params.id))
-		.all();
-	if (!existing) return json({ error: 'Link not found.' }, { status: 404 });
+	const missing = requireExisting(db, link, event.params.id, 'Link not found.');
+	if (missing) return missing;
 
 	db.update(link).set(update).where(eq(link.id, event.params.id)).run();
 

@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db/client';
 import { requireApiKey } from '$lib/server/api-key';
-import { rejectUnknownFields, validateString } from '$lib/server/api-helpers';
+import { MAX_NAME_LENGTH, rejectUnknownFields, validateString } from '$lib/server/api-helpers';
 import { createCourse, NameCollision, listCourses } from '$lib/server/planner/authoring';
 import type { RequestHandler } from './$types';
 
@@ -25,7 +25,7 @@ export const POST: RequestHandler = async (event) => {
 	const unknown = rejectUnknownFields(body, COURSE_FIELDS);
 	if (unknown) return unknown;
 
-	const name = validateString(body.name, 'name', 200);
+	const name = validateString(body.name, 'name', MAX_NAME_LENGTH);
 	if (name instanceof Response) return name;
 
 	try {
