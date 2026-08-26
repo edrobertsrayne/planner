@@ -39,6 +39,7 @@ import {
 	moveLesson,
 	moveLessonToTopic,
 	moveLink,
+	NameCollision,
 	planningStream,
 	recordContinuation,
 	renameCourse,
@@ -1060,6 +1061,100 @@ describe('authoring Courses, Topics and Lessons', () => {
 
 		const renamed = renameLesson(db, { id: first.id, title: 'Newton I — inertia' });
 		expect(lessonsOf(db, topic.id).map((l) => l.title)).toEqual([renamed.title, second.title]);
+	});
+});
+
+// Course names are globally unique; Topic names are unique within their Course (issue #131).
+// The seam refuses the write with a readable message — the database indexes are the guard of last
+// resort, not the user-facing one. Matching is case-insensitive, and stored values are trimmed at
+// write time, so "Forces" and "forces" and "  Forces  " all collide.
+describe('name collisions', () => {
+	test('creating a Course whose name duplicates another throws NameCollision', () => {
+		const { db } = setUpAuthoring();
+		createCourse(db, { name: 'Year 9 Physics' });
+
+		expect(() => createCourse(db, { name: 'Year 10 Physics' })).not.toThrow();
+		expect(() => createCourse(db, { name: 'Year 9 Physics' })).toThrow(NameCollision);
+		expect(() => createCourse(db, { name: 'YEAR 9 PHYSICS' })).toThrow(NameCollision);
+		expect(() => createCourse(db, { name: '  Year 9 Physics  ' })).toThrow(NameCollision);
+
+		// No row landed from any of the refused attempts.
+		expect(listCourses(db)).toHaveLength(2);
+	});
+
+	test('renaming a Course to a name in use throws NameCollision', () => {
+		const { db } = setUpAuthoring();
+		const a = createCourse(db, { name: 'Year 9 Physics' });
+		const b = createCourse(db, { name: 'Year 10 Physics' });
+
+		expect(() => renameCourse(db, { id: b.id, name: 'Year 9 Physics' })).toThrow(NameCollision);
+		expect(() => renameCourse(db, { id: b.id, name: 'year 9 physics' })).toThrow(NameCollision);
+
+		// A rename to its own name is not a collision — the seam excludes the row being renamed.
+		expect(() => renameCourse(db, { id: a.id, name: 'Year 9 Physics' })).not.toThrow();
+		expect(() => renameCourse(db, { id: a.id, name: 'YEAR 9 PHYSICS' })).not.toThrow();
+	});
+
+	test('creating a Topic whose name duplicates one in the same Course throws NameCollision', () => {
+		const { db } = setUpAuthoring();
+		const course = createCourse(db, { name: 'Year 9 Physics' });
+		const other = createCourse(db, { name: 'Year 10 Physics' });
+
+		createTopic(db, { courseId: course.id, name: 'Forces' });
+
+		// Same Course, same name (any case): refused.
+		expect(() => createTopic(db, { courseId: course.id, name: 'Forces' })).toThrow(NameCollision);
+		expect(() => createTopic(db, { courseId: course.id, name: 'forces' })).toThrow(NameCollision);
+
+		// Different Course, same name: accepted.
+		expect(() => createTopic(db, { courseId: other.id, name: 'Forces' })).not.toThrow();
+
+		expect(topicsOf(db, course.id)).toHaveLength(1);
+	});
+
+	test('renaming a Topic to a name used in the same Course throws NameCollision', () => {
+		const { db } = setUpAuthoring();
+		const course = createCourse(db, { name: 'Year 9 Physics' });
+		const forces = createTopic(db, { courseId: course.id, name: 'Forces' });
+		const waves = createTopic(db, { courseId: course.id, name: 'Waves' });
+
+		expect(() => renameTopic(db, { id: waves.id, name: 'Forces' })).toThrow(NameCollision);
+		expect(() => renameTopic(db, { id: waves.id, name: 'FORCES' })).toThrow(NameCollision);
+
+		// A rename to its own name is not a collision — the seam excludes the row being renamed.
+		expect(() => renameTopic(db, { id: forces.id, name: 'Forces' })).not.toThrow();
+		expect(() => renameTopic(db, { id: forces.id, name: 'forces' })).not.toThrow();
+
+		// Renaming Waves to "Forces" into a different Course is still fine — Topic uniqueness is
+		// scoped to its Course.
+		const other = createCourse(db, { name: 'Year 10 Physics' });
+		const forcesInOther = createTopic(db, { courseId: other.id, name: 'Forces' });
+		expect(forcesInOther.name).toBe('Forces');
+	});
+
+	test('two Lessons in one Topic may still share a title', () => {
+		const { db } = setUpAuthoring();
+		const course = createCourse(db, { name: 'Year 9 Physics' });
+		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
+
+		expect(() =>
+			createLesson(db, { topicId: topic.id, title: 'Revision', today: '2026-09-03' })
+		).not.toThrow();
+		expect(() =>
+			createLesson(db, { topicId: topic.id, title: 'Revision', today: '2026-09-03' })
+		).not.toThrow();
+
+		expect(lessonsOf(db, topic.id).map((l) => l.title)).toEqual(['Revision', 'Revision']);
+	});
+
+	test('the database index refuses a write that bypasses the seam', () => {
+		const { db } = setUpAuthoring();
+		createCourse(db, { name: 'Year 9 Physics' });
+
+		// Raw insert — the application's collision check is skipped.
+		expect(() =>
+			db.insert(schema.course).values({ id: 'bypass', name: 'YEAR 9 PHYSICS' }).run()
+		).toThrow();
 	});
 });
 

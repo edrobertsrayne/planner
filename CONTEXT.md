@@ -16,13 +16,16 @@ the model follows from keeping those two apart.
 The body of teaching material for a subject and year group, such as "Year 9 Physics". Composed of
 Topics, which it holds in no particular order — a Course is what a Class _may_ be taught, not a
 sequence it works through. It outlives the Classes drawing on it, and a Class typically teaches
-only part of one in a year.
+only part of one in a year. Course names are unique across the planner, case-insensitive, so
+"Year 9 Physics" and "YEAR 9 PHYSICS" are the same name.
 _Avoid_: Scheme of work, syllabus, curriculum, module, unit
 
 **Topic**:
 A named block of teaching within a Course, such as "Forces". Composed of Lessons, in order.
 Belongs to exactly one Course and holds no position within it; the order teaching happens in is
-fixed per Class by its Assigned Topics.
+fixed per Class by its Assigned Topics. Topic names are unique within their Course —
+case-insensitive, and trimmed — so two Courses may each hold a "Forces", but one Course may not
+hold two "Forces" Topics.
 _Avoid_: Unit, module, block, chapter
 
 **Lesson**:

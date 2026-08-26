@@ -3,10 +3,77 @@
 // a Class, the Lesson is part of that Class's schedule, so every write to a Lesson re-derives
 // every Class with that Topic assigned — quietly, on the same write, with no separate recompute
 // step (issue #31).
-import { and, asc, eq, lt } from 'drizzle-orm';
+import { and, asc, eq, lt, sql } from 'drizzle-orm';
 import * as schema from '../db/schema';
 import { rederiveTopic, type Db } from './derive';
 import { nextPosition, swapTargets, type Direction } from './ordering';
+
+// Course and Topic names carry an explicit uniqueness rule (issue #131, §6 of the planning API
+// spec). The database indexes are the guard of last resort — every route handler maps a collision
+// here into a readable 4xx — so the seam refuses the write first and never lets a raw
+// SQLITE_CONSTRAINT reach the user.
+export class NameCollision extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'NameCollision';
+	}
+}
+
+// "Forces" and "forces" collide; "  Forces  " and "Forces" collide too. Stored values are trimmed
+// at write time, but a row that pre-dates this ticket may still hold surrounding whitespace, so
+// the comparison normalises both sides.
+function nameMatchesIgnoringCaseAndWhitespace(stored: string, attempted: string): boolean {
+	return stored.trim().toLowerCase() === attempted.trim().toLowerCase();
+}
+
+// A Course is refused on create or rename if any other Course — case-insensitive, trimmed — already
+// holds the name. The seam throws with the message already written for the teacher to read; the
+// form action maps it to a 4xx with no further work. The thrown message embeds the *trimmed*
+// stored name, never its surrounding whitespace.
+function assertCourseNameAvailable(
+	db: Db,
+	{ name, exceptId }: { name: string; exceptId?: string }
+) {
+	const trimmed = name.trim();
+	const rows = db
+		.select({ id: schema.course.id, name: schema.course.name })
+		.from(schema.course)
+		.where(
+			exceptId
+				? sql`${schema.course.id} != ${exceptId} AND lower(${schema.course.name}) = lower(${trimmed})`
+				: sql`lower(${schema.course.name}) = lower(${trimmed})`
+		)
+		.all();
+	const collision = rows.find((row) => nameMatchesIgnoringCaseAndWhitespace(row.name, name));
+	if (collision) {
+		throw new NameCollision(`A Course called "${collision.name.trim()}" already exists.`);
+	}
+}
+
+// A Topic is refused on create or rename if the same Course already holds a Topic of that name.
+// Two Courses may each hold a "Forces", so the check is scoped to course_id.
+function assertTopicNameAvailable(
+	db: Db,
+	{ courseId, name, exceptId }: { courseId: string; name: string; exceptId?: string }
+) {
+	const trimmed = name.trim();
+	const rows = db
+		.select({ id: schema.topic.id, name: schema.topic.name })
+		.from(schema.topic)
+		.where(
+			and(
+				eq(schema.topic.courseId, courseId),
+				exceptId
+					? sql`${schema.topic.id} != ${exceptId} AND lower(${schema.topic.name}) = lower(${trimmed})`
+					: sql`lower(${schema.topic.name}) = lower(${trimmed})`
+			)
+		)
+		.all();
+	const collision = rows.find((row) => nameMatchesIgnoringCaseAndWhitespace(row.name, name));
+	if (collision) {
+		throw new NameCollision(`This Course already has a Topic called "${collision.name.trim()}".`);
+	}
+}
 
 export function listCourses(db: Db) {
 	return db.select().from(schema.course).orderBy(asc(schema.course.name)).all();
@@ -27,14 +94,18 @@ export function lessonsOf(db: Db, topicId: string) {
 }
 
 export function createCourse(db: Db, { name }: { name: string }) {
-	const [row] = db.insert(schema.course).values({ name }).returning().all();
+	const trimmed = name.trim();
+	assertCourseNameAvailable(db, { name: trimmed });
+	const [row] = db.insert(schema.course).values({ name: trimmed }).returning().all();
 	return row;
 }
 
 export function renameCourse(db: Db, { id, name }: { id: string; name: string }) {
+	const trimmed = name.trim();
+	assertCourseNameAvailable(db, { name: trimmed, exceptId: id });
 	const [row] = db
 		.update(schema.course)
-		.set({ name })
+		.set({ name: trimmed })
 		.where(eq(schema.course.id, id))
 		.returning()
 		.all();
@@ -42,14 +113,24 @@ export function renameCourse(db: Db, { id, name }: { id: string; name: string })
 }
 
 export function createTopic(db: Db, { courseId, name }: { courseId: string; name: string }) {
-	const [row] = db.insert(schema.topic).values({ courseId, name }).returning().all();
+	const trimmed = name.trim();
+	assertTopicNameAvailable(db, { courseId, name: trimmed });
+	const [row] = db.insert(schema.topic).values({ courseId, name: trimmed }).returning().all();
 	return row;
 }
 
 export function renameTopic(db: Db, { id, name }: { id: string; name: string }) {
+	const [existing] = db.select().from(schema.topic).where(eq(schema.topic.id, id)).all();
+	if (!existing) return undefined;
+	const trimmed = name.trim();
+	assertTopicNameAvailable(db, {
+		courseId: existing.courseId,
+		name: trimmed,
+		exceptId: id
+	});
 	const [row] = db
 		.update(schema.topic)
-		.set({ name })
+		.set({ name: trimmed })
 		.where(eq(schema.topic.id, id))
 		.returning()
 		.all();
