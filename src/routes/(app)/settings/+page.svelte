@@ -153,7 +153,7 @@
 		<Card.Content>
 			{#if data.keys.length > 0}
 				<div class="mb-4 space-y-2">
-					{#each data.keys as key}
+					{#each data.keys as key (key.id)}
 						<div
 							class="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm"
 						>

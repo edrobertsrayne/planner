@@ -1,10 +1,8 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db/client';
-import { course } from '$lib/server/db/schema';
 import { requireApiKey } from '$lib/server/api-key';
 import { rejectUnknownFields, validateString } from '$lib/server/api-helpers';
 import { createCourse, NameCollision, listCourses } from '$lib/server/planner/authoring';
-import { asc } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
 const COURSE_FIELDS = new Set(['name']);

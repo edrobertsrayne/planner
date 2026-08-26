@@ -2422,7 +2422,7 @@ describe('a Standalone Lesson', () => {
 	test('a taught Lesson whose Topic is cleared still shows its title in the Session panel, the Agenda and the Calendar, with no Topic name', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
-		const [l1, l2] = makeLessons(db, topic.id, 2);
+		const [l1] = makeLessons(db, topic.id, 2);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 
 		// Teach the first two lessons by advancing past their dates.

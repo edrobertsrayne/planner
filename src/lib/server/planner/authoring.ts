@@ -719,7 +719,7 @@ export function importTopic(
 			topic: { id: topicRow.id, name: topicRow.name, courseId: topicRow.courseId },
 			lessons: lessonResults
 		};
-	} catch (error) {
+	} catch {
 		client.run('ROLLBACK');
 		return { ok: false, status: 500, error: 'Import failed.' };
 	}
