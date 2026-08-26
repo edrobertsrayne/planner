@@ -88,6 +88,7 @@ export {
 	moveLink,
 	NameCollision,
 	patchLesson,
+	importTopic,
 	renameCourse,
 	renameLesson,
 	renameTopic,

@@ -4,6 +4,7 @@
 // every Class with that Topic assigned — quietly, on the same write, with no separate recompute
 // step (issue #31).
 import { and, asc, eq, lt, sql } from 'drizzle-orm';
+import type { Database } from 'bun:sqlite';
 import * as schema from '../db/schema';
 import { rederiveTopic, type Db } from './derive';
 import { nextPosition, swapTargets, type Direction } from './ordering';
@@ -522,4 +523,128 @@ export function moveLink(
 	const [a, b] = swap;
 	db.update(schema.link).set({ position: b.position }).where(eq(schema.link.id, a.id)).run();
 	db.update(schema.link).set({ position: a.position }).where(eq(schema.link.id, b.id)).run();
+}
+
+export function importTopic(
+	db: Db,
+	client: Database,
+	{
+		courseId,
+		courseName,
+		topicName,
+		lessons
+	}: {
+		courseId?: string;
+		courseName?: string;
+		topicName: string;
+		lessons: Array<{
+			title: string;
+			body?: string | null;
+			length?: number;
+			status?: 'draft' | 'planned';
+			links?: Array<{ url: string; label: string }>;
+		}>;
+	},
+	today: string
+):
+	| { ok: true; course: { id: string; name: string }; courseCreated: boolean; topic: { id: string; name: string; courseId: string }; lessons: Array<{ id: string; title: string; position: number; links: Array<{ id: string; url: string; label: string; position: number }> }> }
+	| { ok: false; status: number; error: string } {
+	if (courseId && courseName) return { ok: false, status: 400, error: 'The "course" field must carry exactly one of "id" or "name".' };
+	if (!courseId && !courseName) return { ok: false, status: 400, error: 'The "course" field must carry exactly one of "id" or "name".' };
+
+	if (lessons.length > 200) return { ok: false, status: 400, error: 'At most 200 Lessons per Import.' };
+
+	for (const lesson of lessons) {
+		if (lesson.links && lesson.links.length > 20) {
+			return { ok: false, status: 400, error: 'At most 20 Links per Lesson.' };
+		}
+	}
+
+	client.run('BEGIN');
+	try {
+		let resolvedCourseId = courseId;
+		let courseCreated = false;
+
+		if (courseName) {
+			const trimmed = courseName.trim();
+			const [existing] = db.select({ id: schema.course.id, name: schema.course.name }).from(schema.course).where(sql`lower(${schema.course.name}) = lower(${trimmed})`).all();
+			if (existing) {
+				resolvedCourseId = existing.id;
+			} else {
+				const [created] = db.insert(schema.course).values({ name: trimmed }).returning().all();
+				resolvedCourseId = created.id;
+				courseCreated = true;
+			}
+		}
+
+		if (!resolvedCourseId) {
+			client.run('ROLLBACK');
+			return { ok: false, status: 404, error: 'Course not found.' };
+		}
+
+		const courseRecord = db.select({ id: schema.course.id, name: schema.course.name }).from(schema.course).where(eq(schema.course.id, resolvedCourseId)).all()[0];
+		if (!courseRecord) {
+			client.run('ROLLBACK');
+			return { ok: false, status: 404, error: 'Course not found.' };
+		}
+
+		const trimmedTopicName = topicName.trim();
+		const existingTopic = db.select({ id: schema.topic.id, name: schema.topic.name }).from(schema.topic).where(and(eq(schema.topic.courseId, resolvedCourseId), sql`lower(${schema.topic.name}) = lower(${trimmedTopicName})`)).all();
+		const topicCollision = existingTopic.find((t) => t.name.trim().toLowerCase() === trimmedTopicName.toLowerCase());
+		if (topicCollision) {
+			client.run('ROLLBACK');
+			return { ok: false, status: 409, error: `The Course "${courseRecord.name}" already holds a Topic called "${topicCollision.name.trim()}".` };
+		}
+
+		const [topicRow] = db.insert(schema.topic).values({ name: trimmedTopicName, courseId: resolvedCourseId }).returning().all();
+
+		const lessonResults: Array<{
+			id: string;
+			title: string;
+			position: number;
+			links: Array<{ id: string; url: string; label: string; position: number }>;
+		}> = [];
+
+		for (let i = 0; i < lessons.length; i++) {
+			const lesson = lessons[i];
+			const [lessonRow] = db
+				.insert(schema.lesson)
+				.values({
+					topicId: topicRow.id,
+					title: lesson.title.trim(),
+					position: i,
+					...(lesson.body !== undefined ? { body: lesson.body } : {}),
+					...(lesson.length !== undefined ? { length: lesson.length } : {}),
+					...(lesson.status !== undefined ? { status: lesson.status } : {})
+				})
+				.returning()
+				.all();
+
+			const linkResults: Array<{ id: string; url: string; label: string; position: number }> = [];
+			if (lesson.links) {
+				for (let j = 0; j < lesson.links.length; j++) {
+					const link = lesson.links[j];
+					const [linkRow] = db.insert(schema.link).values({ lessonId: lessonRow.id, url: link.url.trim(), label: link.label.trim(), position: j }).returning().all();
+					linkResults.push({ id: linkRow.id, url: linkRow.url, label: linkRow.label, position: linkRow.position });
+				}
+			}
+
+			lessonResults.push({ id: lessonRow.id, title: lessonRow.title, position: lessonRow.position, links: linkResults });
+		}
+
+		rederiveTopic(db, topicRow.id, today);
+
+		client.run('COMMIT');
+
+		return {
+			ok: true,
+			course: { id: courseRecord.id, name: courseRecord.name },
+			courseCreated,
+			topic: { id: topicRow.id, name: topicRow.name, courseId: topicRow.courseId },
+			lessons: lessonResults
+		};
+	} catch (error) {
+		client.run('ROLLBACK');
+		return { ok: false, status: 500, error: 'Import failed.' };
+	}
 }
