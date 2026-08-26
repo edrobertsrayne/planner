@@ -197,9 +197,9 @@
 		nextId={data.lessonIndex < data.lessons.length - 1
 			? data.lessons[data.lessonIndex + 1].id
 			: null}
-		courseId={data.course.id}
 		topicId={data.topic.id}
 		topics={data.topics}
 		taughtBy={data.taughtBy}
+		hrefFor={(lessonId) => (lessonId ? `?lesson=${lessonId}` : '/planning')}
 	/>
 {/if}

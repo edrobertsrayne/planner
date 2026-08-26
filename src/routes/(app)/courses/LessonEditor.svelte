@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
-	import { page } from '$app/state';
 	import { replaceQuery } from '$lib/client/enhance';
 	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
@@ -20,10 +19,10 @@
 		count,
 		previousId,
 		nextId,
-		courseId,
 		topicId,
 		topics,
-		taughtBy
+		taughtBy,
+		hrefFor
 	}: {
 		lesson: {
 			id: string;
@@ -37,24 +36,16 @@
 		count: number;
 		previousId: string | null;
 		nextId: string | null;
-		courseId: string;
 		topicId: string;
 		topics: { id: string; name: string }[];
 		taughtBy: { id: string; label: string }[];
+		hrefFor: (lessonId: string | null, topicId: string) => string;
 	} = $props();
-
-	function hrefFor(lessonId: string | null) {
-		if (page.url.pathname.startsWith('/planning')) {
-			return lessonId ? `?lesson=${lessonId}` : '/planning';
-		}
-		const base = `?course=${courseId}&topic=${topicId}`;
-		return lessonId ? `${base}&lesson=${lessonId}` : base;
-	}
 
 	async function step(lessonId: string | null) {
 		if (!lessonId) return;
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- carries a query string
-		await goto(hrefFor(lessonId), { replaceState: true, noScroll: true, keepFocus: true });
+		await goto(hrefFor(lessonId, topicId), { replaceState: true, noScroll: true, keepFocus: true });
 	}
 
 	async function close() {
@@ -62,7 +53,7 @@
 		// commits a pending edit when Ed closes with Escape mid-field rather than by clicking away.
 		(document.activeElement as HTMLElement | null)?.blur();
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- carries a query string
-		await goto(hrefFor(null), { replaceState: true, noScroll: true, keepFocus: true });
+		await goto(hrefFor(null, topicId), { replaceState: true, noScroll: true, keepFocus: true });
 	}
 
 	let statusInput: HTMLInputElement | null = $state(null);
@@ -239,11 +230,7 @@
 							return async ({ formData, result, update }) => {
 								if (result.type !== 'success') return update();
 								const newTopicId = String(formData.get('topicId'));
-								if (page.url.pathname.startsWith('/planning')) {
-									await replaceQuery(`?lesson=${lesson.id}`);
-								} else {
-									await replaceQuery(`?course=${courseId}&topic=${newTopicId}&lesson=${lesson.id}`);
-								}
+								await replaceQuery(hrefFor(lesson.id, newTopicId));
 							};
 						}}
 					>
