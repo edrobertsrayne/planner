@@ -32,7 +32,11 @@ export const PATCH: RequestHandler = async (event) => {
 		update.label = label;
 	}
 
-	const [existing] = db.select({ id: link.id }).from(link).where(eq(link.id, event.params.id)).all();
+	const [existing] = db
+		.select({ id: link.id })
+		.from(link)
+		.where(eq(link.id, event.params.id))
+		.all();
 	if (!existing) return json({ error: 'Link not found.' }, { status: 404 });
 
 	db.update(link).set(update).where(eq(link.id, event.params.id)).run();

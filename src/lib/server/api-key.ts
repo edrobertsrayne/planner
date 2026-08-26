@@ -33,10 +33,7 @@ export async function requireApiKey(event: RequestEvent): Promise<Response | voi
 
 	if (!key) return UNAUTHORIZED;
 
-	await db
-		.update(apiKey)
-		.set({ lastUsedAt: Date.now() })
-		.where(eq(apiKey.id, key.id));
+	await db.update(apiKey).set({ lastUsedAt: Date.now() }).where(eq(apiKey.id, key.id));
 
 	event.locals.apiKeyId = key.id;
 }

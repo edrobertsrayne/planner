@@ -99,8 +99,8 @@
 								<span class="block truncate text-sm font-medium">{row.lesson.title}</span>
 								<span class="block truncate text-xs text-muted-foreground">
 									{#if row.lesson.topicName}
-									{row.lesson.topicName}
-								{/if}
+										{row.lesson.topicName}
+									{/if}
 								</span>
 							{:else}
 								<span class="block text-sm text-muted-foreground italic">Open Slot</span>

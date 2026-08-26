@@ -2,11 +2,7 @@ import { json } from '@sveltejs/kit';
 
 const ALLOWED_STATUSES = new Set(['draft', 'planned']);
 
-export function validateString(
-	value: unknown,
-	name: string,
-	maxLength: number
-): string | Response {
+export function validateString(value: unknown, name: string, maxLength: number): string | Response {
 	if (typeof value !== 'string') {
 		return json({ error: `The "${name}" field must be a string.` }, { status: 400 });
 	}
@@ -15,7 +11,10 @@ export function validateString(
 		return json({ error: `The "${name}" field must not be empty.` }, { status: 400 });
 	}
 	if (trimmed.length > maxLength) {
-		return json({ error: `The "${name}" field must be at most ${maxLength} characters.` }, { status: 400 });
+		return json(
+			{ error: `The "${name}" field must be at most ${maxLength} characters.` },
+			{ status: 400 }
+		);
 	}
 	return trimmed;
 }
@@ -31,12 +30,18 @@ export function validateStatus(value: unknown): 'draft' | 'planned' | Response {
 export function validateLength(value: unknown): number | Response {
 	if (value === undefined) return 1;
 	if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 20) {
-		return json({ error: 'The "length" field must be an integer between 1 and 20.' }, { status: 400 });
+		return json(
+			{ error: 'The "length" field must be an integer between 1 and 20.' },
+			{ status: 400 }
+		);
 	}
 	return value;
 }
 
-export function rejectUnknownFields(body: Record<string, unknown>, allowed: Set<string>): Response | null {
+export function rejectUnknownFields(
+	body: Record<string, unknown>,
+	allowed: Set<string>
+): Response | null {
 	for (const key of Object.keys(body)) {
 		if (!allowed.has(key)) {
 			return json({ error: `The field "${key}" is not recognised.` }, { status: 400 });

@@ -375,7 +375,8 @@ export function patchLesson(
 			topicId?: string | null;
 		};
 		today: string;
-	}):
+	}
+):
 	| { ok: true; lesson: typeof schema.lesson.$inferSelect }
 	| { ok: false; reason: 'not found' | 'topic not found' } {
 	const [row] = db.select().from(schema.lesson).where(eq(schema.lesson.id, id)).all();
@@ -399,9 +400,13 @@ export function patchLesson(
 		update.topicId = null;
 	}
 
-	if (Object.keys(update).length === 0 && newTopicId === undefined) return { ok: true, lesson: row };
+	if (Object.keys(update).length === 0 && newTopicId === undefined)
+		return { ok: true, lesson: row };
 
-	db.update(schema.lesson).set(update as Partial<typeof schema.lesson.$inferInsert>).where(eq(schema.lesson.id, id)).run();
+	db.update(schema.lesson)
+		.set(update as Partial<typeof schema.lesson.$inferInsert>)
+		.where(eq(schema.lesson.id, id))
+		.run();
 
 	const [updated] = db.select().from(schema.lesson).where(eq(schema.lesson.id, id)).all();
 	if (!updated) return { ok: false, reason: 'not found' };
@@ -409,7 +414,10 @@ export function patchLesson(
 	if (newTopicId !== undefined && newTopicId !== oldTopicId) {
 		if (oldTopicId) rederiveTopic(db, oldTopicId, today);
 		if (newTopicId) rederiveTopic(db, newTopicId, today);
-	} else if (updated.topicId && (fields.length !== undefined || fields.title !== undefined || fields.body !== undefined)) {
+	} else if (
+		updated.topicId &&
+		(fields.length !== undefined || fields.title !== undefined || fields.body !== undefined)
+	) {
 		rederiveTopic(db, updated.topicId, today);
 	}
 
@@ -547,12 +555,34 @@ export function importTopic(
 	},
 	today: string
 ):
-	| { ok: true; course: { id: string; name: string }; courseCreated: boolean; topic: { id: string; name: string; courseId: string }; lessons: Array<{ id: string; title: string; position: number; links: Array<{ id: string; url: string; label: string; position: number }> }> }
+	| {
+			ok: true;
+			course: { id: string; name: string };
+			courseCreated: boolean;
+			topic: { id: string; name: string; courseId: string };
+			lessons: Array<{
+				id: string;
+				title: string;
+				position: number;
+				links: Array<{ id: string; url: string; label: string; position: number }>;
+			}>;
+	  }
 	| { ok: false; status: number; error: string } {
-	if (courseId && courseName) return { ok: false, status: 400, error: 'The "course" field must carry exactly one of "id" or "name".' };
-	if (!courseId && !courseName) return { ok: false, status: 400, error: 'The "course" field must carry exactly one of "id" or "name".' };
+	if (courseId && courseName)
+		return {
+			ok: false,
+			status: 400,
+			error: 'The "course" field must carry exactly one of "id" or "name".'
+		};
+	if (!courseId && !courseName)
+		return {
+			ok: false,
+			status: 400,
+			error: 'The "course" field must carry exactly one of "id" or "name".'
+		};
 
-	if (lessons.length > 200) return { ok: false, status: 400, error: 'At most 200 Lessons per Import.' };
+	if (lessons.length > 200)
+		return { ok: false, status: 400, error: 'At most 200 Lessons per Import.' };
 
 	for (const lesson of lessons) {
 		if (lesson.links && lesson.links.length > 20) {
@@ -567,7 +597,11 @@ export function importTopic(
 
 		if (courseName) {
 			const trimmed = courseName.trim();
-			const [existing] = db.select({ id: schema.course.id, name: schema.course.name }).from(schema.course).where(sql`lower(${schema.course.name}) = lower(${trimmed})`).all();
+			const [existing] = db
+				.select({ id: schema.course.id, name: schema.course.name })
+				.from(schema.course)
+				.where(sql`lower(${schema.course.name}) = lower(${trimmed})`)
+				.all();
 			if (existing) {
 				resolvedCourseId = existing.id;
 			} else {
@@ -582,21 +616,44 @@ export function importTopic(
 			return { ok: false, status: 404, error: 'Course not found.' };
 		}
 
-		const courseRecord = db.select({ id: schema.course.id, name: schema.course.name }).from(schema.course).where(eq(schema.course.id, resolvedCourseId)).all()[0];
+		const courseRecord = db
+			.select({ id: schema.course.id, name: schema.course.name })
+			.from(schema.course)
+			.where(eq(schema.course.id, resolvedCourseId))
+			.all()[0];
 		if (!courseRecord) {
 			client.run('ROLLBACK');
 			return { ok: false, status: 404, error: 'Course not found.' };
 		}
 
 		const trimmedTopicName = topicName.trim();
-		const existingTopic = db.select({ id: schema.topic.id, name: schema.topic.name }).from(schema.topic).where(and(eq(schema.topic.courseId, resolvedCourseId), sql`lower(${schema.topic.name}) = lower(${trimmedTopicName})`)).all();
-		const topicCollision = existingTopic.find((t) => t.name.trim().toLowerCase() === trimmedTopicName.toLowerCase());
+		const existingTopic = db
+			.select({ id: schema.topic.id, name: schema.topic.name })
+			.from(schema.topic)
+			.where(
+				and(
+					eq(schema.topic.courseId, resolvedCourseId),
+					sql`lower(${schema.topic.name}) = lower(${trimmedTopicName})`
+				)
+			)
+			.all();
+		const topicCollision = existingTopic.find(
+			(t) => t.name.trim().toLowerCase() === trimmedTopicName.toLowerCase()
+		);
 		if (topicCollision) {
 			client.run('ROLLBACK');
-			return { ok: false, status: 409, error: `The Course "${courseRecord.name}" already holds a Topic called "${topicCollision.name.trim()}".` };
+			return {
+				ok: false,
+				status: 409,
+				error: `The Course "${courseRecord.name}" already holds a Topic called "${topicCollision.name.trim()}".`
+			};
 		}
 
-		const [topicRow] = db.insert(schema.topic).values({ name: trimmedTopicName, courseId: resolvedCourseId }).returning().all();
+		const [topicRow] = db
+			.insert(schema.topic)
+			.values({ name: trimmedTopicName, courseId: resolvedCourseId })
+			.returning()
+			.all();
 
 		const lessonResults: Array<{
 			id: string;
@@ -624,12 +681,31 @@ export function importTopic(
 			if (lesson.links) {
 				for (let j = 0; j < lesson.links.length; j++) {
 					const link = lesson.links[j];
-					const [linkRow] = db.insert(schema.link).values({ lessonId: lessonRow.id, url: link.url.trim(), label: link.label.trim(), position: j }).returning().all();
-					linkResults.push({ id: linkRow.id, url: linkRow.url, label: linkRow.label, position: linkRow.position });
+					const [linkRow] = db
+						.insert(schema.link)
+						.values({
+							lessonId: lessonRow.id,
+							url: link.url.trim(),
+							label: link.label.trim(),
+							position: j
+						})
+						.returning()
+						.all();
+					linkResults.push({
+						id: linkRow.id,
+						url: linkRow.url,
+						label: linkRow.label,
+						position: linkRow.position
+					});
 				}
 			}
 
-			lessonResults.push({ id: lessonRow.id, title: lessonRow.title, position: lessonRow.position, links: linkResults });
+			lessonResults.push({
+				id: lessonRow.id,
+				title: lessonRow.title,
+				position: lessonRow.position,
+				links: linkResults
+			});
 		}
 
 		rederiveTopic(db, topicRow.id, today);

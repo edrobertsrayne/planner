@@ -145,8 +145,8 @@
 		<Card.Header>
 			<Card.Title>API keys</Card.Title>
 			<Card.Description>
-				An agent that can read and write your Courses, Topics, Lessons and Links.
-				A key is shown once and never again.
+				An agent that can read and write your Courses, Topics, Lessons and Links. A key is shown
+				once and never again.
 			</Card.Description>
 		</Card.Header>
 
@@ -154,7 +154,9 @@
 			{#if data.keys.length > 0}
 				<div class="mb-4 space-y-2">
 					{#each data.keys as key}
-						<div class="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm">
+						<div
+							class="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm"
+						>
 							<div class="min-w-0 flex-1">
 								<p class="truncate font-medium">{key.name}</p>
 								<p class="text-xs text-muted-foreground">
@@ -166,7 +168,9 @@
 							</div>
 							<form method="POST" action="?/revokeKey" use:enhance={onRevokeKey}>
 								<input type="hidden" name="id" value={key.id} />
-								<Button type="submit" size="sm" variant="destructive" class="h-7 text-xs">Revoke</Button>
+								<Button type="submit" size="sm" variant="destructive" class="h-7 text-xs"
+									>Revoke</Button
+								>
 							</form>
 						</div>
 					{/each}
@@ -174,9 +178,13 @@
 			{/if}
 
 			{#if newToken}
-				<div class="mb-4 rounded-md border border-amber-500/50 bg-amber-50 p-3 text-sm dark:bg-amber-950/20">
+				<div
+					class="mb-4 rounded-md border border-amber-500/50 bg-amber-50 p-3 text-sm dark:bg-amber-950/20"
+				>
 					<p class="mb-1 font-medium text-amber-800 dark:text-amber-300">New key: {newTokenName}</p>
-					<code class="block break-all rounded bg-background px-2 py-1 font-mono text-xs">{newToken}</code>
+					<code class="block rounded bg-background px-2 py-1 font-mono text-xs break-all"
+						>{newToken}</code
+					>
 					<p class="mt-1 text-xs text-amber-600 dark:text-amber-400">
 						This is the only time it is shown. Copy it now.
 					</p>

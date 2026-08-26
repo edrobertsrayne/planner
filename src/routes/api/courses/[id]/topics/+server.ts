@@ -13,7 +13,11 @@ export const GET: RequestHandler = async (event) => {
 	const auth = await requireApiKey(event);
 	if (auth) return auth;
 
-	const [existing] = db.select({ id: course.id }).from(course).where(eq(course.id, event.params.id)).all();
+	const [existing] = db
+		.select({ id: course.id })
+		.from(course)
+		.where(eq(course.id, event.params.id))
+		.all();
 	if (!existing) return json({ error: 'Course not found.' }, { status: 404 });
 
 	const topics = topicsOf(db, event.params.id);
@@ -26,7 +30,11 @@ export const POST: RequestHandler = async (event) => {
 	const auth = await requireApiKey(event);
 	if (auth) return auth;
 
-	const [existing] = db.select({ id: course.id }).from(course).where(eq(course.id, event.params.id)).all();
+	const [existing] = db
+		.select({ id: course.id })
+		.from(course)
+		.where(eq(course.id, event.params.id))
+		.all();
 	if (!existing) return json({ error: 'Course not found.' }, { status: 404 });
 
 	const body = await event.request.json();
@@ -39,7 +47,10 @@ export const POST: RequestHandler = async (event) => {
 
 	try {
 		const created = createTopic(db, { courseId: event.params.id, name });
-		return json({ id: created.id, name: created.name, courseId: created.courseId }, { status: 201 });
+		return json(
+			{ id: created.id, name: created.name, courseId: created.courseId },
+			{ status: 201 }
+		);
 	} catch (error) {
 		if (error instanceof NameCollision) {
 			return json({ error: error.message }, { status: 409 });

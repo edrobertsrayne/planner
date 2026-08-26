@@ -13,7 +13,11 @@ export const GET: RequestHandler = async (event) => {
 	const auth = await requireApiKey(event);
 	if (auth) return auth;
 
-	const [existing] = db.select({ id: lesson.id }).from(lesson).where(eq(lesson.id, event.params.id)).all();
+	const [existing] = db
+		.select({ id: lesson.id })
+		.from(lesson)
+		.where(eq(lesson.id, event.params.id))
+		.all();
 	if (!existing) return json({ error: 'Lesson not found.' }, { status: 404 });
 
 	const links = linksOf(db, event.params.id);
@@ -24,7 +28,11 @@ export const POST: RequestHandler = async (event) => {
 	const auth = await requireApiKey(event);
 	if (auth) return auth;
 
-	const [existing] = db.select({ id: lesson.id }).from(lesson).where(eq(lesson.id, event.params.id)).all();
+	const [existing] = db
+		.select({ id: lesson.id })
+		.from(lesson)
+		.where(eq(lesson.id, event.params.id))
+		.all();
 	if (!existing) return json({ error: 'Lesson not found.' }, { status: 404 });
 
 	const data = await event.request.json();

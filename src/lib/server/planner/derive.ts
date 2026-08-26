@@ -275,8 +275,8 @@ export function lessonNames(db: Db, ids: readonly string[]): Map<string, LessonN
 				title: schema.lesson.title,
 				topicName: schema.topic.name
 			})
-.from(schema.lesson)
-		.leftJoin(schema.topic, eq(schema.topic.id, schema.lesson.topicId))
+			.from(schema.lesson)
+			.leftJoin(schema.topic, eq(schema.topic.id, schema.lesson.topicId))
 			.where(inArray(schema.lesson.id, [...ids]))
 			.all()
 			.map(({ id, title, topicName }) => [id, { title, topicName }])

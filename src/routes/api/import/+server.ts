@@ -53,21 +53,29 @@ export const POST: RequestHandler = async (event) => {
 
 	const today = getDateToday();
 
-	const result = importTopic(db, client, {
-		courseId,
-		courseName,
-		topicName,
-		lessons
-	}, today);
+	const result = importTopic(
+		db,
+		client,
+		{
+			courseId,
+			courseName,
+			topicName,
+			lessons
+		},
+		today
+	);
 
 	if (!result.ok) {
 		return json({ error: result.error }, { status: result.status });
 	}
 
-	return json({
-		course: result.course,
-		courseCreated: result.courseCreated,
-		topic: result.topic,
-		lessons: result.lessons
-	}, { status: 201 });
+	return json(
+		{
+			course: result.course,
+			courseCreated: result.courseCreated,
+			topic: result.topic,
+			lessons: result.lessons
+		},
+		{ status: 201 }
+	);
 };

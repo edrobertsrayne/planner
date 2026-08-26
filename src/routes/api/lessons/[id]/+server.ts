@@ -1,7 +1,13 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db/client';
 import { requireApiKey } from '$lib/server/api-key';
-import { rejectUnknownFields, validateString, validateStatus, validateLength, getDateToday } from '$lib/server/api-helpers';
+import {
+	rejectUnknownFields,
+	validateString,
+	validateStatus,
+	validateLength,
+	getDateToday
+} from '$lib/server/api-helpers';
 import { lessonDetail, deleteLesson, patchLesson } from '$lib/server/planner/authoring';
 import type { RequestHandler } from './$types';
 
@@ -45,7 +51,10 @@ export const PATCH: RequestHandler = async (event) => {
 			return json({ error: 'The "body" field must be a string or null.' }, { status: 400 });
 		}
 		if (typeof data.body === 'string' && data.body.length > 100000) {
-			return json({ error: 'The "body" field must be at most 100000 characters.' }, { status: 400 });
+			return json(
+				{ error: 'The "body" field must be at most 100000 characters.' },
+				{ status: 400 }
+			);
 		}
 		fields.body = data.body;
 	}
@@ -90,9 +99,13 @@ export const DELETE: RequestHandler = async (event) => {
 
 	if (!result.ok) {
 		if (result.reason === 'not found') return json({ error: 'Lesson not found.' }, { status: 404 });
-		return json({
-			error: 'A Class has already been taught this Lesson, so it cannot be removed. Detach it instead with PATCH /api/lessons/:id and "topicId": null.'
-		}, { status: 409 });
+		return json(
+			{
+				error:
+					'A Class has already been taught this Lesson, so it cannot be removed. Detach it instead with PATCH /api/lessons/:id and "topicId": null.'
+			},
+			{ status: 409 }
+		);
 	}
 
 	return new Response(null, { status: 204 });

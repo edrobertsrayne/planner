@@ -35,8 +35,7 @@ export const lesson = sqliteTable(
 	'lesson',
 	{
 		id: id(),
-		topicId: text('topic_id')
-			.references(() => topic.id),
+		topicId: text('topic_id').references(() => topic.id),
 		title: text('title').notNull(),
 		body: text('body'),
 		status: text('status', { enum: ['draft', 'planned'] })
