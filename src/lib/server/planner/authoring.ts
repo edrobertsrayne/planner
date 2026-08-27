@@ -405,6 +405,9 @@ export function patchLesson(
 		const [existing] = db.select().from(schema.topic).where(eq(schema.topic.id, newTopicId)).all();
 		if (!existing) return { ok: false, reason: 'topic not found' };
 		update.topicId = newTopicId;
+		// A re-attach or move lands at the end of the target Topic's order, as moveLessonToTopic
+		// does — a Lesson carries no position of its own into a Topic it has never been in.
+		update.position = endOfTopic(db, newTopicId);
 	} else if (newTopicId === null && newTopicId !== oldTopicId) {
 		update.topicId = null;
 	}

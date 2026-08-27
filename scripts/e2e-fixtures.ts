@@ -7,6 +7,8 @@
  *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts find-lesson-id <title>
  *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts mark-taught <classId> <date> <period> <lessonId>
  *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts set-terms '<terms JSON>'
+ *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts assign-topic <classLabel> <topicId>
+ *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts create-class <label> <courseId>
  */
 import { DatabaseSync } from 'node:sqlite';
 import { drizzle } from 'drizzle-orm/node-sqlite';
@@ -52,6 +54,28 @@ switch (command) {
 		if (!termsJson) throw new Error('Usage: set-terms <terms JSON>');
 		const terms = JSON.parse(termsJson) as { opens: string; closes: string }[];
 		for (const term of terms) db.insert(schema.term).values(term).run();
+		break;
+	}
+	// An assignment the API under test cannot make: the API has no Class endpoints, and the spec
+	// needs a Topic the delete route must refuse because a Class follows it.
+	case 'assign-topic': {
+		const [classLabel, topicId] = args;
+		if (!classLabel || !topicId) throw new Error('Usage: assign-topic <classLabel> <topicId>');
+		const [row] = db
+			.select({ id: schema.classes.id })
+			.from(schema.classes)
+			.where(eq(schema.classes.label, classLabel))
+			.all();
+		if (!row) throw new Error(`No Class labelled ${classLabel}`);
+		db.insert(schema.assignedTopic).values({ classId: row.id, topicId, position: 0 }).run();
+		break;
+	}
+	// A Class following one Course, for the delete-Course refusal the API cannot set up either:
+	// a Class is created in the browser only, and its Course is fixed at creation.
+	case 'create-class': {
+		const [label, courseId] = args;
+		if (!label || !courseId) throw new Error('Usage: create-class <label> <courseId>');
+		db.insert(schema.classes).values({ label, courseId }).run();
 		break;
 	}
 	default:
