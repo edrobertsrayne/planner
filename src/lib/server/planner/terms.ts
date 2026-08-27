@@ -9,7 +9,7 @@
 // Saturday boundary is harmless, and nothing here has a view on how long a half-term break runs.
 import type { Database } from 'bun:sqlite';
 import * as schema from '../db/schema';
-import { rederiveAllClasses, rewindBoundary, type AtRiskSession, type Db } from '../planner/derive';
+import { rederiveAllClasses, rewindBoundary, type AtRiskSession, type Db } from './derive';
 import { isRealDate } from '$lib/date';
 import type { TermInput } from '$lib/calendar/generate-teaching-weeks';
 
