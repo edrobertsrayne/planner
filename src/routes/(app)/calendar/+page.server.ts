@@ -70,7 +70,7 @@ export const actions: Actions = {
 		if (!date) return fail(400, { error: 'No date given.' });
 
 		const report = blockDay(db, { date, note: note || undefined, today: today() });
-		if (!report.ok) return fail(400, { error: report.reason });
+		if (!report.ok) return fail(report.status, { error: report.reason });
 		return { atRisk: report.atRisk };
 	},
 

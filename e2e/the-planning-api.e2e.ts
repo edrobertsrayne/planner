@@ -1,10 +1,11 @@
 import { test, expect, type Page } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 
-// Covers the nine route files under src/routes/api/ over real HTTP (issue #159): the key check,
-// the status codes, the response shapes, PATCH's partial semantics, and Import's whole-or-nothing
-// transaction, with the expected behaviour taken from docs/spec/planning-api.md. Runs after
-// teaching-flows.e2e.ts — its Planning-tab counts assume only the lessons it created — and before
+// Covers the nine route files under src/routes/api/ over real HTTP (issue #159), and the three
+// Blocked Day endpoints beside them (issue #165): the key check, the status codes, the response
+// shapes, PATCH's partial semantics, and Import's whole-or-nothing transaction, with the
+// expected behaviour taken from docs/spec/planning-api.md. Runs after teaching-flows.e2e.ts —
+// its Planning-tab counts assume only the lessons it created — and before
 // user-settings-password.e2e.ts, which must stay last for the suite's single-worker ordering
 // (see isolation.e2e.ts).
 const EMAIL = 'teacher@example.com';
@@ -18,6 +19,30 @@ const FIXTURE_CLASS_LABEL = '9C/Sc1';
 const BEARER = (token: string) => ({ Authorization: `Bearer ${token}` });
 
 const keysOf = (body: Record<string, unknown>) => Object.keys(body).sort();
+
+function plusDays(iso: string, days: number): string {
+	const date = new Date(`${iso}T00:00:00Z`);
+	date.setUTCDate(date.getUTCDate() + days);
+	return date.toISOString().slice(0, 10);
+}
+
+function weekdayOf(iso: string): number {
+	return new Date(`${iso}T00:00:00Z`).getUTCDay();
+}
+
+// The next Monday-to-Friday date on or after `iso`.
+function nextWeekday(iso: string): string {
+	let date = iso;
+	while (weekdayOf(date) === 0 || weekdayOf(date) === 6) date = plusDays(date, 1);
+	return date;
+}
+
+// The next Saturday on or after `iso`.
+function nextSaturday(iso: string): string {
+	let date = iso;
+	while (weekdayOf(date) !== 6) date = plusDays(date, 1);
+	return date;
+}
 
 function runFixture(...args: string[]): string {
 	return execFileSync('node', ['scripts/e2e-fixtures.ts', ...args], {
@@ -832,6 +857,101 @@ test.describe.serial('the planning HTTP API', () => {
 			headers: BEARER(token)
 		});
 		expect(courseGone.status()).toBe(404);
+	});
+
+	test('the Blocked Day endpoints list, add and remove by date', async ({ request }) => {
+		// Every route requires the key.
+		expect((await request.get('/api/blocked-days')).status()).toBe(401);
+		expect(
+			(await request.post('/api/blocked-days', { data: { date: '2026-09-03' } })).status()
+		).toBe(401);
+		expect((await request.delete('/api/blocked-days/2026-09-03')).status()).toBe(401);
+
+		// The whole year, in date order, no ids — a Blocked Day is addressed by date.
+		const empty = await request.get('/api/blocked-days', { headers: BEARER(token) });
+		expect(empty.status()).toBe(200);
+		expect(await empty.json()).toEqual({ blockedDays: [] });
+
+		const today = new Date().toISOString().slice(0, 10);
+		const inset = nextWeekday(plusDays(today, 90));
+
+		// A date with no note at all: 201, the note null, and the Rewind's report beside it.
+		const created = await request.post('/api/blocked-days', {
+			headers: BEARER(token),
+			data: { date: inset }
+		});
+		expect(created.status()).toBe(201);
+		const report = await created.json();
+		expect(report.blockedDay).toEqual({ date: inset, note: null });
+		expect(report.atRisk).toEqual([]);
+
+		// A weekend is a 400 where an already-blocked date is a 409 — the two must be
+		// distinguishable, and the teacher is told which.
+		const saturday = nextSaturday(plusDays(today, 95));
+		const weekend = await request.post('/api/blocked-days', {
+			headers: BEARER(token),
+			data: { date: saturday }
+		});
+		expect(weekend.status()).toBe(400);
+		expect(await weekend.json()).toEqual({
+			error: `"${saturday}" falls on a weekend. A Blocked Day must be a Monday to Friday.`
+		});
+
+		const duplicate = await request.post('/api/blocked-days', {
+			headers: BEARER(token),
+			data: { date: inset, note: 'INSET' }
+		});
+		expect(duplicate.status()).toBe(409);
+		expect(await duplicate.json()).toEqual({
+			error: `"${inset}" is already a Blocked Day.`
+		});
+
+		// The note is capped at the existing name ceiling.
+		const bankHoliday = nextWeekday(plusDays(today, 100));
+		const capped = await request.post('/api/blocked-days', {
+			headers: BEARER(token),
+			data: { date: bankHoliday, note: 'x'.repeat(201) }
+		});
+		expect(capped.status()).toBe(400);
+		expect((await capped.json()).error).toContain('at most 200');
+
+		// Extra fields in a body are read and ignored.
+		const withExtra = await request.post('/api/blocked-days', {
+			headers: BEARER(token),
+			data: { date: bankHoliday, note: 'Bank holiday', titel: 'extra' }
+		});
+		expect(withExtra.status()).toBe(201);
+		expect((await withExtra.json()).blockedDay).toEqual({
+			date: bankHoliday,
+			note: 'Bank holiday'
+		});
+
+		const listed = await request.get('/api/blocked-days', { headers: BEARER(token) });
+		expect(listed.status()).toBe(200);
+		const list = (await listed.json()).blockedDays;
+		expect(list.map((d: { date: string }) => d.date)).toEqual([inset, bankHoliday]);
+		for (const day of list) {
+			expect(keysOf(day)).toEqual(['date', 'note']);
+		}
+
+		// A date that is not blocked is a 404. A blocked one answers 200 with the report in the
+		// body — not a bare 204.
+		const missing = await request.delete(`/api/blocked-days/${saturday}`, {
+			headers: BEARER(token)
+		});
+		expect(missing.status()).toBe(404);
+
+		const removed = await request.delete(`/api/blocked-days/${inset}`, { headers: BEARER(token) });
+		expect(removed.status()).toBe(200);
+		expect((await removed.json()).atRisk).toEqual([]);
+
+		const remaining = await request.get('/api/blocked-days', { headers: BEARER(token) });
+		expect((await remaining.json()).blockedDays.map((d: { date: string }) => d.date)).toEqual([
+			bankHoliday
+		]);
+
+		const again = await request.delete(`/api/blocked-days/${inset}`, { headers: BEARER(token) });
+		expect(again.status()).toBe(404);
 	});
 
 	test('regenerating the key revokes the old token at once', async ({ request }) => {

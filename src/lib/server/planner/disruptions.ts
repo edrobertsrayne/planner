@@ -17,18 +17,21 @@ import { isRealDate, weekday } from '$lib/date';
 // and was relabelled by the re-derivation is reported back as `atRisk`, rather than silently
 // changed, so the teacher can be told.
 //
-// The same rules every door on the seam applies — the setup-mode list and the API answer to the
-// ones the grid popover cannot produce: a malformed date, a weekend date, and a date already
-// blocked are refused, and nothing else. A Blocked Day outside every Term is allowed, because a
-// closure does not need a Term to be real.
+// The same rules every door on the seam applies — the setup-mode list, the grid popover and the
+// API: a malformed date, a weekend date, and a date already blocked are refused, and nothing
+// else. A Blocked Day outside every Term is allowed, because a closure does not need a Term to
+// be real. The status travels with the refusal so a door that distinguishes 400 from 409 can.
 export function blockDay(
 	db: Db,
 	{ date, note, today }: { date: string; note?: string; today: string }
-): { ok: true; atRisk: AtRiskSession[] } | { ok: false; reason: string } {
-	if (!isRealDate(date)) return { ok: false, reason: `"${date}" is not a real date.` };
+): { ok: true; atRisk: AtRiskSession[] } | { ok: false; status: 400 | 409; reason: string } {
+	if (!isRealDate(date)) {
+		return { ok: false, status: 400, reason: `"${date}" is not a real date.` };
+	}
 	if (weekday(date) === 0 || weekday(date) === 6) {
 		return {
 			ok: false,
+			status: 400,
 			reason: `"${date}" falls on a weekend. A Blocked Day must be a Monday to Friday.`
 		};
 	}
@@ -37,7 +40,9 @@ export function blockDay(
 		.from(schema.blockedDay)
 		.where(eq(schema.blockedDay.date, date))
 		.all();
-	if (existing) return { ok: false, reason: `"${date}" is already a Blocked Day.` };
+	if (existing) {
+		return { ok: false, status: 409, reason: `"${date}" is already a Blocked Day.` };
+	}
 
 	db.insert(schema.blockedDay).values({ date, note }).run();
 	return { ok: true, atRisk: rederiveAllClasses(db, rewindBoundary(date, today)) };
