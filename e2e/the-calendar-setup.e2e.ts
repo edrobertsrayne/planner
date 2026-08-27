@@ -4,8 +4,8 @@ import { execFileSync } from 'node:child_process';
 // Covers the Calendar's setup mode (issue #166): opening it, the six fixed Term rows, the live
 // preview, saving through the Terms seam, Cancel, and the empty planner opening it by itself.
 // Runs after teaching-flows.e2e.ts, whose set-terms fixture gives the mode a saved year to edit,
-// and before the-planning-api.e2e.ts, which needs no Terms — so ending with the year cleared
-// disturbs nothing that runs later.
+// and before the-planning-api/ (the planning API files), which need no Terms — so ending with the
+// year cleared disturbs nothing that runs later.
 const EMAIL = 'teacher@example.com';
 const PASSWORD = 'a-very-long-password';
 
