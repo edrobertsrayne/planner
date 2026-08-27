@@ -5,6 +5,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
+	import BuildInfo from '$lib/components/build-info.svelte';
 	import type { ActionData } from './$types';
 
 	let { form }: { form: ActionData } = $props();
@@ -108,5 +109,7 @@
 				</form>
 			</Card.Content>
 		</Card.Root>
+
+		<BuildInfo class="text-center" />
 	</div>
 </main>

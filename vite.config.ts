@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
@@ -14,7 +15,33 @@ if (process.env.VITEST) {
 	process.env.BETTER_AUTH_SECRET ??= 'vitest-suite-secret-not-used-outside-tests';
 }
 
+// The build SHA shown in the UI must be baked in at build time: .dockerignore excludes .git, so a
+// Docker build cannot read git itself. CI passes the full commit via PUBLIC_BUILD_SHA (Dockerfile
+// ARG BUILD_SHA); local dev/build falls back to asking git directly.
+function buildInfo() {
+	let sha = 'unknown';
+	const injected = process.env.PUBLIC_BUILD_SHA;
+	if (injected) {
+		sha = injected.slice(0, 7);
+	} else {
+		try {
+			sha = execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
+				.toString()
+				.trim();
+		} catch {
+			// Not a git checkout; keep the 'unknown' placeholder.
+		}
+	}
+	return { sha: sha || 'unknown', date: new Date().toISOString().slice(0, 10) };
+}
+
+const { sha: BUILD_SHA, date: BUILD_DATE } = buildInfo();
+
 export default defineConfig({
+	define: {
+		__APP_BUILD_SHA__: JSON.stringify(BUILD_SHA),
+		__APP_BUILD_DATE__: JSON.stringify(BUILD_DATE)
+	},
 	plugins: [
 		tailwindcss(),
 		sveltekit({
