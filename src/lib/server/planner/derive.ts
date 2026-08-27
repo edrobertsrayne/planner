@@ -7,7 +7,7 @@
 import { and, asc, eq, gte, inArray } from 'drizzle-orm';
 import type { drizzle } from 'drizzle-orm/bun-sqlite';
 import * as schema from '../db/schema';
-import { generateTeachingWeeks } from '../calendar/generate-teaching-weeks';
+import { generateTeachingWeeks } from '$lib/calendar/generate-teaching-weeks';
 import {
 	schedule,
 	rewind,

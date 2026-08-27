@@ -10,7 +10,7 @@
 import type { Database } from 'bun:sqlite';
 import * as schema from '../db/schema';
 import { rederiveAllClasses, rewindBoundary, type AtRiskSession, type Db } from '../planner/derive';
-import type { TermInput } from './generate-teaching-weeks';
+import type { TermInput } from '$lib/calendar/generate-teaching-weeks';
 
 // An ISO calendar day the calendar actually has. The round trip turns away an unreal date the
 // shape lets through: 2026-02-30 rolls forward into March.

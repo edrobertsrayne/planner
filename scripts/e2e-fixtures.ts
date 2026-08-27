@@ -9,6 +9,7 @@
  *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts set-terms '<terms JSON>'
  *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts assign-topic <classLabel> <topicId>
  *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts create-class <label> <courseId>
+ *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts clear-terms
  */
 import { DatabaseSync } from 'node:sqlite';
 import { drizzle } from 'drizzle-orm/node-sqlite';
@@ -76,6 +77,12 @@ switch (command) {
 		const [label, courseId] = args;
 		if (!label || !courseId) throw new Error('Usage: create-class <label> <courseId>');
 		db.insert(schema.classes).values({ label, courseId }).run();
+		break;
+	}
+	// The planner with no year in it — the state the setup mode opens by itself on. There is no
+	// way to un-set the six Terms through the app once they are saved.
+	case 'clear-terms': {
+		db.delete(schema.term).run();
 		break;
 	}
 	default:
