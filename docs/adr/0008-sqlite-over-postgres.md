@@ -43,3 +43,8 @@ file at a configured path; the application ships no backup feature and makes no 
 state directory survives a reboot. On an impermanence host such as thor that means an explicit
 persistence entry — a `/persist` line that Postgres previously provided for free through its shared
 aspect module, and whose absence would silently discard the database on the next boot.
+
+> **Amended 2026-08-27.** The deployable artifact named above — "a flake or a container" — was
+> decided by [ADR-0018](0018-docker-over-nix.md): the artifact is the container image, and the flake
+> has been removed. Everything else in this ADR stands, including the choice of SQLite over
+> Postgres; the runtime pins its own Bun inside the image instead of beside a flake.
