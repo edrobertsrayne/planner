@@ -6,6 +6,8 @@
 // setup mode's live preview) — one copy, so the preview can never derive a year the save would
 // not.
 
+import { addDays, weekday } from '$lib/date';
+
 // A Term is named by its position in the year, never stored: six Terms in date order are always
 // Autumn 1 through Summer 2, so a name can never contradict where the Term sits.
 export const TERM_NAMES = ['Autumn 1', 'Autumn 2', 'Spring 1', 'Spring 2', 'Summer 1', 'Summer 2'];
@@ -27,62 +29,39 @@ export interface GeneratedTeachingWeek {
 	teachingDays: number;
 }
 
-function toDate(iso: string): Date {
-	const [year, month, day] = iso.split('-').map(Number);
-	return new Date(Date.UTC(year, month - 1, day));
-}
-
-function toIso(date: Date): string {
-	return date.toISOString().slice(0, 10);
-}
-
-function addDays(date: Date, days: number): Date {
-	const result = new Date(date);
-	result.setUTCDate(result.getUTCDate() + days);
-	return result;
-}
-
-function mondayOf(date: Date): Date {
-	const day = date.getUTCDay();
-	const diff = day === 0 ? -6 : 1 - day;
-	return addDays(date, diff);
-}
-
 export function generateTeachingWeeks(
 	terms: TermInput[],
 	blockedDays: BlockedDayInput[]
 ): GeneratedTeachingWeek[] {
-	const parsedTerms = [...terms]
-		.map((term) => ({ ...term, opensDate: toDate(term.opens), closesDate: toDate(term.closes) }))
-		.sort((a, b) => a.opensDate.getTime() - b.opensDate.getTime())
+	const namedTerms = [...terms]
+		.sort((a, b) => (a.opens < b.opens ? -1 : a.opens > b.opens ? 1 : 0))
 		.map((term, position) => ({ ...term, name: TERM_NAMES[position] }));
 
 	const blockedDates = new Set(blockedDays.map((blockedDay) => blockedDay.date));
 
-	const firstTerm = parsedTerms[0];
-	const lastTerm = parsedTerms[parsedTerms.length - 1];
+	const firstTerm = namedTerms[0];
+	const lastTerm = namedTerms[namedTerms.length - 1];
 	if (!firstTerm || !lastTerm) return [];
 
 	const weeks: GeneratedTeachingWeek[] = [];
-	let cursor = mondayOf(firstTerm.opensDate);
+	const opensOn = weekday(firstTerm.opens);
+	let cursor = addDays(firstTerm.opens, opensOn === 0 ? -6 : 1 - opensOn);
 	let letter: 'A' | 'B' = 'A';
 
-	while (cursor <= lastTerm.closesDate) {
+	while (cursor <= lastTerm.closes) {
 		const weekdays = Array.from({ length: 5 }, (_, index) => addDays(cursor, index));
 
-		const termOf = (weekday: Date) =>
-			parsedTerms.find(
-				(candidate) => weekday >= candidate.opensDate && weekday <= candidate.closesDate
-			);
-		const inTermDays = weekdays.filter((weekday) => termOf(weekday) !== undefined);
-		const termName = inTermDays.length > 0 ? (termOf(inTermDays[0])?.name ?? null) : null;
+		const termOf = (day: string) =>
+			namedTerms.find((candidate) => day >= candidate.opens && day <= candidate.closes);
+		const inTermDays = weekdays.filter((day) => termOf(day) !== undefined);
+		const term = inTermDays.length > 0 ? termOf(inTermDays[0]) : undefined;
 
-		if (inTermDays.length > 0 && termName !== null) {
-			const blockedCount = inTermDays.filter((day) => blockedDates.has(toIso(day))).length;
+		if (term) {
+			const blockedCount = inTermDays.filter((day) => blockedDates.has(day)).length;
 			weeks.push({
-				weekCommencing: toIso(cursor),
+				weekCommencing: cursor,
 				letter,
-				termName,
+				termName: term.name,
 				teachingDays: inTermDays.length - blockedCount
 			});
 			letter = letter === 'A' ? 'B' : 'A';
