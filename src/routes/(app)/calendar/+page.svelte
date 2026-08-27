@@ -108,7 +108,7 @@
 									>
 									{#if blockedDay}
 										<form method="POST" action="?/unblockDay" class="ml-auto" use:enhance={refresh}>
-											<input type="hidden" name="id" value={blockedDay.id} />
+											<input type="hidden" name="date" value={blockedDay.date} />
 											<Button
 												type="submit"
 												variant="ghost"
@@ -173,8 +173,8 @@
 													>
 														<input
 															type="hidden"
-															name="id"
-															value={cell.blockedSlotId ?? cell.blockedDayId}
+															name={cell.blockedSlotId ? 'id' : 'date'}
+															value={cell.blockedSlotId ?? cell.date}
 														/>
 														<Button
 															type="submit"

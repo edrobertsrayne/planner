@@ -70,9 +70,9 @@ export const actions: Actions = {
 
 	unblockDay: async ({ request }) => {
 		const data = await request.formData();
-		const id = String(data.get('id') ?? '');
+		const date = String(data.get('date') ?? '');
 
-		const report = unblockDay(db, { id, today: today() });
+		const report = unblockDay(db, { date, today: today() });
 		if (!report) return fail(400, { error: 'No such Blocked Day.' });
 		return { atRisk: report.atRisk };
 	},

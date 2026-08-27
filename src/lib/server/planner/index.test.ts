@@ -586,13 +586,8 @@ describe('removing a Blocked Day', () => {
 
 		const blockedDate = '2026-09-14';
 		blockDay(db, { date: blockedDate, note: 'Snow day', today: '2026-09-03' });
-		const [row] = db
-			.select()
-			.from(schema.blockedDay)
-			.where(eq(schema.blockedDay.date, blockedDate))
-			.all();
 
-		const report = unblockDay(db, { id: row.id, today: '2026-09-03' });
+		const report = unblockDay(db, { date: blockedDate, today: '2026-09-03' });
 		expect(report?.atRisk).toEqual([]);
 
 		const after = classSchedule(db, { classId: classA.id, today: '2026-09-03' });
@@ -602,7 +597,7 @@ describe('removing a Blocked Day', () => {
 		).toHaveLength(0);
 	});
 
-	test('reports a noted Session the re-derivation relabels back, and is a no-op for an unknown id', () => {
+	test('reports a noted Session the re-derivation relabels back, and is a no-op for a date that is not blocked', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		makeLessons(db, topic.id, 1);
@@ -619,16 +614,10 @@ describe('removing a Blocked Day', () => {
 			note: 'went badly — redo the practical'
 		});
 
-		const [row] = db
-			.select()
-			.from(schema.blockedDay)
-			.where(eq(schema.blockedDay.date, '2026-09-03'))
-			.all();
-
-		const report = unblockDay(db, { id: row.id, today: '2026-09-10' });
+		const report = unblockDay(db, { date: '2026-09-03', today: '2026-09-10' });
 		expect(report?.atRisk.length).toBeGreaterThan(0);
 
-		expect(unblockDay(db, { id: 'does-not-exist', today: '2026-09-10' })).toBeNull();
+		expect(unblockDay(db, { date: '2026-09-10', today: '2026-09-10' })).toBeNull();
 	});
 });
 
@@ -2365,12 +2354,7 @@ describe('Readiness', () => {
 		expect(rowA?.lesson?.ready).toBe(true);
 
 		// Unblock (Rewind restores l1 to 2026-09-03)
-		const [blockedRow] = db
-			.select()
-			.from(schema.blockedDay)
-			.where(eq(schema.blockedDay.date, blockedDate))
-			.all();
-		unblockDay(db, { id: blockedRow.id, today: '2026-09-03' });
+		unblockDay(db, { date: blockedDate, today: '2026-09-03' });
 
 		rows = agenda(db, { today: '2026-09-03', horizonDays: 14 });
 		rowA = rows.find((r) => r.classId === classA.id && r.lesson?.id === l1.id);

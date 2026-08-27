@@ -32,13 +32,14 @@ export function blockSlot(
 }
 
 // Removes a Blocked Day and re-derives every Class, the mirror of blockDay: undoing an ad hoc
-// closure is exactly as much of a Rewind as recording one was.
-export function unblockDay(db: Db, { id, today }: { id: string; today: string }) {
-	const [row] = db.select().from(schema.blockedDay).where(eq(schema.blockedDay.id, id)).all();
+// closure is exactly as much of a Rewind as recording one was. A date addresses the day — a date
+// is unique where a title is not, so the id the table generates is not needed on the way out.
+export function unblockDay(db: Db, { date, today }: { date: string; today: string }) {
+	const [row] = db.select().from(schema.blockedDay).where(eq(schema.blockedDay.date, date)).all();
 	if (!row) return null;
 
-	db.delete(schema.blockedDay).where(eq(schema.blockedDay.id, id)).run();
-	return { atRisk: rederiveAllClasses(db, rewindBoundary(row.date, today)) };
+	db.delete(schema.blockedDay).where(eq(schema.blockedDay.date, date)).run();
+	return { atRisk: rederiveAllClasses(db, rewindBoundary(date, today)) };
 }
 
 // Removes a Blocked Slot and re-derives its one Class, the mirror of blockSlot.
