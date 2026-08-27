@@ -25,15 +25,11 @@ export async function requireApiKey(event: RequestEvent): Promise<Response | voi
 
 	const hash = await hashToken(token);
 
-	const [key] = await db
-		.select({ id: apiKey.id })
-		.from(apiKey)
+	const result = await db
+		.update(apiKey)
+		.set({ lastUsedAt: Date.now() })
 		.where(eq(apiKey.hash, hash))
-		.limit(1);
+		.returning({ id: apiKey.id });
 
-	if (!key) return UNAUTHORIZED;
-
-	await db.update(apiKey).set({ lastUsedAt: Date.now() }).where(eq(apiKey.id, key.id));
-
-	event.locals.apiKeyId = key.id;
+	if (result.length === 0) return UNAUTHORIZED;
 }

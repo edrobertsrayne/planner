@@ -14,9 +14,8 @@
 
 	let pending = $state(false);
 	let invalid = $state(false);
-	let creating = $state(false);
+	let generating = $state(false);
 	let newToken = $state<string | null>(null);
-	let newTokenName = $state<string>('');
 
 	const onsubmit: SubmitFunction = () => {
 		pending = true;
@@ -37,34 +36,18 @@
 		};
 	};
 
-	const onCreateKey: SubmitFunction = () => {
-		creating = true;
+	const onGenerateKey: SubmitFunction = () => {
+		generating = true;
 		return async ({ result, update }) => {
-			creating = false;
+			generating = false;
 			if (result.type === 'success' && result.data?.token) {
 				newToken = result.data.token as string;
-				newTokenName = result.data.name as string;
 				toast.success(ToastMessage, {
-					componentProps: { text: 'API key created.', role: 'status' }
+					componentProps: { text: 'API key generated.', role: 'status' }
 				});
 			} else if (result.type === 'failure') {
 				toast.error(ToastMessage, {
 					componentProps: { text: failureReason(result, ''), role: 'alert' }
-				});
-			}
-			await update();
-		};
-	};
-
-	const onRevokeKey: SubmitFunction = () => {
-		return async ({ result, update }) => {
-			if (result.type === 'failure') {
-				toast.error(ToastMessage, {
-					componentProps: { text: failureReason(result, ''), role: 'alert' }
-				});
-			} else {
-				toast.success(ToastMessage, {
-					componentProps: { text: 'Key revoked.', role: 'status' }
 				});
 			}
 			await update();
@@ -143,37 +126,22 @@
 
 	<Card.Root class="mt-8">
 		<Card.Header>
-			<Card.Title>API keys</Card.Title>
+			<Card.Title>API key</Card.Title>
 			<Card.Description>
-				An agent that can read and write your Courses, Topics, Lessons and Links. A key is shown
-				once and never again.
+				An agent that can read and write your Courses, Topics, Lessons and Links. The key is shown
+				once and never again. Regenerating replaces it: the old token stops working at once.
 			</Card.Description>
 		</Card.Header>
 
 		<Card.Content>
-			{#if data.keys.length > 0}
-				<div class="mb-4 space-y-2">
-					{#each data.keys as key (key.id)}
-						<div
-							class="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm"
-						>
-							<div class="min-w-0 flex-1">
-								<p class="truncate font-medium">{key.name}</p>
-								<p class="text-xs text-muted-foreground">
-									Created {new Date(key.createdAt).toLocaleDateString()}
-									{#if key.lastUsedAt}
-										&middot; Last used {new Date(key.lastUsedAt).toLocaleDateString()}
-									{/if}
-								</p>
-							</div>
-							<form method="POST" action="?/revokeKey" use:enhance={onRevokeKey}>
-								<input type="hidden" name="id" value={key.id} />
-								<Button type="submit" size="sm" variant="destructive" class="h-7 text-xs"
-									>Revoke</Button
-								>
-							</form>
-						</div>
-					{/each}
+			{#if data.key}
+				<div class="mb-4 rounded-md border px-3 py-2 text-sm">
+					<p class="text-xs text-muted-foreground">
+						Created {new Date(data.key.createdAt).toLocaleDateString()}
+						{#if data.key.lastUsedAt}
+							&middot; Last used {new Date(data.key.lastUsedAt).toLocaleDateString()}
+						{/if}
+					</p>
 				</div>
 			{/if}
 
@@ -181,7 +149,7 @@
 				<div
 					class="mb-4 rounded-md border border-amber-500/50 bg-amber-50 p-3 text-sm dark:bg-amber-950/20"
 				>
-					<p class="mb-1 font-medium text-amber-800 dark:text-amber-300">New key: {newTokenName}</p>
+					<p class="mb-1 font-medium text-amber-800 dark:text-amber-300">New key</p>
 					<code class="block rounded bg-background px-2 py-1 font-mono text-xs break-all"
 						>{newToken}</code
 					>
@@ -194,24 +162,10 @@
 				</Button>
 			{/if}
 
-			<form method="POST" action="?/createKey" use:enhance={onCreateKey}>
-				<Field.Field>
-					<Field.Label for="keyName">Key name</Field.Label>
-					<div class="flex gap-2">
-						<Input
-							id="keyName"
-							name="name"
-							type="text"
-							placeholder="e.g. laptop import script"
-							required
-							class="h-7 flex-1"
-							disabled={creating}
-						/>
-						<Button type="submit" size="sm" class="h-7 shrink-0" disabled={creating}>
-							{creating ? 'Creating…' : 'Create key'}
-						</Button>
-					</div>
-				</Field.Field>
+			<form method="POST" action="?/generateKey" use:enhance={onGenerateKey}>
+				<Button type="submit" size="sm" class="h-7" disabled={generating}>
+					{generating ? 'Generating…' : data.key ? 'Regenerate' : 'Generate'}
+				</Button>
 			</form>
 		</Card.Content>
 	</Card.Root>

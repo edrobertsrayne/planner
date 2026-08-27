@@ -3,7 +3,6 @@ import { APIError } from 'better-auth/api';
 import { auth } from '$lib/server/auth';
 import { db } from '$lib/server/db/client';
 import { apiKey } from '$lib/server/db/schema';
-import { and, eq } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types';
 
 const MIN_PASSWORD_LENGTH = 12;
@@ -16,17 +15,15 @@ async function hashToken(token: string): Promise<string> {
 }
 
 export const load: PageServerLoad = async () => {
-	const keys = await db
+	const [key] = await db
 		.select({
-			id: apiKey.id,
-			name: apiKey.name,
 			createdAt: apiKey.createdAt,
 			lastUsedAt: apiKey.lastUsedAt
 		})
 		.from(apiKey)
-		.orderBy(apiKey.createdAt);
+		.limit(1);
 
-	return { keys };
+	return { key: key ?? null };
 };
 
 export const actions: Actions = {
@@ -58,38 +55,14 @@ export const actions: Actions = {
 		return { success: true };
 	},
 
-	createKey: async (event) => {
-		const data = await event.request.formData();
-		const name = String(data.get('name') ?? '').trim();
-
-		if (!name) return fail(400, { error: 'Give the key a name.' });
-
+	generateKey: async () => {
 		const bytes = crypto.getRandomValues(new Uint8Array(32));
 		const token = 'pln_' + Buffer.from(bytes).toString('base64url');
 		const hash = await hashToken(token);
 
-		try {
-			await db.insert(apiKey).values({ name, hash }).returning();
-		} catch {
-			return fail(400, { error: 'A key with that name already exists.' });
-		}
+		await db.delete(apiKey);
+		await db.insert(apiKey).values({ hash });
 
-		return { token, name };
-	},
-
-	revokeKey: async (event) => {
-		const data = await event.request.formData();
-		const id = String(data.get('id') ?? '');
-
-		if (!id) return fail(400, { error: 'No key specified.' });
-
-		const result = await db
-			.delete(apiKey)
-			.where(and(eq(apiKey.id, id)))
-			.returning({ id: apiKey.id });
-
-		if (result.length === 0) return fail(404, { error: 'Key not found.' });
-
-		return { success: true };
+		return { token };
 	}
 };

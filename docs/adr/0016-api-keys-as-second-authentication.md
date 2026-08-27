@@ -1,6 +1,6 @@
 # ADR-0016: API keys as a second authentication mechanism
 
-**Status:** Accepted (2026-08-27)
+**Status:** Superseded by [ADR-0019](0019-one-regenerable-api-key.md) (2026-08-27)
 
 **Issue:** [#132](https://github.com/edrobertsrayne/planner/issues/132)
 

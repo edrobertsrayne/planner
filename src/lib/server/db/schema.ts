@@ -157,7 +157,6 @@ export const blockedDay = sqliteTable('blocked_day', {
 
 export const apiKey = sqliteTable('api_key', {
 	id: id(),
-	name: text('name').notNull(),
 	hash: text('hash').notNull().unique(),
 	createdAt: integer('created_at')
 		.notNull()
