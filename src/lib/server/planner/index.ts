@@ -13,6 +13,7 @@
 //   timetable.ts    Slots: which Class holds which Period, over which dates
 //   classes.ts      a Class, its Assigned Topics, and how far through them it has got
 //   disruptions.ts  Blocked Days and Blocked Slots
+//   calendar/terms.ts the six Terms, replaced as one document — the Week letter derives from them
 //   sessions.ts     one occasion: its detail, its note, its Continuation
 //   views.ts        the Agenda stream and the Calendar grid, across every Class
 //   authoring.ts    Courses, Topics, Lessons and Links
@@ -46,6 +47,10 @@ export {
 } from './classes';
 
 export { blockDay, blockSlot, unblockDay, unblockSlot } from './disruptions';
+
+// Beside the Teaching Week generator the Terms belong to the calendar, not to this directory —
+// re-exported so routes and tests keep the one import surface every other write already uses.
+export { replaceTerms } from '../calendar/terms';
 
 export {
 	recordContinuation,
