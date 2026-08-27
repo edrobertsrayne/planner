@@ -10,6 +10,23 @@
 
 An electronic teacher planner — self-hosted, single-user. UK state secondary school context.
 
+## Favour the simple implementation
+
+This planner has one user and one school year. Build the simplest thing that meets the stated
+need, and no more.
+
+- Solve the case in front of you. Do not add generality for a second user, a second year, or a
+  caller nobody has asked for.
+- Prefer no code to code. A rule that costs a query, a lookup or an ordering constraint must earn
+  it. Drop the rule if the cost is larger than the mistake it catches.
+- Do not guard against a wrong shape the app itself never sends. Read the fields you need and
+  ignore the rest.
+- Do not enforce a rule at one door that you cannot enforce at the others. Enforce it everywhere,
+  or drop it.
+- Reuse what is already there before you write a new module or a new abstraction.
+
+When you find a simpler approach than the one agreed, say so before you build it.
+
 ## Agent skills
 
 ### Issue tracker
