@@ -7,6 +7,7 @@
 	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import SunIcon from '@lucide/svelte/icons/sun';
 	import PageHeader from '$lib/components/page-header.svelte';
+	import BuildInfo from '$lib/components/build-info.svelte';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { Button } from '$lib/components/ui/button';
 	import { Toaster } from '$lib/components/ui/sonner';
@@ -114,6 +115,12 @@
 			<SessionPanel {occasion} />
 		{/if}
 	</main>
+
+	<footer class="border-t bg-background">
+		<div class="mx-auto max-w-6xl px-6 py-1.5">
+			<BuildInfo />
+		</div>
+	</footer>
 </div>
 
 <Toaster richColors />

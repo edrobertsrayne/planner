@@ -57,6 +57,9 @@ jobs:
         with:
           context: .
           push: true
+          # Same commit as the checkout above; shown in the app's footer.
+          build-args: |
+            BUILD_SHA=${{ github.event.workflow_run.head_sha }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha

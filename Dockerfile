@@ -25,6 +25,9 @@ ENV BETTER_AUTH_SECRET="build-time-placeholder-not-used-at-runtime"
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 COPY . .
+# .git is dockerignored, so CI passes the commit SHA in as a build arg (see the workflows).
+ARG BUILD_SHA=unknown
+ENV PUBLIC_BUILD_SHA=${BUILD_SHA}
 RUN bun --bun run build
 # bundle scripts/seed.ts into a single file so the release stage can run it
 # without devDependencies (drizzle-orm) or src/ present
