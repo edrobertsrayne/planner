@@ -4,6 +4,16 @@ import { playwright } from '@vitest/browser-playwright';
 import adapter from 'svelte-adapter-bun';
 import { sveltekit } from '@sveltejs/kit/vite';
 
+// Unit tests must not depend on a developer's .env or shell exports. These defaults sit above the
+// plugin call because the SvelteKit plugin bakes $env/dynamic/private into test modules when it
+// resolves the config. ??= leaves dev and build untouched and lets a deliberate override win.
+if (process.env.VITEST) {
+	process.env.DATABASE_URL ??= ':memory:';
+	process.env.ORIGIN ??= 'http://localhost:5173';
+	process.env.BETTER_AUTH_URL ??= 'http://localhost:5173';
+	process.env.BETTER_AUTH_SECRET ??= 'vitest-suite-secret-not-used-outside-tests';
+}
+
 export default defineConfig({
 	plugins: [
 		tailwindcss(),
@@ -49,9 +59,9 @@ export default defineConfig({
 				test: {
 					name: 'server',
 					environment: 'node',
-					// Several test files import $lib/server/auth (transitively) or $lib/server/db/client,
-					// which open and migrate the same real DATABASE_URL file as a module-level side effect.
-					// Running server test files across multiple processes races them against that one file.
+					// Every test file opens its own throwaway in-memory database (DATABASE_URL defaults at
+					// the top of this file), so nothing races a shared file. Kept on as cheap insurance;
+					// turning it off is untested.
 					fileParallelism: false,
 					include: ['src/**/*.{test,spec}.{js,ts}'],
 					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}']

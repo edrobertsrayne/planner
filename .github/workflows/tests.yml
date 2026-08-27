@@ -6,11 +6,7 @@ on:
   pull_request:
     branches: ['main']
 
-env:
-  DATABASE_URL: local.db
-  ORIGIN: 'http://localhost:5173'
-  BETTER_AUTH_SECRET: 'ci-testing-better-auth'
-  BETTER_AUTH_URL: 'http://localhost:5173'
+# Test env defaults live in vite.config.ts so local and CI runs behave identically.
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
