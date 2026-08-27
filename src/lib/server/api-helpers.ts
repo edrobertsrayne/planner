@@ -8,6 +8,9 @@ const ALLOWED_STATUSES = new Set(['draft', 'planned']);
 // The name/title/label ceiling every API route enforces (issue #129, §6 of the planning API spec).
 export const MAX_NAME_LENGTH = 200;
 
+// The note ceiling a Blocked Day's note is measured against — its own limit, not the name's.
+export const MAX_NOTE_LENGTH = 200;
+
 // Every route needs its target row to exist before it reads or writes further. Returns the 404
 // Response to return as-is, or null once the row is confirmed present.
 export function requireExisting<T extends SQLiteTable & { id: SQLiteColumn }>(

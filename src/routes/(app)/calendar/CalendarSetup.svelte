@@ -8,9 +8,9 @@
 		type GeneratedTeachingWeek
 	} from '$lib/calendar/generate-teaching-weeks';
 	import { failureReason } from '$lib/client/enhance';
-	import { formatDateShort } from '$lib/date';
+	import { formatDateShort, isRealDate } from '$lib/date';
 	import type { AtRiskSession } from '$lib/server/planner';
-	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
+	import AtRiskReport from '$lib/components/at-risk-report.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 
@@ -57,18 +57,19 @@
 	// Adding and removing a Blocked Day each Rewind, and each says what it put at risk — a plain
 	// statement when the answer is nothing, because silence would read as an unapplied write.
 	// The page data is refreshed without applying the action result, so the report renders here
-	// and the grid's own reporting stays exactly as it was.
+	// and the grid's own reporting stays exactly as it was. The actions answer with the report
+	// and nothing else, so typing it here once reads it without a cast — the same read the save
+	// handler makes of ActionData.
 	let dayError = $state<string | null>(null);
 	let dayReport = $state<AtRiskSession[] | null>(null);
 
-	const onDay: SubmitFunction =
+	const onDay: SubmitFunction<{ atRisk: AtRiskSession[] }, { error: string }> =
 		() =>
 		async ({ result }) => {
 			dayError = null;
 			dayReport = null;
 			if (result.type === 'success') {
-				const raw = (result.data as { atRisk?: unknown } | undefined)?.atRisk;
-				dayReport = Array.isArray(raw) ? (raw as AtRiskSession[]) : [];
+				dayReport = result.data?.atRisk ?? [];
 				await invalidateAll();
 			} else if (result.type === 'failure') {
 				dayError = failureReason(result, 'The Blocked Day was not saved.');
@@ -76,14 +77,14 @@
 		};
 
 	// The preview updates as the teacher types, before saving, so a mistake costs a retype and
-	// not a Rewind. A row still being typed joins in only once both its dates stand; policing
-	// the finished six is the seam's job at save, not this preview's. The generator reads dates
-	// alone — a note is for the teacher, not the derivation.
+	// not a Rewind. A row still being typed joins in only once both its dates stand — and a date
+	// stands only when the canonical check says it is real, so the preview and the save agree on
+	// what a date is and an unreal one never reaches the preview. Policing the finished six is
+	// the seam's job at save, not this preview's. The generator reads dates alone — a note is
+	// for the teacher, not the derivation.
 	const weeks: GeneratedTeachingWeek[] = $derived.by(() =>
 		generateTeachingWeeks(
-			draft.filter(
-				(term) => /^\d{4}-\d{2}-\d{2}$/.test(term.opens) && /^\d{4}-\d{2}-\d{2}$/.test(term.closes)
-			),
+			draft.filter((term) => isRealDate(term.opens) && isRealDate(term.closes)),
 			blockedDays.map((day) => ({ date: day.date }))
 		)
 	);
@@ -170,15 +171,11 @@
 			{/if}
 
 			{#if dayReport !== null}
-				{#if dayReport.length > 0}
-					<div class="mt-2">
-						<AtRiskAlert atRisk={dayReport} />
-					</div>
-				{:else}
-					<p role="status" class="mt-2 text-sm text-muted-foreground">
-						No Sessions were put at risk.
-					</p>
-				{/if}
+				<AtRiskReport
+					atRisk={dayReport}
+					none="No Sessions were put at risk."
+					class="mt-2 text-sm text-muted-foreground"
+				/>
 			{/if}
 
 			<ul class="mt-1" data-blocked-days>

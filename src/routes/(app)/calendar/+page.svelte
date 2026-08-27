@@ -8,6 +8,7 @@
 	import { refresh } from '$lib/client/enhance';
 	import { openSession } from '$lib/client/session-panel.svelte';
 	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
+	import AtRiskReport from '$lib/components/at-risk-report.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import BlockPopover from './BlockPopover.svelte';
@@ -43,10 +44,9 @@
 <div class="mx-auto max-w-6xl px-6 py-6">
 	<PageHeader title="Calendar" description="One Teaching Week, Periods against days.">
 		{#snippet actions()}
-			{#if setup}
-				<!-- Save year and Cancel sit in the setup mode's own header: the week controls here
-				     would read a year that is not saved yet. -->
-			{:else}
+			<!-- Save year and Cancel sit in the setup mode's own header: the week controls here
+			     would read a year that is not saved yet. -->
+			{#if !setup}
 				{#if data.week}
 					<div class="flex items-center gap-2">
 						<!-- eslint-disable svelte/no-navigation-without-resolve -- carries a query string -->
@@ -97,11 +97,11 @@
 	</PageHeader>
 
 	{#if savedYear}
-		{#if savedYear.atRisk.length > 0}
-			<AtRiskAlert atRisk={savedYear.atRisk} />
-		{:else}
-			<p class="mb-4 text-sm" role="status">The year is saved. No Sessions were put at risk.</p>
-		{/if}
+		<AtRiskReport
+			atRisk={savedYear.atRisk}
+			none="The year is saved. No Sessions were put at risk."
+			class="mb-4 text-sm"
+		/>
 	{:else if form?.atRisk}
 		<AtRiskAlert atRisk={form.atRisk} />
 	{/if}

@@ -1,4 +1,5 @@
 import { fail } from '@sveltejs/kit';
+import { TERM_NAMES } from '$lib/calendar/generate-teaching-weeks';
 import { addDays, today } from '$lib/date';
 import { client, db } from '$lib/server/db/client';
 import { asc } from 'drizzle-orm';
@@ -106,11 +107,13 @@ export const actions: Actions = {
 	},
 
 	// The whole year, replaced as one document through the Terms seam — the seam owns every
-	// rule, so the action validates nothing of its own. The at-risk report travels back with the
-	// save; an empty one is stated plainly rather than left to read as silence.
+	// rule, so the action validates nothing of its own. The six rows are read in year position,
+	// named by the canonical Term names and not this action's own count. The at-risk report
+	// travels back with the save; an empty one is stated plainly rather than left to read as
+	// silence.
 	saveYear: async ({ request }) => {
 		const data = await request.formData();
-		const terms = [0, 1, 2, 3, 4, 5].map((i) => ({
+		const terms = TERM_NAMES.map((_, i) => ({
 			opens: String(data.get(`opens-${i}`) ?? ''),
 			closes: String(data.get(`closes-${i}`) ?? '')
 		}));

@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db/client';
 import { blockedDay } from '$lib/server/db/schema';
 import { requireApiKey } from '$lib/server/api-key';
-import { MAX_NAME_LENGTH, getDateToday } from '$lib/server/api-helpers';
+import { MAX_NOTE_LENGTH, getDateToday } from '$lib/server/api-helpers';
 import { blockDay } from '$lib/server/planner';
 import { asc } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
@@ -40,9 +40,9 @@ export const POST: RequestHandler = async (event) => {
 			return json({ error: 'The "note" field must be a string.' }, { status: 400 });
 		}
 		const trimmed = data.note.trim();
-		if (trimmed.length > MAX_NAME_LENGTH) {
+		if (trimmed.length > MAX_NOTE_LENGTH) {
 			return json(
-				{ error: `The "note" field must be at most ${MAX_NAME_LENGTH} characters.` },
+				{ error: `The "note" field must be at most ${MAX_NOTE_LENGTH} characters.` },
 				{ status: 400 }
 			);
 		}

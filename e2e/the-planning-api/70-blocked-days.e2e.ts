@@ -75,7 +75,7 @@ test.describe.serial('the Blocked Day endpoints', () => {
 			error: `"${inset}" is already a Blocked Day.`
 		});
 
-		// The note is capped at the existing name ceiling.
+		// The note is capped at its own ceiling, not the name's.
 		const bankHoliday = nextWeekday(plusDays(today, 100));
 		const capped = await request.post('/api/blocked-days', {
 			headers: BEARER(token),
