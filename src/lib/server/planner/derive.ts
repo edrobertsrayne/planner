@@ -7,7 +7,7 @@
 import { and, asc, eq, gte, inArray } from 'drizzle-orm';
 import type { drizzle } from 'drizzle-orm/bun-sqlite';
 import * as schema from '../db/schema';
-import { generateTeachingWeeks } from '$lib/calendar/generate-teaching-weeks';
+import { generateTeachingWeeks, type TermInput } from '$lib/calendar/generate-teaching-weeks';
 import {
 	schedule,
 	rewind,
@@ -24,9 +24,18 @@ export type Db = ReturnType<typeof drizzle>;
 // key a re-derivation matches existing rows on.
 export const occasionKey = (row: { date: string; period: number }) => `${row.date}|${row.period}`;
 
-// One accessor for the year's Teaching Weeks: computed from the Terms and Blocked Days, never
-// stored (spec #158, superseding ADR-0005). The snapshot the engine is fed, the Calendar ribbon
-// and the one-week grid all read through it, so the three can never disagree about a letter.
+// The year's Teaching Weeks, derived from the Terms and Blocked Days in hand and never stored
+// (spec #158, superseding ADR-0005). The one derivation every reader calls — the accessor below
+// and the Calendar snapshot the engine is fed — so none of them can disagree about a letter.
+function teachingWeeksFrom(terms: TermInput[], blockedDays: string[]) {
+	return generateTeachingWeeks(
+		terms,
+		blockedDays.map((date) => ({ date }))
+	);
+}
+
+// One accessor for the year's Teaching Weeks, for the callers that ask for the weeks alone: the
+// Calendar ribbon and the one-week grid read through it.
 export function teachingWeeks(db: Db) {
 	const terms = db
 		.select({ opens: schema.term.opens, closes: schema.term.closes })
@@ -37,9 +46,9 @@ export function teachingWeeks(db: Db) {
 		.select({ date: schema.blockedDay.date })
 		.from(schema.blockedDay)
 		.all()
-		.map((row) => ({ date: row.date }));
+		.map((row) => row.date);
 
-	return generateTeachingWeeks(terms, blockedDays);
+	return teachingWeeksFrom(terms, blockedDays);
 }
 
 export function loadCalendar(db: Db): Calendar {
@@ -76,7 +85,13 @@ export function loadCalendar(db: Db): Calendar {
 		.from(schema.blockedSlot)
 		.all();
 
-	return { terms, teachingWeeks: teachingWeeks(db), slots, blockedDays, blockedSlots };
+	return {
+		terms,
+		teachingWeeks: teachingWeeksFrom(terms, blockedDays),
+		slots,
+		blockedDays,
+		blockedSlots
+	};
 }
 
 // The Lessons of the Class's Assigned Topics, flattened in Assigned-Topic order then Lesson
@@ -152,7 +167,7 @@ export const rewindBoundary = (date: string, today: string) => (date < today ? d
 // taught there, and is reported back as `atRisk` or `discarded` (ADR-0007) rather than silently
 // relabelled. An occasion that drops out of the plan entirely (its Slot was blocked) is deleted
 // along with any Continuation on it, for the same reason.
-export function rederive(db: Db, classId: string, boundary: string): WriteReport {
+export function rederive(db: Db, classId: string, boundary: string, cal?: Calendar): WriteReport {
 	const existing = db
 		.select()
 		.from(schema.session)
@@ -160,7 +175,7 @@ export function rederive(db: Db, classId: string, boundary: string): WriteReport
 		.all();
 	const byOccasion = new Map(existing.map((row) => [occasionKey(row), row]));
 
-	const result = scheduleFor(db, { classId, boundary });
+	const result = scheduleFor(db, { classId, boundary, cal });
 
 	const touched: (typeof existing)[number][] = [];
 
@@ -244,15 +259,17 @@ export function rederiveTopic(db: Db, topicId: string, today: string) {
 
 // Re-derives every Class from a boundary and collects the combined atRisk report — shared by
 // every scheduling input that isn't scoped to one Class (a Blocked Day, its removal, and the
-// Week letter), so the aggregation logic lives in exactly one place.
+// Week letter), so the aggregation logic lives in exactly one place. One Calendar is loaded for
+// the whole year rather than once per Class.
 export function rederiveAllClasses(db: Db, boundary: string): AtRiskSession[] {
+	const cal = loadCalendar(db);
 	const classIds = db
 		.select({ id: schema.classes.id })
 		.from(schema.classes)
 		.all()
 		.map((row) => row.id);
 
-	return classIds.flatMap((classId) => rederive(db, classId, boundary).atRisk);
+	return classIds.flatMap((classId) => rederive(db, classId, boundary, cal).atRisk);
 }
 
 export interface AtRiskSession {
