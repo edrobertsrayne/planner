@@ -1,9 +1,12 @@
-// ADR-0005: a Teaching Week is a calendar week (Monday to Sunday) with at least one day that
+// ADR-0020: a Teaching Week is a calendar week (Monday to Sunday) with at least one day that
 // falls within a Term. Blocked Days reduce a week's teaching-day count but never remove it from
 // the A/B cycle — only falling entirely outside every Term does that.
 
+// A Term is named by its position in the year, never stored: six Terms in date order are always
+// Autumn 1 through Summer 2, so a name can never contradict where the Term sits.
+const TERM_NAMES = ['Autumn 1', 'Autumn 2', 'Spring 1', 'Spring 2', 'Summer 1', 'Summer 2'];
+
 export interface TermInput {
-	name: string;
 	opens: string;
 	closes: string;
 }
@@ -47,7 +50,8 @@ export function generateTeachingWeeks(
 ): GeneratedTeachingWeek[] {
 	const parsedTerms = [...terms]
 		.map((term) => ({ ...term, opensDate: toDate(term.opens), closesDate: toDate(term.closes) }))
-		.sort((a, b) => a.opensDate.getTime() - b.opensDate.getTime());
+		.sort((a, b) => a.opensDate.getTime() - b.opensDate.getTime())
+		.map((term, position) => ({ ...term, name: TERM_NAMES[position] }));
 
 	const blockedDates = new Set(blockedDays.map((blockedDay) => blockedDay.date));
 

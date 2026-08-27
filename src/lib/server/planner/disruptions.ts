@@ -1,7 +1,7 @@
-// Disruptions: a Blocked Day, a Blocked Slot, and the Week letter. All three are scheduling
-// inputs that can be entered after the fact, so all three re-derive from `rewindBoundary` —
-// the earlier of the date they concern and today — rather than from today alone (ADR-0007).
-import { asc, eq } from 'drizzle-orm';
+// Disruptions: a Blocked Day and a Blocked Slot. Both are scheduling inputs that can be entered
+// after the fact, so both re-derive from `rewindBoundary` — the earlier of the date they concern
+// and today — rather than from today alone (ADR-0007).
+import { eq } from 'drizzle-orm';
 import * as schema from '../db/schema';
 import { rederive, rederiveAllClasses, rewindBoundary, type Db, type WriteReport } from './derive';
 
@@ -49,34 +49,4 @@ export function unblockSlot(db: Db, { id, today }: { id: string; today: string }
 
 	db.delete(schema.blockedSlot).where(eq(schema.blockedSlot.id, id)).run();
 	return rederive(db, row.classId, rewindBoundary(row.date, today));
-}
-
-// Every Teaching Week, in order — the ribbon on the Calendar steps through this.
-export function teachingWeeksList(db: Db) {
-	return db
-		.select({
-			weekCommencing: schema.teachingWeek.weekCommencing,
-			letter: schema.teachingWeek.letter
-		})
-		.from(schema.teachingWeek)
-		.orderBy(asc(schema.teachingWeek.weekCommencing))
-		.all();
-}
-
-// The Week letter is stored, never computed (ADR-0005), and editable here for the one-off "we'll
-// stay on Week A next week" the school announces after a disruption. It is a scheduling input
-// like a Blocked Day, and re-derives on the same terms.
-export function setTeachingWeekLetter(
-	db: Db,
-	{ weekCommencing, letter, today }: { weekCommencing: string; letter: 'A' | 'B'; today: string }
-) {
-	const updated = db
-		.update(schema.teachingWeek)
-		.set({ letter })
-		.where(eq(schema.teachingWeek.weekCommencing, weekCommencing))
-		.returning()
-		.all();
-	if (!updated.length) return null;
-
-	return { atRisk: rederiveAllClasses(db, rewindBoundary(weekCommencing, today)) };
 }

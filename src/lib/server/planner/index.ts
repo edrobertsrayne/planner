@@ -12,12 +12,14 @@
 //   ordering.ts     the `position` arithmetic the four ordered things share
 //   timetable.ts    Slots: which Class holds which Period, over which dates
 //   classes.ts      a Class, its Assigned Topics, and how far through them it has got
-//   disruptions.ts  Blocked Days, Blocked Slots and the Week letter
+//   disruptions.ts  Blocked Days and Blocked Slots
 //   sessions.ts     one occasion: its detail, its note, its Continuation
 //   views.ts        the Agenda stream and the Calendar grid, across every Class
 //   authoring.ts    Courses, Topics, Lessons and Links
 
 export type { AtRiskSession, LessonName, WriteReport } from './derive';
+
+export { teachingWeeks } from './derive';
 
 export {
 	academicYearStart,
@@ -43,14 +45,7 @@ export {
 	type ClassLane
 } from './classes';
 
-export {
-	blockDay,
-	blockSlot,
-	setTeachingWeekLetter,
-	teachingWeeksList,
-	unblockDay,
-	unblockSlot
-} from './disruptions';
+export { blockDay, blockSlot, unblockDay, unblockSlot } from './disruptions';
 
 export {
 	recordContinuation,

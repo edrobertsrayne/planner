@@ -34,7 +34,6 @@ test('booting against a fresh empty file produces the complete schema', () => {
 		'slot',
 		'session',
 		'term',
-		'teaching_week',
 		'blocked_day',
 		'blocked_slot',
 		'user',
@@ -99,6 +98,17 @@ test('the tone backfill walks existing Classes in creation order and wraps past 
 			planned_length integer DEFAULT 1 NOT NULL,
 			position integer NOT NULL
 		);
+		CREATE TABLE term (
+			id text PRIMARY KEY,
+			name text NOT NULL,
+			opens text NOT NULL,
+			closes text NOT NULL
+		);
+		CREATE TABLE teaching_week (
+			id text PRIMARY KEY,
+			week_commencing text NOT NULL,
+			letter text NOT NULL
+		);
 	`);
 	client.prepare("INSERT INTO course (id, name) VALUES ('c1', 'Science')").run();
 	client.prepare("INSERT INTO topic (id, name, course_id) VALUES ('t1', 'Forces', 'c1')").run();
@@ -148,6 +158,17 @@ test('the lesson status migration writes draft as default for existing lessons a
 			body text,
 			length integer DEFAULT 1 NOT NULL,
 			position integer NOT NULL
+		);
+		CREATE TABLE term (
+			id text PRIMARY KEY,
+			name text NOT NULL,
+			opens text NOT NULL,
+			closes text NOT NULL
+		);
+		CREATE TABLE teaching_week (
+			id text PRIMARY KEY,
+			week_commencing text NOT NULL,
+			letter text NOT NULL
 		);
 	`);
 	client.prepare("INSERT INTO course (id, name) VALUES ('c1', 'Physics')").run();

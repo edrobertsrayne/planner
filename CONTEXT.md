@@ -134,7 +134,8 @@ a Teaching Week and takes no turn in the Week A / Week B cycle.
 **Week A / Week B**:
 The two halves of the fortnightly cycle that the Timetable repeats on. The letters alternate across
 Teaching Weeks, the first Teaching Week of the academic year being Week A — so a break never
-changes which letter falls next. Which letter a week carries is recorded, not recalculated.
+changes which letter falls next. Which letter a week carries is recalculated from the Term dates,
+never recorded.
 
 ### The Calendar
 

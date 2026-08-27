@@ -5,8 +5,7 @@ import {
 	blockDay,
 	blockSlot,
 	calendarWeek,
-	setTeachingWeekLetter,
-	teachingWeeksList,
+	teachingWeeks,
 	unblockDay,
 	unblockSlot
 } from '$lib/server/planner';
@@ -29,7 +28,7 @@ function defaultWeek(weeks: { weekCommencing: string }[], on: string): string | 
 const RIBBON_RADIUS = 3;
 
 export const load: PageServerLoad = ({ url }) => {
-	const weeks = teachingWeeksList(db);
+	const weeks = teachingWeeks(db);
 	const requested = url.searchParams.get('week');
 	const selected =
 		(requested && weeks.some((w) => w.weekCommencing === requested) ? requested : null) ??
@@ -47,17 +46,6 @@ export const load: PageServerLoad = ({ url }) => {
 };
 
 export const actions: Actions = {
-	setLetter: async ({ request }) => {
-		const data = await request.formData();
-		const weekCommencing = String(data.get('weekCommencing') ?? '');
-		const letter = String(data.get('letter') ?? '');
-		if (letter !== 'A' && letter !== 'B') return fail(400, { error: 'Bad Week letter.' });
-
-		const report = setTeachingWeekLetter(db, { weekCommencing, letter, today: today() });
-		if (!report) return fail(400, { error: 'No such Teaching Week.' });
-		return { atRisk: report.atRisk };
-	},
-
 	blockDay: async ({ request }) => {
 		const data = await request.formData();
 		const date = String(data.get('date') ?? '');

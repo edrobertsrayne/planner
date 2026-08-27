@@ -1,12 +1,10 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { and, eq, lt, sql } from 'drizzle-orm';
 import { afterEach, describe, expect, test } from 'vitest';
 import { openDatabase, runMigrations } from '../db';
 import * as schema from '../db/schema';
-import { generateTeachingWeeks } from '../calendar/generate-teaching-weeks';
-import { seedFileSchema } from '../calendar/seed-file.schema';
 import {
 	activeSlots,
 	addSlot,
@@ -50,9 +48,8 @@ import {
 	sessionDetail,
 	setLessonStatus,
 	setReadiness,
-	setTeachingWeekLetter,
 	takeSlot,
-	teachingWeeksList,
+	teachingWeeks,
 	topicsOf,
 	unassignTopic,
 	unblockDay,
@@ -62,12 +59,22 @@ import {
 	writeSessionNote
 } from './index';
 
-// The real 2026/27 calendar (seed/2026-27.json): six Terms opening Thursday 3 September 2026,
-// INSET on Thu 26 + Fri 27 Nov 2026, 40 Teaching Weeks, 20 A, 20 B, 187 teaching days. Monday
-// 14 September 2026 is the first fully-in-term Week A Monday.
-const SEED = seedFileSchema.parse(
-	JSON.parse(readFileSync(join(import.meta.dirname, '../../../../seed/2026-27.json'), 'utf-8'))
-);
+// The real 2026/27 calendar: six Terms opening Thursday 3 September 2026, INSET on Thu 26 +
+// Fri 27 Nov 2026, 40 Teaching Weeks, 20 A, 20 B, 187 teaching days. Monday 14 September 2026 is
+// the first fully-in-term Week A Monday. The letters are computed from these dates, never stored.
+const TERMS = [
+	{ opens: '2026-09-03', closes: '2026-10-23' },
+	{ opens: '2026-11-02', closes: '2026-12-22' },
+	{ opens: '2027-01-05', closes: '2027-02-12' },
+	{ opens: '2027-02-22', closes: '2027-03-26' },
+	{ opens: '2027-04-19', closes: '2027-05-28' },
+	{ opens: '2027-06-07', closes: '2027-07-19' }
+];
+
+const BLOCKED_DAYS = [
+	{ date: '2026-11-26', note: 'INSET' },
+	{ date: '2026-11-27', note: 'INSET' }
+];
 
 let dir: string;
 
@@ -82,12 +89,8 @@ function setUp() {
 	const { client, db } = openDatabase(join(dir, 'test.db'));
 	runMigrations(client, 'drizzle');
 
-	for (const term of SEED.terms) db.insert(schema.term).values(term).run();
-	for (const blockedDay of SEED.blockedDays) db.insert(schema.blockedDay).values(blockedDay).run();
-	for (const week of generateTeachingWeeks(SEED.terms, SEED.blockedDays))
-		db.insert(schema.teachingWeek)
-			.values({ weekCommencing: week.weekCommencing, letter: week.letter })
-			.run();
+	for (const term of TERMS) db.insert(schema.term).values(term).run();
+	for (const blockedDay of BLOCKED_DAYS) db.insert(schema.blockedDay).values(blockedDay).run();
 
 	const [course] = db.insert(schema.course).values({ name: 'Year 9 Science' }).returning().all();
 
@@ -2013,7 +2016,7 @@ describe('the Calendar', () => {
 		expect(blocked?.blockedDayId).toBe(week?.blockedDays[0].id);
 	});
 
-	test('the stored Week letter is read back, never inferred, and edits re-derive the schedule around it', () => {
+	test('a Term change re-letters the year, and the schedule follows the computed letter', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		const [lesson] = makeLessons(db, topic.id, 1);
@@ -2025,17 +2028,17 @@ describe('the Calendar', () => {
 			period: 5
 		});
 
-		expect(teachingWeeksList(db).find((w) => w.weekCommencing === '2026-08-31')?.letter).toBe('A');
+		expect(teachingWeeks(db).find((w) => w.weekCommencing === '2026-08-31')?.letter).toBe('A');
 
-		const report = setTeachingWeekLetter(db, {
-			weekCommencing: '2026-08-31',
-			letter: 'B',
-			today: '2026-09-03'
-		});
-		expect(report?.atRisk).toEqual([]);
-		expect(teachingWeeksList(db).find((w) => w.weekCommencing === '2026-08-31')?.letter).toBe('B');
+		// Autumn 1 opening a week earlier adds one Teaching Week before it, so that week and
+		// every week after it re-letter: w/c 31 August becomes Week B.
+		db.update(schema.term)
+			.set({ opens: '2026-08-27' })
+			.where(eq(schema.term.opens, '2026-09-03'))
+			.run();
+		expect(teachingWeeks(db).find((w) => w.weekCommencing === '2026-08-31')?.letter).toBe('B');
 
-		// Relabelled as Week B, classA no longer holds a Thursday Slot that week (its Week B day 4
+		// As Week B, classA no longer holds a Thursday Slot that week (its Week B day 4
 		// is bare) but does hold Friday P4 — so the Lesson moves there instead.
 		const after = classSchedule(db, { classId: classA.id, today: '2026-09-03' });
 		expect(after.scheduled.some((s) => s.date === '2026-09-03')).toBe(false);

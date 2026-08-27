@@ -7,6 +7,7 @@
 import { and, asc, eq, gte, inArray } from 'drizzle-orm';
 import type { drizzle } from 'drizzle-orm/bun-sqlite';
 import * as schema from '../db/schema';
+import { generateTeachingWeeks } from '../calendar/generate-teaching-weeks';
 import {
 	schedule,
 	rewind,
@@ -23,18 +24,28 @@ export type Db = ReturnType<typeof drizzle>;
 // key a re-derivation matches existing rows on.
 export const occasionKey = (row: { date: string; period: number }) => `${row.date}|${row.period}`;
 
-export function loadCalendar(db: Db): Calendar {
+// One accessor for the year's Teaching Weeks: computed from the Terms and Blocked Days, never
+// stored (spec #158, superseding ADR-0005). The snapshot the engine is fed, the Calendar ribbon
+// and the one-week grid all read through it, so the three can never disagree about a letter.
+export function teachingWeeks(db: Db) {
 	const terms = db
 		.select({ opens: schema.term.opens, closes: schema.term.closes })
 		.from(schema.term)
 		.all();
 
-	const teachingWeeks = db
-		.select({
-			weekCommencing: schema.teachingWeek.weekCommencing,
-			letter: schema.teachingWeek.letter
-		})
-		.from(schema.teachingWeek)
+	const blockedDays = db
+		.select({ date: schema.blockedDay.date })
+		.from(schema.blockedDay)
+		.all()
+		.map((row) => ({ date: row.date }));
+
+	return generateTeachingWeeks(terms, blockedDays);
+}
+
+export function loadCalendar(db: Db): Calendar {
+	const terms = db
+		.select({ opens: schema.term.opens, closes: schema.term.closes })
+		.from(schema.term)
 		.all();
 
 	const slots = db
@@ -65,7 +76,7 @@ export function loadCalendar(db: Db): Calendar {
 		.from(schema.blockedSlot)
 		.all();
 
-	return { terms, teachingWeeks, slots, blockedDays, blockedSlots };
+	return { terms, teachingWeeks: teachingWeeks(db), slots, blockedDays, blockedSlots };
 }
 
 // The Lessons of the Class's Assigned Topics, flattened in Assigned-Topic order then Lesson
@@ -284,9 +295,9 @@ export function lessonNames(db: Db, ids: readonly string[]): Map<string, LessonN
 }
 
 // A Rewind's report, made readable: each note-carrying Session whose Lesson changed, named by
-// Class and Lesson rather than left as bare ids — what blockDay, blockSlot and
-// setTeachingWeekLetter's `atRisk` is for (the point of the feature, not a nicety, per #38).
-// Private by design: every write describes its own report before returning.
+// Class and Lesson rather than left as bare ids — what blockDay and blockSlot's `atRisk` is for
+// (the point of the feature, not a nicety, per #38). Private by design: every write describes
+// its own report before returning.
 function describeAtRisk(db: Db, atRisk: SessionRecord[]): AtRiskSession[] {
 	if (atRisk.length === 0) return [];
 

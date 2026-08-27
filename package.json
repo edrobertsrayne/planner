@@ -65,8 +65,7 @@
 		"db:migrate": "drizzle-kit migrate",
 		"db:studio": "drizzle-kit studio",
 		"auth:schema": "auth generate --config src/lib/server/auth.ts --output src/lib/server/db/auth.schema.ts --yes",
-		"reset:credentials": "bun scripts/reset-credentials.ts",
-		"seed": "bun scripts/seed.ts"
+		"reset:credentials": "bun scripts/reset-credentials.ts"
 	},
 	"type": "module"
 }

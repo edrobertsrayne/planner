@@ -1,8 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
 
 // Runs after sign-in-out.e2e.ts (issue #97), logging in as the one user the wizard test created,
 // rather than creating its own. File sorts after sign-in-out.e2e.ts and before
@@ -63,24 +60,19 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		await login(page, EMAIL, PASSWORD);
 
 		// A calendar spanning well before and after whatever real date this suite happens to run
-		// on, generated fresh each run rather than pinned to the checked-in seed file — so the
-		// suite never depends on which real date it runs on. The schema requires exactly six
-		// Terms; only the second one, straddling today, is load-bearing.
+		// on, written straight into the scratch database each run — so the suite never depends on
+		// which real date it runs on. Six Terms; only the second one, straddling today, is
+		// load-bearing. The Week letters are derived from these dates, so this is the whole
+		// calendar the app needs.
 		const terms = [
-			{ name: 'Term 1', opens: isoDate(-84), closes: isoDate(-21) },
-			{ name: 'Term 2', opens: isoDate(-14), closes: isoDate(56) },
-			{ name: 'Term 3', opens: isoDate(70), closes: isoDate(84) },
-			{ name: 'Term 4', opens: isoDate(98), closes: isoDate(112) },
-			{ name: 'Term 5', opens: isoDate(126), closes: isoDate(140) },
-			{ name: 'Term 6', opens: isoDate(154), closes: isoDate(168) }
+			{ opens: isoDate(-84), closes: isoDate(-21) },
+			{ opens: isoDate(-14), closes: isoDate(56) },
+			{ opens: isoDate(70), closes: isoDate(84) },
+			{ opens: isoDate(98), closes: isoDate(112) },
+			{ opens: isoDate(126), closes: isoDate(140) },
+			{ opens: isoDate(154), closes: isoDate(168) }
 		];
-		const seedDir = mkdtempSync(path.join(tmpdir(), 'planner-e2e-'));
-		const seedPath = path.join(seedDir, 'seed.json');
-		writeFileSync(seedPath, JSON.stringify({ academicYear: 'e2e', terms, blockedDays: [] }));
-		execFileSync('bun', ['scripts/seed.ts', seedPath], {
-			cwd: process.cwd(),
-			env: { ...process.env, DATABASE_URL: 'e2e.db' }
-		});
+		runFixture('set-terms', JSON.stringify(terms));
 
 		// Course content: two Lessons, so the historical fixture below can consume the first and
 		// leave the second queued as Next Up.

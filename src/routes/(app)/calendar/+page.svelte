@@ -31,7 +31,6 @@
 	<PageHeader title="Calendar" description="One Teaching Week, Periods against days.">
 		{#snippet actions()}
 			{#if data.week}
-				{@const otherLetter = data.week.letter === 'A' ? 'B' : 'A'}
 				<div class="flex items-center gap-2">
 					<!-- eslint-disable svelte/no-navigation-without-resolve -- carries a query string -->
 					<Button
@@ -72,14 +71,6 @@
 						<ChevronRightIcon />
 					</Button>
 					<!-- eslint-enable svelte/no-navigation-without-resolve -->
-
-					<form method="POST" action="?/setLetter" use:enhance={refresh}>
-						<input type="hidden" name="weekCommencing" value={data.week.weekCommencing} />
-						<input type="hidden" name="letter" value={otherLetter} />
-						<Button type="submit" variant="ghost" size="sm">
-							Switch to Week {otherLetter}
-						</Button>
-					</form>
 				</div>
 			{/if}
 		{/snippet}
