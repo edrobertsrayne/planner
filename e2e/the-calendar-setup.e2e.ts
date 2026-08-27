@@ -25,6 +25,33 @@ function plusDays(iso: string, days: number): string {
 	return date.toISOString().slice(0, 10);
 }
 
+function weekdayOf(iso: string): number {
+	return new Date(`${iso}T00:00:00Z`).getUTCDay();
+}
+
+// The next Monday-to-Friday date on or after `iso`.
+function nextWeekday(iso: string): string {
+	let date = iso;
+	while (weekdayOf(date) === 0 || weekdayOf(date) === 6) date = plusDays(date, 1);
+	return date;
+}
+
+// The next Saturday on or after `iso`.
+function nextSaturday(iso: string): string {
+	let date = iso;
+	while (weekdayOf(date) !== 6) date = plusDays(date, 1);
+	return date;
+}
+
+function shortDate(iso: string): string {
+	return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', {
+		day: 'numeric',
+		month: 'short',
+		year: 'numeric',
+		timeZone: 'UTC'
+	});
+}
+
 async function login(page: Page, email: string, password: string) {
 	await page.goto('/login');
 	await page.getByLabel('Email').fill(email);
@@ -63,7 +90,7 @@ test.describe.serial('the Calendar setup mode', () => {
 			await expect(page.getByLabel(`${name} opening date`)).toBeVisible();
 			await expect(page.getByLabel(`${name} closing date`)).toBeVisible();
 		}
-		await expect(page.locator('input[type="date"]')).toHaveCount(12);
+		await expect(page.locator('[data-term-rows] input[type="date"]')).toHaveCount(12);
 
 		// The week controls the setup replaces are gone while it is open.
 		await expect(page.getByLabel('Previous Teaching Week')).toHaveCount(0);
@@ -119,6 +146,73 @@ test.describe.serial('the Calendar setup mode', () => {
 		await page.getByRole('button', { name: 'Cancel' }).click();
 	});
 
+	test('a Blocked Day is added from setup mode, refused where the date cannot be one, and removed', async () => {
+		await page.getByRole('button', { name: 'Set up year' }).click();
+
+		// A weekday inside the second Term, with no Session noted on it — so adding it says
+		// plainly that nothing was put at risk, and the week it falls in loses a teaching day.
+		const inset = nextWeekday(plusDays(new Date().toISOString().slice(0, 10), 40));
+		const insetMonday = plusDays(inset, -((weekdayOf(inset) + 6) % 7));
+		const insetWeek = page
+			.locator('[data-week-preview] tbody tr')
+			.filter({ hasText: shortDate(insetMonday) });
+		const daysBefore = Number(await insetWeek.locator('td').last().innerText());
+
+		await page.getByLabel('Blocked Day date').fill(inset);
+		await page.getByLabel('Blocked Day note').fill('INSET day');
+		await page.getByRole('button', { name: 'Add day' }).click();
+
+		await expect(
+			page.locator('section:has([data-blocked-days])').getByRole('status')
+		).toBeVisible();
+		await expect(page.getByLabel(`Remove Blocked Day ${inset}`)).toBeVisible();
+		await expect(insetWeek.locator('td').last()).toHaveText(String(daysBefore - 1));
+
+		// The refusals the seam owns: a date already blocked, a weekend, and no date at all —
+		// each told which it was.
+		await page.getByLabel('Blocked Day date').fill(inset);
+		await page.getByRole('button', { name: 'Add day' }).click();
+		await expect(
+			page.getByRole('alert').filter({ hasText: 'is already a Blocked Day.' })
+		).toBeVisible();
+
+		const saturday = nextSaturday(plusDays(inset, 1));
+		await page.getByLabel('Blocked Day date').fill(saturday);
+		await page.getByRole('button', { name: 'Add day' }).click();
+		await expect(
+			page
+				.getByRole('alert')
+				.filter({ hasText: 'falls on a weekend. A Blocked Day must be a Monday to Friday.' })
+		).toBeVisible();
+
+		await page.getByLabel('Blocked Day date').fill('');
+		await page.getByRole('button', { name: 'Add day' }).click();
+		// A date input cannot type a malformed date, so the empty case is what reaches the
+		// server here; the seam's own refusals are covered in the planner barrel suite.
+		await expect(page.getByRole('alert').filter({ hasText: 'No date given.' })).toBeVisible();
+
+		// A date outside every Term is accepted — a closure does not need a Term to be real.
+		const outside = nextWeekday(plusDays(new Date().toISOString().slice(0, 10), 250));
+		await page.getByLabel('Blocked Day date').fill(outside);
+		await page.getByRole('button', { name: 'Add day' }).click();
+		await expect(page.getByLabel(`Remove Blocked Day ${outside}`)).toBeVisible();
+		await expect(
+			page.locator('section:has([data-blocked-days])').getByRole('status')
+		).toBeVisible();
+
+		// The school gives a day back: removed from the same list, Rewinding as the grid does.
+		await page.getByLabel(`Remove Blocked Day ${outside}`).click();
+		await expect(page.getByLabel(`Remove Blocked Day ${outside}`)).toHaveCount(0);
+		await page.getByLabel(`Remove Blocked Day ${inset}`).click();
+		await expect(page.getByLabel(`Remove Blocked Day ${inset}`)).toHaveCount(0);
+		await expect(
+			page.getByText('None set. Every teaching day in the Terms is open.')
+		).toBeVisible();
+
+		await page.getByRole('button', { name: 'Cancel' }).click();
+		await expect(page.getByRole('button', { name: 'Set up year' })).toBeVisible();
+	});
+
 	test('cancel returns to the week the teacher was on with nothing saved', async () => {
 		// Land on a chosen week first, so "the week the teacher was on" is a fact to check.
 		const selected = page.locator('[aria-current="true"]').first();
@@ -148,6 +242,6 @@ test.describe.serial('the Calendar setup mode', () => {
 		// The first-run empty state of the year: no grid to show, so the setup is already open.
 		await expect(page.getByRole('button', { name: 'Save year' })).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Set up year' })).toBeHidden();
-		await expect(page.locator('input[type="date"]')).toHaveCount(12);
+		await expect(page.locator('[data-term-rows] input[type="date"]')).toHaveCount(12);
 	});
 });

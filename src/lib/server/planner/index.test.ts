@@ -626,6 +626,34 @@ describe('removing a Blocked Day', () => {
 	});
 });
 
+describe('blocking a day: the refusals every door shares', () => {
+	test('refuses a malformed date, a weekend date, and a date already blocked', () => {
+		const { db } = setUp();
+
+		expect(blockDay(db, { date: '2026-02-30', today: '2026-09-01' })).toEqual({
+			ok: false,
+			reason: '"2026-02-30" is not a real date.'
+		});
+		// 12 September 2026 is a Saturday.
+		expect(blockDay(db, { date: '2026-09-12', today: '2026-09-01' })).toEqual({
+			ok: false,
+			reason: '"2026-09-12" falls on a weekend. A Blocked Day must be a Monday to Friday.'
+		});
+		expect(blockDay(db, { date: '2026-09-03', today: '2026-09-01' })).toMatchObject({ ok: true });
+		expect(blockDay(db, { date: '2026-09-03', today: '2026-09-01' })).toEqual({
+			ok: false,
+			reason: '"2026-09-03" is already a Blocked Day.'
+		});
+	});
+
+	test('allows a date outside every Term, because a closure does not need a Term to be real', () => {
+		const { db } = setUp();
+		// 27 August 2026, a Thursday, before the first Term opens.
+		const report = blockDay(db, { date: '2026-08-27', today: '2026-09-01' });
+		expect(report).toMatchObject({ ok: true, atRisk: [] });
+	});
+});
+
 describe('removing a Blocked Slot', () => {
 	test('re-derives the one Class, and is a no-op for an unknown id', () => {
 		const { db, course, classA, classB } = setUp();
@@ -1085,11 +1113,11 @@ describe('Continuation', () => {
 		// A Session is identified by its occasion, not by row id (ADR-0002), so re-deriving must
 		// not try to delete a Session that a Continuation still references. It carries no note, so
 		// it is reported as discarded rather than at risk.
-		let report: ReturnType<typeof blockDay>;
+		let report: ReturnType<typeof blockDay> | undefined;
 		expect(() => {
 			report = blockDay(db, { date: '2026-09-03', note: 'Snow day', today: '2026-09-10' });
 		}).not.toThrow();
-		expect(report!.atRisk).toEqual([]);
+		expect(report).toMatchObject({ ok: true, atRisk: [] });
 
 		const after = classSchedule(db, { classId: classA.id, today: '2026-09-10' });
 		const sessionsForLesson = [...after.history, ...after.scheduled].filter(

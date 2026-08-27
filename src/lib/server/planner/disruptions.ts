@@ -3,17 +3,44 @@
 // and today — rather than from today alone (ADR-0007).
 import { eq } from 'drizzle-orm';
 import * as schema from '../db/schema';
-import { rederive, rederiveAllClasses, rewindBoundary, type Db, type WriteReport } from './derive';
+import {
+	rederive,
+	rederiveAllClasses,
+	rewindBoundary,
+	type AtRiskSession,
+	type Db,
+	type WriteReport
+} from './derive';
+import { isRealDate, weekday } from '$lib/date';
 
 // A Blocked Day removes every Slot on that date for every Class. Any Session that carried a note
 // and was relabelled by the re-derivation is reported back as `atRisk`, rather than silently
 // changed, so the teacher can be told.
+//
+// The same rules every door on the seam applies — the setup-mode list and the API answer to the
+// ones the grid popover cannot produce: a malformed date, a weekend date, and a date already
+// blocked are refused, and nothing else. A Blocked Day outside every Term is allowed, because a
+// closure does not need a Term to be real.
 export function blockDay(
 	db: Db,
 	{ date, note, today }: { date: string; note?: string; today: string }
-): WriteReport {
+): { ok: true; atRisk: AtRiskSession[] } | { ok: false; reason: string } {
+	if (!isRealDate(date)) return { ok: false, reason: `"${date}" is not a real date.` };
+	if (weekday(date) === 0 || weekday(date) === 6) {
+		return {
+			ok: false,
+			reason: `"${date}" falls on a weekend. A Blocked Day must be a Monday to Friday.`
+		};
+	}
+	const [existing] = db
+		.select({ id: schema.blockedDay.id })
+		.from(schema.blockedDay)
+		.where(eq(schema.blockedDay.date, date))
+		.all();
+	if (existing) return { ok: false, reason: `"${date}" is already a Blocked Day.` };
+
 	db.insert(schema.blockedDay).values({ date, note }).run();
-	return { atRisk: rederiveAllClasses(db, rewindBoundary(date, today)) };
+	return { ok: true, atRisk: rederiveAllClasses(db, rewindBoundary(date, today)) };
 }
 
 // A Blocked Slot removes one Slot on one date for one Class, leaving every other Class untouched.

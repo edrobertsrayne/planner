@@ -46,14 +46,15 @@ export const load: PageServerLoad = ({ url }) => {
 	const next = index >= 0 && index < weeks.length - 1 ? weeks[index + 1].weekCommencing : null;
 
 	// The setup mode edits the year in place: the six Terms as they stand, in date order so the
-	// rows read in year position, and every Blocked Day, which trims the preview's day counts.
+	// rows read in year position, and every Blocked Day with its note — the whole-year list the
+	// mode shows, and what trims the preview's day counts.
 	const terms = db
 		.select({ opens: schema.term.opens, closes: schema.term.closes })
 		.from(schema.term)
 		.orderBy(asc(schema.term.opens))
 		.all();
 	const blockedDays = db
-		.select({ date: schema.blockedDay.date })
+		.select({ date: schema.blockedDay.date, note: schema.blockedDay.note })
 		.from(schema.blockedDay)
 		.orderBy(asc(schema.blockedDay.date))
 		.all();
@@ -69,6 +70,7 @@ export const actions: Actions = {
 		if (!date) return fail(400, { error: 'No date given.' });
 
 		const report = blockDay(db, { date, note: note || undefined, today: today() });
+		if (!report.ok) return fail(400, { error: report.reason });
 		return { atRisk: report.atRisk };
 	},
 
