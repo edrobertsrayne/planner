@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import { resolve } from '$app/paths';
 	import { toggleMode } from 'mode-watcher';
 	import CalendarDaysIcon from '@lucide/svelte/icons/calendar-days';
 	import LogOutIcon from '@lucide/svelte/icons/log-out';
@@ -22,11 +23,11 @@
 	const occasion = $derived(selectedOccasion());
 
 	const TABS = [
-		['/', 'Agenda'],
-		['/calendar', 'Calendar'],
-		['/classes', 'Classes'],
-		['/courses', 'Courses'],
-		['/planning', 'Planning']
+		[resolve('/'), 'Agenda'],
+		[resolve('/calendar'), 'Calendar'],
+		[resolve('/classes'), 'Classes'],
+		[resolve('/courses'), 'Courses'],
+		[resolve('/planning'), 'Planning']
 	] as const;
 </script>
 
@@ -48,7 +49,6 @@
 						{#each TABS as [href, label] (href)}
 							{@const active =
 								href === '/' ? page.url.pathname === '/' : page.url.pathname.startsWith(href)}
-							<!-- eslint-disable svelte/no-navigation-without-resolve -- static internal route -->
 							<a
 								{href}
 								class="-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors {active
@@ -56,7 +56,6 @@
 									: 'border-transparent text-muted-foreground hover:text-foreground'}"
 								aria-current={active ? 'page' : undefined}>{label}</a
 							>
-							<!-- eslint-enable svelte/no-navigation-without-resolve -->
 						{/each}
 					</nav>
 				</div>
@@ -88,8 +87,7 @@
 									<Tooltip.Content>Toggle theme</Tooltip.Content>
 								</Tooltip.Root>
 
-								<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- static internal route -->
-								<Button variant="ghost" size="sm" href="/settings">
+								<Button variant="ghost" size="sm" href={resolve('/settings')}>
 									<SettingsIcon data-icon="inline-start" />
 									Settings
 								</Button>

@@ -44,7 +44,6 @@
 
 	async function step(lessonId: string | null) {
 		if (!lessonId) return;
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- carries a query string
 		await goto(hrefFor(lessonId, topicId), { replaceState: true, noScroll: true, keepFocus: true });
 	}
 
@@ -52,7 +51,6 @@
 		// Title and body save on blur — blurring first, before the Lesson unmounts, is what
 		// commits a pending edit when Ed closes with Escape mid-field rather than by clicking away.
 		(document.activeElement as HTMLElement | null)?.blur();
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- carries a query string
 		await goto(hrefFor(null, topicId), { replaceState: true, noScroll: true, keepFocus: true });
 	}
 

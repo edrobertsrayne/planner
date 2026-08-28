@@ -15,7 +15,6 @@ const NAVIGATION = { replaceState: true, noScroll: true, keepFocus: true, invali
 
 // Go to a URL on this page that differs only by its query string, without a history entry.
 export function replaceQuery(href: string): Promise<void> {
-	// eslint-disable-next-line svelte/no-navigation-without-resolve -- carries a query string
 	return goto(href, NAVIGATION);
 }
 

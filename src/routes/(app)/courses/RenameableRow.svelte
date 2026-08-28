@@ -59,7 +59,6 @@
 		</form>
 	{:else}
 		{#if href}
-			<!-- eslint-disable svelte/no-navigation-without-resolve -- href carries a query string -->
 			<a
 				{href}
 				class="flex flex-1 items-baseline justify-between px-4 py-2 text-sm hover:bg-accent {selected
@@ -68,7 +67,6 @@
 			>
 				<span class="min-w-0 truncate">{name}</span>
 			</a>
-			<!-- eslint-enable svelte/no-navigation-without-resolve -->
 		{:else}
 			<span class="flex flex-1 items-baseline px-4 py-2 text-sm">
 				<span class="min-w-0 truncate">{name}</span>

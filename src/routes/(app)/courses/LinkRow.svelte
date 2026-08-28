@@ -81,7 +81,6 @@
 {:else}
 	<div class="group flex items-baseline gap-2">
 		<LinkIcon class="size-3.5 shrink-0 translate-y-0.5 text-muted-foreground" />
-		<!-- eslint-disable svelte/no-navigation-without-resolve -- a Link's url is external -->
 		<a
 			href={safeHref}
 			target="_blank"
@@ -90,7 +89,6 @@
 		>
 			{link.label}
 		</a>
-		<!-- eslint-enable svelte/no-navigation-without-resolve -->
 		<span class="shrink-0 font-mono text-[10px] text-muted-foreground">
 			{new URL(link.url).hostname.split('.')[0]}
 		</span>
