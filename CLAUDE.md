@@ -49,6 +49,15 @@ What this project's SQLite and `drizzle-kit` can actually do. Read before writin
 
 Out-of-scope ideas for later. See `docs/backlog.md`.
 
+## End-to-end tests
+
+Run the whole suite with `bun run test`. Do not run one e2e file on its own.
+
+The suite keeps one database and one user, so every file depends on the state the files before it
+left. A single file starts against an empty database and stops at the first-run wizard, not the
+login page. The error names a duplicate "Password" field, which looks like a selector fault and is
+not one.
+
 ## Browser preview
 
 When Claude in Chrome is not available, drive the browser with `Bun.WebView` — the headless browser built into the Bun runtime. It navigates, clicks, types, and takes screenshots. See <https://bun.com/docs/runtime/webview.md>.

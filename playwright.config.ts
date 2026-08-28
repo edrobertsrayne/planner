@@ -13,6 +13,10 @@ const ORIGIN = 'http://localhost:4173';
 export default defineConfig({
 	// One database, one user (ADR-0001) — every spec file mutates the same shared state, so files
 	// must run one at a time, in the order they're discovered, rather than racing across workers.
+	//
+	// So the suite runs whole, or not at all. Running one file starts against an empty database and
+	// stops at the first-run wizard, not the login page: the failure names a duplicate "Password"
+	// field, which reads as a selector fault and is not one.
 	workers: 1,
 	use: {
 		launchOptions: chromiumPath ? { executablePath: chromiumPath } : {},
