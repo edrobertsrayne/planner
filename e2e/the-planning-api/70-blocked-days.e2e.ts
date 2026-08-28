@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import {
 	BEARER,
-	generateKey,
+	standingKey,
 	keysOf,
 	nextSaturday,
 	nextWeekday,
@@ -20,7 +20,7 @@ test.describe.serial('the Blocked Day endpoints', () => {
 
 	test.beforeAll(async ({ browser }) => {
 		page = await openPage(browser);
-		token = await generateKey(page);
+		token = await standingKey(page);
 	});
 
 	test.afterAll(async () => {

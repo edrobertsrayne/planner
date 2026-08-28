@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { BEARER, generateKey, openPage, type Page } from './helpers.ts';
+import { BEARER, standingKey, openPage, type Page } from './helpers.ts';
 
 // Covers the one Import endpoint over real HTTP (issue #159): the whole-or-nothing transaction,
 // Course reuse by name, the ambiguity and collision refusals, the rejected Import that leaves
@@ -11,7 +11,7 @@ test.describe.serial('the Topic import', () => {
 
 	test.beforeAll(async ({ browser }) => {
 		page = await openPage(browser);
-		token = await generateKey(page);
+		token = await standingKey(page);
 	});
 
 	test.afterAll(async () => {

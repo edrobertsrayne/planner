@@ -3,7 +3,7 @@ import {
 	BEARER,
 	FIXTURE_CLASS_LABEL,
 	FIXTURE_COURSE,
-	generateKey,
+	standingKey,
 	openPage,
 	runFixture,
 	type Page
@@ -29,7 +29,7 @@ test.describe.serial('the refusals that protect the record', () => {
 
 	test.beforeAll(async ({ browser }) => {
 		page = await openPage(browser);
-		token = await generateKey(page);
+		token = await standingKey(page);
 
 		// The state the earlier files left behind, found by the names it is known by.
 		const courses = await (

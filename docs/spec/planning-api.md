@@ -40,11 +40,12 @@ These are ruled out of this effort. They are listed so an implementer does not a
 The planner already has a cookie session for the browser. An agent cannot use it. The API therefore
 gets a second mechanism: **one regenerable API key** (ADR-0019, superseded by ADR-0021).
 
-- The teacher generates the key in Settings and gives it to the agent.
+- The planner mints the key the first time Settings is opened; the teacher reads it there and
+  gives it to the agent.
 - The server stores the token itself, in the clear. No hash of it is kept.
 - Regenerating replaces the key. The old token stops working the moment the new one is minted.
   This is the only revoke: there is nothing to revoke separately.
-- At most one row, enforced by the write path: generating deletes every row and inserts one.
+- At most one row, enforced by the write path: regenerating deletes every row and inserts one.
 
 One key for the account, not one per tool. With one consumer, revoking **is** breaking it, and
 that is the intent.
@@ -110,10 +111,14 @@ and not any Course. The card sits beside the change-password form.
 
 One card, "API key":
 
-- Whether a key exists, when it was created, and when it was last used.
-- One button — **Generate** when there is none, **Regenerate** when there is one.
-- Regenerating replaces the key: the old token stops working at once, and the card says so.
-- The new token is shown once, in a show-once panel that warns the teacher to copy it now.
+- Opening the screen mints a key if the database has none. There is no Generate step and no state
+  in which the planner has no key.
+- The token is shown in full, in a read-only monospace field. No masking and no reveal toggle:
+  masking defends a shoulder-surfing threat this planner does not have, and Settings is the only
+  place the token can be read, so it is the only door this rule has to be kept at.
+- The created and last-used dates sit beneath the field. A key nothing has used yet says so.
+- One button — **Regenerate**. It replaces the key: the old token stops working at once, and the
+  card says so.
 - Report the outcome as a toast, as the change-password form does.
 
 There are **no HTTP endpoints for key management.** A key is made in the browser only. A key that

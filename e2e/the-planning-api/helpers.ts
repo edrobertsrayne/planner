@@ -1,18 +1,18 @@
 import { expect, type Browser, type Page } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 
-// The setup every planning API e2e file shares (issue #174): the one login, the API key each file
-// generates for itself, and the small request, date and fixture helpers the resource files use.
-// The files run one at a time in the suite's single-worker ordering (see isolation.e2e.ts), so
-// the numbered prefixes carry the order the sections read in the single file they replaced:
+// The setup every planning API e2e file shares (issue #174): the one login, the API key the
+// files read from Settings, and the small request, date and fixture helpers the resource files
+// use. The files run one at a time in the suite's single-worker ordering (see isolation.e2e.ts),
+// so the numbered prefixes carry the order the sections read in the single file they replaced:
 // Courses, Topics, Lessons, Links, the Import, the refusals that read what those left behind,
 // the Blocked Days, the Terms, and the key regeneration last. The directory sits where that
 // single file sat — after teaching-flows.e2e.ts, whose Classes the fixtures assign — and before
 // user-settings-password.e2e.ts, which must stay last.
 //
-// Each file generates a key on the settings page, and generating replaces the key before it:
-// only one key is live at a time, which is what makes each file's key independent of the files
-// around it.
+// The key is stable across files (issue #183): opening Settings mints one if the database has
+// none, so from 10-courses.e2e.ts on every file reads the same standing token. Only
+// 90-the-key.e2e.ts, which runs last, is allowed to replace it — that is the regeneration test.
 const EMAIL = 'teacher@example.com';
 const PASSWORD = 'a-very-long-password';
 
@@ -76,15 +76,11 @@ export async function openPage(browser: Browser): Promise<Page> {
 	return page;
 }
 
-// Generates a key on the settings page and reads it back from the one-time display. The button
-// reads Generate only while no key exists, so the files after the first leave the name to this
-// helper; a test that means to regenerate pins the name it wants.
-export async function generateKey(
-	page: Page,
-	buttonName?: 'Generate' | 'Regenerate'
-): Promise<string> {
+// Reads the standing key from the Settings card. The token is shown in full, in a read-only
+// field — there is no Generate step and no one-time display to catch it from.
+export async function standingKey(page: Page): Promise<string> {
 	await page.goto('/settings');
-	await page.getByRole('button', { name: buttonName ?? /^(Generate|Regenerate)$/ }).click();
-	await expect(page.getByRole('status').filter({ hasText: 'API key generated.' })).toBeVisible();
-	return (await page.locator('code').filter({ hasText: /pln_/ }).innerText()).trim();
+	const field = page.getByLabel('API key');
+	await expect(field).toBeVisible();
+	return (await field.inputValue()).trim();
 }
