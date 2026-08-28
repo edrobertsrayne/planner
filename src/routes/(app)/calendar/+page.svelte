@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
 	import BanIcon from '@lucide/svelte/icons/ban';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
@@ -32,6 +33,10 @@
 
 	const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
+	// The ribbon and the two arrows all step the year by query string. `prev`, `next` and a ribbon
+	// entry each carry a week commencing date, not a URL, so the link is built here.
+	const weekHref = (weekCommencing: string) => resolve(`/calendar?week=${weekCommencing}`);
+
 	// One entry per (day, Period); see calendar-grid.ts. The explicit `h-16` on a start cell's
 	// <td> is what lets the tile's `h-full` resolve, so a multi-Period Lesson renders as one tall
 	// tile rather than silently collapsing to one Period.
@@ -49,11 +54,10 @@
 			{#if !setup}
 				{#if data.week}
 					<div class="flex items-center gap-2">
-						<!-- eslint-disable svelte/no-navigation-without-resolve -- carries a query string -->
 						<Button
 							variant="ghost"
 							size="icon-sm"
-							href={data.prev ?? undefined}
+							href={data.prev ? weekHref(data.prev) : undefined}
 							disabled={!data.prev}
 							aria-label="Previous Teaching Week"
 						>
@@ -64,7 +68,7 @@
 							{#each data.ribbon as w (w.weekCommencing)}
 								{@const isSelected = w.weekCommencing === data.selected}
 								<a
-									href={`?week=${w.weekCommencing}`}
+									href={weekHref(w.weekCommencing)}
 									aria-current={isSelected ? 'true' : undefined}
 									class="flex h-6 items-center rounded-sm px-2 text-xs font-medium tabular-nums {isSelected
 										? 'bg-secondary text-secondary-foreground'
@@ -81,13 +85,12 @@
 						<Button
 							variant="ghost"
 							size="icon-sm"
-							href={data.next ?? undefined}
+							href={data.next ? weekHref(data.next) : undefined}
 							disabled={!data.next}
 							aria-label="Next Teaching Week"
 						>
 							<ChevronRightIcon />
 						</Button>
-						<!-- eslint-enable svelte/no-navigation-without-resolve -->
 					</div>
 				{/if}
 

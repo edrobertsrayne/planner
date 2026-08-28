@@ -216,22 +216,40 @@ test.describe.serial('the Calendar setup mode', () => {
 	test('cancel returns to the week the teacher was on with nothing saved', async () => {
 		// Land on a chosen week first, so "the week the teacher was on" is a fact to check.
 		const selected = page.locator('[aria-current="true"]').first();
-		const href = await selected.getAttribute('href');
+		const href = (await selected.getAttribute('href')) ?? '';
 		await page.locator(`a[href="${href}"]`).click();
-		await expect(page).toHaveURL(new RegExp(`\\${href}$`));
+		await expect(page).toHaveURL(href);
 
 		await page.getByRole('button', { name: 'Set up year' }).click();
 		await page.getByLabel('Autumn 1 opening date').fill('2027-09-01');
 		await page.getByRole('button', { name: 'Cancel' }).click();
 
 		// The same week, still selected — and the draft walked away from is gone.
-		await expect(page).toHaveURL(new RegExp(`\\${href}$`));
+		await expect(page).toHaveURL(href);
 		await expect(page.locator('[aria-current="true"]').first()).toHaveAttribute('href', href);
 
 		await page.getByRole('button', { name: 'Set up year' }).click();
 		const reopened = await page.getByLabel('Autumn 1 opening date').inputValue();
 		expect(reopened).not.toBe('2027-09-01');
 		await page.getByRole('button', { name: 'Cancel' }).click();
+	});
+
+	// The two arrows step the year the way the ribbon does. Each is handed a week commencing date,
+	// not a link, so this asserts where the arrow lands and not merely that it is there.
+	test('the previous and next arrows step to the neighbouring Teaching Week', async () => {
+		await page.goto('/calendar');
+
+		const here = await page.locator('[aria-current="true"]').first().getAttribute('href');
+		const before = await page
+			.locator(`a[href="${here}"]`)
+			.locator('xpath=preceding-sibling::a[1]')
+			.getAttribute('href');
+
+		await page.getByLabel('Previous Teaching Week').click();
+		await expect(page).toHaveURL(before ?? '');
+
+		await page.getByLabel('Next Teaching Week').click();
+		await expect(page).toHaveURL(here ?? '');
 	});
 
 	test('a planner with no Term set opens setup mode by itself', async () => {
