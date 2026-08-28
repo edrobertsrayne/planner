@@ -20,7 +20,10 @@ export default defineConfig({
 	workers: 1,
 	use: {
 		launchOptions: chromiumPath ? { executablePath: chromiumPath } : {},
-		headless: true
+		headless: true,
+		// A failed test leaves a trace to read (DOM, network, action timeline) in test-results/.
+		// Traces for passing tests are deleted. No retries: a flake reports itself.
+		trace: 'retain-on-failure'
 	},
 	webServer: {
 		command: `rm -f ${DATABASE_URL} ${DATABASE_URL}-shm ${DATABASE_URL}-wal && bun run build && bun run preview`,
