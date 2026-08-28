@@ -185,10 +185,10 @@
 								{#if entry.type === 'covered'}
 									<!-- covered by an earlier Period's rowspan -->
 								{:else if entry.type === 'free'}
-								<td
-									class="h-16 rounded-lg {kindClass(dayKind) || 'bg-muted/40'}"
-									data-day-kind={dayKind}
-								></td>
+									<td
+										class="h-16 rounded-lg {kindClass(dayKind) || 'bg-muted/40'}"
+										data-day-kind={dayKind}
+									></td>
 								{:else}
 									{@const cell = entry.cell}
 									{@const rowspan = cell.periodTo - cell.periodFrom + 1}

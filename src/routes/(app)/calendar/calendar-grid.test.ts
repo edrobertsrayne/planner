@@ -28,18 +28,18 @@ const DAYS = [
 
 describe('toGrid', () => {
 	test('Periods down, days across — every date holds a column per Period (issue #90)', () => {
-		const grid = toGrid(DAYS,[]);
+		const grid = toGrid(DAYS, []);
 		expect(grid).toHaveLength(DAYS.length);
 		expect(grid.every((row) => row.length === PERIODS.length)).toBe(true);
 	});
 
 	test('an empty week is free everywhere', () => {
-		const grid = toGrid(DAYS,[]);
+		const grid = toGrid(DAYS, []);
 		expect(grid.flat().every((e) => e.type === 'free')).toBe(true);
 	});
 
 	test('a multi-Period Lesson starts once and covers the Periods after it', () => {
-		const grid = toGrid(DAYS,[cell({ periodFrom: 3, periodTo: 5 })]);
+		const grid = toGrid(DAYS, [cell({ periodFrom: 3, periodTo: 5 })]);
 		expect(grid[0][2]).toMatchObject({ type: 'start' });
 		expect(grid[0][3]).toEqual({ type: 'covered' });
 		expect(grid[0][4]).toEqual({ type: 'covered' });
@@ -47,7 +47,7 @@ describe('toGrid', () => {
 	});
 
 	test('a Blocked cell occupies its own Slot position only', () => {
-		const grid = toGrid(DAYS,[
+		const grid = toGrid(DAYS, [
 			cell({ kind: 'blocked', lesson: null, blockedNote: 'Trip', periodFrom: 4, periodTo: 4 })
 		]);
 		expect(grid[0][3]).toMatchObject({ type: 'start' });
@@ -57,13 +57,13 @@ describe('toGrid', () => {
 	});
 
 	test('cells on dates outside the week are ignored', () => {
-		const grid = toGrid(DAYS,[cell({ date: '2026-09-07' })]);
+		const grid = toGrid(DAYS, [cell({ date: '2026-09-07' })]);
 		expect(grid.flat().every((e) => e.type === 'free')).toBe(true);
 	});
 
 	test('the start entry carries its cell through to the renderer', () => {
 		const c = cell({ classLabel: '7X/Sc1', tone: 4 });
-		const start = toGrid(DAYS,[c])[0][0];
+		const start = toGrid(DAYS, [c])[0][0];
 		expect(start).toMatchObject({ type: 'start', cell: c });
 	});
 });
