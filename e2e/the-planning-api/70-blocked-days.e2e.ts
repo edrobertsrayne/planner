@@ -13,8 +13,7 @@ import {
 
 // Covers the three Blocked Day endpoints over real HTTP (issues #159 and #165): the key check,
 // the Rewind's at-risk report beside each write, the weekend and duplicate refusals, and removal
-// by date. Needs no Course or Topic state, so it leans on no other file in the directory, and it
-// touches no Terms, which is what leaves the Term file's first read empty.
+// by date. Needs no Course or Topic state, so it leans on no other file in the directory.
 test.describe.serial('the Blocked Day endpoints', () => {
 	let page: Page;
 	let token = '';
