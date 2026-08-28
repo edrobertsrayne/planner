@@ -7,13 +7,6 @@ import type { Actions, PageServerLoad } from './$types';
 
 const MIN_PASSWORD_LENGTH = 12;
 
-async function hashToken(token: string): Promise<string> {
-	const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
-	return Array.from(new Uint8Array(hashBuffer))
-		.map((b) => b.toString(16).padStart(2, '0'))
-		.join('');
-}
-
 export const load: PageServerLoad = async () => {
 	const [key] = await db
 		.select({
@@ -58,10 +51,9 @@ export const actions: Actions = {
 	generateKey: async () => {
 		const bytes = crypto.getRandomValues(new Uint8Array(32));
 		const token = 'pln_' + Buffer.from(bytes).toString('base64url');
-		const hash = await hashToken(token);
 
 		await db.delete(apiKey);
-		await db.insert(apiKey).values({ hash });
+		await db.insert(apiKey).values({ token });
 
 		return { token };
 	}
