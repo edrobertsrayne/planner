@@ -1,0 +1,4 @@
+# Same command as the Lint workflow, so a commit that passes here passes CI.
+# It checks the whole tree, not the staged files, because CI checks the whole tree.
+# It reports; it does not fix. Run `bun run format` to fix the formatting part.
+bun run lint
