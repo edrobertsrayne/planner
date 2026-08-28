@@ -7,8 +7,7 @@ import { execFileSync } from 'node:child_process';
 // the numbered prefixes carry the order the sections read in the single file they replaced:
 // Courses, Topics, Lessons, Links, the Import, the refusals that read what those left behind,
 // the Blocked Days, the Terms, and the key regeneration last. The directory sits where that
-// single file sat — after teaching-flows.e2e.ts, whose Classes the fixtures assign, and
-// the-calendar-setup.e2e.ts, whose cleared year the Term file reads — and before
+// single file sat — after teaching-flows.e2e.ts, whose Classes the fixtures assign — and before
 // user-settings-password.e2e.ts, which must stay last.
 //
 // Each file generates a key on the settings page, and generating replaces the key before it:

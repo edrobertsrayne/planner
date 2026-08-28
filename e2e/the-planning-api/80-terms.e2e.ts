@@ -1,16 +1,26 @@
 import { test, expect } from '@playwright/test';
-import { BEARER, generateKey, keysOf, openPage, plusDays, todayIso, type Page } from './helpers.ts';
+import {
+	BEARER,
+	generateKey,
+	keysOf,
+	openPage,
+	plusDays,
+	runFixture,
+	todayIso,
+	type Page
+} from './helpers.ts';
 
 // Covers the two Term endpoints over real HTTP (issue #164): reading the year back and replacing
 // it as one document, with every refusal the seam owns — the wrong count, an unreal date, a Term
-// opening after it closes, and two that touch. Runs after the-calendar-setup.e2e.ts cleared the
-// year, so the first read is empty, and after the Blocked Day file as it did before the split,
-// so the at-risk report reads the same.
+// opening after it closes, and two that touch. Clears the year itself in beforeAll, so the first
+// read is empty, and runs after the Blocked Day file as it did before the split, so the at-risk
+// report reads the same.
 test.describe.serial('the Term endpoints', () => {
 	let page: Page;
 	let token = '';
 
 	test.beforeAll(async ({ browser }) => {
+		runFixture('clear-terms');
 		page = await openPage(browser);
 		token = await generateKey(page);
 	});
@@ -26,7 +36,7 @@ test.describe.serial('the Term endpoints', () => {
 		expect((await request.get('/api/terms')).status()).toBe(401);
 		expect((await request.put('/api/terms', { data: { terms: [] } })).status()).toBe(401);
 
-		// The setup spec before this one cleared the year, so the read starts empty.
+		// Cleared in beforeAll, so the read starts empty.
 		const empty = await request.get('/api/terms', { headers: BEARER(token) });
 		expect(empty.status()).toBe(200);
 		expect(await empty.json()).toEqual({ terms: [] });
