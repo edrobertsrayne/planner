@@ -41,9 +41,8 @@
 	// One entry per (day, Period); see calendar-grid.ts. The explicit `h-16` on a start cell's
 	// <td> is what lets the tile's `h-full` resolve, so a multi-Period Lesson renders as one tall
 	// tile rather than silently collapsing to one Period.
-	const grid = $derived.by(() => toGrid(data.week?.dates ?? [], data.week?.cells ?? []));
+	const grid = $derived.by(() => toGrid(data.week?.days ?? [], data.week?.cells ?? []));
 	const blockedByDate = $derived(new Map((data.week?.blockedDays ?? []).map((b) => [b.date, b])));
-	const kindByDate = $derived(new Map((data.week?.days ?? []).map((d) => [d.date, d.kind])));
 
 	// The column's state as a class: a wash on the header and every cell behind the tiles, so
 	// the day itself reads as one state. A teaching day takes none.
@@ -131,9 +130,9 @@
 					<tr>
 						<th class="w-12"></th>
 						{#each DAY_NAMES as d, di (d)}
-							{@const date = data.week.dates[di]}
+							{@const date = data.week.days[di].date}
 							{@const blockedDay = blockedByDate.get(date)}
-							{@const dayKind = kindByDate.get(date)}
+							{@const dayKind = data.week.days[di].kind}
 							<th
 								class="rounded-lg pb-1 text-left align-bottom {kindClass(dayKind)}"
 								data-day-kind={dayKind}
@@ -181,18 +180,15 @@
 								</div>
 							</th>
 							{#each DAY_NAMES as d, di (d)}
-								{@const date = data.week.dates[di]}
-								{@const dayKind = kindByDate.get(date)}
+								{@const dayKind = data.week.days[di].kind}
 								{@const entry = grid[di][period - 1]}
 								{#if entry.type === 'covered'}
 									<!-- covered by an earlier Period's rowspan -->
 								{:else if entry.type === 'free'}
-									<td
-										class="h-16 rounded-lg {dayKind === 'teaching'
-											? 'bg-muted/40'
-											: kindClass(dayKind)}"
-										data-day-kind={dayKind}
-									></td>
+								<td
+									class="h-16 rounded-lg {kindClass(dayKind) || 'bg-muted/40'}"
+									data-day-kind={dayKind}
+								></td>
 								{:else}
 									{@const cell = entry.cell}
 									{@const rowspan = cell.periodTo - cell.periodFrom + 1}

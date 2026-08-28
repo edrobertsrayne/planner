@@ -136,7 +136,6 @@ export type DayKind = 'teaching' | 'blocked' | 'holiday';
 export interface CalendarWeek {
 	weekCommencing: string;
 	letter: 'A' | 'B';
-	dates: string[];
 	days: { date: string; kind: DayKind }[];
 	cells: CalendarCell[];
 	blockedDays: { id: string; date: string; note: string | null }[];
@@ -270,7 +269,6 @@ export function calendarWeek(
 	return {
 		weekCommencing,
 		letter: week.letter,
-		dates,
 		days: dates.map((date) => ({
 			date,
 			kind: !inAnyTerm(cal.terms, date) ? 'holiday' : dayBlocks.has(date) ? 'blocked' : 'teaching'

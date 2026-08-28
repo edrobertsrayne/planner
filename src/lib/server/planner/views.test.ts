@@ -112,7 +112,7 @@ describe('the Calendar', () => {
 		const week = calendarWeek(db, { weekCommencing: '2026-08-31', today: '2026-09-03' });
 
 		expect(week?.letter).toBe('A');
-		expect(week?.dates).toEqual([
+		expect(week?.days.map((d) => d.date)).toEqual([
 			'2026-08-31',
 			'2026-09-01',
 			'2026-09-02',
