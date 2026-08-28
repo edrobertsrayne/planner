@@ -63,6 +63,24 @@ async function login(page: Page, email: string, password: string) {
 test.describe.serial('the Calendar setup mode', () => {
 	let page: Page;
 
+	// Blocks one day through its own day header, the way the teacher does, and waits for the
+	// header to flip to its blocked state.
+	async function blockDayFromHeader(day: string) {
+		await page
+			.locator('thead th')
+			.filter({ hasText: day })
+			.getByRole('button', { name: 'Block day' })
+			.click();
+		await page.getByPlaceholder('Note (optional)').fill('Test INSET');
+		await page.getByRole('button', { name: 'Block', exact: true }).click();
+		await expect(
+			page
+				.locator('thead th')
+				.filter({ hasText: day })
+				.getByRole('button', { name: 'blocked · unblock' })
+		).toBeVisible();
+	}
+
 	test.beforeAll(async ({ browser }) => {
 		page = await browser.newPage();
 		await login(page, EMAIL, PASSWORD);
@@ -211,6 +229,72 @@ test.describe.serial('the Calendar setup mode', () => {
 
 		await page.getByRole('button', { name: 'Cancel' }).click();
 		await expect(page.getByRole('button', { name: 'Set up year' })).toBeVisible();
+	});
+
+	test('the week grid shades a School Holiday, a Blocked Day, and the two on one date', async () => {
+		// A year built around the current week: Term 1 closes on its Monday and Term 2 opens on
+		// its Wednesday, so the Tuesday of that week is outside every Term — a School Holiday —
+		// and Monday with Wednesday to Friday are teaching days.
+		const todayIso = new Date().toISOString().slice(0, 10);
+		const monday = plusDays(todayIso, -((weekdayOf(todayIso) + 6) % 7));
+		const terms = [
+			{ opens: plusDays(monday, -84), closes: monday },
+			{ opens: plusDays(monday, 2), closes: plusDays(monday, 56) },
+			{ opens: plusDays(monday, 70), closes: plusDays(monday, 84) },
+			{ opens: plusDays(monday, 98), closes: plusDays(monday, 112) },
+			{ opens: plusDays(monday, 126), closes: plusDays(monday, 140) },
+			{ opens: plusDays(monday, 154), closes: plusDays(monday, 168) }
+		];
+
+		await page.goto('/calendar');
+		await page.getByRole('button', { name: 'Set up year' }).click();
+		for (const [i, term] of terms.entries()) {
+			await page.getByLabel(`${TERM_NAMES[i]} opening date`).fill(term.opens);
+			await page.getByLabel(`${TERM_NAMES[i]} closing date`).fill(term.closes);
+		}
+		await page.getByRole('button', { name: 'Save year' }).click();
+		await expect(page.getByRole('button', { name: 'Set up year' })).toBeVisible();
+
+		// The engineered week by name — not the default one, which over a weekend is the
+		// following, wholly in-term week. Exactly one of its days, the Tuesday, is a School
+		// Holiday: the header and every cell of the column carry it.
+		await page.goto(`/calendar?week=${monday}`);
+		await expect(page.locator('thead th[data-day-kind="holiday"]')).toHaveCount(1);
+		await expect(page.locator('thead th.day-holiday')).toHaveCount(1);
+		await expect(page.locator('thead th[data-day-kind="holiday"]')).toContainText('Tue');
+		await expect(page.locator('td[data-day-kind="holiday"]')).toHaveCount(6);
+		await expect(page.locator('thead th[data-day-kind="teaching"]')).toHaveCount(4);
+		await expect(
+			page.getByText('Amber = School Holiday — a date outside every Term.')
+		).toBeVisible();
+
+		// A Blocked Day entered on the holiday: the holiday keeps the column — nothing was
+		// removed, so no hatch reaches it — and the header alone carries the unblock control.
+		await blockDayFromHeader('Tue');
+		await expect(page.locator('thead th[data-day-kind="holiday"]')).toHaveCount(1);
+		await expect(page.locator('td[data-day-kind="holiday"] .hatched')).toHaveCount(0);
+		await expect(
+			page
+				.locator('thead th[data-day-kind="holiday"]')
+				.getByRole('button', { name: 'blocked · unblock' })
+		).toBeVisible();
+
+		// A Blocked Day inside a Term is the other shading: grey, never amber, with the hatch
+		// on whichever tiles the column holds. Wednesday is in Term 2 whatever the real date.
+		await blockDayFromHeader('Wed');
+		await expect(page.locator('thead th[data-day-kind="blocked"]')).toHaveCount(1);
+		await expect(page.locator('thead th.day-blocked')).toHaveCount(1);
+		await expect(page.locator('thead th[data-day-kind="teaching"]')).toHaveCount(3);
+		await expect(page.locator('td[data-day-kind="blocked"] > div:not(.hatched)')).toHaveCount(0);
+
+		// Leave no Blocked Day behind: the planning API suite after this one reads an empty list.
+		const unblock = page.locator('thead th').getByRole('button', { name: 'blocked · unblock' });
+		let remaining = await unblock.count();
+		while (remaining > 0) {
+			await unblock.first().click();
+			await expect(unblock).toHaveCount(remaining - 1);
+			remaining -= 1;
+		}
 	});
 
 	test('cancel returns to the week the teacher was on with nothing saved', async () => {

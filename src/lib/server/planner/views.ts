@@ -6,7 +6,7 @@ import { addDays } from '$lib/date';
 import * as schema from '../db/schema';
 import { type LessonStatus } from './authoring';
 import { lessonNames, loadCalendar, scheduleFor, type Db, type LessonName } from './derive';
-import { agendaRows, slotHolds, type AgendaRow, type Calendar } from './engine';
+import { agendaRows, inAnyTerm, slotHolds, type AgendaRow, type Calendar } from './engine';
 import { listClasses } from './classes';
 
 type ClassRow = ReturnType<typeof listClasses>[number];
@@ -127,10 +127,17 @@ export interface CalendarCell {
 	blockedSlotId: string | null;
 }
 
+// The three states a day column in the Calendar can show: an ordinary teaching day, a Blocked
+// Day, or a School Holiday — a date outside every Term. When a Blocked Day is entered outside
+// every Term, the holiday wins: the school is simply not running, and the header's unblock
+// control remains the way to remove the day.
+export type DayKind = 'teaching' | 'blocked' | 'holiday';
+
 export interface CalendarWeek {
 	weekCommencing: string;
 	letter: 'A' | 'B';
 	dates: string[];
+	days: { date: string; kind: DayKind }[];
 	cells: CalendarCell[];
 	blockedDays: { id: string; date: string; note: string | null }[];
 }
@@ -264,6 +271,10 @@ export function calendarWeek(
 		weekCommencing,
 		letter: week.letter,
 		dates,
+		days: dates.map((date) => ({
+			date,
+			kind: !inAnyTerm(cal.terms, date) ? 'holiday' : dayBlocks.has(date) ? 'blocked' : 'teaching'
+		})),
 		cells,
 		blockedDays: dates.flatMap((date) => {
 			const row = dayBlocks.get(date);

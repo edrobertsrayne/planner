@@ -84,7 +84,7 @@ export interface Runway {
 	lessonsRemaining: number;
 }
 
-const inAnyTerm = (terms: Term[], date: string) =>
+export const inAnyTerm = (terms: Term[], date: string) =>
 	terms.some((term) => date >= term.opens && date <= term.closes);
 
 export const slotHolds = (

@@ -15,6 +15,7 @@
 	import BlockPopover from './BlockPopover.svelte';
 	import CalendarSetup from './CalendarSetup.svelte';
 	import { PERIODS, toGrid } from './calendar-grid';
+	import type { DayKind } from '$lib/server/planner';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -42,6 +43,12 @@
 	// tile rather than silently collapsing to one Period.
 	const grid = $derived.by(() => toGrid(data.week?.dates ?? [], data.week?.cells ?? []));
 	const blockedByDate = $derived(new Map((data.week?.blockedDays ?? []).map((b) => [b.date, b])));
+	const kindByDate = $derived(new Map((data.week?.days ?? []).map((d) => [d.date, d.kind])));
+
+	// The column's state as a class: a wash on the header and every cell behind the tiles, so
+	// the day itself reads as one state. A teaching day takes none.
+	const kindClass = (kind: DayKind | undefined) =>
+		kind === 'holiday' ? 'day-holiday' : kind === 'blocked' ? 'day-blocked' : '';
 </script>
 
 <svelte:head><title>Calendar</title></svelte:head>
@@ -126,7 +133,11 @@
 						{#each DAY_NAMES as d, di (d)}
 							{@const date = data.week.dates[di]}
 							{@const blockedDay = blockedByDate.get(date)}
-							<th class="pb-1 text-left align-bottom">
+							{@const dayKind = kindByDate.get(date)}
+							<th
+								class="rounded-lg pb-1 text-left align-bottom {kindClass(dayKind)}"
+								data-day-kind={dayKind}
+							>
 								<div class="flex items-baseline gap-1.5">
 									<span class="text-sm font-semibold">{d}</span>
 									<span class="text-xs font-normal text-muted-foreground"
@@ -170,47 +181,67 @@
 								</div>
 							</th>
 							{#each DAY_NAMES as d, di (d)}
+								{@const date = data.week.dates[di]}
+								{@const dayKind = kindByDate.get(date)}
 								{@const entry = grid[di][period - 1]}
 								{#if entry.type === 'covered'}
 									<!-- covered by an earlier Period's rowspan -->
 								{:else if entry.type === 'free'}
-									<td class="h-16 rounded-lg bg-muted/40"></td>
+									<td
+										class="h-16 rounded-lg {dayKind === 'teaching'
+											? 'bg-muted/40'
+											: kindClass(dayKind)}"
+										data-day-kind={dayKind}
+									></td>
 								{:else}
 									{@const cell = entry.cell}
 									{@const rowspan = cell.periodTo - cell.periodFrom + 1}
 									{@const tone = classTone(cell.tone)}
-									<td {rowspan} class="group/cell relative h-16 align-top">
+									<td
+										{rowspan}
+										class="group/cell relative h-16 align-top {kindClass(dayKind)}"
+										data-day-kind={dayKind}
+									>
 										{#if cell.kind === 'blocked'}
+											<!-- A School Holiday removes nothing, so its tile is plain — label
+											only, the header's unblock button carrying any Blocked Day entered
+											on it. A Blocked Slot recorded on a holiday is a removal all the
+											same, so it keeps the hatch, its note and its unblock link. -->
+											{@const plainHoliday = dayKind === 'holiday' && !cell.blockedSlotId}
 											<div
-												class="hatched flex h-full min-h-16 flex-col rounded-lg border border-dashed px-2 py-1.5"
+												class="flex h-full min-h-16 flex-col rounded-lg px-2 py-1.5 {plainHoliday
+													? 'holiday-tile'
+													: 'hatched border border-dashed'}"
 											>
 												<div class="text-xs font-semibold text-muted-foreground">
 													{cell.classLabel}
 												</div>
-												<div class="mt-0.5 line-clamp-2 text-xs text-muted-foreground/80 italic">
-													{cell.blockedNote ?? 'Blocked'}
-												</div>
-												{#if cell.blockedSlotId || cell.blockedDayId}
-													<form
-														method="POST"
-														action={cell.blockedSlotId ? '?/unblockSlot' : '?/unblockDay'}
-														class="mt-auto self-start"
-														use:enhance={refresh}
-													>
-														<input
-															type="hidden"
-															name={cell.blockedSlotId ? 'id' : 'date'}
-															value={cell.blockedSlotId ?? cell.date}
-														/>
-														<Button
-															type="submit"
-															variant="link"
-															size="xs"
-															class="h-auto px-0 text-muted-foreground underline underline-offset-2"
+												{#if !plainHoliday}
+													<div class="mt-0.5 line-clamp-2 text-xs text-muted-foreground/80 italic">
+														{cell.blockedNote ?? 'Blocked'}
+													</div>
+													{#if cell.blockedSlotId || cell.blockedDayId}
+														<form
+															method="POST"
+															action={cell.blockedSlotId ? '?/unblockSlot' : '?/unblockDay'}
+															class="mt-auto self-start"
+															use:enhance={refresh}
 														>
-															{cell.blockedSlotId ? 'Unblock' : 'Unblock day'}
-														</Button>
-													</form>
+															<input
+																type="hidden"
+																name={cell.blockedSlotId ? 'id' : 'date'}
+																value={cell.blockedSlotId ?? cell.date}
+															/>
+															<Button
+																type="submit"
+																variant="link"
+																size="xs"
+																class="h-auto px-0 text-muted-foreground underline underline-offset-2"
+															>
+																{cell.blockedSlotId ? 'Unblock' : 'Unblock day'}
+															</Button>
+														</form>
+													{/if}
 												{/if}
 											</div>
 										{:else}
@@ -275,9 +306,10 @@
 			</table>
 		</div>
 		<p class="mt-3 text-[11px] text-muted-foreground">
-			Drained = removed — a Blocked Day, a Blocked Slot, or a date outside every Term. Coloured with
-			no Lesson = Open Slot — the Class is taught, nothing is planned for it yet. An empty cell is a
-			Period no Class holds. Click any tile to open its Session.
+			Grey hatch = removed — a Blocked Day or a Blocked Slot. Amber = School Holiday — a date
+			outside every Term. Coloured with no Lesson = Open Slot — the Class is taught, nothing is
+			planned for it yet. An empty cell is a Period no Class holds. Click any tile to open its
+			Session.
 		</p>
 	{:else}
 		<p class="text-sm text-muted-foreground">This is not a Teaching Week.</p>
@@ -291,6 +323,11 @@
 		from --muted-foreground reads in both themes with no dark-mode branch — replacing the two
 		hardcoded near-whites the old hatch used — and replaces the tone rather than sitting over
 		it, so removed never reads like empty.
+
+		A School Holiday is a third state, not a removal: the Term is not running, so nothing was
+		taken away. Its tint comes from --warning-bg, which the feedback tokens define for both
+		themes, so it too needs no dark-mode branch. The washes sit on the day column — header and
+		cells alike — so the day itself reads as one state, hatch and tint never mixing.
 	*/
 	.hatched {
 		background-image: repeating-linear-gradient(
@@ -298,5 +335,21 @@
 			color-mix(in oklab, var(--muted-foreground) 14%, transparent) 0 5px,
 			transparent 5px 10px
 		);
+	}
+
+	/* The day-column washes: quiet enough to sit behind tiles, present enough to read at a
+	   glance. The grey deepens the hatch the blocked state already owns. */
+	.day-blocked {
+		background-color: color-mix(in oklab, var(--muted-foreground) 8%, transparent);
+	}
+
+	.day-holiday {
+		background-color: color-mix(in oklab, var(--warning-bg) 35%, transparent);
+	}
+
+	/* The holiday tile is one step deeper than its column wash — that step, not a border, is
+	   what separates it from the free cell it sits among. */
+	.holiday-tile {
+		background-color: color-mix(in oklab, var(--warning-bg) 45%, transparent);
 	}
 </style>
