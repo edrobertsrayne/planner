@@ -13,6 +13,20 @@ export function openDatabase(path: string) {
 	return { client, db: drizzle({ client }) };
 }
 
+// The one transaction ritual: begin, run the work, commit. If the work throws, roll back on the
+// way out and re-raise with the cause intact, so a failure in use leaves something to read.
+export function inTransaction<T>(client: Database, work: () => T): T {
+	client.run('BEGIN');
+	try {
+		const result = work();
+		client.run('COMMIT');
+		return result;
+	} catch (cause) {
+		client.run('ROLLBACK');
+		throw cause;
+	}
+}
+
 export function runMigrations(client: Database, migrationsFolder = 'drizzle') {
 	client.run(`CREATE TABLE IF NOT EXISTS ${MIGRATIONS_TABLE} (
 		id INTEGER PRIMARY KEY,
@@ -38,18 +52,17 @@ export function runMigrations(client: Database, migrationsFolder = 'drizzle') {
 	);
 
 	for (const migration of pending) {
-		client.run('BEGIN');
 		try {
-			for (const statement of migration.sql) client.run(statement);
-			insertMigration.run(
-				migration.hash,
-				migration.folderMillis,
-				migration.name,
-				new Date().toISOString()
-			);
-			client.run('COMMIT');
+			inTransaction(client, () => {
+				for (const statement of migration.sql) client.run(statement);
+				insertMigration.run(
+					migration.hash,
+					migration.folderMillis,
+					migration.name,
+					new Date().toISOString()
+				);
+			});
 		} catch (cause) {
-			client.run('ROLLBACK');
 			throw new Error(`Migration "${migration.name}" failed: ${(cause as Error).message}`, {
 				cause
 			});

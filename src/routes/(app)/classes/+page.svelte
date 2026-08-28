@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
 	import { classTone } from '$lib/class-tone';
 	import { formatDateShort } from '$lib/date';
 	import { onFail, submitWithValue } from '$lib/client/enhance';
@@ -38,8 +39,7 @@
 			<p class="text-sm font-medium">No Courses yet</p>
 			<p class="mt-1 text-sm text-muted-foreground">
 				A Class teaches one Course. Write a Course first, then come back to create your Classes.
-				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- static internal route -->
-				<a href="/courses" class="underline underline-offset-2">Go to Courses</a>.
+				<a href={resolve('/courses')} class="underline underline-offset-2">Go to Courses</a>.
 			</p>
 		</div>
 	{:else if data.lanes.length === 0}
@@ -71,14 +71,12 @@
 								aria-hidden="true"
 							></span>
 							<div class="min-w-0 flex-1">
-								<!-- eslint-disable svelte/no-navigation-without-resolve -- carries a Class id -->
 								<a
-									href={`/classes/${lane.classId}`}
+									href={resolve(`/classes/${lane.classId}`)}
 									class="block truncate text-sm font-semibold hover:underline"
 								>
 									{lane.classLabel}
 								</a>
-								<!-- eslint-enable svelte/no-navigation-without-resolve -->
 								<div class="truncate text-xs text-muted-foreground">
 									{courseName(lane.courseId)}
 								</div>
@@ -151,16 +149,14 @@
 								No Topics to assign
 							</span>
 						{/if}
-						<!-- eslint-disable svelte/no-navigation-without-resolve -- carries a Class id -->
 						<Button
 							variant="ghost"
 							size="sm"
 							class="shrink-0 px-2 text-xs"
-							href={`/classes/${lane.classId}`}
+							href={resolve(`/classes/${lane.classId}`)}
 						>
 							Open Class page<ChevronRightIcon />
 						</Button>
-						<!-- eslint-enable svelte/no-navigation-without-resolve -->
 					</div>
 				</li>
 			{/each}

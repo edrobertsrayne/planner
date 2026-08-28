@@ -4,10 +4,13 @@ import { apiKey } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import type { RequestEvent } from '@sveltejs/kit';
 
-const UNAUTHORIZED = text('{"error":"Give a valid API key in the Authorization header."}', {
-	status: 401,
-	headers: { 'content-type': 'application/json' }
-});
+// A fresh Response per call — a Response body can be read only once, so a shared constant would
+// serve the first 401 and lock the body of every one after it.
+const UNAUTHORIZED = () =>
+	text('{"error":"Give a valid API key in the Authorization header."}', {
+		status: 401,
+		headers: { 'content-type': 'application/json' }
+	});
 
 async function hashToken(token: string): Promise<string> {
 	const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
@@ -18,22 +21,18 @@ async function hashToken(token: string): Promise<string> {
 
 export async function requireApiKey(event: RequestEvent): Promise<Response | void> {
 	const header = event.request.headers.get('Authorization');
-	if (!header || !header.startsWith('Bearer ')) return UNAUTHORIZED;
+	if (!header || !header.startsWith('Bearer ')) return UNAUTHORIZED();
 
 	const token = header.slice(7).trim();
-	if (!token) return UNAUTHORIZED;
+	if (!token) return UNAUTHORIZED();
 
 	const hash = await hashToken(token);
 
-	const [key] = await db
-		.select({ id: apiKey.id })
-		.from(apiKey)
+	const result = await db
+		.update(apiKey)
+		.set({ lastUsedAt: Date.now() })
 		.where(eq(apiKey.hash, hash))
-		.limit(1);
+		.returning({ id: apiKey.id });
 
-	if (!key) return UNAUTHORIZED;
-
-	await db.update(apiKey).set({ lastUsedAt: Date.now() }).where(eq(apiKey.id, key.id));
-
-	event.locals.apiKeyId = key.id;
+	if (result.length === 0) return UNAUTHORIZED();
 }

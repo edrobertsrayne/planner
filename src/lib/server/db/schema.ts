@@ -138,15 +138,8 @@ export const continuation = sqliteTable('continuation', {
 
 export const term = sqliteTable('term', {
 	id: id(),
-	name: text('name').notNull(),
 	opens: text('opens').notNull(),
 	closes: text('closes').notNull()
-});
-
-export const teachingWeek = sqliteTable('teaching_week', {
-	id: id(),
-	weekCommencing: text('week_commencing').notNull(),
-	letter: text('letter', { enum: ['A', 'B'] }).notNull()
 });
 
 export const blockedDay = sqliteTable('blocked_day', {
@@ -157,7 +150,6 @@ export const blockedDay = sqliteTable('blocked_day', {
 
 export const apiKey = sqliteTable('api_key', {
 	id: id(),
-	name: text('name').notNull(),
 	hash: text('hash').notNull().unique(),
 	createdAt: integer('created_at')
 		.notNull()

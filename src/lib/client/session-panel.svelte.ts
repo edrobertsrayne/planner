@@ -49,7 +49,6 @@ function urlWith(occasion: Occasion | null): string {
 // however many Sessions are stepped through, and Back always closes in a single press.
 export function openSession(occasion: Occasion): void {
 	const alreadyOpen = selectedOccasion() !== null;
-	// eslint-disable-next-line svelte/no-navigation-without-resolve -- carries a query string
 	void goto(urlWith(occasion), {
 		replaceState: alreadyOpen,
 		noScroll: true,
@@ -58,6 +57,5 @@ export function openSession(occasion: Occasion): void {
 }
 
 export function closeSession(): void {
-	// eslint-disable-next-line svelte/no-navigation-without-resolve -- carries a query string
 	void goto(urlWith(null), { replaceState: true, noScroll: true, keepFocus: true });
 }

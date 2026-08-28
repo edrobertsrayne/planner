@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MODEL="${IMPLEMENT_MODEL:-opencode-go/minimax-m3}"
+MODEL="${IMPLEMENT_MODEL:-opencode-go/glm-5.3-flash}"
 DONE_TOKEN="<promise>COMPLETE</promise>"
 COUNT="${1:-5}"
-PROMPT="Implement the first available issue with a ready-for-agent label then commit the code, close the issue, and stop.
+PROMPT="Use the /implement skill to implement the first available issue with a ready-for-agent label then commit the code, close the issue, and stop.
 
 When there are no open ready-for-agent issues remaining, output exactly:
 

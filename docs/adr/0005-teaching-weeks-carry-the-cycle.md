@@ -1,5 +1,7 @@
 # Teaching Weeks carry the cycle, and the cycle is stored
 
+**Status:** Superseded by [ADR-0020](0020-the-week-letter-is-computed-never-stored.md) (2026-08-27)
+
 Week A and Week B alternate across Teaching Weeks — calendar weeks containing at least one taught
 day — starting from Week A in the first Teaching Week of the academic year. A week falling entirely
 inside a break is not a Teaching Week and takes no turn in the cycle.

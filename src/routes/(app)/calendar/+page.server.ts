@@ -1,12 +1,15 @@
 import { fail } from '@sveltejs/kit';
+import { TERM_NAMES } from '$lib/calendar/generate-teaching-weeks';
 import { addDays, today } from '$lib/date';
-import { db } from '$lib/server/db/client';
+import { client, db } from '$lib/server/db/client';
+import { asc } from 'drizzle-orm';
+import * as schema from '$lib/server/db/schema';
 import {
 	blockDay,
 	blockSlot,
 	calendarWeek,
-	setTeachingWeekLetter,
-	teachingWeeksList,
+	replaceTerms,
+	teachingWeeks,
 	unblockDay,
 	unblockSlot
 } from '$lib/server/planner';
@@ -29,7 +32,7 @@ function defaultWeek(weeks: { weekCommencing: string }[], on: string): string | 
 const RIBBON_RADIUS = 3;
 
 export const load: PageServerLoad = ({ url }) => {
-	const weeks = teachingWeeksList(db);
+	const weeks = teachingWeeks(db);
 	const requested = url.searchParams.get('week');
 	const selected =
 		(requested && weeks.some((w) => w.weekCommencing === requested) ? requested : null) ??
@@ -43,21 +46,24 @@ export const load: PageServerLoad = ({ url }) => {
 	const prev = index > 0 ? weeks[index - 1].weekCommencing : null;
 	const next = index >= 0 && index < weeks.length - 1 ? weeks[index + 1].weekCommencing : null;
 
-	return { selected, week, ribbon, prev, next, today: today() };
+	// The setup mode edits the year in place: the six Terms as they stand, in date order so the
+	// rows read in year position, and every Blocked Day with its note — the whole-year list the
+	// mode shows, and what trims the preview's day counts.
+	const terms = db
+		.select({ opens: schema.term.opens, closes: schema.term.closes })
+		.from(schema.term)
+		.orderBy(asc(schema.term.opens))
+		.all();
+	const blockedDays = db
+		.select({ date: schema.blockedDay.date, note: schema.blockedDay.note })
+		.from(schema.blockedDay)
+		.orderBy(asc(schema.blockedDay.date))
+		.all();
+
+	return { selected, week, ribbon, prev, next, today: today(), terms, blockedDays };
 };
 
 export const actions: Actions = {
-	setLetter: async ({ request }) => {
-		const data = await request.formData();
-		const weekCommencing = String(data.get('weekCommencing') ?? '');
-		const letter = String(data.get('letter') ?? '');
-		if (letter !== 'A' && letter !== 'B') return fail(400, { error: 'Bad Week letter.' });
-
-		const report = setTeachingWeekLetter(db, { weekCommencing, letter, today: today() });
-		if (!report) return fail(400, { error: 'No such Teaching Week.' });
-		return { atRisk: report.atRisk };
-	},
-
 	blockDay: async ({ request }) => {
 		const data = await request.formData();
 		const date = String(data.get('date') ?? '');
@@ -65,14 +71,15 @@ export const actions: Actions = {
 		if (!date) return fail(400, { error: 'No date given.' });
 
 		const report = blockDay(db, { date, note: note || undefined, today: today() });
+		if (!report.ok) return fail(report.status, { error: report.reason });
 		return { atRisk: report.atRisk };
 	},
 
 	unblockDay: async ({ request }) => {
 		const data = await request.formData();
-		const id = String(data.get('id') ?? '');
+		const date = String(data.get('date') ?? '');
 
-		const report = unblockDay(db, { id, today: today() });
+		const report = unblockDay(db, { date, today: today() });
 		if (!report) return fail(400, { error: 'No such Blocked Day.' });
 		return { atRisk: report.atRisk };
 	},
@@ -97,5 +104,22 @@ export const actions: Actions = {
 		const report = unblockSlot(db, { id, today: today() });
 		if (!report) return fail(400, { error: 'No such Blocked Slot.' });
 		return { atRisk: report.atRisk };
+	},
+
+	// The whole year, replaced as one document through the Terms seam — the seam owns every
+	// rule, so the action validates nothing of its own. The six rows are read in year position,
+	// named by the canonical Term names and not this action's own count. The at-risk report
+	// travels back with the save; an empty one is stated plainly rather than left to read as
+	// silence.
+	saveYear: async ({ request }) => {
+		const data = await request.formData();
+		const terms = TERM_NAMES.map((_, i) => ({
+			opens: String(data.get(`opens-${i}`) ?? ''),
+			closes: String(data.get(`closes-${i}`) ?? '')
+		}));
+
+		const result = replaceTerms(db, client, { terms, today: today() });
+		if (!result.ok) return fail(400, { error: result.reason });
+		return { atRisk: result.atRisk, yearSaved: true };
 	}
 };

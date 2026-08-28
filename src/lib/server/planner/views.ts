@@ -225,16 +225,12 @@ export function calendarWeek(
 	db: Db,
 	{ weekCommencing, today }: { weekCommencing: string; today: string }
 ): CalendarWeek | null {
-	const [week] = db
-		.select({ letter: schema.teachingWeek.letter })
-		.from(schema.teachingWeek)
-		.where(eq(schema.teachingWeek.weekCommencing, weekCommencing))
-		.all();
+	const cal = loadCalendar(db);
+	const week = cal.teachingWeeks.find((w) => w.weekCommencing === weekCommencing);
 	if (!week) return null;
 
 	const dates = Array.from({ length: 5 }, (_, i) => addDays(weekCommencing, i));
 	const dateSet = new Set(dates);
-	const cal = loadCalendar(db);
 	const classes = listClasses(db);
 
 	const batches = derivedRows(db, { classes, cal, today, keep: (r) => dateSet.has(r.date) });

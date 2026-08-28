@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { toast } from 'svelte-sonner';
 	import type { Snippet } from 'svelte';
 	import { createdId, failureReason } from '$lib/client/enhance';
@@ -51,8 +52,7 @@
 					const id = createdId(result, 'class');
 					if (id !== null) {
 						label = '';
-						// eslint-disable-next-line svelte/no-navigation-without-resolve -- carries a fresh id
-						await goto(`/classes/${id}`);
+						await goto(resolve(`/classes/${id}`));
 					} else if (result.type === 'failure') {
 						toast.error(failureReason(result, 'Could not create the Class.'));
 					}

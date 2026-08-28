@@ -133,14 +133,12 @@
 			<ul class="mt-4 space-y-1">
 				{#each detail.lesson.links as link (link.id)}
 					<li>
-						<!-- eslint-disable svelte/no-navigation-without-resolve -- external resource -->
 						<a
 							href={link.url}
 							target="_blank"
 							rel="noopener noreferrer"
 							class="text-sm underline underline-offset-4">{link.label}</a
 						>
-						<!-- eslint-enable svelte/no-navigation-without-resolve -->
 					</li>
 				{/each}
 			</ul>

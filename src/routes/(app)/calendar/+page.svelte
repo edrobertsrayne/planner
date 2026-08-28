@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
 	import BanIcon from '@lucide/svelte/icons/ban';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
@@ -8,15 +9,33 @@
 	import { refresh } from '$lib/client/enhance';
 	import { openSession } from '$lib/client/session-panel.svelte';
 	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
+	import AtRiskReport from '$lib/components/at-risk-report.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import BlockPopover from './BlockPopover.svelte';
+	import CalendarSetup from './CalendarSetup.svelte';
 	import { PERIODS, toGrid } from './calendar-grid';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
 
+	// Setup mode replaces the week grid in place, on the same route. It opens by itself when no
+	// Term is set — the first-run empty state of the year — and closing lands on the week the
+	// teacher was on, because opening it never navigated away. Opening by itself is a
+	// first-render fact, not a live one: a later load must not force the mode open or shut.
+	// svelte-ignore state_referenced_locally
+	let setup = $state(data.terms.length === 0);
+
+	// The save's report, narrowed once: what the Rewind put at risk, or the plain statement that
+	// it put nothing at risk — silence would be ambiguous. ActionData is a loose record, so the
+	// narrowing lives here rather than in the markup.
+	const savedYear = $derived(form && 'yearSaved' in form ? { atRisk: form.atRisk ?? [] } : null);
+
 	const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+
+	// The ribbon and the two arrows all step the year by query string. `prev`, `next` and a ribbon
+	// entry each carry a week commencing date, not a URL, so the link is built here.
+	const weekHref = (weekCommencing: string) => resolve(`/calendar?week=${weekCommencing}`);
 
 	// One entry per (day, Period); see calendar-grid.ts. The explicit `h-16` on a start cell's
 	// <td> is what lets the tile's `h-full` resolve, so a multi-Period Lesson renders as one tall
@@ -30,66 +49,73 @@
 <div class="mx-auto max-w-6xl px-6 py-6">
 	<PageHeader title="Calendar" description="One Teaching Week, Periods against days.">
 		{#snippet actions()}
-			{#if data.week}
-				{@const otherLetter = data.week.letter === 'A' ? 'B' : 'A'}
-				<div class="flex items-center gap-2">
-					<!-- eslint-disable svelte/no-navigation-without-resolve -- carries a query string -->
-					<Button
-						variant="ghost"
-						size="icon-sm"
-						href={data.prev ?? undefined}
-						disabled={!data.prev}
-						aria-label="Previous Teaching Week"
-					>
-						<ChevronLeftIcon />
-					</Button>
-
-					<div class="flex items-center gap-0.5 rounded-md border p-0.5">
-						{#each data.ribbon as w (w.weekCommencing)}
-							{@const isSelected = w.weekCommencing === data.selected}
-							<a
-								href={`?week=${w.weekCommencing}`}
-								aria-current={isSelected ? 'true' : undefined}
-								class="flex h-6 items-center rounded-sm px-2 text-xs font-medium tabular-nums {isSelected
-									? 'bg-secondary text-secondary-foreground'
-									: 'text-muted-foreground hover:bg-muted'}"
-								title="w/c {formatDayMonth(w.weekCommencing)}"
-							>
-								{w.letter}<span class="ml-1 font-normal opacity-70"
-									>{formatDayMonth(w.weekCommencing)}</span
-								>
-							</a>
-						{/each}
-					</div>
-
-					<Button
-						variant="ghost"
-						size="icon-sm"
-						href={data.next ?? undefined}
-						disabled={!data.next}
-						aria-label="Next Teaching Week"
-					>
-						<ChevronRightIcon />
-					</Button>
-					<!-- eslint-enable svelte/no-navigation-without-resolve -->
-
-					<form method="POST" action="?/setLetter" use:enhance={refresh}>
-						<input type="hidden" name="weekCommencing" value={data.week.weekCommencing} />
-						<input type="hidden" name="letter" value={otherLetter} />
-						<Button type="submit" variant="ghost" size="sm">
-							Switch to Week {otherLetter}
+			<!-- Save year and Cancel sit in the setup mode's own header: the week controls here
+			     would read a year that is not saved yet. -->
+			{#if !setup}
+				{#if data.week}
+					<div class="flex items-center gap-2">
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							href={data.prev ? weekHref(data.prev) : undefined}
+							disabled={!data.prev}
+							aria-label="Previous Teaching Week"
+						>
+							<ChevronLeftIcon />
 						</Button>
-					</form>
-				</div>
+
+						<div class="flex items-center gap-0.5 rounded-md border p-0.5">
+							{#each data.ribbon as w (w.weekCommencing)}
+								{@const isSelected = w.weekCommencing === data.selected}
+								<a
+									href={weekHref(w.weekCommencing)}
+									aria-current={isSelected ? 'true' : undefined}
+									class="flex h-6 items-center rounded-sm px-2 text-xs font-medium tabular-nums {isSelected
+										? 'bg-secondary text-secondary-foreground'
+										: 'text-muted-foreground hover:bg-muted'}"
+									title="w/c {formatDayMonth(w.weekCommencing)}"
+								>
+									{w.letter}<span class="ml-1 font-normal opacity-70"
+										>{formatDayMonth(w.weekCommencing)}</span
+									>
+								</a>
+							{/each}
+						</div>
+
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							href={data.next ? weekHref(data.next) : undefined}
+							disabled={!data.next}
+							aria-label="Next Teaching Week"
+						>
+							<ChevronRightIcon />
+						</Button>
+					</div>
+				{/if}
+
+				<Button size="sm" class="h-7" onclick={() => (setup = true)}>Set up year</Button>
 			{/if}
 		{/snippet}
 	</PageHeader>
 
-	{#if form?.atRisk}
+	{#if savedYear}
+		<AtRiskReport
+			atRisk={savedYear.atRisk}
+			none="The year is saved. No Sessions were put at risk."
+			class="mb-4 text-sm"
+		/>
+	{:else if form?.atRisk}
 		<AtRiskAlert atRisk={form.atRisk} />
 	{/if}
 
-	{#if data.ribbon.length === 0}
+	{#if setup}
+		<CalendarSetup
+			terms={data.terms}
+			blockedDays={data.blockedDays}
+			onclose={() => (setup = false)}
+		/>
+	{:else if data.ribbon.length === 0}
 		<p class="text-sm text-muted-foreground">No Teaching Weeks are set up yet.</p>
 	{:else if data.week}
 		<div class="overflow-x-auto">
@@ -108,7 +134,7 @@
 									>
 									{#if blockedDay}
 										<form method="POST" action="?/unblockDay" class="ml-auto" use:enhance={refresh}>
-											<input type="hidden" name="id" value={blockedDay.id} />
+											<input type="hidden" name="date" value={blockedDay.date} />
 											<Button
 												type="submit"
 												variant="ghost"
@@ -173,8 +199,8 @@
 													>
 														<input
 															type="hidden"
-															name="id"
-															value={cell.blockedSlotId ?? cell.blockedDayId}
+															name={cell.blockedSlotId ? 'id' : 'date'}
+															value={cell.blockedSlotId ?? cell.date}
 														/>
 														<Button
 															type="submit"

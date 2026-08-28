@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import { replaceQuery } from '$lib/client/enhance';
 	import { formatDate } from '$lib/date';
@@ -43,14 +44,12 @@
 <svelte:head><title>{data.class.label}</title></svelte:head>
 
 <div class="mx-auto max-w-6xl px-6 py-6">
-	<!-- eslint-disable svelte/no-navigation-without-resolve -- static internal route -->
 	<a
-		href="/classes"
+		href={resolve('/classes')}
 		class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
 	>
 		<ChevronLeftIcon class="size-3" />Classes
 	</a>
-	<!-- eslint-enable svelte/no-navigation-without-resolve -->
 
 	<div class="mt-3 grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
 		<section class="min-w-0">
