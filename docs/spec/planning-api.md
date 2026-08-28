@@ -117,9 +117,14 @@ One card, "API key":
   masking defends a shoulder-surfing threat this planner does not have, and Settings is the only
   place the token can be read, so it is the only door this rule has to be kept at.
 - The created and last-used dates sit beneath the field. A key nothing has used yet says so.
-- One button — **Regenerate**. It replaces the key: the old token stops working at once, and the
-  card says so.
-- Report the outcome as a toast, as the change-password form does.
+- Two icon buttons sit beside the field, each with an accessible name. **Copy** puts the exact
+  token on the clipboard and confirms it.
+- **Regenerate** asks first. It replaces the key — the only revoke this planner has, and one that
+  cannot be undone — and it is a small icon button beside Copy, which is exactly why it must not
+  fire on one click. It opens a confirmation that says plainly that the old token stops working at
+  once and that every agent holding the key must be given the new one. Confirming replaces the key
+  and the card shows the new one; cancelling leaves the key untouched.
+- Report the outcome of each control as a toast, as the change-password form does.
 
 There are **no HTTP endpoints for key management.** A key is made in the browser only. A key that
 could make another key would make regeneration meaningless.

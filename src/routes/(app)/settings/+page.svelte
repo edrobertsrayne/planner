@@ -7,9 +7,11 @@
 	import * as Field from '$lib/components/ui/field/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
+	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import CheckIcon from '@lucide/svelte/icons/check';
+	import RefreshIcon from '@lucide/svelte/icons/refresh-cw';
 	import ToastMessage from './ToastMessage.svelte';
 
 	let { data } = $props();
@@ -17,6 +19,7 @@
 	let pending = $state(false);
 	let invalid = $state(false);
 	let regenerating = $state(false);
+	let confirmOpen = $state(false);
 	let copied = $state(false);
 	let copyTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -41,6 +44,7 @@
 
 	const onRegenerateKey: SubmitFunction = () => {
 		regenerating = true;
+		confirmOpen = false;
 		return async ({ result, update }) => {
 			regenerating = false;
 			if (result.type === 'success') {
@@ -165,11 +169,18 @@
 				>
 					{#if copied}<CheckIcon />{:else}<CopyIcon />{/if}
 				</Button>
-				<form method="POST" action="?/regenerateKey" use:enhance={onRegenerateKey}>
-					<Button type="submit" size="sm" class="h-8 shrink-0" disabled={regenerating}>
-						{regenerating ? 'Regenerating…' : 'Regenerate'}
-					</Button>
-				</form>
+				<Button
+					type="button"
+					variant="outline"
+					size="icon"
+					class="size-8 shrink-0"
+					title="Regenerate key"
+					aria-label="Regenerate key"
+					disabled={regenerating}
+					onclick={() => (confirmOpen = true)}
+				>
+					<RefreshIcon class={regenerating ? 'animate-spin' : undefined} />
+				</Button>
 			</div>
 
 			<p class="mt-2 text-xs text-muted-foreground">
@@ -182,4 +193,24 @@
 			</p>
 		</Card.Content>
 	</Card.Root>
+
+	<Dialog.Root bind:open={confirmOpen}>
+		<Dialog.Content class="sm:max-w-md">
+			<Dialog.Header>
+				<Dialog.Title>Regenerate the API key?</Dialog.Title>
+				<Dialog.Description>
+					The key you have now stops working at once. Every agent holding it must be given the new
+					one. This cannot be undone.
+				</Dialog.Description>
+			</Dialog.Header>
+			<Dialog.Footer>
+				<Button variant="outline" size="sm" class="h-7" onclick={() => (confirmOpen = false)}>
+					Cancel
+				</Button>
+				<form method="POST" action="?/regenerateKey" use:enhance={onRegenerateKey}>
+					<Button type="submit" variant="destructive" size="sm" class="h-7">Regenerate</Button>
+				</form>
+			</Dialog.Footer>
+		</Dialog.Content>
+	</Dialog.Root>
 </div>
