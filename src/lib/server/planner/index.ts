@@ -65,6 +65,7 @@ export {
 	type AgendaEntry,
 	type CalendarCell,
 	type CalendarWeek,
+	type DayKind,
 	type PlanningEntry,
 	type PlanningOccurrence
 } from './views';

@@ -9,7 +9,11 @@ export type GridEntry =
 
 export const PERIODS = [1, 2, 3, 4, 5, 6];
 
-export function toGrid(dates: readonly string[], cells: readonly CalendarCell[]): GridEntry[][] {
+export function toGrid(
+	days: readonly { date: string }[],
+	cells: readonly CalendarCell[]
+): GridEntry[][] {
+	const dates = days.map((d) => d.date);
 	const matrix: GridEntry[][] = dates.map(() => PERIODS.map((): GridEntry => ({ type: 'free' })));
 	for (const cell of cells) {
 		const di = dates.indexOf(cell.date);

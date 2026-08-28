@@ -145,6 +145,13 @@ a closing date and containing no break. There are six in a year. What the school
 Term" is two Terms here, separated by the half-term break.
 _Avoid_: Half-term, block, semester
 
+**School Holiday**:
+A weekday outside every Term — Christmas, Easter, the summer, and the half-terms. Derived from the
+Term dates, never stored, and never a Blocked Day: on a School Holiday nothing was removed, the
+school is simply not running. A Blocked Day may be entered on a School Holiday, and the holiday
+then takes visual precedence in the Calendar.
+_Avoid_: Break, vacation, closure
+
 **Blocked Day**:
 A date on which none of this teacher's Classes are taught, whatever the cause — an INSET day, a
 bank holiday, illness, snow. The cause is not recorded, because nothing in the planner behaves
@@ -231,7 +238,11 @@ One Teaching Week as a grid of Periods against days, showing which Class is taug
 each Session carries. Note that this names a _screen_; the Terms, Blocked Days and Blocked Slots
 it draws on are the calendar _model_, and "the calendar" unqualified means the model. An Open
 Slot keeps its Class's colour and shows no Lesson; a Blocked Day and a Blocked Slot drain the
-colour instead — present-but-empty and removed must never read alike.
+colour instead — present-but-empty and removed must never read alike. A School Holiday shades its
+whole day column in a separate tint, and its tiles go plain, because nothing was removed. A
+Blocked Slot recorded on a School Holiday keeps the hatch — it is a removal, and its unblock
+travels with the tile. A Blocked Day entered on a School Holiday keeps the holiday's shade; the
+column header alone carries the unblock control.
 
 **Classes**:
 One tone-coloured tile per Class, keyed by Class rather than by time. Each tile carries the

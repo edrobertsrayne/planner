@@ -112,7 +112,7 @@ describe('the Calendar', () => {
 		const week = calendarWeek(db, { weekCommencing: '2026-08-31', today: '2026-09-03' });
 
 		expect(week?.letter).toBe('A');
-		expect(week?.dates).toEqual([
+		expect(week?.days.map((d) => d.date)).toEqual([
 			'2026-08-31',
 			'2026-09-01',
 			'2026-09-02',
@@ -207,6 +207,54 @@ describe('the Calendar', () => {
 		]);
 		const blocked = week?.cells.find((c) => c.date === '2026-09-03');
 		expect(blocked?.blockedDayId).toBe(week?.blockedDays[0].id);
+	});
+
+	test('every date carries a day kind — teaching, blocked, or holiday — and a holiday wins over a Blocked Day', () => {
+		const { db } = setUp();
+		// Mon 2026-08-31 to Wed 2026-09-02 sit outside every Term; Thu 09-03 and Fri 09-04 are in
+		// Term 1. A Blocked Day in term is blocked; a Blocked Day out of term stays a holiday.
+		blockDay(db, { date: '2026-09-04', note: 'INSET', today: '2026-09-01' });
+		blockDay(db, { date: '2026-08-31', today: '2026-09-01' });
+
+		const week = calendarWeek(db, { weekCommencing: '2026-08-31', today: '2026-09-01' });
+
+		expect(week?.days).toEqual([
+			{ date: '2026-08-31', kind: 'holiday' },
+			{ date: '2026-09-01', kind: 'holiday' },
+			{ date: '2026-09-02', kind: 'holiday' },
+			{ date: '2026-09-03', kind: 'teaching' },
+			{ date: '2026-09-04', kind: 'blocked' }
+		]);
+	});
+
+	test('a Blocked Slot recorded outside every Term keeps its record under a holiday day kind', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		makeLessons(db, topic.id, 1);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+
+		// Monday 2026-08-31 sits outside every Term. A Blocked Slot entered there — or stranded
+		// there by a later Term change — is still attributed, so the grid can offer its unblock
+		// even though the column reads as a School Holiday.
+		const monP3 = db
+			.select()
+			.from(schema.slot)
+			.all()
+			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3)!;
+		blockSlot(db, {
+			classId: classA.id,
+			date: '2026-08-31',
+			slotId: monP3.id,
+			note: 'Trip',
+			today: '2026-09-01'
+		});
+
+		const week = calendarWeek(db, { weekCommencing: '2026-08-31', today: '2026-09-01' });
+		expect(week?.days.find((d) => d.date === '2026-08-31')?.kind).toBe('holiday');
+		const cell = week?.cells.find((c) => c.date === '2026-08-31' && c.periodFrom === 3);
+		expect(cell).toMatchObject({ kind: 'blocked', blockedNote: 'Trip' });
+		expect(cell?.blockedSlotId).toBeTruthy();
+		expect(cell?.blockedDayId).toBeNull();
 	});
 
 	test('a Term change re-letters the year, and the schedule follows the computed letter', () => {
