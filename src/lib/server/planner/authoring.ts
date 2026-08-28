@@ -6,6 +6,7 @@
 import { and, asc, eq, lt, sql } from 'drizzle-orm';
 import type { Database } from 'bun:sqlite';
 import * as schema from '../db/schema';
+import { inTransaction } from '../db';
 import { rederiveTopic, type Db } from './derive';
 import { nextPosition, swapTargets, type Direction } from './ordering';
 
@@ -545,6 +546,19 @@ export function moveLink(
 	db.update(schema.link).set({ position: a.position }).where(eq(schema.link.id, b.id)).run();
 }
 
+// A refusal the Import has already decided on — a Course that is not there, a Topic name that
+// collides. Thrown rather than returned so the transaction helper rolls the write back on the
+// way out; importTopic catches it and answers with the status it carries.
+class Refused extends Error {
+	constructor(
+		readonly status: number,
+		message: string
+	) {
+		super(message);
+		this.name = 'Refused';
+	}
+}
+
 export function importTopic(
 	db: Db,
 	client: Database,
@@ -579,7 +593,7 @@ export function importTopic(
 				links: Array<{ id: string; url: string; label: string; position: number }>;
 			}>;
 	  }
-	| { ok: false; status: number; error: string } {
+	| { ok: false; status: number; error: string; cause?: unknown } {
 	if (courseId && courseName)
 		return {
 			ok: false,
@@ -602,128 +616,126 @@ export function importTopic(
 		}
 	}
 
-	client.run('BEGIN');
 	try {
-		let resolvedCourseId = courseId;
-		let courseCreated = false;
+		return inTransaction(client, () => {
+			let resolvedCourseId = courseId;
+			let courseCreated = false;
 
-		if (courseName) {
-			const trimmed = courseName.trim();
-			const [existing] = db
-				.select({ id: schema.course.id, name: schema.course.name })
-				.from(schema.course)
-				.where(sql`lower(${schema.course.name}) = lower(${trimmed})`)
-				.all();
-			if (existing) {
-				resolvedCourseId = existing.id;
-			} else {
-				const [created] = db.insert(schema.course).values({ name: trimmed }).returning().all();
-				resolvedCourseId = created.id;
-				courseCreated = true;
-			}
-		}
-
-		if (!resolvedCourseId) {
-			client.run('ROLLBACK');
-			return { ok: false, status: 404, error: 'Course not found.' };
-		}
-
-		const courseRecord = db
-			.select({ id: schema.course.id, name: schema.course.name })
-			.from(schema.course)
-			.where(eq(schema.course.id, resolvedCourseId))
-			.all()[0];
-		if (!courseRecord) {
-			client.run('ROLLBACK');
-			return { ok: false, status: 404, error: 'Course not found.' };
-		}
-
-		const trimmedTopicName = topicName.trim();
-		const topicCollision = findTopicNameCollision(db, {
-			courseId: resolvedCourseId,
-			name: topicName
-		});
-		if (topicCollision) {
-			client.run('ROLLBACK');
-			return {
-				ok: false,
-				status: 409,
-				error: `The Course "${courseRecord.name}" already holds a Topic called "${topicCollision.name.trim()}".`
-			};
-		}
-
-		const [topicRow] = db
-			.insert(schema.topic)
-			.values({ name: trimmedTopicName, courseId: resolvedCourseId })
-			.returning()
-			.all();
-
-		const lessonResults: Array<{
-			id: string;
-			title: string;
-			position: number;
-			links: Array<{ id: string; url: string; label: string; position: number }>;
-		}> = [];
-
-		for (let i = 0; i < lessons.length; i++) {
-			const lesson = lessons[i];
-			const [lessonRow] = db
-				.insert(schema.lesson)
-				.values({
-					topicId: topicRow.id,
-					title: lesson.title.trim(),
-					position: i,
-					...(lesson.body !== undefined ? { body: lesson.body } : {}),
-					...(lesson.length !== undefined ? { length: lesson.length } : {}),
-					...(lesson.status !== undefined ? { status: lesson.status } : {})
-				})
-				.returning()
-				.all();
-
-			const linkResults: Array<{ id: string; url: string; label: string; position: number }> = [];
-			if (lesson.links) {
-				for (let j = 0; j < lesson.links.length; j++) {
-					const link = lesson.links[j];
-					const [linkRow] = db
-						.insert(schema.link)
-						.values({
-							lessonId: lessonRow.id,
-							url: link.url.trim(),
-							label: link.label.trim(),
-							position: j
-						})
-						.returning()
-						.all();
-					linkResults.push({
-						id: linkRow.id,
-						url: linkRow.url,
-						label: linkRow.label,
-						position: linkRow.position
-					});
+			if (courseName) {
+				const trimmed = courseName.trim();
+				const [existing] = db
+					.select({ id: schema.course.id, name: schema.course.name })
+					.from(schema.course)
+					.where(sql`lower(${schema.course.name}) = lower(${trimmed})`)
+					.all();
+				if (existing) {
+					resolvedCourseId = existing.id;
+				} else {
+					const [created] = db.insert(schema.course).values({ name: trimmed }).returning().all();
+					resolvedCourseId = created.id;
+					courseCreated = true;
 				}
 			}
 
-			lessonResults.push({
-				id: lessonRow.id,
-				title: lessonRow.title,
-				position: lessonRow.position,
-				links: linkResults
+			if (!resolvedCourseId) throw new Refused(404, 'Course not found.');
+
+			const courseRecord = db
+				.select({ id: schema.course.id, name: schema.course.name })
+				.from(schema.course)
+				.where(eq(schema.course.id, resolvedCourseId))
+				.all()[0];
+			if (!courseRecord) throw new Refused(404, 'Course not found.');
+
+			const trimmedTopicName = topicName.trim();
+			const topicCollision = findTopicNameCollision(db, {
+				courseId: resolvedCourseId,
+				name: topicName
 			});
+			if (topicCollision) {
+				throw new Refused(
+					409,
+					`The Course "${courseRecord.name}" already holds a Topic called "${topicCollision.name.trim()}".`
+				);
+			}
+
+			const [topicRow] = db
+				.insert(schema.topic)
+				.values({ name: trimmedTopicName, courseId: resolvedCourseId })
+				.returning()
+				.all();
+
+			const lessonResults: Array<{
+				id: string;
+				title: string;
+				position: number;
+				links: Array<{ id: string; url: string; label: string; position: number }>;
+			}> = [];
+
+			for (let i = 0; i < lessons.length; i++) {
+				const lesson = lessons[i];
+				const [lessonRow] = db
+					.insert(schema.lesson)
+					.values({
+						topicId: topicRow.id,
+						title: lesson.title.trim(),
+						position: i,
+						...(lesson.body !== undefined ? { body: lesson.body } : {}),
+						...(lesson.length !== undefined ? { length: lesson.length } : {}),
+						...(lesson.status !== undefined ? { status: lesson.status } : {})
+					})
+					.returning()
+					.all();
+
+				const linkResults: Array<{
+					id: string;
+					url: string;
+					label: string;
+					position: number;
+				}> = [];
+				if (lesson.links) {
+					for (let j = 0; j < lesson.links.length; j++) {
+						const link = lesson.links[j];
+						const [linkRow] = db
+							.insert(schema.link)
+							.values({
+								lessonId: lessonRow.id,
+								url: link.url.trim(),
+								label: link.label.trim(),
+								position: j
+							})
+							.returning()
+							.all();
+						linkResults.push({
+							id: linkRow.id,
+							url: linkRow.url,
+							label: linkRow.label,
+							position: linkRow.position
+						});
+					}
+				}
+
+				lessonResults.push({
+					id: lessonRow.id,
+					title: lessonRow.title,
+					position: lessonRow.position,
+					links: linkResults
+				});
+			}
+
+			rederiveTopic(db, topicRow.id, today);
+
+			return {
+				ok: true,
+				course: { id: courseRecord.id, name: courseRecord.name },
+				courseCreated,
+				topic: { id: topicRow.id, name: topicRow.name, courseId: topicRow.courseId },
+				lessons: lessonResults
+			};
+		});
+	} catch (cause) {
+		if (cause instanceof Refused) {
+			return { ok: false, status: cause.status, error: cause.message };
 		}
-
-		rederiveTopic(db, topicRow.id, today);
-
-		client.run('COMMIT');
-
-		return {
-			ok: true,
-			course: { id: courseRecord.id, name: courseRecord.name },
-			courseCreated,
-			topic: { id: topicRow.id, name: topicRow.name, courseId: topicRow.courseId },
-			lessons: lessonResults
-		};
-	} catch {
-		client.run('ROLLBACK');
-		return { ok: false, status: 500, error: 'Import failed.' };
+		return { ok: false, status: 500, error: 'Import failed.', cause };
 	}
 }

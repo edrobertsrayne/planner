@@ -830,6 +830,10 @@ describe('replacing the Terms', () => {
 
 		expect(result).toMatchObject({ ok: false, reason: 'Replacing the Terms failed.' });
 		expect(teachingWeeks(db).find((w) => w.weekCommencing === '2026-09-07')?.letter).toBe('B');
+
+		// The cause survives: the answer names why, instead of throwing it away.
+		if (result.ok) throw new Error('expected failure');
+		expect((result.cause as Error).message).toBe('COMMIT failed');
 	});
 
 	test('rewinds from the earliest Term opening across the old and the new sets, reporting noted Sessions put at risk', () => {
@@ -1493,6 +1497,29 @@ describe('importing a Topic with its Lessons and Links', () => {
 
 		expect(result).toMatchObject({ ok: false, status: 500 });
 		expect(listCourses(db)).toHaveLength(0);
+	});
+
+	test('a failure answers with the fixed reason and carries the cause', () => {
+		const { db, client } = setUpAuthoring();
+
+		// A COMMIT that never lands — the answer must say why, not throw the cause away.
+		const failing = {
+			run: (sql: string) => {
+				if (sql === 'COMMIT') throw new Error('COMMIT failed');
+				client.run(sql);
+			}
+		};
+
+		const result = importTopic(
+			db,
+			failing as unknown as Database,
+			{ courseName: 'Year 9 Physics', topicName: 'Forces', lessons: [{ title: 'Newton I' }] },
+			'2026-09-03'
+		);
+
+		if (result.ok) throw new Error('expected failure');
+		expect(result.error).toBe('Import failed.');
+		expect((result.cause as Error).message).toBe('COMMIT failed');
 	});
 });
 
