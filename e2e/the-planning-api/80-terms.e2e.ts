@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import {
 	BEARER,
-	generateKey,
+	standingKey,
 	keysOf,
 	openPage,
 	plusDays,
@@ -22,7 +22,7 @@ test.describe.serial('the Term endpoints', () => {
 	test.beforeAll(async ({ browser }) => {
 		runFixture('clear-terms');
 		page = await openPage(browser);
-		token = await generateKey(page);
+		token = await standingKey(page);
 	});
 
 	test.afterAll(async () => {

@@ -305,9 +305,13 @@ the same page header every screen carries. The only place the password is change
 signs out every other device, which the card says plainly: the forgotten session on a school machine
 is the reason to change a password at all. API keys belong here because they identify the account
 (the single user), not the calendar model and not any Course — the only other thing that belongs to
-the account and nothing else. The outcome of a submission is reported as a toast rather than inline,
-because it must outlive the form and because the design system has a colour for failure and none for
-success — an inline success would read as nothing.
+the account and nothing else. Opening the screen mints the key when the database has none, so there
+is no Generate step and no state in which the planner has no key; the card shows the token in full,
+in a read-only field, with the created and last-used dates beneath it, because this screen is the
+only place the token can be read. Regenerating replaces the key, and the old token stops working at
+once. The outcome of a submission is reported as a toast rather than inline, because it must outlive
+the form and because the design system has a colour for failure and none for success — an inline
+success would read as nothing.
 
 **Login**:
 Where the teacher signs in, and the only way into the planner. Sits outside the app shell: no

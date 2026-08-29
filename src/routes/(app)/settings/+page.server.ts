@@ -7,23 +7,25 @@ import type { Actions, PageServerLoad } from './$types';
 
 const MIN_PASSWORD_LENGTH = 12;
 
-async function hashToken(token: string): Promise<string> {
-	const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
-	return Array.from(new Uint8Array(hashBuffer))
-		.map((b) => b.toString(16).padStart(2, '0'))
-		.join('');
+// The token is minted in one place, this file: the load mints the standing key when the database
+// has none, and the regenerate action mints its replacement. Both mint the same shape.
+function mintToken(): string {
+	const bytes = crypto.getRandomValues(new Uint8Array(32));
+	return 'pln_' + Buffer.from(bytes).toString('base64url');
 }
 
 export const load: PageServerLoad = async () => {
-	const [key] = await db
-		.select({
-			createdAt: apiKey.createdAt,
-			lastUsedAt: apiKey.lastUsedAt
-		})
-		.from(apiKey)
-		.limit(1);
+	const columns = {
+		token: apiKey.token,
+		createdAt: apiKey.createdAt,
+		lastUsedAt: apiKey.lastUsedAt
+	};
 
-	return { key: key ?? null };
+	const [key] = await db.select(columns).from(apiKey).limit(1);
+	if (key) return { key };
+
+	const [minted] = await db.insert(apiKey).values({ token: mintToken() }).returning(columns);
+	return { key: minted };
 };
 
 export const actions: Actions = {
@@ -55,14 +57,10 @@ export const actions: Actions = {
 		return { success: true };
 	},
 
-	generateKey: async () => {
-		const bytes = crypto.getRandomValues(new Uint8Array(32));
-		const token = 'pln_' + Buffer.from(bytes).toString('base64url');
-		const hash = await hashToken(token);
-
+	regenerateKey: async () => {
 		await db.delete(apiKey);
-		await db.insert(apiKey).values({ hash });
+		await db.insert(apiKey).values({ token: mintToken() });
 
-		return { token };
+		return {};
 	}
 };

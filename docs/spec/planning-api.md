@@ -38,15 +38,17 @@ These are ruled out of this effort. They are listed so an implementer does not a
 ### 2.1 The mechanism
 
 The planner already has a cookie session for the browser. An agent cannot use it. The API therefore
-gets a second mechanism: **named, revocable API keys**.
+gets a second mechanism: **one regenerable API key** (ADR-0019, superseded by ADR-0021).
 
-- The teacher creates a key in Settings and gives it a name, such as "laptop import script".
-- The server makes a random token, shows it **once**, and never shows it again.
-- The server stores only a hash of the token.
-- The teacher revokes a key by name in Settings.
+- The planner mints the key the first time Settings is opened; the teacher reads it there and
+  gives it to the agent.
+- The server stores the token itself, in the clear. No hash of it is kept.
+- Regenerating replaces the key. The old token stops working the moment the new one is minted.
+  This is the only revoke: there is nothing to revoke separately.
+- At most one row, enforced by the write path: regenerating deletes every row and inserts one.
 
-A list of named keys is used instead of one global key so that a key given to one tool can be
-revoked without breaking the others.
+One key for the account, not one per tool. With one consumer, revoking **is** breaking it, and
+that is the intent.
 
 ### 2.2 The token
 
@@ -55,9 +57,11 @@ revoked without breaking the others.
 - Prefixed `pln_`, so the token is recognisable in a log or a config file.
 - Example shape: `pln_8Kq2mV...` (47 characters in total).
 
-Store `sha256(token)` as lowercase hex. A plain SHA-256 is correct here. The token is 256 bits of
-random data, not a human-chosen password, so it cannot be guessed and a slow password hash such as
-argon2 buys nothing.
+The token is stored **as itself**, not as a digest (ADR-0021). A digest defends a stolen-database
+threat this planner does not have: the same database holds the session table and every Course,
+Topic and Lesson, so anyone who can read the key table already owns the account and can mint a key
+of their own. What a digest costs is paid on every visit — the token could be shown once and never
+again.
 
 ### 2.3 The header
 
@@ -65,8 +69,8 @@ argon2 buys nothing.
 Authorization: Bearer pln_8Kq2mV...
 ```
 
-The server hashes the presented token and looks the hash up in the key table. A miss, a malformed
-header, or a missing header is **401**:
+The server looks the presented token up in the key table — a plain match, nothing hashed. A miss, a
+malformed header, or a missing header is **401**:
 
 ```json
 { "error": "Give a valid API key in the Authorization header." }
@@ -76,21 +80,18 @@ Do not say whether the key was absent, malformed, or unknown. All three get the 
 
 ### 2.4 The schema
 
-A new table:
-
 | column         | type    | notes                                       |
 | -------------- | ------- | ------------------------------------------- |
 | `id`           | text PK | `crypto.randomUUID()`, as every other table |
-| `name`         | text    | not null, the label the teacher typed       |
-| `hash`         | text    | not null, unique, lowercase hex SHA-256     |
+| `token`        | text    | not null, unique, the token itself          |
 | `created_at`   | integer | not null, `timestamp_ms`                    |
 | `last_used_at` | integer | nullable, `timestamp_ms`                    |
 
-`last_used_at` is included. It is the only way to tell a live key from a forgotten one before
-revoking it, and one write per request is cheap on SQLite. Write it on every accepted request.
+`last_used_at` is included. It is the only way to tell the live key from a forgotten one, and one
+write per request is cheap on SQLite. Write it on every accepted request.
 
-The table holds no `user_id`. There is one account (ADR-0011, and the Setup screen), so a key
-identifies a tool, not a person.
+The table holds no `user_id`. There is one account (ADR-0011, and the Setup screen) and one key,
+so a key identifies the account and nothing else.
 
 ### 2.5 The request guard
 
@@ -105,21 +106,28 @@ every handler. Do not repeat the check inline.
 
 ### 2.6 The Settings screen
 
-`CONTEXT.md` says Settings holds "the change-password form, and nothing else", and that it "gets no
-second section". This API breaks that rule on purpose, so `CONTEXT.md` must be edited when the work
-is done. API keys have no other home: they belong to the account, not to the calendar model and not
-to any Course.
+API keys belong in Settings: they identify the account (the single user), not the calendar model
+and not any Course. The card sits beside the change-password form.
 
-Follow the existing form-action pattern in `src/routes/(app)/settings/+page.server.ts`:
+One card, "API key":
 
-- A second card, titled "API keys".
-- A list of keys: name, created date, last used date, and a Revoke button per row.
-- A form that takes a name and creates a key.
-- The new token is shown once, in the card, with the plain warning that it is not shown again.
-- Report the outcome as a toast, as the change-password form does.
+- Opening the screen mints a key if the database has none. There is no Generate step and no state
+  in which the planner has no key.
+- The token is shown in full, in a read-only monospace field. No masking and no reveal toggle:
+  masking defends a shoulder-surfing threat this planner does not have, and Settings is the only
+  place the token can be read, so it is the only door this rule has to be kept at.
+- The created and last-used dates sit beneath the field. A key nothing has used yet says so.
+- Two icon buttons sit beside the field, each with an accessible name. **Copy** puts the exact
+  token on the clipboard and confirms it.
+- **Regenerate** asks first. It replaces the key — the only revoke this planner has, and one that
+  cannot be undone — and it is a small icon button beside Copy, which is exactly why it must not
+  fire on one click. It opens a confirmation that says plainly that the old token stops working at
+  once and that every agent holding the key must be given the new one. Confirming replaces the key
+  and the card shows the new one; cancelling leaves the key untouched.
+- Report the outcome of each control as a toast, as the change-password form does.
 
-There are **no HTTP endpoints for key management.** Keys are made and revoked in the browser only.
-A key that could make another key would make revocation meaningless.
+There are **no HTTP endpoints for key management.** A key is made in the browser only. A key that
+could make another key would make regeneration meaningless.
 
 ## 3. Shared rules
 

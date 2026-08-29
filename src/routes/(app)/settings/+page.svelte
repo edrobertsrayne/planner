@@ -7,15 +7,21 @@
 	import * as Field from '$lib/components/ui/field/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
+	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import PageHeader from '$lib/components/page-header.svelte';
+	import CopyIcon from '@lucide/svelte/icons/copy';
+	import CheckIcon from '@lucide/svelte/icons/check';
+	import RefreshIcon from '@lucide/svelte/icons/refresh-cw';
 	import ToastMessage from './ToastMessage.svelte';
 
 	let { data } = $props();
 
 	let pending = $state(false);
 	let invalid = $state(false);
-	let generating = $state(false);
-	let newToken = $state<string | null>(null);
+	let regenerating = $state(false);
+	let confirmOpen = $state(false);
+	let copied = $state(false);
+	let copyTimer: ReturnType<typeof setTimeout> | undefined;
 
 	const onsubmit: SubmitFunction = () => {
 		pending = true;
@@ -36,14 +42,18 @@
 		};
 	};
 
-	const onGenerateKey: SubmitFunction = () => {
-		generating = true;
+	const onRegenerateKey: SubmitFunction = () => {
+		regenerating = true;
+		confirmOpen = false;
 		return async ({ result, update }) => {
-			generating = false;
-			if (result.type === 'success' && result.data?.token) {
-				newToken = result.data.token as string;
+			regenerating = false;
+			if (result.type === 'success') {
+				copied = false;
 				toast.success(ToastMessage, {
-					componentProps: { text: 'API key generated.', role: 'status' }
+					componentProps: {
+						text: 'API key regenerated. The old key no longer works.',
+						role: 'status'
+					}
 				});
 			} else if (result.type === 'failure') {
 				toast.error(ToastMessage, {
@@ -54,8 +64,14 @@
 		};
 	};
 
-	function dismissToken() {
-		newToken = null;
+	async function copyKey() {
+		await navigator.clipboard.writeText(data.key.token);
+		copied = true;
+		clearTimeout(copyTimer);
+		copyTimer = setTimeout(() => (copied = false), 1800);
+		toast.success(ToastMessage, {
+			componentProps: { text: 'API key copied.', role: 'status' }
+		});
 	}
 </script>
 
@@ -128,45 +144,73 @@
 		<Card.Header>
 			<Card.Title>API key</Card.Title>
 			<Card.Description>
-				An agent that can read and write your Courses, Topics, Lessons and Links. The key is shown
-				once and never again. Regenerating replaces it: the old token stops working at once.
+				Lets an agent read and write your Courses, Topics, Lessons and Links. Regenerating replaces
+				it: the old key stops working at once.
 			</Card.Description>
 		</Card.Header>
 
 		<Card.Content>
-			{#if data.key}
-				<div class="mb-4 rounded-md border px-3 py-2 text-sm">
-					<p class="text-xs text-muted-foreground">
-						Created {new Date(data.key.createdAt).toLocaleDateString()}
-						{#if data.key.lastUsedAt}
-							&middot; Last used {new Date(data.key.lastUsedAt).toLocaleDateString()}
-						{/if}
-					</p>
-				</div>
-			{/if}
-
-			{#if newToken}
-				<div
-					class="mb-4 rounded-md border border-amber-500/50 bg-amber-50 p-3 text-sm dark:bg-amber-950/20"
+			<div class="flex items-center gap-2">
+				<Input
+					readonly
+					value={data.key.token}
+					aria-label="API key"
+					class="h-8 flex-1 font-mono text-xs"
+					onfocus={(e) => e.currentTarget.select()}
+				/>
+				<Button
+					type="button"
+					variant="outline"
+					size="icon"
+					class="size-8 shrink-0"
+					title="Copy key"
+					aria-label="Copy key"
+					onclick={copyKey}
 				>
-					<p class="mb-1 font-medium text-amber-800 dark:text-amber-300">New key</p>
-					<code class="block rounded bg-background px-2 py-1 font-mono text-xs break-all"
-						>{newToken}</code
-					>
-					<p class="mt-1 text-xs text-amber-600 dark:text-amber-400">
-						This is the only time it is shown. Copy it now.
-					</p>
-				</div>
-				<Button size="sm" variant="outline" class="mb-4 h-7 text-xs" onclick={dismissToken}>
-					Dismiss
+					{#if copied}<CheckIcon />{:else}<CopyIcon />{/if}
 				</Button>
-			{/if}
+				<Button
+					type="button"
+					variant="outline"
+					size="icon"
+					class="size-8 shrink-0"
+					title="Regenerate key"
+					aria-label="Regenerate key"
+					disabled={regenerating}
+					onclick={() => (confirmOpen = true)}
+				>
+					<RefreshIcon class={regenerating ? 'animate-spin' : undefined} />
+				</Button>
+			</div>
 
-			<form method="POST" action="?/generateKey" use:enhance={onGenerateKey}>
-				<Button type="submit" size="sm" class="h-7" disabled={generating}>
-					{generating ? 'Generating…' : data.key ? 'Regenerate' : 'Generate'}
-				</Button>
-			</form>
+			<p class="mt-2 text-xs text-muted-foreground">
+				Created {new Date(data.key.createdAt).toLocaleDateString()}
+				{#if data.key.lastUsedAt}
+					&middot; Last used {new Date(data.key.lastUsedAt).toLocaleDateString()}
+				{:else}
+					&middot; Never used
+				{/if}
+			</p>
 		</Card.Content>
 	</Card.Root>
+
+	<Dialog.Root bind:open={confirmOpen}>
+		<Dialog.Content class="sm:max-w-md">
+			<Dialog.Header>
+				<Dialog.Title>Regenerate the API key?</Dialog.Title>
+				<Dialog.Description>
+					The key you have now stops working at once. Every agent holding it must be given the new
+					one. This cannot be undone.
+				</Dialog.Description>
+			</Dialog.Header>
+			<Dialog.Footer>
+				<Button variant="outline" size="sm" class="h-7" onclick={() => (confirmOpen = false)}>
+					Cancel
+				</Button>
+				<form method="POST" action="?/regenerateKey" use:enhance={onRegenerateKey}>
+					<Button type="submit" variant="destructive" size="sm" class="h-7">Regenerate</Button>
+				</form>
+			</Dialog.Footer>
+		</Dialog.Content>
+	</Dialog.Root>
 </div>

@@ -1,6 +1,6 @@
 # ADR-0019: One regenerable API key
 
-**Status:** Accepted (2026-08-27)
+**Status:** Superseded by [ADR-0021](0021-the-api-key-is-stored-as-itself.md) (2026-08-28)
 
 **Issue:** [#160](https://github.com/edrobertsrayne/planner/issues/160)
 

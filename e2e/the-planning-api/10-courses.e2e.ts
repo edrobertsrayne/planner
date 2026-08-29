@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { BEARER, generateKey, keysOf, openPage, type Page } from './helpers.ts';
+import { BEARER, standingKey, keysOf, openPage, type Page } from './helpers.ts';
 
 // Covers the two Course endpoints over real HTTP (issue #159): the key gate every route shares,
 // probed here against the Course routes, then the status codes, the uniqueness and validation
@@ -15,7 +15,7 @@ test.describe.serial('the Course endpoints', () => {
 
 	test.beforeAll(async ({ browser }) => {
 		page = await openPage(browser);
-		token = await generateKey(page);
+		token = await standingKey(page);
 	});
 
 	test.afterAll(async () => {

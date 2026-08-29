@@ -12,13 +12,6 @@ const UNAUTHORIZED = () =>
 		headers: { 'content-type': 'application/json' }
 	});
 
-async function hashToken(token: string): Promise<string> {
-	const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
-	return Array.from(new Uint8Array(hashBuffer))
-		.map((b) => b.toString(16).padStart(2, '0'))
-		.join('');
-}
-
 export async function requireApiKey(event: RequestEvent): Promise<Response | void> {
 	const header = event.request.headers.get('Authorization');
 	if (!header || !header.startsWith('Bearer ')) return UNAUTHORIZED();
@@ -26,12 +19,10 @@ export async function requireApiKey(event: RequestEvent): Promise<Response | voi
 	const token = header.slice(7).trim();
 	if (!token) return UNAUTHORIZED();
 
-	const hash = await hashToken(token);
-
 	const result = await db
 		.update(apiKey)
 		.set({ lastUsedAt: Date.now() })
-		.where(eq(apiKey.hash, hash))
+		.where(eq(apiKey.token, token))
 		.returning({ id: apiKey.id });
 
 	if (result.length === 0) return UNAUTHORIZED();

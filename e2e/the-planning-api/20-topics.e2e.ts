@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { BEARER, FIXTURE_COURSE, generateKey, keysOf, openPage, type Page } from './helpers.ts';
+import { BEARER, FIXTURE_COURSE, standingKey, keysOf, openPage, type Page } from './helpers.ts';
 
 // Covers the two Topic endpoints over real HTTP (issue #159): the per-Course, case-insensitive
 // collision rule, the list's sort, the rename collision, and the courseId refusal. The routes
@@ -19,7 +19,7 @@ test.describe.serial('the Topic endpoints', () => {
 
 	test.beforeAll(async ({ browser }) => {
 		page = await openPage(browser);
-		token = await generateKey(page);
+		token = await standingKey(page);
 
 		// The Courses the earlier files left behind: the fixture Course the wizard data left, and
 		// the two the Course file created for these Topics.
