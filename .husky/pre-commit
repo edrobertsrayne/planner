@@ -1,4 +1,14 @@
+# Auto-format staged files with Prettier and restage them.
+bunx lint-staged
+
 # Same command as the Lint workflow, so a commit that passes here passes CI.
 # It checks the whole tree, not the staged files, because CI checks the whole tree.
 # It reports; it does not fix. Run `bun run format` to fix the formatting part.
 bun run lint
+
+# Type check. The article's `tsc` cannot see .svelte files; svelte-check can.
+bun run check
+
+# Unit tests only. The e2e suite is stateful and slow, so it stays out of the
+# hook. Run `bun run test` for the whole suite.
+bun run test:unit -- --run
