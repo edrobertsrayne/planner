@@ -114,11 +114,18 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		dayName = DAYS[teachingDay - 1];
 
 		await page.goto(`/classes/${classAId}`);
-		await page
-			.getByRole('button', {
-				name: new RegExp(`^Week ${letter} ${dayName} P1 — empty`)
-			})
-			.click();
+		// Three periods a week — Mon, Wed and Fri P1 — a realistic KS3 cadence, and enough future
+		// Available Slots for the Planning test to page against: one fortnightly Slot supplies only
+		// 8 before the fixture's Terms run out on a Saturday, leaving two of the ten Lessons
+		// unscheduled inside the first page. The cells are positions, not dates — the grid is dated
+		// today, so Monday's is clickable on a Wednesday too.
+		for (const day of [1, 3, 5]) {
+			await page
+				.getByRole('button', {
+					name: new RegExp(`^Week ${letter} ${DAYS[day - 1]} P1 — empty`)
+				})
+				.click();
+		}
 		await page.getByRole('button', { name: 'Assign next Topic' }).click();
 		await page.getByRole('option', { name: 'Forces' }).click();
 
