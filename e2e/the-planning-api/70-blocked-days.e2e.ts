@@ -40,6 +40,9 @@ test.describe.serial('the Blocked Day endpoints', () => {
 		expect(empty.status()).toBe(200);
 		expect(await empty.json()).toEqual({ blockedDays: [] });
 
+		// No Term needs to be set for a Blocked Day (see disruptions.ts) — this file leans only on
+		// nextWeekday/nextSaturday to land on a real weekday or weekend, so these offsets from
+		// today hold whatever real weekday the suite runs on, with no Term span to stay inside.
 		const today = todayIso();
 		const inset = nextWeekday(plusDays(today, 90));
 

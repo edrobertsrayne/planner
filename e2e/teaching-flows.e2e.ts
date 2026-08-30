@@ -15,14 +15,6 @@ function isoDate(offsetDays: number): string {
 	return d.toISOString().slice(0, 10);
 }
 
-// Mon-Fri (1-5) matching today's real weekday when it is one, otherwise Monday — the Calendar's
-// default week rolls forward to the next full Teaching Week over a weekend, so every weekday of
-// that week is still ahead of "today".
-function nextTeachingDay(): number {
-	const day = new Date().getUTCDay();
-	return day >= 1 && day <= 5 ? day : 1;
-}
-
 function runFixture(...args: string[]): string {
 	return execFileSync('node', ['scripts/e2e-fixtures.ts', ...args], {
 		cwd: process.cwd(),
@@ -52,8 +44,6 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 	let page: Page;
 	let classAId = '';
 	let classBId = '';
-	let teachingDay: number;
-	let dayName: string;
 
 	test.beforeAll(async ({ browser }) => {
 		page = await browser.newPage();
@@ -110,8 +100,6 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		// ribbon.
 		await page.goto('/calendar');
 		const letter = (await page.locator('[aria-current="true"]').first().innerText()).charAt(0);
-		teachingDay = nextTeachingDay();
-		dayName = DAYS[teachingDay - 1];
 
 		await page.goto(`/classes/${classAId}`);
 		// Three periods a week — Mon, Wed and Fri P1 — a realistic KS3 cadence, and enough future
@@ -130,9 +118,11 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		await page.getByRole('option', { name: 'Forces' }).click();
 
 		await page.goto(`/classes/${classBId}`);
+		// Tuesday P3 — a day classA leaves untouched. The cells are positions, not dates (see
+		// above), so any weekday does; this one needs no real-date arithmetic at all.
 		await page
 			.getByRole('button', {
-				name: new RegExp(`^Week ${letter} ${dayName} P3 — empty`)
+				name: new RegExp(`^Week ${letter} Tue P3 — empty`)
 			})
 			.click();
 

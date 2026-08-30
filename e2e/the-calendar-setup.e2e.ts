@@ -169,6 +169,9 @@ test.describe.serial('the Calendar setup mode', () => {
 
 		// A weekday inside the second Term, with no Session noted on it — so adding it says
 		// plainly that nothing was put at risk, and the week it falls in loses a teaching day.
+		// Holds on any real-world day the suite runs on: nextWeekday absorbs a Saturday or Sunday
+		// "today" by stepping forward at most two days, and the second Term (isoDate(-14) to
+		// isoDate(56) in teaching-flows.e2e.ts) is wide enough around day 40 to swallow that step.
 		const inset = nextWeekday(plusDays(new Date().toISOString().slice(0, 10), 40));
 		const insetMonday = plusDays(inset, -((weekdayOf(inset) + 6) % 7));
 		const insetWeek = page
@@ -210,6 +213,8 @@ test.describe.serial('the Calendar setup mode', () => {
 		await expect(page.getByRole('alert').filter({ hasText: 'No date given.' })).toBeVisible();
 
 		// A date outside every Term is accepted — a closure does not need a Term to be real.
+		// Holds on any real-world day: the sixth Term closes at isoDate(168), so day 250 clears it
+		// by well over the two days nextWeekday can add.
 		const outside = nextWeekday(plusDays(new Date().toISOString().slice(0, 10), 250));
 		await page.getByLabel('Blocked Day date').fill(outside);
 		await page.getByRole('button', { name: 'Add day' }).click();
@@ -235,6 +240,10 @@ test.describe.serial('the Calendar setup mode', () => {
 		// A year built around the current week: Term 1 closes on its Monday and Term 2 opens on
 		// its Wednesday, so the Tuesday of that week is outside every Term — a School Holiday —
 		// and Monday with Wednesday to Friday are teaching days.
+		// Holds on any real-world day, including a Saturday or Sunday "today": the (weekday + 6) %
+		// 7 offset walks back to that ISO week's Monday from whichever day getUTCDay() reports (0
+		// for Sunday through 6 for Saturday), not from an assumed weekday, so the built week is
+		// always Monday-to-Friday even when the suite itself runs over the weekend.
 		const todayIso = new Date().toISOString().slice(0, 10);
 		const monday = plusDays(todayIso, -((weekdayOf(todayIso) + 6) % 7));
 		const terms = [
