@@ -122,7 +122,7 @@ export interface CalendarCell {
 	kind: 'lesson' | 'open' | 'blocked';
 	lesson: LessonName | null;
 	blockedNote: string | null;
-	slotId: string;
+	slotIds: string[];
 	blockedDayId: string | null;
 	blockedSlotId: string | null;
 }
@@ -217,7 +217,7 @@ function blockedCells(
 				kind: 'blocked',
 				lesson: null,
 				blockedNote: dayBlock?.note ?? slotBlock?.note ?? null,
-				slotId: slot.id,
+				slotIds: [slot.id],
 				blockedDayId: dayBlock?.id ?? null,
 				blockedSlotId: slotBlock?.id ?? null
 			});
@@ -256,7 +256,7 @@ export function calendarWeek(
 				kind: r.lesson ? 'lesson' : 'open',
 				lesson: r.lesson ? (names.get(r.lesson.lessonId) ?? null) : null,
 				blockedNote: null,
-				slotId: r.slotId,
+				slotIds: r.slotIds,
 				blockedDayId: null,
 				blockedSlotId: null
 			};

@@ -366,7 +366,11 @@
 														triggerClass="absolute top-1 right-1 rounded-sm bg-background/70 p-0.5 text-muted-foreground opacity-0 group-hover/cell:opacity-100 focus-visible:opacity-100 hover:text-foreground"
 														triggerLabel={`Block ${cell.classLabel}, P${cell.periodFrom}`}
 														action="?/blockSlot"
-														fields={{ classId: cell.classId, date: cell.date, slotId: cell.slotId }}
+														fields={{
+															classId: cell.classId,
+															date: cell.date,
+															slotId: cell.slotIds[0]
+														}}
 														label={`Block ${cell.classLabel}, P${cell.periodFrom}`}
 														noteRequired={true}
 													>

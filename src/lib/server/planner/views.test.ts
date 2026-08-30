@@ -192,7 +192,7 @@ describe('the Calendar', () => {
 			(c) => c.date === '2026-09-03' && c.periodFrom === 6 && c.classId === classA.id
 		);
 		expect(shifted).toMatchObject({ kind: 'lesson' });
-		expect(shifted?.slotId).toBeTruthy();
+		expect(shifted?.slotIds).toEqual([expect.any(String)]);
 		expect(shifted?.blockedSlotId).toBeNull();
 	});
 

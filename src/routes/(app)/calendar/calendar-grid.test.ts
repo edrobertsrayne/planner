@@ -13,7 +13,7 @@ function cell(overrides: Partial<CalendarCell>): CalendarCell {
 		kind: 'lesson',
 		lesson: { title: 'Measuring speed', topicName: 'Forces' },
 		blockedNote: null,
-		slotId: 's1',
+		slotIds: ['s1'],
 		blockedDayId: null,
 		blockedSlotId: null,
 		...overrides
