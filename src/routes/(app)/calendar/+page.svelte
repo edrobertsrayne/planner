@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
-	import BanIcon from '@lucide/svelte/icons/ban';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
@@ -16,7 +15,7 @@
 	import PageHeader from '$lib/components/page-header.svelte';
 	import BlockPopover from './BlockPopover.svelte';
 	import CalendarSetup from './CalendarSetup.svelte';
-	import { PERIODS, toGrid } from './calendar-grid';
+	import { blockableSlots, PERIODS, toGrid } from './calendar-grid';
 	import type { CalendarCell } from '$lib/server/planner';
 	import type { PageProps } from './$types';
 
@@ -46,8 +45,9 @@
 	const grid = $derived.by(() => toGrid(data.week?.days ?? [], data.week?.cells ?? []));
 	const blockedByDate = $derived(new Map((data.week?.blockedDays ?? []).map((b) => [b.date, b])));
 
-	// The Blocked Slots a collapsed day head must still offer to unblock, since the panel that
-	// replaces its Periods carries no tiles of its own to hold them.
+	// The Blocked Slots of the week, grouped by date: the tile a Blocked Slot drains carries no
+	// control of its own, so its day's menu is the one place its unblock lives — collapsed
+	// column or not.
 	const blockedSlotsByDate = $derived.by(() => {
 		const byDate: Record<string, CalendarCell[]> = {};
 		for (const cell of data.week?.cells ?? []) {
@@ -56,6 +56,18 @@
 		}
 		return byDate;
 	});
+
+	// The Slots each day's menu offers to block, grouped by date the same way.
+	const blockableByDate = $derived(
+		Object.fromEntries(
+			(data.week?.days ?? []).map((d) => [d.date, blockableSlots(data.week?.cells ?? [], d.date)])
+		)
+	);
+
+	// The Slot the day menu picked to block, whose note is asked for over its tile. Rendering
+	// the popover only while a pick is open is the whole of the opening gesture: the menu
+	// chooses, the popover asks.
+	let slotNote = $state<{ date: string; slotId: string; period: number } | null>(null);
 
 	// The day head's menu acts through three hidden forms rather than one per day: a Blocked Day
 	// records no cause, so blocking it is a single click with no field to fill, and the same form
@@ -222,7 +234,31 @@
 													>Block day</DropdownMenu.Item
 												>
 											{/if}
-											{#if dayKind !== 'teaching' && blockedSlots.length > 0}
+											{#if dayKind === 'teaching'}
+												{@const blockable = blockableByDate[date] ?? []}
+												{#if blockable.length > 0}
+													<DropdownMenu.Separator />
+													<DropdownMenu.Group>
+														<DropdownMenu.GroupHeading
+															class="text-[11px] font-normal text-muted-foreground"
+															>Block one Slot</DropdownMenu.GroupHeading
+														>
+														<!-- One line per real Slot, so a Lesson over two Periods appears
+													     twice. Picking one opens the note form over its tile. -->
+														{#each blockable as slot (slot.slotId)}
+															<DropdownMenu.Item
+																onSelect={() =>
+																	(slotNote = {
+																		date,
+																		slotId: slot.slotId,
+																		period: slot.period
+																	})}>{slot.classLabel}, P{slot.period}…</DropdownMenu.Item
+															>
+														{/each}
+													</DropdownMenu.Group>
+												{/if}
+											{/if}
+											{#if blockedSlots.length > 0}
 												<DropdownMenu.Separator />
 												<DropdownMenu.Group>
 													<DropdownMenu.GroupHeading
@@ -289,10 +325,11 @@
 										{@const cell = entry.cell}
 										{@const rowspan = cell.periodTo - cell.periodFrom + 1}
 										{@const tone = classTone(cell.tone)}
-										<td {rowspan} class="group/cell relative h-16 align-top">
+										<td {rowspan} class="relative h-16 align-top">
 											{#if cell.kind === 'blocked'}
 												<!-- A Blocked Slot on an otherwise teaching day: a removal, so it keeps
-												the hatch, its note and its unblock link. -->
+											the hatch and its note. Its unblock lives in the day's menu, like every
+											other act on the day — no control sits on a tile. -->
 												<div
 													class="hatched flex h-full min-h-16 flex-col rounded-lg border border-dashed px-2 py-1.5"
 												>
@@ -302,30 +339,12 @@
 													<div class="mt-0.5 line-clamp-2 text-xs text-muted-foreground/80 italic">
 														{cell.blockedNote ?? 'Blocked'}
 													</div>
-													{#if cell.blockedSlotId}
-														<form
-															method="POST"
-															action="?/unblockSlot"
-															class="mt-auto self-start"
-															use:enhance={refresh}
-														>
-															<input type="hidden" name="id" value={cell.blockedSlotId} />
-															<Button
-																type="submit"
-																variant="link"
-																size="xs"
-																class="h-auto px-0 text-muted-foreground underline underline-offset-2"
-															>
-																Unblock
-															</Button>
-														</form>
-													{/if}
 												</div>
 											{:else}
 												<button
 													type="button"
 													data-session-trigger
-													class="relative flex h-full min-h-16 w-full flex-col overflow-hidden rounded-lg border px-2 py-1.5 text-left hover:brightness-95"
+													class="flex h-full min-h-16 w-full flex-col overflow-hidden rounded-lg border px-2 py-1.5 text-left"
 													style:background-color={tone.bg}
 													style:border-color={tone.ring}
 													onclick={() =>
@@ -356,26 +375,22 @@
 													{/if}
 												</button>
 
-												{#if cell.periodFrom === cell.periodTo}
-													<!-- A Lesson with Length > 1 spans several Periods as one merged
-													cell; a Blocked Slot is only ever one Period, so the control is offered
-													solely on a cell that is exactly one Period wide, never on a span where
-													"this Period" would be ambiguous. -->
+												{#if slotNote && slotNote.date === cell.date && cell.slotIds.includes(slotNote.slotId)}
+													<!-- The day menu chose this Slot; the note is asked for over the tile
+												it names, so the teacher can see which one they picked. For a Lesson
+												over two Periods both lines open the same tile, each naming its own. -->
 													<BlockPopover
-														contentClass="w-64 p-3"
-														triggerClass="absolute top-1 right-1 rounded-sm bg-background/70 p-0.5 text-muted-foreground opacity-0 group-hover/cell:opacity-100 focus-visible:opacity-100 hover:text-foreground"
-														triggerLabel={`Block ${cell.classLabel}, P${cell.periodFrom}`}
+														label={`Block ${cell.classLabel}, P${slotNote.period}`}
 														action="?/blockSlot"
 														fields={{
 															classId: cell.classId,
 															date: cell.date,
-															slotId: cell.slotIds[0]
+															slotId: slotNote.slotId
 														}}
-														label={`Block ${cell.classLabel}, P${cell.periodFrom}`}
-														noteRequired={true}
-													>
-														{#snippet trigger()}<BanIcon class="size-3" />{/snippet}
-													</BlockPopover>
+														onOpenChange={(o) => {
+															if (!o) slotNote = null;
+														}}
+													/>
 												{/if}
 											{/if}
 										</td>

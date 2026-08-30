@@ -53,7 +53,9 @@ The number of Periods a Lesson is intended to occupy, defaulting to one. Distinc
 Continuation: Length belongs to the Lesson and so applies to every Class assigned its
 Topic, whereas a Continuation is a reaction to how one Class's teaching actually went. A Lesson
 longer than one Period takes the next Available Slots in order like any other, and may therefore
-run across two days rather than falling on a timetabled double.
+run across two days rather than falling on a timetabled double. Its Periods are separately
+blockable: blocking one removes that Slot from under the Lesson, which shortens it and shifts
+the rest.
 _Avoid_: Planned Length, duration, double, span, periods
 
 **Draft**:
@@ -240,10 +242,14 @@ it draws on are the calendar _model_, and "the calendar" unqualified means the m
 Slot keeps its Class's colour and shows no Lesson; a Blocked Day and a Blocked Slot drain the
 colour instead — present-but-empty and removed must never read alike. A day with no teaching — a
 Blocked Day or a School Holiday — drops its six Periods and reads as one panel spanning the
-column, told apart from an empty Period by a step in shade, never a hue. A Blocked Slot recorded on
-a School Holiday keeps the hatch — it is a removal, and its unblock travels with the tile. A
-Blocked Day entered on a School Holiday still reads as the School Holiday in the panel's headline;
-the day's menu still offers Unblock day, so the Blocked Day is out-ranked there, not hidden.
+column, told apart from an empty Period by a step in shade, never a hue. No control sits on a
+tile: every block and unblock on a day starts in that day's menu — Block day or Unblock day, a
+Block one Slot line for each Slot the day's tiles cover, and an Unblock line for each Blocked Slot
+on it, so a Blocked Slot's unblock survives the collapse of its column. A Blocked Slot recorded on
+a School Holiday keeps the hatch — it is a removal, and its unblock sits in that day's menu like
+every other act on the day. A Blocked Day entered on a School Holiday
+still reads as the School Holiday in the panel's headline; the day's menu still offers Unblock
+day, so the Blocked Day is out-ranked there, not hidden.
 
 **Classes**:
 One tone-coloured tile per Class, keyed by Class rather than by time. Each tile carries the

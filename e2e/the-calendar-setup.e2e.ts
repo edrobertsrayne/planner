@@ -287,6 +287,9 @@ test.describe.serial('the Calendar setup mode', () => {
 		await blockDayFromHeader('Tue');
 		await openDayMenu('Tue');
 		await expect(page.getByRole('menuitem', { name: 'Unblock day' })).toBeVisible();
+		// A day that is already off offers no "Block one Slot": every Slot on it is unavailable
+		// already, and a block that changes nothing is worse than a shorter menu.
+		await expect(page.getByRole('menuitem', { name: /…$/ })).toHaveCount(0);
 		await page.keyboard.press('Escape');
 		await expect(page.locator('td[data-day-kind="holiday"]')).toHaveCount(1);
 		await expect(page.locator('td[data-day-kind="holiday"]')).toContainText('School holiday');
@@ -326,6 +329,54 @@ test.describe.serial('the Calendar setup mode', () => {
 		await page.getByLabel(`Remove Blocked Day ${thursday}`).click();
 		await expect(page.getByLabel(`Remove Blocked Day ${thursday}`)).toHaveCount(0);
 		await page.getByRole('button', { name: 'Cancel' }).click();
+	});
+
+	test('a Slot is blocked from its day menu, noted over its tile, and unblocked from the same menu', async () => {
+		// The classes' Slots were written for the Week letter the Calendar opened on when
+		// teaching-flows ran — A on a Monday-to-Friday, B over a weekend. One of the two weeks
+		// after the engineered one carries that letter, and both lie wholly inside Term 2, so
+		// five teaching days each: land on the one that shows a tile, then Monday's P1 is
+		// 9B/Sc1's Slot. The day menu is the only door to blocking: its "Block one Slot"
+		// heading lists the day's Periods, one line per real Slot.
+		const todayIso = new Date().toISOString().slice(0, 10);
+		const monday = plusDays(todayIso, -((weekdayOf(todayIso) + 6) % 7));
+		for (const offset of [7, 14]) {
+			await page.goto(`/calendar?week=${plusDays(monday, offset)}`);
+			if ((await page.locator('[data-session-trigger]').count()) > 0) break;
+		}
+
+		await openDayMenu('Mon');
+		await page.getByRole('menuitem', { name: '9B/Sc1, P1…' }).click();
+
+		// The note form opens over the Slot's tile, and the note is asked for: a hole in the
+		// week must stay explainable.
+		const note = page.getByRole('textbox', { name: 'Block 9B/Sc1, P1' });
+		await expect(note).toBeVisible();
+		await note.fill('Assembly');
+		await page.getByRole('button', { name: 'Block', exact: true }).click();
+
+		// The tile drains: the hatch and the note, in place of the tile it removed.
+		const cell = page.locator('tbody tr').first().locator('td').first();
+		await expect(cell).toContainText('9B/Sc1');
+		await expect(cell).toContainText('Assembly');
+
+		// Collapsing the column takes the tiles away, but not the unblock: the same menu still
+		// holds it. A day that is already off offers no "Block one Slot".
+		await blockDayFromHeader('Mon');
+		await openDayMenu('Mon');
+		await expect(page.getByRole('menuitem', { name: /…$/ })).toHaveCount(0);
+		await page.getByRole('menuitem', { name: 'Unblock 9B/Sc1, P1' }).click();
+
+		// No Blocked Slot left behind — the menu no longer offers the unblock.
+		await openDayMenu('Mon');
+		await expect(page.getByRole('menuitem', { name: 'Unblock 9B/Sc1, P1' })).toHaveCount(0);
+		await page.keyboard.press('Escape');
+
+		// The day itself goes back too, and Monday's P1 carries its tile again — both writes
+		// undone, leaving no Blocked Slot and no Blocked Day behind.
+		await unblockDayFromHeader('Mon');
+		await expect(cell).not.toContainText('Assembly');
+		await expect(cell.locator('[data-session-trigger]')).toHaveCount(1);
 	});
 
 	test('cancel returns to the week the teacher was on with nothing saved', async () => {

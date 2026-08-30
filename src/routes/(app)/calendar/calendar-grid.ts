@@ -9,6 +9,30 @@ export type GridEntry =
 
 export const PERIODS = [1, 2, 3, 4, 5, 6];
 
+// One line per Slot a day's menu offers to block: every non-blocked cell on the date, read out
+// per Slot in Period order — a Lesson over two Periods appears twice, once per real Slot
+// (issue #192). Blocked cells offer nothing; their Slot is already gone.
+export interface BlockableSlot {
+	slotId: string;
+	period: number;
+	classId: string;
+	classLabel: string;
+}
+
+export function blockableSlots(cells: readonly CalendarCell[], date: string): BlockableSlot[] {
+	return cells
+		.filter((c) => c.date === date && c.kind !== 'blocked')
+		.flatMap((c) =>
+			c.slotIds.map((slotId, i) => ({
+				slotId,
+				period: c.periodFrom + i,
+				classId: c.classId,
+				classLabel: c.classLabel
+			}))
+		)
+		.sort((a, b) => a.period - b.period);
+}
+
 export function toGrid(
 	days: readonly { date: string }[],
 	cells: readonly CalendarCell[]
