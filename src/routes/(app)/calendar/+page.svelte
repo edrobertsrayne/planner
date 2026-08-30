@@ -22,13 +22,23 @@
 	// with PrototypeStates.svelte.
 	import { page } from '$app/state';
 	import PrototypeStates from './PrototypeStates.svelte';
+	import PrototypeBlocking from './PrototypeBlocking.svelte';
 	import PrototypeSwitcher from './PrototypeSwitcher.svelte';
 
 	let { data, form }: PageProps = $props();
 
 	// PROTOTYPE — throwaway.
-	const PROTO_VARIANTS = ['A2', 'A1', 'A3'];
+	const PROTO_VARIANTS = ['F1', 'F2', 'F3', 'F4'];
+	const PROTO_BLOCKING = ['E1', 'E2', 'E3', 'E4', 'F1', 'F2', 'F3', 'F4'];
 	const PROTO_NAMES: Record<string, string> = {
+		F1: 'Slot — hover ban icon (today)',
+		F2: 'Slot — the same menu, one level down',
+		F3: 'Slot — the day menu owns everything',
+		F4: 'Slot — type the reason on the tile',
+		E1: 'Block/unblock — header does the doing',
+		E2: 'Block/unblock — panel does the undoing',
+		E3: 'Block/unblock — one menu per day',
+		E4: 'Block/unblock — the panel is the button',
 		A2: 'Holiday — solid panel',
 		A1: 'Holiday — warm tint',
 		A3: 'Holiday — empty, ruled off',
@@ -39,7 +49,12 @@
 	const prototypeVariant = $derived.by(() => {
 		if (!import.meta.env.DEV) return null;
 		const v = page.url.searchParams.get('variant')?.toUpperCase();
-		return v && (PROTO_VARIANTS.includes(v) || ['B', 'C', 'D'].includes(v)) ? v : null;
+		return v &&
+			(PROTO_VARIANTS.includes(v) ||
+				PROTO_BLOCKING.includes(v) ||
+				['A1', 'A2', 'A3', 'B', 'C', 'D'].includes(v))
+			? v
+			: null;
 	});
 
 	// Setup mode replaces the week grid in place, on the same route. It opens by itself when no
@@ -139,7 +154,11 @@
 
 	<!-- PROTOTYPE — throwaway branch. -->
 	{#if prototypeVariant}
-		<PrototypeStates variant={prototypeVariant} />
+		{#if PROTO_BLOCKING.includes(prototypeVariant)}
+			<PrototypeBlocking variant={prototypeVariant} />
+		{:else}
+			<PrototypeStates variant={prototypeVariant} />
+		{/if}
 		<PrototypeSwitcher variants={PROTO_VARIANTS} names={PROTO_NAMES} current={prototypeVariant} />
 	{:else if setup}
 		<CalendarSetup

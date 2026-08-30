@@ -5,9 +5,9 @@
 // is enough: w/c Mon 22 Mar 2027, the Term closing on the Thursday.
 //   Mon — teaching, with a Blocked Slot
 //   Tue — teaching
-//   Wed — a Blocked Day (INSET)
+//   Wed — a Blocked Day (INSET), carrying a Blocked Slot of its own
 //   Thu — teaching, the last day of Term
-//   Fri — a School Holiday, outside every Term
+//   Fri — a School Holiday, outside every Term, carrying a Blocked Slot of its own
 
 export type Kind = 'lesson' | 'open' | 'blocked';
 export type DayKind = 'teaching' | 'blocked' | 'holiday';
@@ -21,6 +21,9 @@ export interface Cell {
 	title?: string;
 	topicName?: string;
 	note?: string;
+	// A Blocked Slot rather than a Slot drained by the day around it. It carries its own unblock,
+	// and a collapsed column is where that control goes missing.
+	blockedSlot?: boolean;
 }
 
 export interface Day {
@@ -59,6 +62,16 @@ const blocked = (period: number, classLabel: string, tone: number, note?: string
 	note
 });
 
+const blockedSlot = (period: number, classLabel: string, tone: number, note: string): Cell => ({
+	period,
+	span: 1,
+	classLabel,
+	tone,
+	kind: 'blocked',
+	note,
+	blockedSlot: true
+});
+
 export const WEEK: Day[] = [
 	{
 		name: 'Mon',
@@ -86,7 +99,7 @@ export const WEEK: Day[] = [
 		date: '24 Mar',
 		kind: 'blocked',
 		note: 'INSET day',
-		cells: [blocked(2, '9B/Sc1', 4, 'INSET day'), blocked(4, '8Y/Sc2', 0, 'INSET day')]
+		cells: [blocked(2, '9B/Sc1', 4, 'INSET day'), blockedSlot(4, '8Y/Sc2', 0, 'Cover for the trip')]
 	},
 	{
 		name: 'Thu',
@@ -104,7 +117,11 @@ export const WEEK: Day[] = [
 		date: '26 Mar',
 		kind: 'holiday',
 		note: 'School holiday',
-		cells: [blocked(1, '7A/Sc3', 6), blocked(3, '10C/Ph1', 7), blocked(5, '9B/Sc1', 4)]
+		cells: [
+			blocked(1, '7A/Sc3', 6),
+			blockedSlot(3, '10C/Ph1', 7, 'Revision session, called off'),
+			blocked(5, '9B/Sc1', 4)
+		]
 	}
 ];
 
