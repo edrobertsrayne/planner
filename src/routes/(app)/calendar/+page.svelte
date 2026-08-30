@@ -17,8 +17,30 @@
 	import { PERIODS, toGrid } from './calendar-grid';
 	import type { DayKind } from '$lib/server/planner';
 	import type { PageProps } from './$types';
+	// PROTOTYPE — throwaway. ?variant=A|B|C|D swaps the week grid for the state-distinction
+	// variants. Remove this import, the two below it and the `{#if prototypeVariant}` branch
+	// with PrototypeStates.svelte.
+	import { page } from '$app/state';
+	import PrototypeStates from './PrototypeStates.svelte';
+	import PrototypeSwitcher from './PrototypeSwitcher.svelte';
 
 	let { data, form }: PageProps = $props();
+
+	// PROTOTYPE — throwaway.
+	const PROTO_VARIANTS = ['A2', 'A1', 'A3'];
+	const PROTO_NAMES: Record<string, string> = {
+		A2: 'Holiday — solid panel',
+		A1: 'Holiday — warm tint',
+		A3: 'Holiday — empty, ruled off',
+		B: 'Narrow gutter',
+		C: 'One surface',
+		D: 'Off-days out of the grid'
+	};
+	const prototypeVariant = $derived.by(() => {
+		if (!import.meta.env.DEV) return null;
+		const v = page.url.searchParams.get('variant')?.toUpperCase();
+		return v && (PROTO_VARIANTS.includes(v) || ['B', 'C', 'D'].includes(v)) ? v : null;
+	});
 
 	// Setup mode replaces the week grid in place, on the same route. It opens by itself when no
 	// Term is set — the first-run empty state of the year — and closing lands on the week the
@@ -115,7 +137,11 @@
 		<AtRiskAlert atRisk={form.atRisk} />
 	{/if}
 
-	{#if setup}
+	<!-- PROTOTYPE — throwaway branch. -->
+	{#if prototypeVariant}
+		<PrototypeStates variant={prototypeVariant} />
+		<PrototypeSwitcher variants={PROTO_VARIANTS} names={PROTO_NAMES} current={prototypeVariant} />
+	{:else if setup}
 		<CalendarSetup
 			terms={data.terms}
 			blockedDays={data.blockedDays}
