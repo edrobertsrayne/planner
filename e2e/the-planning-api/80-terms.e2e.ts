@@ -43,6 +43,8 @@ test.describe.serial('the Term endpoints', () => {
 
 		// Six Terms spanning today, given in no particular order — the read derives the names
 		// from position and answers 200 with the new six beside an empty at-risk report.
+		// Term validation only checks open-before-close and no overlap (terms.ts) — no weekday
+		// rule — so these offsets from today hold whatever real weekday the suite runs on.
 		const opens = [-84, -14, 70, 98, 126, 154].map((d) => plusDays(todayIso(), d));
 		const closes = [-21, 56, 84, 112, 140, 168].map((d) => plusDays(todayIso(), d));
 		const shuffled = [3, 0, 5, 1, 4, 2].map((i) => ({ opens: opens[i], closes: closes[i] }));
