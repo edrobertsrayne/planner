@@ -90,14 +90,9 @@
 	);
 </script>
 
-<div class="flex items-center justify-between gap-2">
-	<p class="text-sm text-muted-foreground">
-		Six Terms, an opening and a closing each. The year they make is listed here before you save.
-	</p>
-	<div class="flex shrink-0 items-center gap-2">
-		<Button type="button" variant="ghost" size="sm" class="h-7" onclick={onclose}>Cancel</Button>
-		<Button type="submit" form="save-year" size="sm" class="h-7">Save year</Button>
-	</div>
+<div class="flex items-center justify-end gap-2">
+	<Button type="button" variant="ghost" size="sm" class="h-7" onclick={onclose}>Cancel</Button>
+	<Button type="submit" form="save-year" size="sm" class="h-7">Save year</Button>
 </div>
 
 <div class="mt-4 grid gap-6 lg:grid-cols-2">

@@ -4,58 +4,23 @@
 	import BanIcon from '@lucide/svelte/icons/ban';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
+	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import { classTone } from '$lib/class-tone';
 	import { formatDayMonth } from '$lib/date';
-	import { refresh } from '$lib/client/enhance';
+	import { refresh, submitWithValue } from '$lib/client/enhance';
 	import { openSession } from '$lib/client/session-panel.svelte';
 	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
 	import AtRiskReport from '$lib/components/at-risk-report.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import BlockPopover from './BlockPopover.svelte';
 	import CalendarSetup from './CalendarSetup.svelte';
 	import { PERIODS, toGrid } from './calendar-grid';
-	import type { DayKind } from '$lib/server/planner';
+	import type { CalendarCell } from '$lib/server/planner';
 	import type { PageProps } from './$types';
-	// PROTOTYPE — throwaway. ?variant=A|B|C|D swaps the week grid for the state-distinction
-	// variants. Remove this import, the two below it and the `{#if prototypeVariant}` branch
-	// with PrototypeStates.svelte.
-	import { page } from '$app/state';
-	import PrototypeStates from './PrototypeStates.svelte';
-	import PrototypeBlocking from './PrototypeBlocking.svelte';
-	import PrototypeSwitcher from './PrototypeSwitcher.svelte';
 
 	let { data, form }: PageProps = $props();
-
-	// PROTOTYPE — throwaway.
-	const PROTO_VARIANTS = ['F1', 'F2', 'F3', 'F4'];
-	const PROTO_BLOCKING = ['E1', 'E2', 'E3', 'E4', 'F1', 'F2', 'F3', 'F4'];
-	const PROTO_NAMES: Record<string, string> = {
-		F1: 'Slot — hover ban icon (today)',
-		F2: 'Slot — the same menu, one level down',
-		F3: 'Slot — the day menu owns everything',
-		F4: 'Slot — type the reason on the tile',
-		E1: 'Block/unblock — header does the doing',
-		E2: 'Block/unblock — panel does the undoing',
-		E3: 'Block/unblock — one menu per day',
-		E4: 'Block/unblock — the panel is the button',
-		A2: 'Holiday — solid panel',
-		A1: 'Holiday — warm tint',
-		A3: 'Holiday — empty, ruled off',
-		B: 'Narrow gutter',
-		C: 'One surface',
-		D: 'Off-days out of the grid'
-	};
-	const prototypeVariant = $derived.by(() => {
-		if (!import.meta.env.DEV) return null;
-		const v = page.url.searchParams.get('variant')?.toUpperCase();
-		return v &&
-			(PROTO_VARIANTS.includes(v) ||
-				PROTO_BLOCKING.includes(v) ||
-				['A1', 'A2', 'A3', 'B', 'C', 'D'].includes(v))
-			? v
-			: null;
-	});
 
 	// Setup mode replaces the week grid in place, on the same route. It opens by itself when no
 	// Term is set — the first-run empty state of the year — and closing lands on the week the
@@ -81,10 +46,36 @@
 	const grid = $derived.by(() => toGrid(data.week?.days ?? [], data.week?.cells ?? []));
 	const blockedByDate = $derived(new Map((data.week?.blockedDays ?? []).map((b) => [b.date, b])));
 
-	// The column's state as a class: a wash on the header and every cell behind the tiles, so
-	// the day itself reads as one state. A teaching day takes none.
-	const kindClass = (kind: DayKind | undefined) =>
-		kind === 'holiday' ? 'day-holiday' : kind === 'blocked' ? 'day-blocked' : '';
+	// The Blocked Slots a collapsed day head must still offer to unblock, since the panel that
+	// replaces its Periods carries no tiles of its own to hold them.
+	const blockedSlotsByDate = $derived.by(() => {
+		const byDate: Record<string, CalendarCell[]> = {};
+		for (const cell of data.week?.cells ?? []) {
+			if (!cell.blockedSlotId) continue;
+			(byDate[cell.date] ??= []).push(cell);
+		}
+		return byDate;
+	});
+
+	// The day head's menu acts through three hidden forms rather than one per day: a Blocked Day
+	// records no cause, so blocking it is a single click with no field to fill, and the same form
+	// serves every day. `submitWithValue` sets the field and submits, so a menu item's onSelect is
+	// the whole of the wiring.
+	let blockDayForm = $state<HTMLFormElement | null>(null);
+	let unblockDayForm = $state<HTMLFormElement | null>(null);
+	let unblockSlotForm = $state<HTMLFormElement | null>(null);
+
+	function blockDay(date: string) {
+		submitWithValue(blockDayForm ?? undefined, 'date', date);
+	}
+
+	function unblockDay(date: string) {
+		submitWithValue(unblockDayForm ?? undefined, 'date', date);
+	}
+
+	function unblockSlot(id: string) {
+		submitWithValue(unblockSlotForm ?? undefined, 'id', id);
+	}
 </script>
 
 <svelte:head><title>Calendar</title></svelte:head>
@@ -152,15 +143,7 @@
 		<AtRiskAlert atRisk={form.atRisk} />
 	{/if}
 
-	<!-- PROTOTYPE — throwaway branch. -->
-	{#if prototypeVariant}
-		{#if PROTO_BLOCKING.includes(prototypeVariant)}
-			<PrototypeBlocking variant={prototypeVariant} />
-		{:else}
-			<PrototypeStates variant={prototypeVariant} />
-		{/if}
-		<PrototypeSwitcher variants={PROTO_VARIANTS} names={PROTO_NAMES} current={prototypeVariant} />
-	{:else if setup}
+	{#if setup}
 		<CalendarSetup
 			terms={data.terms}
 			blockedDays={data.blockedDays}
@@ -169,6 +152,37 @@
 	{:else if data.ribbon.length === 0}
 		<p class="text-sm text-muted-foreground">No Teaching Weeks are set up yet.</p>
 	{:else if data.week}
+		<!-- Three hidden forms serve every day's menu: the field they carry is set immediately
+		     before each submits, so one of each is enough regardless of how many days or Blocked
+		     Slots the week holds. -->
+		<form
+			bind:this={blockDayForm}
+			method="POST"
+			action="?/blockDay"
+			use:enhance={refresh}
+			class="hidden"
+		>
+			<input type="hidden" name="date" />
+		</form>
+		<form
+			bind:this={unblockDayForm}
+			method="POST"
+			action="?/unblockDay"
+			use:enhance={refresh}
+			class="hidden"
+		>
+			<input type="hidden" name="date" />
+		</form>
+		<form
+			bind:this={unblockSlotForm}
+			method="POST"
+			action="?/unblockSlot"
+			use:enhance={refresh}
+			class="hidden"
+		>
+			<input type="hidden" name="id" />
+		</form>
+
 		<div class="overflow-x-auto">
 			<table class="w-full table-fixed border-separate border-spacing-1.5">
 				<thead>
@@ -178,39 +192,53 @@
 							{@const date = data.week.days[di].date}
 							{@const blockedDay = blockedByDate.get(date)}
 							{@const dayKind = data.week.days[di].kind}
-							<th
-								class="rounded-lg pb-1 text-left align-bottom {kindClass(dayKind)}"
-								data-day-kind={dayKind}
-							>
+							{@const blockedSlots = blockedSlotsByDate[date] ?? []}
+							<th class="rounded-lg pb-1 text-left align-bottom" data-day-kind={dayKind}>
 								<div class="flex items-baseline gap-1.5">
 									<span class="text-sm font-semibold">{d}</span>
 									<span class="text-xs font-normal text-muted-foreground"
 										>{formatDayMonth(date)}</span
 									>
-									{#if blockedDay}
-										<form method="POST" action="?/unblockDay" class="ml-auto" use:enhance={refresh}>
-											<input type="hidden" name="date" value={blockedDay.date} />
-											<Button
-												type="submit"
-												variant="ghost"
-												size="xs"
-												title={blockedDay.note ?? 'Blocked day'}
-											>
-												blocked · unblock
-											</Button>
-										</form>
-									{:else}
-										<BlockPopover
-											contentClass="w-64 p-3"
-											triggerClass="ml-auto rounded px-1 text-xs font-normal text-muted-foreground/50 hover:text-foreground focus-visible:text-foreground"
-											action="?/blockDay"
-											fields={{ date }}
-											label={`Block ${d} ${formatDayMonth(date)}`}
-											noteRequired={false}
+									<DropdownMenu.Root>
+										<DropdownMenu.Trigger
+											class="ml-auto rounded px-0.5 text-muted-foreground/50 hover:text-foreground"
+											aria-label={`${d} ${formatDayMonth(date)} actions`}
 										>
-											{#snippet trigger()}Block day{/snippet}
-										</BlockPopover>
-									{/if}
+											<EllipsisIcon class="size-4" />
+										</DropdownMenu.Trigger>
+										<DropdownMenu.Content class="w-60" align="end">
+											{#if dayKind === 'holiday'}
+												<DropdownMenu.Label class="text-[11px] font-normal text-muted-foreground"
+													>Outside every Term</DropdownMenu.Label
+												>
+												<DropdownMenu.Separator />
+											{/if}
+											{#if blockedDay}
+												<DropdownMenu.Item onSelect={() => unblockDay(blockedDay.date)}
+													>Unblock day</DropdownMenu.Item
+												>
+											{:else}
+												<DropdownMenu.Item onSelect={() => blockDay(date)}
+													>Block day</DropdownMenu.Item
+												>
+											{/if}
+											{#if dayKind !== 'teaching' && blockedSlots.length > 0}
+												<DropdownMenu.Separator />
+												<DropdownMenu.Group>
+													<DropdownMenu.GroupHeading
+														class="text-[11px] font-normal text-muted-foreground"
+														>Blocked Slots</DropdownMenu.GroupHeading
+													>
+													{#each blockedSlots as slot (slot.blockedSlotId)}
+														<DropdownMenu.Item
+															onSelect={() => unblockSlot(slot.blockedSlotId ?? '')}
+															>Unblock {slot.classLabel}, P{slot.periodFrom}</DropdownMenu.Item
+														>
+													{/each}
+												</DropdownMenu.Group>
+											{/if}
+										</DropdownMenu.Content>
+									</DropdownMenu.Root>
 								</div>
 							</th>
 						{/each}
@@ -225,120 +253,129 @@
 								</div>
 							</th>
 							{#each DAY_NAMES as d, di (d)}
+								{@const date = data.week.days[di].date}
 								{@const dayKind = data.week.days[di].kind}
-								{@const entry = grid[di][period - 1]}
-								{#if entry.type === 'covered'}
-									<!-- covered by an earlier Period's rowspan -->
-								{:else if entry.type === 'free'}
-									<td
-										class="h-16 rounded-lg {kindClass(dayKind) || 'bg-muted/40'}"
-										data-day-kind={dayKind}
-									></td>
-								{:else}
-									{@const cell = entry.cell}
-									{@const rowspan = cell.periodTo - cell.periodFrom + 1}
-									{@const tone = classTone(cell.tone)}
-									<td
-										{rowspan}
-										class="group/cell relative h-16 align-top {kindClass(dayKind)}"
-										data-day-kind={dayKind}
-									>
-										{#if cell.kind === 'blocked'}
-											<!-- A School Holiday removes nothing, so its tile is plain — label
-											only, the header's unblock button carrying any Blocked Day entered
-											on it. A Blocked Slot recorded on a holiday is a removal all the
-											same, so it keeps the hatch, its note and its unblock link. -->
-											{@const plainHoliday = dayKind === 'holiday' && !cell.blockedSlotId}
+								{#if dayKind !== 'teaching'}
+									<!-- A day with no teaching drops its six Periods and reads as one panel
+									     spanning the column, told apart from an empty Period by a step in
+									     shade — hatched grey for a removal, a solid step for a School Holiday
+									     where nothing was removed — never by a hue. -->
+									{#if period === 1}
+										{@const blockedDay = blockedByDate.get(date)}
+										{@const headline =
+											dayKind === 'holiday'
+												? 'School holiday'
+												: (blockedDay?.note ?? 'Blocked day')}
+										{@const under = dayKind === 'holiday' ? 'Outside every Term' : 'No teaching'}
+										<td rowspan={PERIODS.length} class="h-16 align-middle" data-day-kind={dayKind}>
 											<div
-												class="flex h-full min-h-16 flex-col rounded-lg px-2 py-1.5 {plainHoliday
-													? 'holiday-tile'
-													: 'hatched border border-dashed'}"
+												class="flex h-full flex-col items-center justify-center gap-1 rounded-lg px-2 py-3 text-center {dayKind ===
+												'holiday'
+													? 'day-panel-holiday'
+													: 'hatched border border-dashed border-muted-foreground/30'}"
 											>
-												<div class="text-xs font-semibold text-muted-foreground">
-													{cell.classLabel}
-												</div>
-												{#if !plainHoliday}
+												<div class="text-xs font-semibold text-muted-foreground">{headline}</div>
+												<div class="text-[11px] text-muted-foreground/70">{under}</div>
+											</div>
+										</td>
+									{/if}
+								{:else}
+									{@const entry = grid[di][period - 1]}
+									{#if entry.type === 'covered'}
+										<!-- covered by an earlier Period's rowspan -->
+									{:else if entry.type === 'free'}
+										<td class="h-16 rounded-lg bg-muted/40"></td>
+									{:else}
+										{@const cell = entry.cell}
+										{@const rowspan = cell.periodTo - cell.periodFrom + 1}
+										{@const tone = classTone(cell.tone)}
+										<td {rowspan} class="group/cell relative h-16 align-top">
+											{#if cell.kind === 'blocked'}
+												<!-- A Blocked Slot on an otherwise teaching day: a removal, so it keeps
+												the hatch, its note and its unblock link. -->
+												<div
+													class="hatched flex h-full min-h-16 flex-col rounded-lg border border-dashed px-2 py-1.5"
+												>
+													<div class="text-xs font-semibold text-muted-foreground">
+														{cell.classLabel}
+													</div>
 													<div class="mt-0.5 line-clamp-2 text-xs text-muted-foreground/80 italic">
 														{cell.blockedNote ?? 'Blocked'}
 													</div>
-													{#if cell.blockedSlotId || cell.blockedDayId}
+													{#if cell.blockedSlotId}
 														<form
 															method="POST"
-															action={cell.blockedSlotId ? '?/unblockSlot' : '?/unblockDay'}
+															action="?/unblockSlot"
 															class="mt-auto self-start"
 															use:enhance={refresh}
 														>
-															<input
-																type="hidden"
-																name={cell.blockedSlotId ? 'id' : 'date'}
-																value={cell.blockedSlotId ?? cell.date}
-															/>
+															<input type="hidden" name="id" value={cell.blockedSlotId} />
 															<Button
 																type="submit"
 																variant="link"
 																size="xs"
 																class="h-auto px-0 text-muted-foreground underline underline-offset-2"
 															>
-																{cell.blockedSlotId ? 'Unblock' : 'Unblock day'}
+																Unblock
 															</Button>
 														</form>
 													{/if}
-												{/if}
-											</div>
-										{:else}
-											<button
-												type="button"
-												data-session-trigger
-												class="relative flex h-full min-h-16 w-full flex-col overflow-hidden rounded-lg border px-2 py-1.5 text-left hover:brightness-95"
-												style:background-color={tone.bg}
-												style:border-color={tone.ring}
-												onclick={() =>
-													openSession({
-														classId: cell.classId,
-														date: cell.date,
-														period: cell.periodFrom
-													})}
-											>
-												<span class="truncate text-xs font-semibold" style:color={tone.fg}>
-													{cell.classLabel}
-												</span>
-												{#if cell.kind === 'lesson'}
-													<span
-														class="mt-0.5 line-clamp-2 text-xs leading-tight font-medium"
-														style:color={tone.fg}>{cell.lesson?.title}</span
-													>
-													{#if cell.lesson?.topicName}
-														<span
-															class="mt-auto line-clamp-1 text-[11px] opacity-80"
-															style:color={tone.fg}>{cell.lesson.topicName}</span
-														>
-													{/if}
-												{:else}
-													<span class="mt-0.5 text-xs italic" style:color={tone.fg}>
-														Open Slot
-													</span>
-												{/if}
-											</button>
-
-											{#if cell.periodFrom === cell.periodTo}
-												<!-- A Lesson with Length > 1 spans several Periods as one merged
-												cell; a Blocked Slot is only ever one Period, so the control is offered
-												solely on a cell that is exactly one Period wide, never on a span where
-												"this Period" would be ambiguous. -->
-												<BlockPopover
-													contentClass="w-64 p-3"
-													triggerClass="absolute top-1 right-1 rounded-sm bg-background/70 p-0.5 text-muted-foreground opacity-0 group-hover/cell:opacity-100 focus-visible:opacity-100 hover:text-foreground"
-													triggerLabel={`Block ${cell.classLabel}, P${cell.periodFrom}`}
-													action="?/blockSlot"
-													fields={{ classId: cell.classId, date: cell.date, slotId: cell.slotId }}
-													label={`Block ${cell.classLabel}, P${cell.periodFrom}`}
-													noteRequired={true}
+												</div>
+											{:else}
+												<button
+													type="button"
+													data-session-trigger
+													class="relative flex h-full min-h-16 w-full flex-col overflow-hidden rounded-lg border px-2 py-1.5 text-left hover:brightness-95"
+													style:background-color={tone.bg}
+													style:border-color={tone.ring}
+													onclick={() =>
+														openSession({
+															classId: cell.classId,
+															date: cell.date,
+															period: cell.periodFrom
+														})}
 												>
-													{#snippet trigger()}<BanIcon class="size-3" />{/snippet}
-												</BlockPopover>
+													<span class="truncate text-xs font-semibold" style:color={tone.fg}>
+														{cell.classLabel}
+													</span>
+													{#if cell.kind === 'lesson'}
+														<span
+															class="mt-0.5 line-clamp-2 text-xs leading-tight font-medium"
+															style:color={tone.fg}>{cell.lesson?.title}</span
+														>
+														{#if cell.lesson?.topicName}
+															<span
+																class="mt-auto line-clamp-1 text-[11px] opacity-80"
+																style:color={tone.fg}>{cell.lesson.topicName}</span
+															>
+														{/if}
+													{:else}
+														<span class="mt-0.5 text-xs italic" style:color={tone.fg}>
+															Open Slot
+														</span>
+													{/if}
+												</button>
+
+												{#if cell.periodFrom === cell.periodTo}
+													<!-- A Lesson with Length > 1 spans several Periods as one merged
+													cell; a Blocked Slot is only ever one Period, so the control is offered
+													solely on a cell that is exactly one Period wide, never on a span where
+													"this Period" would be ambiguous. -->
+													<BlockPopover
+														contentClass="w-64 p-3"
+														triggerClass="absolute top-1 right-1 rounded-sm bg-background/70 p-0.5 text-muted-foreground opacity-0 group-hover/cell:opacity-100 focus-visible:opacity-100 hover:text-foreground"
+														triggerLabel={`Block ${cell.classLabel}, P${cell.periodFrom}`}
+														action="?/blockSlot"
+														fields={{ classId: cell.classId, date: cell.date, slotId: cell.slotId }}
+														label={`Block ${cell.classLabel}, P${cell.periodFrom}`}
+														noteRequired={true}
+													>
+														{#snippet trigger()}<BanIcon class="size-3" />{/snippet}
+													</BlockPopover>
+												{/if}
 											{/if}
-										{/if}
-									</td>
+										</td>
+									{/if}
 								{/if}
 							{/each}
 						</tr>
@@ -346,12 +383,6 @@
 				</tbody>
 			</table>
 		</div>
-		<p class="mt-3 text-[11px] text-muted-foreground">
-			Grey hatch = removed — a Blocked Day or a Blocked Slot. Amber = School Holiday — a date
-			outside every Term. Coloured with no Lesson = Open Slot — the Class is taught, nothing is
-			planned for it yet. An empty cell is a Period no Class holds. Click any tile to open its
-			Session.
-		</p>
 	{:else}
 		<p class="text-sm text-muted-foreground">This is not a Teaching Week.</p>
 	{/if}
@@ -361,14 +392,8 @@
 	/*
 		A Blocked Day and a Blocked Slot drain the colour instead of keeping it (CONTEXT.md,
 		Calendar): present-but-empty and removed must never read alike. The same texture derived
-		from --muted-foreground reads in both themes with no dark-mode branch — replacing the two
-		hardcoded near-whites the old hatch used — and replaces the tone rather than sitting over
-		it, so removed never reads like empty.
-
-		A School Holiday is a third state, not a removal: the Term is not running, so nothing was
-		taken away. Its tint comes from --warning-bg, which the feedback tokens define for both
-		themes, so it too needs no dark-mode branch. The washes sit on the day column — header and
-		cells alike — so the day itself reads as one state, hatch and tint never mixing.
+		from --muted-foreground reads in both themes with no dark-mode branch, and replaces the
+		tone rather than sitting over it, so removed never reads like empty.
 	*/
 	.hatched {
 		background-image: repeating-linear-gradient(
@@ -378,19 +403,10 @@
 		);
 	}
 
-	/* The day-column washes: quiet enough to sit behind tiles, present enough to read at a
-	   glance. The grey deepens the hatch the blocked state already owns. */
-	.day-blocked {
-		background-color: color-mix(in oklab, var(--muted-foreground) 8%, transparent);
-	}
-
-	.day-holiday {
-		background-color: color-mix(in oklab, var(--warning-bg) 35%, transparent);
-	}
-
-	/* The holiday tile is one step deeper than its column wash — that step, not a border, is
-	   what separates it from the free cell it sits among. */
-	.holiday-tile {
-		background-color: color-mix(in oklab, var(--warning-bg) 45%, transparent);
+	/* A School Holiday is not a removal — nothing was taken away, the school is simply not
+	   running — so its panel takes no hatch, only a step in shade deep enough to read as a solid
+	   block rather than an empty Period. No hue: the same grey the hatch is built from. */
+	.day-panel-holiday {
+		background-color: color-mix(in oklab, var(--muted-foreground) 16%, transparent);
 	}
 </style>

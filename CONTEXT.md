@@ -238,11 +238,12 @@ One Teaching Week as a grid of Periods against days, showing which Class is taug
 each Session carries. Note that this names a _screen_; the Terms, Blocked Days and Blocked Slots
 it draws on are the calendar _model_, and "the calendar" unqualified means the model. An Open
 Slot keeps its Class's colour and shows no Lesson; a Blocked Day and a Blocked Slot drain the
-colour instead — present-but-empty and removed must never read alike. A School Holiday shades its
-whole day column in a separate tint, and its tiles go plain, because nothing was removed. A
-Blocked Slot recorded on a School Holiday keeps the hatch — it is a removal, and its unblock
-travels with the tile. A Blocked Day entered on a School Holiday keeps the holiday's shade; the
-column header alone carries the unblock control.
+colour instead — present-but-empty and removed must never read alike. A day with no teaching — a
+Blocked Day or a School Holiday — drops its six Periods and reads as one panel spanning the
+column, told apart from an empty Period by a step in shade, never a hue. A Blocked Slot recorded on
+a School Holiday keeps the hatch — it is a removal, and its unblock travels with the tile. A
+Blocked Day entered on a School Holiday still reads as the School Holiday in the panel's headline;
+the day's menu still offers Unblock day, so the Blocked Day is out-ranked there, not hidden.
 
 **Classes**:
 One tone-coloured tile per Class, keyed by Class rather than by time. Each tile carries the
