@@ -243,7 +243,8 @@ export interface AgendaRow {
 	periodFrom: number;
 	periodTo: number;
 	// One id per Period the row covers, in order: slotIds[i] belongs to periodFrom + i.
-	// A multi-Period Lesson carries one Slot per Period; every other kind of row carries exactly one.
+	// A Lesson with a Length above one, or a Continuation, carries one Slot per Period it
+	// covers; every other kind of row carries exactly one.
 	slotIds: string[];
 	lesson: { lessonId: string; part: number; of: number } | null;
 }

@@ -186,17 +186,17 @@ describe('the Calendar', () => {
 		});
 
 		const week = calendarWeek(db, { weekCommencing: '2026-08-31', today: '2026-09-03' });
-		const blocked = week?.cells.find(
-			(c) => c.date === '2026-09-03' && c.periodFrom === 5 && c.classId === classA.id
-		);
+		const at = (period: number) =>
+			week?.cells.find(
+				(c) => c.date === '2026-09-03' && c.periodFrom === period && c.classId === classA.id
+			);
+		const blocked = at(5);
 		expect(blocked).toMatchObject({ kind: 'blocked', blockedNote: 'Field trip', lesson: null });
 		expect(blocked?.blockedSlotId).toBeTruthy();
 		expect(blocked?.blockedDayId).toBeNull();
 
 		// Shift-right moved the first Lesson into the Slot the block left free.
-		const shifted = week?.cells.find(
-			(c) => c.date === '2026-09-03' && c.periodFrom === 6 && c.classId === classA.id
-		);
+		const shifted = at(6);
 		expect(shifted).toMatchObject({ kind: 'lesson' });
 		expect(shifted?.slotIds).toEqual([thuP6.id]);
 		expect(shifted?.blockedSlotId).toBeNull();
