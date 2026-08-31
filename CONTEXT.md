@@ -49,13 +49,9 @@ the Lesson itself and is refused once a Class has been taught it.
 _Avoid_: Archive, retire, unfile, soft delete
 
 **Length**:
-The number of Periods a Lesson is intended to occupy, defaulting to one. Distinct from a
-Continuation: Length belongs to the Lesson and so applies to every Class assigned its
-Topic, whereas a Continuation is a reaction to how one Class's teaching actually went. A Lesson
-longer than one Period takes the next Available Slots in order like any other, and may therefore
-run across two days rather than falling on a timetabled double. Its Periods are separately
-blockable: blocking one removes that Slot from under the Lesson, which shortens it and shifts
-the rest.
+The number of Periods a Lesson is intended to occupy, defaulting to one. Its Periods are separately
+blockable: blocking one removes that Slot from under the Lesson, which shortens it and shifts the
+rest.
 _Avoid_: Planned Length, duration, double, span, periods
 
 **Draft**:
@@ -237,22 +233,19 @@ rows share one Readiness record, so ticking either moves both.
 
 **Calendar**:
 One Teaching Week as a grid of Periods against days, showing which Class is taught when and what
-each Session carries. Note that this names a _screen_; the Terms, Blocked Days and Blocked Slots
-it draws on are the calendar _model_, and "the calendar" unqualified means the model. An Open
-Slot keeps its Class's colour and shows no Lesson; a Blocked Day and a Blocked Slot drain the
-colour instead — present-but-empty and removed must never read alike. A day with no teaching — a
-Blocked Day or a School Holiday — drops its six Periods and reads as one panel spanning the
-column, told apart from an empty Period by a step in shade, never a hue. The two panels differ
-from each other by the hatch: hatched grey for a removal, a plain step in shade for a School
-Holiday. No block or unblock sits on a
-tile: every block and unblock on a day starts in that day's menu — Block day or Unblock day, a
-Block one Slot line for each Slot the day's tiles cover, and an Unblock line for each Blocked Slot
-on it, so a Blocked Slot's unblock survives the collapse of its column. A Blocked Slot recorded on
-a School Holiday is still a removal, though the column reads as the School Holiday's panel; its
-Unblock line sits in that day's menu like every other act on the day.
-A Blocked Day entered on a School Holiday
-still reads as the School Holiday in the panel's headline; the day's menu still offers Unblock
-day, so the Blocked Day is out-ranked there, not hidden.
+each Session carries. Note that this names a _screen_. The Terms, Blocked Days and Blocked Slots it
+draws on are the calendar _model_. "The calendar" unqualified means the model. An Open Slot keeps
+its Class's colour and shows no Lesson. A Blocked Day and a Blocked Slot drain the colour instead.
+Present-but-empty and removed must never read alike. A day with no teaching — a Blocked Day or a
+School Holiday — drops its six Periods. The day reads as one panel spanning the column. The panel is
+told apart from an empty Period by a step in shade, never a hue. No block or unblock sits on a tile.
+Every block and unblock on a day starts in that day's menu. The menu offers Block day or Unblock
+day. It offers a Block one Slot line for each Slot the day's tiles cover. It offers an Unblock line
+for each Blocked Slot on it. A Blocked Slot's Unblock line survives the collapse of its column. A
+Blocked Slot recorded on a School Holiday is still a removal. The column reads as the School
+Holiday's panel. The Blocked Slot's Unblock line sits in that day's menu, like every other act on
+the day. A Blocked Day entered on a School Holiday still reads as the School Holiday in the panel's
+headline. The day's menu still offers Unblock day. The Blocked Day is not hidden.
 
 **Classes**:
 One tone-coloured tile per Class, keyed by Class rather than by time. Each tile carries the
