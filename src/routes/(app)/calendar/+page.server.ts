@@ -15,9 +15,9 @@ import {
 } from '$lib/server/planner';
 import type { Actions, PageServerLoad } from './$types';
 
-// The week to open on: the Teaching Week today falls inside, or — during a break, when no
-// Teaching Week covers today — the next one to come, or the last of the year once even that has
-// run out.
+// The week "now" names: the Teaching Week today falls inside, or — during a break, when no
+// Teaching Week covers today — the next one to come, or the last of the year once even that
+// has run out. A bare load opens on it; the Today button returns to it.
 function defaultWeek(weeks: { weekCommencing: string }[], on: string): string | null {
 	if (weeks.length === 0) return null;
 	const containing = weeks.find(
@@ -33,10 +33,10 @@ const RIBBON_RADIUS = 3;
 
 export const load: PageServerLoad = ({ url }) => {
 	const weeks = teachingWeeks(db);
+	const current = defaultWeek(weeks, today());
 	const requested = url.searchParams.get('week');
 	const selected =
-		(requested && weeks.some((w) => w.weekCommencing === requested) ? requested : null) ??
-		defaultWeek(weeks, today());
+		(requested && weeks.some((w) => w.weekCommencing === requested) ? requested : null) ?? current;
 
 	const week = selected ? calendarWeek(db, { weekCommencing: selected, today: today() }) : null;
 
@@ -60,7 +60,7 @@ export const load: PageServerLoad = ({ url }) => {
 		.orderBy(asc(schema.blockedDay.date))
 		.all();
 
-	return { selected, week, ribbon, prev, next, today: today(), terms, blockedDays };
+	return { selected, week, ribbon, prev, next, current, terms, blockedDays };
 };
 
 export const actions: Actions = {

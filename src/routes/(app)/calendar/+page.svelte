@@ -36,8 +36,8 @@
 
 	const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
-	// The ribbon and the two arrows all step the year by query string. `prev`, `next` and a ribbon
-	// entry each carry a week commencing date, not a URL, so the link is built here.
+	// The ribbon, the two arrows and Today all navigate by query string. Each carries a week
+	// commencing date, not a URL, so the link is built here.
 	const weekHref = (weekCommencing: string) => resolve(`/calendar?week=${weekCommencing}`);
 
 	// One entry per (day, Period); see calendar-grid.ts. The explicit `h-16` on a start cell's
@@ -108,6 +108,19 @@
 							<ChevronLeftIcon />
 						</Button>
 
+						<!-- Today is the header's main action once the year exists; until then the week
+						     controls do not render at all and setting the year keeps the emphasis. -->
+						<Button
+							size="sm"
+							class="h-7"
+							href={data.current && data.selected !== data.current
+								? weekHref(data.current)
+								: undefined}
+							disabled={data.selected === data.current}
+						>
+							Today
+						</Button>
+
 						<div class="flex items-center gap-0.5 rounded-md border p-0.5">
 							{#each data.ribbon as w (w.weekCommencing)}
 								{@const isSelected = w.weekCommencing === data.selected}
@@ -138,7 +151,14 @@
 					</div>
 				{/if}
 
-				<Button size="sm" class="h-7" onclick={() => (setup = true)}>Set up year</Button>
+				<Button
+					size="sm"
+					class="h-7"
+					variant={data.terms.length === 0 ? 'default' : 'ghost'}
+					onclick={() => (setup = true)}
+				>
+					Set up year
+				</Button>
 			{/if}
 		{/snippet}
 	</PageHeader>
