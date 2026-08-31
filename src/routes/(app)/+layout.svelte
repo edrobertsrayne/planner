@@ -42,7 +42,6 @@
 						>
 							<CalendarDaysIcon class="size-4" />
 						</div>
-						<span class="text-sm font-semibold tracking-tight">Planner</span>
 					</div>
 
 					<nav class="flex flex-1 gap-1" aria-label="Primary">
