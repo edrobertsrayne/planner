@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import type { CalendarCell } from '$lib/server/planner';
-import { blockableSlots, blockedSlotLines, PERIODS, toGrid } from './calendar-grid';
+import { availableSlotLines, blockedSlotLines, PERIODS, toGrid } from './calendar-grid';
 
 function cell(overrides: Partial<CalendarCell> = {}): CalendarCell {
 	return {
@@ -66,51 +66,72 @@ describe('toGrid', () => {
 		const start = toGrid(DAYS, [c])[0][0];
 		expect(start).toMatchObject({ type: 'start', cell: c });
 	});
+});
 
-	describe('blockableSlots', () => {
-		test('a Lesson of one Period offers its one Slot', () => {
-			expect(blockableSlots([cell({ slotIds: ['s1'] })], '2026-08-31')).toEqual([
-				{ slotId: 's1', period: 1, classId: 'c1', classLabel: '9A/Ph1' }
-			]);
-		});
+describe('availableSlotLines', () => {
+	test('a Lesson of one Period offers its one Slot', () => {
+		expect(availableSlotLines([cell({ slotIds: ['s1'] })], '2026-08-31')).toEqual([
+			{ slotId: 's1', period: 1, classLabel: '9A/Ph1' }
+		]);
+	});
 
-		test('a Lesson over two Periods offers both Slots, one per Period, in Period order', () => {
-			const slots = blockableSlots(
-				[cell({ periodFrom: 3, periodTo: 4, slotIds: ['s3', 's4'] })],
+	test('a Lesson over two Periods offers both Slots, one per Period, in Period order', () => {
+		const slots = availableSlotLines(
+			[cell({ periodFrom: 3, periodTo: 4, slotIds: ['s3', 's4'] })],
+			'2026-08-31'
+		);
+		expect(slots).toEqual([
+			{ slotId: 's3', period: 3, classLabel: '9A/Ph1' },
+			{ slotId: 's4', period: 4, classLabel: '9A/Ph1' }
+		]);
+	});
+
+	test('an Open Slot is offered — the Period is taught even when no Lesson is scheduled', () => {
+		expect(availableSlotLines([cell({ kind: 'open', lesson: null })], '2026-08-31')).toEqual([
+			{ slotId: 's1', period: 1, classLabel: '9A/Ph1' }
+		]);
+	});
+
+	test('a Blocked cell offers nothing — its Slot is already gone', () => {
+		expect(
+			availableSlotLines(
+				[cell({ kind: 'blocked', lesson: null, blockedNote: 'Trip' })],
 				'2026-08-31'
-			);
-			expect(slots).toEqual([
-				{ slotId: 's3', period: 3, classId: 'c1', classLabel: '9A/Ph1' },
-				{ slotId: 's4', period: 4, classId: 'c1', classLabel: '9A/Ph1' }
-			]);
-		});
+			)
+		).toEqual([]);
+	});
 
-		test('an Open Slot is offered — the Period is taught even when no Lesson is scheduled', () => {
-			const slots = blockableSlots([cell({ kind: 'open', lesson: null })], '2026-08-31');
-			expect(slots).toHaveLength(1);
-			expect(slots[0]?.period).toBe(1);
-		});
-
-		test('a Blocked cell offers nothing — its Slot is already gone', () => {
-			expect(
-				blockableSlots([cell({ kind: 'blocked', lesson: null, blockedNote: 'Trip' })], '2026-08-31')
-			).toEqual([]);
-		});
-
-		test('cells on other dates are ignored', () => {
-			expect(blockableSlots([cell({ date: '2026-09-01' })], '2026-08-31')).toEqual([]);
-		});
-
-		test('the lines read in Period order across Classes', () => {
-			const slots = blockableSlots(
+	test('a day that is already off — every cell Blocked — offers nothing to block', () => {
+		expect(
+			availableSlotLines(
 				[
-					cell({ periodFrom: 4, slotIds: ['s4'] }),
-					cell({ classLabel: '9C/Sc1', periodFrom: 2, slotIds: ['t2'] })
+					cell({ kind: 'blocked', lesson: null, blockedNote: 'Snow' }),
+					cell({
+						kind: 'blocked',
+						lesson: null,
+						classLabel: '9C/Sc1',
+						periodFrom: 2,
+						slotIds: ['t2']
+					})
 				],
 				'2026-08-31'
-			);
-			expect(slots.map((s) => s.period)).toEqual([2, 4]);
-		});
+			)
+		).toEqual([]);
+	});
+
+	test('cells on other dates are ignored', () => {
+		expect(availableSlotLines([cell({ date: '2026-09-01' })], '2026-08-31')).toEqual([]);
+	});
+
+	test('the lines read in Period order across Classes', () => {
+		const slots = availableSlotLines(
+			[
+				cell({ periodFrom: 4, slotIds: ['s4'] }),
+				cell({ classLabel: '9C/Sc1', periodFrom: 2, slotIds: ['t2'] })
+			],
+			'2026-08-31'
+		);
+		expect(slots.map((s) => s.period)).toEqual([2, 4]);
 	});
 });
 

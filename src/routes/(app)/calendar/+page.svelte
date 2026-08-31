@@ -16,7 +16,7 @@
 	import PageHeader from '$lib/components/page-header.svelte';
 	import BlockPopover from './BlockPopover.svelte';
 	import CalendarSetup from './CalendarSetup.svelte';
-	import { blockableSlots, blockedSlotLines, PERIODS, toGrid } from './calendar-grid';
+	import { availableSlotLines, blockedSlotLines, PERIODS, toGrid } from './calendar-grid';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -222,8 +222,8 @@
 												{/if}
 											</DropdownMenu.Group>
 											{#if dayKind === 'teaching'}
-												{@const blockable = blockableSlots(data.week.cells, date)}
-												{#if blockable.length > 0}
+												{@const availableSlots = availableSlotLines(data.week.cells, date)}
+												{#if availableSlots.length > 0}
 													<DropdownMenu.Separator />
 													<DropdownMenu.Group>
 														<DropdownMenu.GroupHeading class="text-muted-foreground"
@@ -231,7 +231,7 @@
 														>
 														<!-- One line per real Slot, so a Lesson over two Periods appears
 													     twice. Picking one opens the note form over its tile. -->
-														{#each blockable as slot (slot.slotId)}
+														{#each availableSlots as slot (slot.slotId)}
 															<DropdownMenu.Item
 																onSelect={() =>
 																	(slotNote = {
