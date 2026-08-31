@@ -283,9 +283,15 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		await page.goto('/courses');
 		await page.getByRole('link', { name: 'KS3 Science' }).click();
 		await page.getByRole('link', { name: 'Forces' }).click();
+		// Typed one after another with no click in between: the box keeps the caret after each
+		// Enter, which is what lets a run of Lessons go in without touching the mouse.
+		const nextLesson = page.getByPlaceholder('New Lesson title — press Enter');
+		await nextLesson.click();
 		for (let i = 1; i <= 9; i++) {
-			await page.getByPlaceholder('New Lesson title — press Enter').fill(`Extra Lesson ${i}`);
-			await page.getByPlaceholder('New Lesson title — press Enter').press('Enter');
+			await expect(nextLesson).toBeFocused();
+			await expect(nextLesson).toHaveValue('');
+			await page.keyboard.type(`Extra Lesson ${i}`);
+			await page.keyboard.press('Enter');
 			await expect(
 				page.getByRole('link', { name: `Extra Lesson ${i}`, exact: true })
 			).toBeVisible();
