@@ -36,7 +36,7 @@ describe('agendaRows', () => {
 				week: 'A',
 				periodFrom: 5,
 				periodTo: 5,
-				slotId: 's1',
+				slotIds: ['s1'],
 				lesson: { lessonId: 'l1', part: 1, of: 1 }
 			}
 		]);
@@ -76,7 +76,7 @@ describe('agendaRows', () => {
 				week: 'A',
 				periodFrom: 5,
 				periodTo: 6,
-				slotId: 's1',
+				slotIds: ['s1', 's2'],
 				lesson: { lessonId: 'l1', part: 2, of: 2 }
 			}
 		]);
@@ -155,7 +155,7 @@ describe('agendaRows', () => {
 				week: 'A',
 				periodFrom: 5,
 				periodTo: 5,
-				slotId: 's1',
+				slotIds: ['s1'],
 				lesson: null
 			}
 		]);

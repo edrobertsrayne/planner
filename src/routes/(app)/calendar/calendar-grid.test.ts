@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import type { CalendarCell } from '$lib/server/planner';
-import { PERIODS, toGrid } from './calendar-grid';
+import { availableSlotLines, blockedSlotLines, PERIODS, toGrid } from './calendar-grid';
 
-function cell(overrides: Partial<CalendarCell>): CalendarCell {
+function cell(overrides: Partial<CalendarCell> = {}): CalendarCell {
 	return {
 		date: '2026-08-31',
 		periodFrom: 1,
@@ -13,7 +13,7 @@ function cell(overrides: Partial<CalendarCell>): CalendarCell {
 		kind: 'lesson',
 		lesson: { title: 'Measuring speed', topicName: 'Forces' },
 		blockedNote: null,
-		slotId: 's1',
+		slotIds: ['s1'],
 		blockedDayId: null,
 		blockedSlotId: null,
 		...overrides
@@ -65,5 +65,110 @@ describe('toGrid', () => {
 		const c = cell({ classLabel: '7X/Sc1', tone: 4 });
 		const start = toGrid(DAYS, [c])[0][0];
 		expect(start).toMatchObject({ type: 'start', cell: c });
+	});
+});
+
+describe('availableSlotLines', () => {
+	test('a Lesson of one Period offers its one Slot', () => {
+		expect(availableSlotLines([cell({ slotIds: ['s1'] })], '2026-08-31')).toEqual([
+			{ slotId: 's1', period: 1, classLabel: '9A/Ph1' }
+		]);
+	});
+
+	test('a Lesson over two Periods offers both Slots, one per Period, in Period order', () => {
+		const slots = availableSlotLines(
+			[cell({ periodFrom: 3, periodTo: 4, slotIds: ['s3', 's4'] })],
+			'2026-08-31'
+		);
+		expect(slots).toEqual([
+			{ slotId: 's3', period: 3, classLabel: '9A/Ph1' },
+			{ slotId: 's4', period: 4, classLabel: '9A/Ph1' }
+		]);
+	});
+
+	test('an Open Slot is offered — the Period is taught even when no Lesson is scheduled', () => {
+		expect(availableSlotLines([cell({ kind: 'open', lesson: null })], '2026-08-31')).toEqual([
+			{ slotId: 's1', period: 1, classLabel: '9A/Ph1' }
+		]);
+	});
+
+	test('a Blocked cell offers nothing — its Slot is already gone', () => {
+		expect(
+			availableSlotLines(
+				[cell({ kind: 'blocked', lesson: null, blockedNote: 'Trip' })],
+				'2026-08-31'
+			)
+		).toEqual([]);
+	});
+
+	test('a day that is already off — every cell Blocked — offers nothing to block', () => {
+		expect(
+			availableSlotLines(
+				[
+					cell({ kind: 'blocked', lesson: null, blockedNote: 'Snow' }),
+					cell({
+						kind: 'blocked',
+						lesson: null,
+						classLabel: '9C/Sc1',
+						periodFrom: 2,
+						slotIds: ['t2']
+					})
+				],
+				'2026-08-31'
+			)
+		).toEqual([]);
+	});
+
+	test('cells on other dates are ignored', () => {
+		expect(availableSlotLines([cell({ date: '2026-09-01' })], '2026-08-31')).toEqual([]);
+	});
+
+	test('the lines read in Period order across Classes', () => {
+		const slots = availableSlotLines(
+			[
+				cell({ periodFrom: 4, slotIds: ['s4'] }),
+				cell({ classLabel: '9C/Sc1', periodFrom: 2, slotIds: ['t2'] })
+			],
+			'2026-08-31'
+		);
+		expect(slots.map((s) => s.period)).toEqual([2, 4]);
+	});
+});
+
+describe('blockedSlotLines', () => {
+	test('a Blocked Slot cell yields the line its Unblock needs', () => {
+		expect(
+			blockedSlotLines(
+				[cell({ kind: 'blocked', lesson: null, blockedNote: 'Trip', blockedSlotId: 'b1' })],
+				'2026-08-31'
+			)
+		).toEqual([{ blockedSlotId: 'b1', period: 1, classLabel: '9A/Ph1' }]);
+	});
+
+	test('a cell without a Blocked Slot yields nothing', () => {
+		expect(blockedSlotLines([cell()], '2026-08-31')).toEqual([]);
+	});
+
+	test('cells on other dates are ignored', () => {
+		expect(
+			blockedSlotLines([cell({ date: '2026-09-01', blockedSlotId: 'b1' })], '2026-08-31')
+		).toEqual([]);
+	});
+
+	test('the lines read in Period order across Classes', () => {
+		const lines = blockedSlotLines(
+			[
+				cell({ kind: 'blocked', lesson: null, periodFrom: 4, blockedSlotId: 'b2' }),
+				cell({
+					kind: 'blocked',
+					lesson: null,
+					classLabel: '9C/Sc1',
+					periodFrom: 2,
+					blockedSlotId: 'b1'
+				})
+			],
+			'2026-08-31'
+		);
+		expect(lines.map((l) => l.period)).toEqual([2, 4]);
 	});
 });

@@ -9,6 +9,59 @@ export type GridEntry =
 
 export const PERIODS = [1, 2, 3, 4, 5, 6];
 
+// One line per Available Slot a day's menu offers to block: every non-blocked cell on the
+// date, read out per Slot in Period order — a Lesson over two Periods appears twice, once per
+// real Slot (issue #192). Blocked cells offer nothing; their Slot is already gone.
+export interface AvailableSlotLine {
+	slotId: string;
+	period: number;
+	classLabel: string;
+}
+
+// The date filter and the Period sort both menu-line derivations share, spelled once.
+function linesOn<T extends { period: number }>(
+	cells: readonly CalendarCell[],
+	date: string,
+	lines: (c: CalendarCell) => T[]
+): T[] {
+	return cells
+		.filter((c) => c.date === date)
+		.flatMap(lines)
+		.sort((a, b) => a.period - b.period);
+}
+
+export function availableSlotLines(
+	cells: readonly CalendarCell[],
+	date: string
+): AvailableSlotLine[] {
+	return linesOn(cells, date, (c) =>
+		c.kind === 'blocked'
+			? []
+			: c.slotIds.map((slotId, i) => ({
+					slotId,
+					period: c.periodFrom + i,
+					classLabel: c.classLabel
+				}))
+	);
+}
+
+// One line in a day's menu per Blocked Slot on the date: the removal's own id, whose Class and
+// Period it was, so the Unblock survives the collapse of the day's column — a day with no
+// teaching draws one panel and no tiles, yet the menu still holds the way back.
+export interface BlockedSlotLine {
+	blockedSlotId: string;
+	period: number;
+	classLabel: string;
+}
+
+export function blockedSlotLines(cells: readonly CalendarCell[], date: string): BlockedSlotLine[] {
+	return linesOn(cells, date, (c) =>
+		c.blockedSlotId === null
+			? []
+			: [{ blockedSlotId: c.blockedSlotId, period: c.periodFrom, classLabel: c.classLabel }]
+	);
+}
+
 export function toGrid(
 	days: readonly { date: string }[],
 	cells: readonly CalendarCell[]

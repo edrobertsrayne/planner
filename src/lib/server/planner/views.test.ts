@@ -171,6 +171,12 @@ describe('the Calendar', () => {
 			.all()
 			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 4 && s.period === 5)!;
 
+		const thuP6 = db
+			.select()
+			.from(schema.slot)
+			.all()
+			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 4 && s.period === 6)!;
+
 		blockSlot(db, {
 			classId: classA.id,
 			date: '2026-09-03',
@@ -180,19 +186,19 @@ describe('the Calendar', () => {
 		});
 
 		const week = calendarWeek(db, { weekCommencing: '2026-08-31', today: '2026-09-03' });
-		const blocked = week?.cells.find(
-			(c) => c.date === '2026-09-03' && c.periodFrom === 5 && c.classId === classA.id
-		);
+		const at = (period: number) =>
+			week?.cells.find(
+				(c) => c.date === '2026-09-03' && c.periodFrom === period && c.classId === classA.id
+			);
+		const blocked = at(5);
 		expect(blocked).toMatchObject({ kind: 'blocked', blockedNote: 'Field trip', lesson: null });
 		expect(blocked?.blockedSlotId).toBeTruthy();
 		expect(blocked?.blockedDayId).toBeNull();
 
 		// Shift-right moved the first Lesson into the Slot the block left free.
-		const shifted = week?.cells.find(
-			(c) => c.date === '2026-09-03' && c.periodFrom === 6 && c.classId === classA.id
-		);
+		const shifted = at(6);
 		expect(shifted).toMatchObject({ kind: 'lesson' });
-		expect(shifted?.slotId).toBeTruthy();
+		expect(shifted?.slotIds).toEqual([thuP6.id]);
 		expect(shifted?.blockedSlotId).toBeNull();
 	});
 

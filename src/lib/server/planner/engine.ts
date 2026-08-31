@@ -242,7 +242,10 @@ export interface AgendaRow {
 	week: 'A' | 'B';
 	periodFrom: number;
 	periodTo: number;
-	slotId: string;
+	// One id per Period the row covers, in order: slotIds[i] belongs to periodFrom + i.
+	// A Lesson with a Length above one, or a Continuation, carries one Slot per Period it
+	// covers; every other kind of row carries exactly one.
+	slotIds: string[];
 	lesson: { lessonId: string; part: number; of: number } | null;
 }
 
@@ -264,6 +267,7 @@ export function agendaRows(classId: string, result: ScheduleResult): AgendaRow[]
 			prev.lesson.part + 1 === p.part
 		) {
 			prev.periodTo = p.period;
+			prev.slotIds.push(p.slotId);
 			prev.lesson = { lessonId: p.lessonId, part: p.part, of: p.of };
 		} else {
 			rows.push({
@@ -272,7 +276,7 @@ export function agendaRows(classId: string, result: ScheduleResult): AgendaRow[]
 				week: p.week,
 				periodFrom: p.period,
 				periodTo: p.period,
-				slotId: p.slotId,
+				slotIds: [p.slotId],
 				lesson: { lessonId: p.lessonId, part: p.part, of: p.of }
 			});
 		}
@@ -285,7 +289,7 @@ export function agendaRows(classId: string, result: ScheduleResult): AgendaRow[]
 			week: slot.week,
 			periodFrom: slot.period,
 			periodTo: slot.period,
-			slotId: slot.slotId,
+			slotIds: [slot.slotId],
 			lesson: null
 		});
 	}
