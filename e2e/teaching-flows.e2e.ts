@@ -268,12 +268,12 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 
 	test("the Agenda's horizon survives a reload via the URL", async () => {
 		await page.goto('/');
-		await page.getByRole('radio', { name: 'Next two weeks' }).click();
+		await page.getByRole('radio', { name: 'Two Weeks' }).click();
 		await expect(page).toHaveURL(/horizon=14/);
 
 		await page.reload();
 		await expect(page).toHaveURL(/horizon=14/);
-		await expect(page.getByRole('radio', { name: 'Next two weeks' })).toBeChecked();
+		await expect(page.getByRole('radio', { name: 'Two Weeks' })).toBeChecked();
 	});
 
 	test('the theme toggle persists across a reload', async () => {
