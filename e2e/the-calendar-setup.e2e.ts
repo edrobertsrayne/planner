@@ -393,6 +393,57 @@ test.describe.serial('the Calendar setup mode', () => {
 		await expect(cell.locator('[data-session-trigger]')).toHaveCount(1);
 	});
 
+	test('a refused note stays in the form, and the corrected one blocks', async () => {
+		// The same week the previous test landed on: one of the two weeks after the engineered
+		// one carries the Slots' letter, and Monday's P1 is 9B/Sc1's Slot.
+		const todayIso = new Date().toISOString().slice(0, 10);
+		const monday = plusDays(todayIso, -((weekdayOf(todayIso) + 6) % 7));
+		for (const offset of [7, 14]) {
+			await page.goto(`/calendar?week=${plusDays(monday, offset)}`);
+			if ((await page.locator('[data-session-trigger]').count()) > 0) break;
+		}
+		await expect(page.locator('[data-session-trigger]').first()).toBeVisible();
+
+		const cell = page.locator('tbody tr').first().locator('td').first();
+		const note = page.getByRole('textbox', { name: 'Block 9B/Sc1, P1' });
+
+		// A pick is for the week it was made in: walking to the neighbouring week and back
+		// must not reopen the note form by itself.
+		await openDayMenu('Mon');
+		await page.getByRole('menuitem', { name: '9B/Sc1, P1…' }).click();
+		await expect(note).toBeVisible();
+		const here = page.url();
+		await page.getByLabel('Next Teaching Week').click();
+		await expect(note).toHaveCount(0);
+		await page.getByLabel('Previous Teaching Week').click();
+		await expect(page).toHaveURL(here);
+		await expect(note).toHaveCount(0);
+
+		// A note of spaces only passes the browser's required check but the server refuses it:
+		// the form stays open, what was typed stays in it, and the refusal is named.
+		await openDayMenu('Mon');
+		await page.getByRole('menuitem', { name: '9B/Sc1, P1…' }).click();
+		await expect(note).toBeVisible();
+		await note.fill('   ');
+		await page.getByRole('button', { name: 'Block', exact: true }).click();
+		await expect(page.getByRole('alert')).toContainText('A Blocked Slot needs a note.');
+		await expect(note).toBeVisible();
+		await expect(note).toHaveValue('   ');
+		await expect(cell.locator('.hatched')).toHaveCount(0);
+
+		// The correction: a real note blocks, closes the form, and drains the tile.
+		await note.fill('Cover');
+		await page.getByRole('button', { name: 'Block', exact: true }).click();
+		await expect(note).toHaveCount(0);
+		await expect(cell).toContainText('Cover');
+
+		// Leave no Blocked Slot behind, the way the previous test did.
+		await openDayMenu('Mon');
+		await page.getByRole('menuitem', { name: 'Unblock 9B/Sc1, P1' }).click();
+		await expect(cell).not.toContainText('Cover');
+		await expect(cell.locator('[data-session-trigger]')).toHaveCount(1);
+	});
+
 	test('cancel returns to the week the teacher was on with nothing saved', async () => {
 		// Land on a chosen week first, so "the week the teacher was on" is a fact to check.
 		const selected = page.locator('[aria-current="true"]').first();

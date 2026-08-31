@@ -49,10 +49,14 @@
 	// chooses, the popover asks.
 	let slotNote = $state<{ date: string; slotId: string; period: number } | null>(null);
 
-	// A pick names a Slot in the week's data; fresh data may not hold it. A week navigated away
-	// from and back to must not reopen the note form by itself.
+	// A pick names a Slot in the week's data, so it dies when the week it names is no longer
+	// the one shown — a navigation, or a week with no grid. Clearing on every change of the
+	// week's data would drop the pick mid-refusal: the block popover reloads the week before
+	// it reads the answer, and a refused note would be discarded with the form. A week
+	// navigated away from and back to must not reopen the note form by itself.
 	$effect(() => {
-		if (data.week) slotNote = null;
+		const picked = slotNote;
+		if (picked && !data.week?.days.some((d) => d.date === picked.date)) slotNote = null;
 	});
 
 	// The day head's menu acts through three hidden forms rather than one per day: a Blocked Day
