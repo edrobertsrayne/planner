@@ -43,11 +43,13 @@ export interface BlockedSlotLine {
 }
 
 export function blockedSlotLines(cells: readonly CalendarCell[], date: string): BlockedSlotLine[] {
-	return cells.flatMap((c) =>
-		c.date !== date || c.blockedSlotId === null
-			? []
-			: [{ blockedSlotId: c.blockedSlotId, period: c.periodFrom, classLabel: c.classLabel }]
-	);
+	return cells
+		.flatMap((c) =>
+			c.date !== date || c.blockedSlotId === null
+				? []
+				: [{ blockedSlotId: c.blockedSlotId, period: c.periodFrom, classLabel: c.classLabel }]
+		)
+		.sort((a, b) => a.period - b.period);
 }
 
 export function toGrid(

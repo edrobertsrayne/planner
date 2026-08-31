@@ -171,6 +171,12 @@ describe('the Calendar', () => {
 			.all()
 			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 4 && s.period === 5)!;
 
+		const thuP6 = db
+			.select()
+			.from(schema.slot)
+			.all()
+			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 4 && s.period === 6)!;
+
 		blockSlot(db, {
 			classId: classA.id,
 			date: '2026-09-03',
@@ -192,7 +198,7 @@ describe('the Calendar', () => {
 			(c) => c.date === '2026-09-03' && c.periodFrom === 6 && c.classId === classA.id
 		);
 		expect(shifted).toMatchObject({ kind: 'lesson' });
-		expect(shifted?.slotIds).toEqual([expect.any(String)]);
+		expect(shifted?.slotIds).toEqual([thuP6.id]);
 		expect(shifted?.blockedSlotId).toBeNull();
 	});
 

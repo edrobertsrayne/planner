@@ -242,6 +242,8 @@ export interface AgendaRow {
 	week: 'A' | 'B';
 	periodFrom: number;
 	periodTo: number;
+	// One id per Period the row covers, in order: slotIds[i] belongs to periodFrom + i.
+	// A multi-Period Lesson carries one Slot per Period; every other kind of row carries exactly one.
 	slotIds: string[];
 	lesson: { lessonId: string; part: number; of: number } | null;
 }

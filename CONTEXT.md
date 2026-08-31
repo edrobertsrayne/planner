@@ -242,7 +242,9 @@ it draws on are the calendar _model_, and "the calendar" unqualified means the m
 Slot keeps its Class's colour and shows no Lesson; a Blocked Day and a Blocked Slot drain the
 colour instead — present-but-empty and removed must never read alike. A day with no teaching — a
 Blocked Day or a School Holiday — drops its six Periods and reads as one panel spanning the
-column, told apart from an empty Period by a step in shade, never a hue. No control sits on a
+column, told apart from an empty Period by a step in shade, never a hue. The two panels differ
+from each other by the hatch: hatched grey for a removal, a plain step in shade for a School
+Holiday. No block or unblock sits on a
 tile: every block and unblock on a day starts in that day's menu — Block day or Unblock day, a
 Block one Slot line for each Slot the day's tiles cover, and an Unblock line for each Blocked Slot
 on it, so a Blocked Slot's unblock survives the collapse of its column. A Blocked Slot recorded on

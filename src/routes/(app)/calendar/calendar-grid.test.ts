@@ -133,4 +133,21 @@ describe('blockedSlotLines', () => {
 			blockedSlotLines([cell({ date: '2026-09-01', blockedSlotId: 'b1' })], '2026-08-31')
 		).toEqual([]);
 	});
+
+	test('the lines read in Period order across Classes', () => {
+		const lines = blockedSlotLines(
+			[
+				cell({ kind: 'blocked', lesson: null, periodFrom: 4, blockedSlotId: 'b2' }),
+				cell({
+					kind: 'blocked',
+					lesson: null,
+					classLabel: '9C/Sc1',
+					periodFrom: 2,
+					blockedSlotId: 'b1'
+				})
+			],
+			'2026-08-31'
+		);
+		expect(lines.map((l) => l.period)).toEqual([2, 4]);
+	});
 });

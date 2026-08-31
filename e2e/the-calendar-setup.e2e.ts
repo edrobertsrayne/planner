@@ -278,6 +278,10 @@ test.describe.serial('the Calendar setup mode', () => {
 		await expect(page.locator('td[data-day-kind="holiday"]')).toHaveCount(1);
 		await expect(page.locator('td[data-day-kind="holiday"]')).toContainText('School holiday');
 		await expect(page.locator('td[data-day-kind="holiday"]')).toContainText('Outside every Term');
+		// The shade is the contract the title names: a solid step for the holiday, no hatch,
+		// because nothing was removed.
+		await expect(page.locator('td[data-day-kind="holiday"] .day-panel-holiday')).toBeVisible();
+		await expect(page.locator('td[data-day-kind="holiday"] .hatched')).toHaveCount(0);
 		await expect(page.locator('thead th[data-day-kind="teaching"]')).toHaveCount(4);
 
 		// A Blocked Day entered on the School Holiday: the holiday still wins the panel's
@@ -318,6 +322,8 @@ test.describe.serial('the Calendar setup mode', () => {
 		await blockDayFromHeader('Wed');
 		await expect(page.locator('thead th[data-day-kind="blocked"]')).toHaveCount(2);
 		await expect(page.locator('td[data-day-kind="blocked"]')).toHaveCount(2);
+		// Both Blocked Days are removals: their panels carry the hatch.
+		await expect(page.locator('td[data-day-kind="blocked"] .hatched')).toHaveCount(2);
 		await expect(
 			page.locator('td[data-day-kind="blocked"]').filter({ hasText: 'Blocked day' })
 		).toHaveCount(1);
@@ -344,6 +350,11 @@ test.describe.serial('the Calendar setup mode', () => {
 			await page.goto(`/calendar?week=${plusDays(monday, offset)}`);
 			if ((await page.locator('[data-session-trigger]').count()) > 0) break;
 		}
+		// One of the two weeks carries the Slots' letter; if neither does, fail here, at the
+		// cause, not later in a menu that never opens.
+		await expect(page.locator('[data-session-trigger]').first()).toBeVisible();
+
+		const cell = page.locator('tbody tr').first().locator('td').first();
 
 		await openDayMenu('Mon');
 		await page.getByRole('menuitem', { name: '9B/Sc1, P1…' }).click();
@@ -352,11 +363,14 @@ test.describe.serial('the Calendar setup mode', () => {
 		// week must stay explainable.
 		const note = page.getByRole('textbox', { name: 'Block 9B/Sc1, P1' });
 		await expect(note).toBeVisible();
+		// The note is required: submitting without one keeps the form open and blocks nothing.
+		await page.getByRole('button', { name: 'Block', exact: true }).click();
+		await expect(note).toBeVisible();
+		await expect(cell.locator('.hatched')).toHaveCount(0);
 		await note.fill('Assembly');
 		await page.getByRole('button', { name: 'Block', exact: true }).click();
 
 		// The tile drains: the hatch and the note, in place of the tile it removed.
-		const cell = page.locator('tbody tr').first().locator('td').first();
 		await expect(cell).toContainText('9B/Sc1');
 		await expect(cell).toContainText('Assembly');
 
