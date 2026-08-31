@@ -11,6 +11,7 @@
 	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
 	import AtRiskReport from '$lib/components/at-risk-report.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import { cn } from '$lib/utils.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import BlockPopover from './BlockPopover.svelte';
@@ -203,34 +204,29 @@
 									>
 									<DropdownMenu.Root>
 										<DropdownMenu.Trigger
-											class="ml-auto rounded px-0.5 text-muted-foreground/50 hover:text-foreground"
+											class="ml-auto rounded px-0.5 text-muted-foreground/50 hover:text-foreground [&_svg]:size-4"
 											aria-label={`${d} ${formatDayMonth(date)} actions`}
 										>
-											<EllipsisIcon class="size-4" />
+											<EllipsisIcon />
 										</DropdownMenu.Trigger>
 										<DropdownMenu.Content class="w-60" align="end">
-											{#if dayKind === 'holiday'}
-												<DropdownMenu.Label class="text-[11px] font-normal text-muted-foreground"
-													>Outside every Term</DropdownMenu.Label
-												>
-												<DropdownMenu.Separator />
-											{/if}
-											{#if blockedDay}
-												<DropdownMenu.Item onSelect={() => unblockDay(blockedDay.date)}
-													>Unblock day</DropdownMenu.Item
-												>
-											{:else}
-												<DropdownMenu.Item onSelect={() => blockDay(date)}
-													>Block day</DropdownMenu.Item
-												>
-											{/if}
+											<DropdownMenu.Group>
+												{#if blockedDay}
+													<DropdownMenu.Item onSelect={() => unblockDay(blockedDay.date)}
+														>Unblock day</DropdownMenu.Item
+													>
+												{:else}
+													<DropdownMenu.Item onSelect={() => blockDay(date)}
+														>Block day</DropdownMenu.Item
+													>
+												{/if}
+											</DropdownMenu.Group>
 											{#if dayKind === 'teaching'}
 												{@const blockable = blockableSlots(data.week.cells, date)}
 												{#if blockable.length > 0}
 													<DropdownMenu.Separator />
 													<DropdownMenu.Group>
-														<DropdownMenu.GroupHeading
-															class="text-[11px] font-normal text-muted-foreground"
+														<DropdownMenu.GroupHeading class="text-muted-foreground"
 															>Block one Slot</DropdownMenu.GroupHeading
 														>
 														<!-- One line per real Slot, so a Lesson over two Periods appears
@@ -251,8 +247,7 @@
 											{#if blockedSlots.length > 0}
 												<DropdownMenu.Separator />
 												<DropdownMenu.Group>
-													<DropdownMenu.GroupHeading
-														class="text-[11px] font-normal text-muted-foreground"
+													<DropdownMenu.GroupHeading class="text-muted-foreground"
 														>Blocked Slots</DropdownMenu.GroupHeading
 													>
 													{#each blockedSlots as slot (slot.blockedSlotId)}
@@ -294,10 +289,12 @@
 										{@const under = dayKind === 'holiday' ? 'Outside every Term' : 'No teaching'}
 										<td rowspan={PERIODS.length} class="h-16 align-middle" data-day-kind={dayKind}>
 											<div
-												class="flex h-full flex-col items-center justify-center gap-1 rounded-lg px-2 py-3 text-center {dayKind ===
-												'holiday'
-													? 'day-panel-holiday'
-													: 'hatched border border-dashed border-muted-foreground/30'}"
+												class={cn(
+													'flex h-full flex-col items-center justify-center gap-1 rounded-lg px-2 py-3 text-center',
+													dayKind === 'holiday'
+														? 'day-panel-holiday'
+														: 'hatched border border-dashed border-muted-foreground/30'
+												)}
 											>
 												<div class="text-xs font-semibold text-muted-foreground">{headline}</div>
 												<div class="text-[11px] text-muted-foreground/70">{under}</div>
