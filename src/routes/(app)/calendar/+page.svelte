@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
+	import { tick } from 'svelte';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import { classTone } from '$lib/class-tone';
 	import { formatDayMonth } from '$lib/date';
-	import { refresh, submitWithValue } from '$lib/client/enhance';
+	import { refresh } from '$lib/client/enhance';
 	import { openSession } from '$lib/client/session-panel.svelte';
 	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
 	import AtRiskReport from '$lib/components/at-risk-report.svelte';
@@ -60,24 +61,30 @@
 		if (picked && !data.week?.days.some((d) => d.date === picked.date)) slotNote = null;
 	});
 
-	// The day head's menu acts through three hidden forms rather than one per day: a Blocked Day
-	// records no cause, so blocking it is a single click with no field to fill, and the same form
-	// serves every day. `submitWithValue` sets the field and submits, so a menu item's onSelect is
-	// the whole of the wiring.
-	let blockDayForm = $state<HTMLFormElement | undefined>();
-	let unblockDayForm = $state<HTMLFormElement | undefined>();
-	let unblockSlotForm = $state<HTMLFormElement | undefined>();
-
-	function blockDay(date: string) {
-		submitWithValue(blockDayForm, 'date', date);
+	// Closing the pick unmounts the popover in the same flush, and with it the zero-size
+	// trigger bits-ui would hand focus back to — left alone, focus falls to the body and the
+	// keyboard user loses the day menu they came from. Once the unmount has run, focus returns
+	// to that day's menu trigger, found by the id its head carries.
+	function closePick() {
+		const picked = slotNote;
+		slotNote = null;
+		if (picked) tick().then(() => document.getElementById(`day-menu-${picked.date}`)?.focus());
 	}
 
-	function unblockDay(date: string) {
-		submitWithValue(unblockDayForm, 'date', date);
-	}
+	// The day head's menu acts through one hidden form rather than three: a Blocked Day records
+	// no cause, so every act the menu offers is a single click, and the form's action and its
+	// one field are set beside the value the moment a menu item names them.
+	let dayMenuForm = $state<HTMLFormElement | undefined>();
+	let dayMenuField = $state<HTMLInputElement | undefined>();
 
-	function unblockSlot(id: string) {
-		submitWithValue(unblockSlotForm, 'id', id);
+	function dayMenuAct(action: string, field: string, value: string) {
+		const form = dayMenuForm;
+		const input = dayMenuField;
+		if (!form || !input) return;
+		form.action = action;
+		input.name = field;
+		input.value = value;
+		form.requestSubmit();
 	}
 </script>
 
@@ -155,35 +162,11 @@
 	{:else if data.ribbon.length === 0}
 		<p class="text-sm text-muted-foreground">No Teaching Weeks are set up yet.</p>
 	{:else if data.week}
-		<!-- Three hidden forms serve every day's menu: the field they carry is set immediately
-		     before each submits, so one of each is enough regardless of how many days or Blocked
-		     Slots the week holds. -->
-		<form
-			bind:this={blockDayForm}
-			method="POST"
-			action="?/blockDay"
-			use:enhance={refresh}
-			class="hidden"
-		>
-			<input type="hidden" name="date" />
-		</form>
-		<form
-			bind:this={unblockDayForm}
-			method="POST"
-			action="?/unblockDay"
-			use:enhance={refresh}
-			class="hidden"
-		>
-			<input type="hidden" name="date" />
-		</form>
-		<form
-			bind:this={unblockSlotForm}
-			method="POST"
-			action="?/unblockSlot"
-			use:enhance={refresh}
-			class="hidden"
-		>
-			<input type="hidden" name="id" />
+		<!-- One hidden form serves every day's menu: its action and its one field are set beside
+		     the value the moment a menu item names them, so one of each is enough no matter how
+		     many days or Blocked Slots the week holds. -->
+		<form bind:this={dayMenuForm} method="POST" use:enhance={refresh} class="hidden">
+			<input bind:this={dayMenuField} type="hidden" />
 		</form>
 
 		<div class="overflow-x-auto">
@@ -204,6 +187,7 @@
 									>
 									<DropdownMenu.Root>
 										<DropdownMenu.Trigger
+											id={`day-menu-${date}`}
 											class="ml-auto rounded px-0.5 text-muted-foreground/50 hover:text-foreground [&_svg]:size-4"
 											aria-label={`${d} ${formatDayMonth(date)} actions`}
 										>
@@ -212,11 +196,12 @@
 										<DropdownMenu.Content class="w-60" align="end">
 											<DropdownMenu.Group>
 												{#if blockedDay}
-													<DropdownMenu.Item onSelect={() => unblockDay(blockedDay.date)}
+													<DropdownMenu.Item
+														onSelect={() => dayMenuAct('?/unblockDay', 'date', blockedDay.date)}
 														>Unblock day</DropdownMenu.Item
 													>
 												{:else}
-													<DropdownMenu.Item onSelect={() => blockDay(date)}
+													<DropdownMenu.Item onSelect={() => dayMenuAct('?/blockDay', 'date', date)}
 														>Block day</DropdownMenu.Item
 													>
 												{/if}
@@ -251,7 +236,8 @@
 														>Blocked Slots</DropdownMenu.GroupHeading
 													>
 													{#each blockedSlots as slot (slot.blockedSlotId)}
-														<DropdownMenu.Item onSelect={() => unblockSlot(slot.blockedSlotId)}
+														<DropdownMenu.Item
+															onSelect={() => dayMenuAct('?/unblockSlot', 'id', slot.blockedSlotId)}
 															>Unblock {slot.classLabel}, P{slot.period}</DropdownMenu.Item
 														>
 													{/each}
@@ -366,15 +352,15 @@
 												it names, so the teacher can see which one they picked. For a Lesson
 												over two Periods both lines open the same tile, each naming its own. -->
 													<BlockPopover
-														label={`Block ${cell.classLabel}, P${slotNote.period}`}
-														action="?/blockSlot"
-														fields={{
+														pick={{
 															classId: cell.classId,
+															classLabel: cell.classLabel,
 															date: cell.date,
-															slotId: slotNote.slotId
+															slotId: slotNote.slotId,
+															period: slotNote.period
 														}}
 														onOpenChange={(o) => {
-															if (!o) slotNote = null;
+															if (!o) closePick();
 														}}
 													/>
 												{/if}
