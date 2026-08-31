@@ -336,6 +336,19 @@ test.describe.serial('the Calendar setup mode', () => {
 		await expect(page).toHaveURL(here ?? '');
 	});
 
+	// "Today" is the way back from anywhere in the year: it lands on the week a bare load opens
+	// on — the Teaching Week containing today, the next one over a break, or the last of the
+	// year. Already on that week, it stands down.
+	test('the Today button returns to the week a bare load opens on', async () => {
+		await page.goto('/calendar');
+		await expect(page.getByRole('button', { name: 'Today' })).toBeDisabled();
+
+		const home = await page.locator('[aria-current="true"]').first().getAttribute('href');
+		await page.getByLabel('Next Teaching Week').click();
+		await page.getByRole('link', { name: 'Today' }).click();
+		await expect(page).toHaveURL(home ?? '');
+	});
+
 	test('a planner with no Term set opens setup mode by itself', async () => {
 		runFixture('clear-terms');
 

@@ -17,45 +17,8 @@
 	import { PERIODS, toGrid } from './calendar-grid';
 	import type { DayKind } from '$lib/server/planner';
 	import type { PageProps } from './$types';
-	// PROTOTYPE — throwaway. ?variant=A|B|C|D swaps the week grid for the state-distinction
-	// variants. Remove this import, the two below it and the `{#if prototypeVariant}` branch
-	// with PrototypeStates.svelte.
-	import { page } from '$app/state';
-	import PrototypeStates from './PrototypeStates.svelte';
-	import PrototypeBlocking from './PrototypeBlocking.svelte';
-	import PrototypeSwitcher from './PrototypeSwitcher.svelte';
 
 	let { data, form }: PageProps = $props();
-
-	// PROTOTYPE — throwaway.
-	const PROTO_VARIANTS = ['F1', 'F2', 'F3', 'F4'];
-	const PROTO_BLOCKING = ['E1', 'E2', 'E3', 'E4', 'F1', 'F2', 'F3', 'F4'];
-	const PROTO_NAMES: Record<string, string> = {
-		F1: 'Slot — hover ban icon (today)',
-		F2: 'Slot — the same menu, one level down',
-		F3: 'Slot — the day menu owns everything',
-		F4: 'Slot — type the reason on the tile',
-		E1: 'Block/unblock — header does the doing',
-		E2: 'Block/unblock — panel does the undoing',
-		E3: 'Block/unblock — one menu per day',
-		E4: 'Block/unblock — the panel is the button',
-		A2: 'Holiday — solid panel',
-		A1: 'Holiday — warm tint',
-		A3: 'Holiday — empty, ruled off',
-		B: 'Narrow gutter',
-		C: 'One surface',
-		D: 'Off-days out of the grid'
-	};
-	const prototypeVariant = $derived.by(() => {
-		if (!import.meta.env.DEV) return null;
-		const v = page.url.searchParams.get('variant')?.toUpperCase();
-		return v &&
-			(PROTO_VARIANTS.includes(v) ||
-				PROTO_BLOCKING.includes(v) ||
-				['A1', 'A2', 'A3', 'B', 'C', 'D'].includes(v))
-			? v
-			: null;
-	});
 
 	// Setup mode replaces the week grid in place, on the same route. It opens by itself when no
 	// Term is set — the first-run empty state of the year — and closing lands on the week the
@@ -71,8 +34,8 @@
 
 	const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
-	// The ribbon and the two arrows all step the year by query string. `prev`, `next` and a ribbon
-	// entry each carry a week commencing date, not a URL, so the link is built here.
+	// The ribbon, the two arrows and Today all navigate by query string. Each carries a week
+	// commencing date, not a URL, so the link is built here.
 	const weekHref = (weekCommencing: string) => resolve(`/calendar?week=${weekCommencing}`);
 
 	// One entry per (day, Period); see calendar-grid.ts. The explicit `h-16` on a start cell's
@@ -107,6 +70,19 @@
 							<ChevronLeftIcon />
 						</Button>
 
+						<!-- Today is the header's main action once the year exists; until then the week
+						     controls do not render at all and setting the year keeps the emphasis. -->
+						<Button
+							size="sm"
+							class="h-7"
+							href={data.current && data.selected !== data.current
+								? weekHref(data.current)
+								: undefined}
+							disabled={data.selected === data.current}
+						>
+							Today
+						</Button>
+
 						<div class="flex items-center gap-0.5 rounded-md border p-0.5">
 							{#each data.ribbon as w (w.weekCommencing)}
 								{@const isSelected = w.weekCommencing === data.selected}
@@ -137,7 +113,14 @@
 					</div>
 				{/if}
 
-				<Button size="sm" class="h-7" onclick={() => (setup = true)}>Set up year</Button>
+				<Button
+					size="sm"
+					class="h-7"
+					variant={data.terms.length === 0 ? 'default' : 'ghost'}
+					onclick={() => (setup = true)}
+				>
+					Set up year
+				</Button>
 			{/if}
 		{/snippet}
 	</PageHeader>
@@ -152,15 +135,7 @@
 		<AtRiskAlert atRisk={form.atRisk} />
 	{/if}
 
-	<!-- PROTOTYPE — throwaway branch. -->
-	{#if prototypeVariant}
-		{#if PROTO_BLOCKING.includes(prototypeVariant)}
-			<PrototypeBlocking variant={prototypeVariant} />
-		{:else}
-			<PrototypeStates variant={prototypeVariant} />
-		{/if}
-		<PrototypeSwitcher variants={PROTO_VARIANTS} names={PROTO_NAMES} current={prototypeVariant} />
-	{:else if setup}
+	{#if setup}
 		<CalendarSetup
 			terms={data.terms}
 			blockedDays={data.blockedDays}
