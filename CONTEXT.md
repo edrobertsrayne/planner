@@ -246,8 +246,9 @@ column, told apart from an empty Period by a step in shade, never a hue. No cont
 tile: every block and unblock on a day starts in that day's menu — Block day or Unblock day, a
 Block one Slot line for each Slot the day's tiles cover, and an Unblock line for each Blocked Slot
 on it, so a Blocked Slot's unblock survives the collapse of its column. A Blocked Slot recorded on
-a School Holiday keeps the hatch — it is a removal, and its unblock sits in that day's menu like
-every other act on the day. A Blocked Day entered on a School Holiday
+a School Holiday is still a removal, though the column reads as the School Holiday's panel; its
+Unblock line sits in that day's menu like every other act on the day.
+A Blocked Day entered on a School Holiday
 still reads as the School Holiday in the panel's headline; the day's menu still offers Unblock
 day, so the Blocked Day is out-ranked there, not hidden.
 

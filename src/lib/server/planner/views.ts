@@ -122,6 +122,8 @@ export interface CalendarCell {
 	kind: 'lesson' | 'open' | 'blocked';
 	lesson: LessonName | null;
 	blockedNote: string | null;
+	// One id per Period the cell covers, in order: slotIds[i] belongs to periodFrom + i.
+	// A multi-Period Lesson carries one Slot per Period; every other kind of cell carries exactly one.
 	slotIds: string[];
 	blockedDayId: string | null;
 	blockedSlotId: string | null;

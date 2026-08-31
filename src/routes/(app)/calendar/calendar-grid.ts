@@ -33,6 +33,23 @@ export function blockableSlots(cells: readonly CalendarCell[], date: string): Bl
 		.sort((a, b) => a.period - b.period);
 }
 
+// One line in a day's menu per Blocked Slot on the date: the removal's own id, whose Class and
+// Period it was, so the Unblock survives the collapse of the day's column — a day with no
+// teaching draws one panel and no tiles, yet the menu still holds the way back.
+export interface BlockedSlotLine {
+	blockedSlotId: string;
+	period: number;
+	classLabel: string;
+}
+
+export function blockedSlotLines(cells: readonly CalendarCell[], date: string): BlockedSlotLine[] {
+	return cells.flatMap((c) =>
+		c.date !== date || c.blockedSlotId === null
+			? []
+			: [{ blockedSlotId: c.blockedSlotId, period: c.periodFrom, classLabel: c.classLabel }]
+	);
+}
+
 export function toGrid(
 	days: readonly { date: string }[],
 	cells: readonly CalendarCell[]

@@ -15,8 +15,7 @@
 	import PageHeader from '$lib/components/page-header.svelte';
 	import BlockPopover from './BlockPopover.svelte';
 	import CalendarSetup from './CalendarSetup.svelte';
-	import { blockableSlots, PERIODS, toGrid } from './calendar-grid';
-	import type { CalendarCell } from '$lib/server/planner';
+	import { blockableSlots, blockedSlotLines, PERIODS, toGrid } from './calendar-grid';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -45,48 +44,35 @@
 	const grid = $derived.by(() => toGrid(data.week?.days ?? [], data.week?.cells ?? []));
 	const blockedByDate = $derived(new Map((data.week?.blockedDays ?? []).map((b) => [b.date, b])));
 
-	// The Blocked Slots of the week, grouped by date: the tile a Blocked Slot drains carries no
-	// control of its own, so its day's menu is the one place its unblock lives — collapsed
-	// column or not.
-	const blockedSlotsByDate = $derived.by(() => {
-		const byDate: Record<string, CalendarCell[]> = {};
-		for (const cell of data.week?.cells ?? []) {
-			if (!cell.blockedSlotId) continue;
-			(byDate[cell.date] ??= []).push(cell);
-		}
-		return byDate;
-	});
-
-	// The Slots each day's menu offers to block, grouped by date the same way.
-	const blockableByDate = $derived(
-		Object.fromEntries(
-			(data.week?.days ?? []).map((d) => [d.date, blockableSlots(data.week?.cells ?? [], d.date)])
-		)
-	);
-
 	// The Slot the day menu picked to block, whose note is asked for over its tile. Rendering
 	// the popover only while a pick is open is the whole of the opening gesture: the menu
 	// chooses, the popover asks.
 	let slotNote = $state<{ date: string; slotId: string; period: number } | null>(null);
 
+	// A pick names a Slot in the week's data; fresh data may not hold it. A week navigated away
+	// from and back to must not reopen the note form by itself.
+	$effect(() => {
+		if (data.week) slotNote = null;
+	});
+
 	// The day head's menu acts through three hidden forms rather than one per day: a Blocked Day
 	// records no cause, so blocking it is a single click with no field to fill, and the same form
 	// serves every day. `submitWithValue` sets the field and submits, so a menu item's onSelect is
 	// the whole of the wiring.
-	let blockDayForm = $state<HTMLFormElement | null>(null);
-	let unblockDayForm = $state<HTMLFormElement | null>(null);
-	let unblockSlotForm = $state<HTMLFormElement | null>(null);
+	let blockDayForm = $state<HTMLFormElement | undefined>();
+	let unblockDayForm = $state<HTMLFormElement | undefined>();
+	let unblockSlotForm = $state<HTMLFormElement | undefined>();
 
 	function blockDay(date: string) {
-		submitWithValue(blockDayForm ?? undefined, 'date', date);
+		submitWithValue(blockDayForm, 'date', date);
 	}
 
 	function unblockDay(date: string) {
-		submitWithValue(unblockDayForm ?? undefined, 'date', date);
+		submitWithValue(unblockDayForm, 'date', date);
 	}
 
 	function unblockSlot(id: string) {
-		submitWithValue(unblockSlotForm ?? undefined, 'id', id);
+		submitWithValue(unblockSlotForm, 'id', id);
 	}
 </script>
 
@@ -204,7 +190,7 @@
 							{@const date = data.week.days[di].date}
 							{@const blockedDay = blockedByDate.get(date)}
 							{@const dayKind = data.week.days[di].kind}
-							{@const blockedSlots = blockedSlotsByDate[date] ?? []}
+							{@const blockedSlots = blockedSlotLines(data.week.cells, date)}
 							<th class="rounded-lg pb-1 text-left align-bottom" data-day-kind={dayKind}>
 								<div class="flex items-baseline gap-1.5">
 									<span class="text-sm font-semibold">{d}</span>
@@ -235,7 +221,7 @@
 												>
 											{/if}
 											{#if dayKind === 'teaching'}
-												{@const blockable = blockableByDate[date] ?? []}
+												{@const blockable = blockableSlots(data.week.cells, date)}
 												{#if blockable.length > 0}
 													<DropdownMenu.Separator />
 													<DropdownMenu.Group>
@@ -266,9 +252,8 @@
 														>Blocked Slots</DropdownMenu.GroupHeading
 													>
 													{#each blockedSlots as slot (slot.blockedSlotId)}
-														<DropdownMenu.Item
-															onSelect={() => unblockSlot(slot.blockedSlotId ?? '')}
-															>Unblock {slot.classLabel}, P{slot.periodFrom}</DropdownMenu.Item
+														<DropdownMenu.Item onSelect={() => unblockSlot(slot.blockedSlotId)}
+															>Unblock {slot.classLabel}, P{slot.period}</DropdownMenu.Item
 														>
 													{/each}
 												</DropdownMenu.Group>

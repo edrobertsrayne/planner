@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import type { CalendarCell } from '$lib/server/planner';
-import { blockableSlots, PERIODS, toGrid } from './calendar-grid';
+import { blockableSlots, blockedSlotLines, PERIODS, toGrid } from './calendar-grid';
 
-function cell(overrides: Partial<CalendarCell>): CalendarCell {
+function cell(overrides: Partial<CalendarCell> = {}): CalendarCell {
 	return {
 		date: '2026-08-31',
 		periodFrom: 1,
@@ -111,5 +111,26 @@ describe('toGrid', () => {
 			);
 			expect(slots.map((s) => s.period)).toEqual([2, 4]);
 		});
+	});
+});
+
+describe('blockedSlotLines', () => {
+	test('a Blocked Slot cell yields the line its Unblock needs', () => {
+		expect(
+			blockedSlotLines(
+				[cell({ kind: 'blocked', lesson: null, blockedNote: 'Trip', blockedSlotId: 'b1' })],
+				'2026-08-31'
+			)
+		).toEqual([{ blockedSlotId: 'b1', period: 1, classLabel: '9A/Ph1' }]);
+	});
+
+	test('a cell without a Blocked Slot yields nothing', () => {
+		expect(blockedSlotLines([cell()], '2026-08-31')).toEqual([]);
+	});
+
+	test('cells on other dates are ignored', () => {
+		expect(
+			blockedSlotLines([cell({ date: '2026-09-01', blockedSlotId: 'b1' })], '2026-08-31')
+		).toEqual([]);
 	});
 });
