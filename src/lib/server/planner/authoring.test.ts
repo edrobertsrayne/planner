@@ -10,8 +10,10 @@ import {
 	createLesson,
 	createLink,
 	createTopic,
+	deleteCourse,
 	deleteLesson,
 	deleteLink,
+	deleteTopic,
 	importTopic,
 	lessonDetail,
 	lessonsOf,
@@ -697,5 +699,110 @@ describe('the Lesson editor', () => {
 			first.id,
 			second.id
 		]);
+	});
+});
+
+// A Course/Topic with no children goes at once, same as a Lesson always has. One that still
+// holds children is refused until the caller confirms, then the whole subtree goes with it —
+// except where a Class follows the Course, a Topic is assigned to a Class, or a Lesson has
+// already been taught: those refuse unconditionally, confirmed or not.
+describe('deleting a Course or a Topic', () => {
+	test('an empty Course or Topic deletes at once, unconfirmed', () => {
+		const { db } = setUpAuthoring();
+		const course = createCourse(db, { name: 'Year 9 Physics' });
+		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
+
+		expect(deleteTopic(db, topic.id, { today: '2026-09-03' })).toEqual({ ok: true });
+		expect(deleteCourse(db, course.id, { today: '2026-09-03' })).toEqual({ ok: true });
+		expect(listCourses(db)).toEqual([]);
+	});
+
+	test('a Topic that still holds Lessons asks for confirmation, then removes them with it', () => {
+		const { db } = setUpAuthoring();
+		const course = createCourse(db, { name: 'Year 9 Physics' });
+		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
+		const lesson = createLesson(db, { topicId: topic.id, title: 'Newton I', today: '2026-09-03' });
+
+		expect(deleteTopic(db, topic.id, { today: '2026-09-03' })).toEqual({
+			ok: false,
+			reason: 'This Topic still holds Lessons. Remove or detach them first.',
+			needsConfirm: true
+		});
+		expect(lessonsOf(db, topic.id)).toEqual([lesson]);
+
+		expect(deleteTopic(db, topic.id, { today: '2026-09-03', confirmed: true })).toEqual({
+			ok: true
+		});
+		expect(topicsOf(db, course.id)).toEqual([]);
+		expect(lessonDetail(db, lesson.id)).toBeNull();
+	});
+
+	test('a Course that still holds Topics asks for confirmation, then removes every Topic and Lesson with it', () => {
+		const { db } = setUpAuthoring();
+		const course = createCourse(db, { name: 'Year 9 Physics' });
+		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
+		const lesson = createLesson(db, { topicId: topic.id, title: 'Newton I', today: '2026-09-03' });
+
+		expect(deleteCourse(db, course.id, { today: '2026-09-03' })).toEqual({
+			ok: false,
+			reason: 'This Course still holds Topics. Remove them first.',
+			needsConfirm: true
+		});
+
+		expect(deleteCourse(db, course.id, { today: '2026-09-03', confirmed: true })).toEqual({
+			ok: true
+		});
+		expect(listCourses(db)).toEqual([]);
+		expect(lessonDetail(db, lesson.id)).toBeNull();
+	});
+
+	test('refuses a Course a Class follows, even confirmed', () => {
+		const { db, course } = setUp();
+
+		expect(deleteCourse(db, course.id, { today: '2026-09-03', confirmed: true })).toEqual({
+			ok: false,
+			reason: 'A Class follows this Course, so it cannot be removed.',
+			needsConfirm: false
+		});
+	});
+
+	test('refuses a Topic assigned to a Class, even confirmed', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		makeLessons(db, topic.id, 1);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+
+		expect(deleteTopic(db, topic.id, { today: '2026-09-03', confirmed: true })).toEqual({
+			ok: false,
+			reason: 'This Topic is assigned to a Class, so it cannot be removed.',
+			needsConfirm: false
+		});
+	});
+
+	test('refuses a Topic holding a Lesson taught elsewhere and later moved in, even confirmed', () => {
+		// unassignTopic refuses to unassign a Topic already reached, so the only way a Topic ends
+		// up holding an already-taught Lesson while itself unassigned is a Lesson moved in after
+		// the fact (moveLessonToTopic) — the loophole this guard exists for.
+		const { db, course, classA } = setUp();
+		const taughtTopic = makeTopic(db, course.id, 'Forces');
+		const lessons = makeLessons(db, taughtTopic.id, 1);
+		assignTopic(db, { classId: classA.id, topicId: taughtTopic.id, today: '2026-09-03' });
+
+		const otherCourse = createCourse(db, { name: 'Year 10 Physics' });
+		const targetTopic = createTopic(db, { courseId: otherCourse.id, name: 'Waves' });
+		moveLessonToTopic(db, { id: lessons[0].id, topicId: targetTopic.id, today: '2026-09-10' });
+
+		expect(deleteTopic(db, targetTopic.id, { today: '2026-09-10', confirmed: true })).toEqual({
+			ok: false,
+			reason: 'This Topic holds a Lesson that has already been taught, so it cannot be removed.',
+			needsConfirm: false
+		});
+
+		expect(deleteCourse(db, otherCourse.id, { today: '2026-09-10', confirmed: true })).toEqual({
+			ok: false,
+			reason:
+				'A Topic in this Course holds a Lesson that has already been taught, so it cannot be removed.',
+			needsConfirm: false
+		});
 	});
 });

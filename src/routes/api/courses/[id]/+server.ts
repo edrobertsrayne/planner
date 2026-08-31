@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
 import { course } from '$lib/server/db/schema';
 import { requireApiKey } from '$lib/server/api-key';
@@ -73,7 +74,7 @@ export const DELETE: RequestHandler = async (event) => {
 	const auth = await requireApiKey(event);
 	if (auth) return auth;
 
-	const result = deleteCourse(db, event.params.id);
+	const result = deleteCourse(db, event.params.id, { today: today() });
 
 	if (!result.ok) {
 		if (result.reason === 'not found') {

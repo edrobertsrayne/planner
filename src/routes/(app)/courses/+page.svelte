@@ -6,6 +6,7 @@
 	import ReorderButtons from '$lib/components/reorder-buttons.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
+	import ConfirmDeleteDialog from './ConfirmDeleteDialog.svelte';
 	import LessonEditor from './LessonEditor.svelte';
 	import RenameableRow from './RenameableRow.svelte';
 	import type { PageProps } from './$types';
@@ -15,6 +16,11 @@
 	let courseNameInput: HTMLInputElement | null = $state(null);
 	let topicNameInput: HTMLInputElement | null = $state(null);
 	let lessonTitleInput: HTMLInputElement | null = $state(null);
+
+	// A Course or Topic that still holds children — the delete form submits unconfirmed first;
+	// the server answers `needsConfirm` rather than deleting, and this opens the dialog instead
+	// of showing the plain error banner.
+	let pendingDelete = $state<{ kind: 'course' | 'topic'; id: string; name: string } | null>(null);
 </script>
 
 <svelte:head><title>Courses</title></svelte:head>
@@ -34,13 +40,43 @@
 			</h2>
 			<div class="flex-1 overflow-y-auto">
 				{#each data.courses as course (course.id)}
-					<RenameableRow
-						name={course.name}
-						selected={course.id === data.course?.id}
-						href={`?course=${course.id}`}
-						action="?/renameCourse"
-						hidden={{ id: course.id }}
-					/>
+					<div class="group flex items-stretch">
+						<div class="min-w-0 flex-1">
+							<RenameableRow
+								name={course.name}
+								selected={course.id === data.course?.id}
+								href={`?course=${course.id}`}
+								action="?/renameCourse"
+								hidden={{ id: course.id }}
+							/>
+						</div>
+						<span class="flex shrink-0 items-center pr-2 opacity-0 group-hover:opacity-100">
+							<form
+								method="POST"
+								action="?/deleteCourse"
+								use:enhance={() => {
+									return async ({ result, update }) => {
+										if (result.type === 'failure' && result.data?.needsConfirm) {
+											pendingDelete = { kind: 'course', id: course.id, name: course.name };
+											return;
+										}
+										await update();
+									};
+								}}
+							>
+								<input type="hidden" name="id" value={course.id} />
+								<Button
+									type="submit"
+									variant="ghost"
+									size="icon-sm"
+									class="hover:text-destructive"
+									aria-label="Delete {course.name}"
+								>
+									<XIcon class="size-3.5" />
+								</Button>
+							</form>
+						</span>
+					</div>
 				{/each}
 				{#if !data.courses.length}
 					<p class="px-4 text-sm text-muted-foreground">No Courses yet.</p>
@@ -77,13 +113,43 @@
 			{:else}
 				<div class="flex-1 overflow-y-auto">
 					{#each data.topics as topic (topic.id)}
-						<RenameableRow
-							name={topic.name}
-							selected={topic.id === data.topic?.id}
-							href={`?course=${data.course.id}&topic=${topic.id}`}
-							action="?/renameTopic"
-							hidden={{ id: topic.id }}
-						/>
+						<div class="group flex items-stretch">
+							<div class="min-w-0 flex-1">
+								<RenameableRow
+									name={topic.name}
+									selected={topic.id === data.topic?.id}
+									href={`?course=${data.course.id}&topic=${topic.id}`}
+									action="?/renameTopic"
+									hidden={{ id: topic.id }}
+								/>
+							</div>
+							<span class="flex shrink-0 items-center pr-2 opacity-0 group-hover:opacity-100">
+								<form
+									method="POST"
+									action="?/deleteTopic"
+									use:enhance={() => {
+										return async ({ result, update }) => {
+											if (result.type === 'failure' && result.data?.needsConfirm) {
+												pendingDelete = { kind: 'topic', id: topic.id, name: topic.name };
+												return;
+											}
+											await update();
+										};
+									}}
+								>
+									<input type="hidden" name="id" value={topic.id} />
+									<Button
+										type="submit"
+										variant="ghost"
+										size="icon-sm"
+										class="hover:text-destructive"
+										aria-label="Delete {topic.name}"
+									>
+										<XIcon class="size-3.5" />
+									</Button>
+								</form>
+							</span>
+						</div>
 					{/each}
 					{#if !data.topics.length}
 						<p class="px-4 text-sm text-muted-foreground">No Topics yet.</p>
@@ -222,3 +288,11 @@
 			`?course=${courseId}&topic=${topicId}${lessonId ? `&lesson=${lessonId}` : ''}`}
 	/>
 {/if}
+
+<ConfirmDeleteDialog
+	bind:target={pendingDelete}
+	action={pendingDelete?.kind === 'topic' ? '?/deleteTopic' : '?/deleteCourse'}
+	description={pendingDelete?.kind === 'topic'
+		? 'This Topic still holds Lessons. Deleting it removes them too.'
+		: 'This Course still holds Topics. Deleting it removes them too.'}
+/>
