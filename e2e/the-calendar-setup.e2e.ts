@@ -43,6 +43,11 @@ function nextSaturday(iso: string): string {
 	return date;
 }
 
+// The Monday of the ISO week `iso` falls in, from whichever day getUTCDay() reports.
+function mondayOf(iso: string): string {
+	return plusDays(iso, -((weekdayOf(iso) + 6) % 7));
+}
+
 function shortDate(iso: string): string {
 	return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', {
 		day: 'numeric',
@@ -63,26 +68,33 @@ async function login(page: Page, email: string, password: string) {
 test.describe.serial('the Calendar setup mode', () => {
 	let page: Page;
 
+	// One day's head cell, where its menu button and its kind both live.
+	function dayHead(day: string) {
+		return page.locator('thead th').filter({ hasText: day });
+	}
+
 	// Opens one day's menu, the way the teacher does: the quiet button in its head.
 	async function openDayMenu(day: string) {
-		await page
-			.locator('thead th')
-			.filter({ hasText: day })
+		await dayHead(day)
 			.getByRole('button', { name: /actions$/ })
 			.click();
 	}
 
 	// Blocks one day through its own day head menu: one click, no note, because a Blocked Day
-	// records no cause.
+	// records no cause. Returns only when the head reports the Blocked Day, so the write has
+	// landed before the test moves on.
 	async function blockDayFromHeader(day: string) {
 		await openDayMenu(day);
 		await page.getByRole('menuitem', { name: 'Block day' }).click();
+		await expect(dayHead(day)).toHaveAttribute('data-day-kind', 'blocked');
 	}
 
-	// Unblocks one day through its own day head menu.
+	// Unblocks one day through its own day head menu, and returns only when the head is back
+	// to its teaching kind — the cleanup every later file in the suite depends on.
 	async function unblockDayFromHeader(day: string) {
 		await openDayMenu(day);
 		await page.getByRole('menuitem', { name: 'Unblock day' }).click();
+		await expect(dayHead(day)).toHaveAttribute('data-day-kind', 'teaching');
 	}
 
 	test.beforeAll(async ({ browser }) => {
@@ -177,7 +189,7 @@ test.describe.serial('the Calendar setup mode', () => {
 		// "today" by stepping forward at most two days, and the second Term (isoDate(-14) to
 		// isoDate(56) in teaching-flows.e2e.ts) is wide enough around day 40 to swallow that step.
 		const inset = nextWeekday(plusDays(new Date().toISOString().slice(0, 10), 40));
-		const insetMonday = plusDays(inset, -((weekdayOf(inset) + 6) % 7));
+		const insetMonday = mondayOf(inset);
 		const insetWeek = page
 			.locator('[data-week-preview] tbody tr')
 			.filter({ hasText: shortDate(insetMonday) });
@@ -244,12 +256,10 @@ test.describe.serial('the Calendar setup mode', () => {
 		// A year built around the current week: Term 1 closes on its Monday and Term 2 opens on
 		// its Wednesday, so the Tuesday of that week is outside every Term — a School Holiday —
 		// and Monday with Wednesday to Friday are teaching days.
-		// Holds on any real-world day, including a Saturday or Sunday "today": the (weekday + 6) %
-		// 7 offset walks back to that ISO week's Monday from whichever day getUTCDay() reports (0
-		// for Sunday through 6 for Saturday), not from an assumed weekday, so the built week is
-		// always Monday-to-Friday even when the suite itself runs over the weekend.
-		const todayIso = new Date().toISOString().slice(0, 10);
-		const monday = plusDays(todayIso, -((weekdayOf(todayIso) + 6) % 7));
+		// Holds on any real-world day, including a Saturday or Sunday "today": mondayOf walks
+		// back to that ISO week's Monday, so the built week is always Monday-to-Friday even
+		// when the suite itself runs over the weekend.
+		const monday = mondayOf(new Date().toISOString().slice(0, 10));
 		const thursday = plusDays(monday, 3);
 		const terms = [
 			{ opens: plusDays(monday, -84), closes: monday },
@@ -285,19 +295,20 @@ test.describe.serial('the Calendar setup mode', () => {
 		await expect(page.locator('thead th[data-day-kind="teaching"]')).toHaveCount(4);
 
 		// A Blocked Day entered on the School Holiday: the holiday still wins the panel's
-		// headline, and the day's menu still offers Unblock day rather than hiding it. Blocking
-		// it changes nothing the panel shows, so the menu itself is what confirms the write
-		// landed before it is undone.
-		await blockDayFromHeader('Tue');
+		// headline, and the head keeps its holiday kind through both writes, so the menu
+		// itself is what confirms each one landed before it is undone.
+		await openDayMenu('Tue');
+		await page.getByRole('menuitem', { name: 'Block day' }).click();
 		await openDayMenu('Tue');
 		await expect(page.getByRole('menuitem', { name: 'Unblock day' })).toBeVisible();
 		// A day that is already off offers no "Block one Slot": every Slot on it is unavailable
 		// already, and a block that changes nothing is worse than a shorter menu.
-		await expect(page.getByRole('menuitem', { name: /…$/ })).toHaveCount(0);
+		await expect(page.getByRole('menuitem', { name: /, P\d+…$/ })).toHaveCount(0);
 		await page.keyboard.press('Escape');
 		await expect(page.locator('td[data-day-kind="holiday"]')).toHaveCount(1);
 		await expect(page.locator('td[data-day-kind="holiday"]')).toContainText('School holiday');
-		await unblockDayFromHeader('Tue');
+		await openDayMenu('Tue');
+		await page.getByRole('menuitem', { name: 'Unblock day' }).click();
 		await openDayMenu('Tue');
 		await expect(page.getByRole('menuitem', { name: 'Block day' })).toBeVisible();
 		await page.keyboard.press('Escape');
@@ -344,8 +355,7 @@ test.describe.serial('the Calendar setup mode', () => {
 		// five teaching days each: land on the one that shows a tile, then Monday's P1 is
 		// 9B/Sc1's Slot. The day menu is the only door to blocking: its "Block one Slot"
 		// heading lists the day's Periods, one line per real Slot.
-		const todayIso = new Date().toISOString().slice(0, 10);
-		const monday = plusDays(todayIso, -((weekdayOf(todayIso) + 6) % 7));
+		const monday = mondayOf(new Date().toISOString().slice(0, 10));
 		for (const offset of [7, 14]) {
 			await page.goto(`/calendar?week=${plusDays(monday, offset)}`);
 			if ((await page.locator('[data-session-trigger]').count()) > 0) break;
@@ -370,7 +380,9 @@ test.describe.serial('the Calendar setup mode', () => {
 		await note.fill('Assembly');
 		await page.getByRole('button', { name: 'Block', exact: true }).click();
 
-		// The tile drains: the hatch and the note, in place of the tile it removed.
+		// The tile drains: the hatch and the note, in place of the tile it removed — the
+		// shade mirroring the no-hatch check the test made before it blocked.
+		await expect(cell.locator('.hatched')).toBeVisible();
 		await expect(cell).toContainText('9B/Sc1');
 		await expect(cell).toContainText('Assembly');
 
@@ -378,7 +390,7 @@ test.describe.serial('the Calendar setup mode', () => {
 		// holds it. A day that is already off offers no "Block one Slot".
 		await blockDayFromHeader('Mon');
 		await openDayMenu('Mon');
-		await expect(page.getByRole('menuitem', { name: /…$/ })).toHaveCount(0);
+		await expect(page.getByRole('menuitem', { name: /, P\d+…$/ })).toHaveCount(0);
 		await page.getByRole('menuitem', { name: 'Unblock 9B/Sc1, P1' }).click();
 
 		// No Blocked Slot left behind — the menu no longer offers the unblock.
@@ -396,8 +408,7 @@ test.describe.serial('the Calendar setup mode', () => {
 	test('a refused note stays in the form, and the corrected one blocks', async () => {
 		// The same week the previous test landed on: one of the two weeks after the engineered
 		// one carries the Slots' letter, and Monday's P1 is 9B/Sc1's Slot.
-		const todayIso = new Date().toISOString().slice(0, 10);
-		const monday = plusDays(todayIso, -((weekdayOf(todayIso) + 6) % 7));
+		const monday = mondayOf(new Date().toISOString().slice(0, 10));
 		for (const offset of [7, 14]) {
 			await page.goto(`/calendar?week=${plusDays(monday, offset)}`);
 			if ((await page.locator('[data-session-trigger]').count()) > 0) break;
