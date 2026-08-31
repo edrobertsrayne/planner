@@ -53,22 +53,36 @@ export function createdId(result: ActionResult, key: string): string | null {
 	return typeof id === 'string' ? id : null;
 }
 
+// A create-and-clear box must be ready for the next entry as soon as the write lands: Ed types a
+// name, presses Enter, and types the next one. A form reset leaves the box focused but with no
+// caret in Chrome, and `focus()` on the element that already holds focus does nothing — so the
+// box is emptied by hand, and the caret comes back only after a blur.
+export function readyForNext(input: HTMLInputElement | null): void {
+	if (!input) return;
+	input.value = '';
+	input.blur();
+	input.focus();
+}
+
 // Creating a Course, a Topic or a Lesson selects it: the three-pane Courses view is driven by the
 // query string, so the new row is opened by navigating to it. A failed create falls back to the
 // ordinary action handling, which puts the error on the page.
 export function createThenSelect(
 	key: string,
 	href: (id: string) => string,
-	focus?: () => void
+	input: () => HTMLInputElement | null
 ): SubmitFunction {
 	return () =>
-		async ({ formElement, result }) => {
+		async ({ result }) => {
 			const id = createdId(result, key);
 			if (id === null) return applyAction(result);
 
-			formElement.reset();
+			// The name just written must not sit in the box while the new row loads, and the caret
+			// goes back only once the panes have settled.
+			const box = input();
+			if (box) box.value = '';
 			await replaceQuery(href(id));
-			focus?.();
+			readyForNext(input());
 		};
 }
 

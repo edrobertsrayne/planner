@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { createThenSelect } from '$lib/client/enhance';
+	import { createThenSelect, readyForNext } from '$lib/client/enhance';
 	import XIcon from '@lucide/svelte/icons/x';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import ReorderButtons from '$lib/components/reorder-buttons.svelte';
@@ -53,7 +53,7 @@
 				use:enhance={createThenSelect(
 					'course',
 					(id) => `?course=${id}`,
-					() => courseNameInput?.focus()
+					() => courseNameInput
 				)}
 			>
 				<Input
@@ -96,7 +96,7 @@
 					use:enhance={createThenSelect(
 						'topic',
 						(id) => `?course=${data.course?.id}&topic=${id}`,
-						() => topicNameInput?.focus()
+						() => topicNameInput
 					)}
 				>
 					<input type="hidden" name="courseId" value={data.course.id} />
@@ -179,8 +179,10 @@
 					class="border-t px-6 py-3"
 					use:enhance={() => {
 						return async ({ update }) => {
-							await update();
-							lessonTitleInput?.focus();
+							// The box clears itself in `readyForNext`; a form reset here would leave it
+							// focused with no caret.
+							await update({ reset: false });
+							readyForNext(lessonTitleInput);
 						};
 					}}
 				>
