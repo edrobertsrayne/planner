@@ -8,7 +8,9 @@ import {
 	createCourse,
 	createLesson,
 	createTopic,
+	deleteCourse,
 	deleteLesson,
+	deleteTopic,
 	lessonDetail,
 	lessonsOf,
 	listCourses,
@@ -138,6 +140,30 @@ export const actions: Actions = {
 		if (!result.ok) {
 			if (result.reason === 'not found') return fail(404, { error: 'No such Lesson.' });
 			return fail(409, { error: 'This Lesson has already been taught and cannot be deleted.' });
+		}
+		return {};
+	},
+
+	deleteCourse: async ({ request }) => {
+		const data = await request.formData();
+		const id = trimmed(data, 'id');
+		const confirmed = trimmed(data, 'confirmed') === 'true';
+		const result = deleteCourse(db, id, { today: today(), confirmed });
+		if (!result.ok) {
+			if (result.reason === 'not found') return fail(404, { error: 'No such Course.' });
+			return fail(409, { error: result.reason, needsConfirm: result.needsConfirm });
+		}
+		return {};
+	},
+
+	deleteTopic: async ({ request }) => {
+		const data = await request.formData();
+		const id = trimmed(data, 'id');
+		const confirmed = trimmed(data, 'confirmed') === 'true';
+		const result = deleteTopic(db, id, { today: today(), confirmed });
+		if (!result.ok) {
+			if (result.reason === 'not found') return fail(404, { error: 'No such Topic.' });
+			return fail(409, { error: result.reason, needsConfirm: result.needsConfirm });
 		}
 		return {};
 	},

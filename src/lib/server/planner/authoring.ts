@@ -123,18 +123,38 @@ export function renameCourse(db: Db, { id, name }: { id: string; name: string })
 	return row;
 }
 
-export function deleteCourse(db: Db, id: string): { ok: false; reason: string } | { ok: true } {
-	const [course] = db.select().from(schema.course).where(eq(schema.course.id, id)).all();
-	if (!course) return { ok: false, reason: 'not found' };
-
-	const topics = db
-		.select({ id: schema.topic.id })
-		.from(schema.topic)
-		.where(eq(schema.topic.courseId, id))
+// Whether cascading into this Topic is blocked by something a confirmed delete cannot override:
+// the Topic assigned to a Class, or one of its Lessons already taught. Shared by deleteTopic's
+// own guard and deleteCourse's pre-flight over every Topic it is about to cascade into — checked
+// before either ever asks for confirmation, so a delete that can never succeed says so at once.
+function topicCascadeBlocker(db: Db, topicId: string, today: string): 'assigned' | 'taught' | null {
+	const assigned = db
+		.select({ id: schema.assignedTopic.id })
+		.from(schema.assignedTopic)
+		.where(eq(schema.assignedTopic.topicId, topicId))
 		.all();
-	if (topics.length > 0) {
-		return { ok: false, reason: 'This Course still holds Topics. Remove them first.' };
-	}
+	if (assigned.length > 0) return 'assigned';
+
+	const taught = lessonsOf(db, topicId).some(
+		(lesson) => classesTaughtLesson(db, { lessonId: lesson.id, today }).length > 0
+	);
+	if (taught) return 'taught';
+
+	return null;
+}
+
+// A Course with no Topics goes at once, same as today. A Course that still holds Topics is
+// refused until the caller confirms (issue: Course/Topic delete parity with Lesson delete) —
+// then every Topic, and every Lesson each holds, goes with it. A Class following the Course, or
+// a Topic anywhere underneath that is assigned to a Class or holds an already-taught Lesson,
+// refuses unconditionally: confirming never overrides those.
+export function deleteCourse(
+	db: Db,
+	id: string,
+	{ today, confirmed = false }: { today: string; confirmed?: boolean }
+): { ok: false; reason: string; needsConfirm: boolean } | { ok: true } {
+	const [course] = db.select().from(schema.course).where(eq(schema.course.id, id)).all();
+	if (!course) return { ok: false, reason: 'not found', needsConfirm: false };
 
 	const classes = db
 		.select({ id: schema.classes.id })
@@ -142,7 +162,45 @@ export function deleteCourse(db: Db, id: string): { ok: false; reason: string } 
 		.where(eq(schema.classes.courseId, id))
 		.all();
 	if (classes.length > 0) {
-		return { ok: false, reason: 'A Class follows this Course, so it cannot be removed.' };
+		return {
+			ok: false,
+			reason: 'A Class follows this Course, so it cannot be removed.',
+			needsConfirm: false
+		};
+	}
+
+	const topics = topicsOf(db, id);
+	for (const topic of topics) {
+		const blocker = topicCascadeBlocker(db, topic.id, today);
+		if (blocker === 'assigned') {
+			return {
+				ok: false,
+				reason: 'A Topic in this Course is assigned to a Class, so it cannot be removed.',
+				needsConfirm: false
+			};
+		}
+		if (blocker === 'taught') {
+			return {
+				ok: false,
+				reason:
+					'A Topic in this Course holds a Lesson that has already been taught, so it cannot be removed.',
+				needsConfirm: false
+			};
+		}
+	}
+
+	if (topics.length > 0) {
+		if (!confirmed) {
+			return {
+				ok: false,
+				reason: 'This Course still holds Topics. Remove them first.',
+				needsConfirm: true
+			};
+		}
+		for (const topic of topics) {
+			const result = deleteTopic(db, topic.id, { today, confirmed: true });
+			if (!result.ok) return result;
+		}
 	}
 
 	db.delete(schema.course).where(eq(schema.course.id, id)).run();
@@ -174,26 +232,44 @@ export function renameTopic(db: Db, { id, name }: { id: string; name: string }) 
 	return row;
 }
 
-export function deleteTopic(db: Db, id: string): { ok: false; reason: string } | { ok: true } {
+// A Topic with no Lessons goes at once, same as today. A Topic that still holds Lessons is
+// refused until the caller confirms — then every Lesson it holds goes with it, the same way
+// deleteLesson would remove each on its own. Assigned to a Class, or holding an already-taught
+// Lesson, refuses unconditionally: confirming never overrides those.
+export function deleteTopic(
+	db: Db,
+	id: string,
+	{ today, confirmed = false }: { today: string; confirmed?: boolean }
+): { ok: false; reason: string; needsConfirm: boolean } | { ok: true } {
 	const [topic] = db.select().from(schema.topic).where(eq(schema.topic.id, id)).all();
-	if (!topic) return { ok: false, reason: 'not found' };
+	if (!topic) return { ok: false, reason: 'not found', needsConfirm: false };
 
-	const lessons = db
-		.select({ id: schema.lesson.id })
-		.from(schema.lesson)
-		.where(eq(schema.lesson.topicId, id))
-		.all();
-	if (lessons.length > 0) {
-		return { ok: false, reason: 'This Topic still holds Lessons. Remove or detach them first.' };
+	const blocker = topicCascadeBlocker(db, id, today);
+	if (blocker === 'assigned') {
+		return {
+			ok: false,
+			reason: 'This Topic is assigned to a Class, so it cannot be removed.',
+			needsConfirm: false
+		};
+	}
+	if (blocker === 'taught') {
+		return {
+			ok: false,
+			reason: 'This Topic holds a Lesson that has already been taught, so it cannot be removed.',
+			needsConfirm: false
+		};
 	}
 
-	const assigned = db
-		.select({ id: schema.assignedTopic.id })
-		.from(schema.assignedTopic)
-		.where(eq(schema.assignedTopic.topicId, id))
-		.all();
-	if (assigned.length > 0) {
-		return { ok: false, reason: 'This Topic is assigned to a Class, so it cannot be removed.' };
+	const lessons = lessonsOf(db, id);
+	if (lessons.length > 0) {
+		if (!confirmed) {
+			return {
+				ok: false,
+				reason: 'This Topic still holds Lessons. Remove or detach them first.',
+				needsConfirm: true
+			};
+		}
+		for (const lesson of lessons) deleteLesson(db, { id: lesson.id, today });
 	}
 
 	db.delete(schema.topic).where(eq(schema.topic.id, id)).run();
