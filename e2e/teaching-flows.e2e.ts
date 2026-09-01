@@ -287,6 +287,14 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		// Enter, which is what lets a run of Lessons go in without touching the mouse.
 		const nextLesson = page.getByPlaceholder('New Lesson title — press Enter');
 		await nextLesson.click();
+		// A caret is not visible to the suite, but the focus loss that kills it is: the box must not
+		// blur once between the nine Enters.
+		await nextLesson.evaluate((box: HTMLInputElement) => {
+			box.dataset.blurs = '0';
+			box.addEventListener('focusout', () => {
+				box.dataset.blurs = String(Number(box.dataset.blurs) + 1);
+			});
+		});
 		for (let i = 1; i <= 9; i++) {
 			await expect(nextLesson).toBeFocused();
 			await expect(nextLesson).toHaveValue('');
@@ -296,6 +304,7 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 				page.getByRole('link', { name: `Extra Lesson ${i}`, exact: true })
 			).toBeVisible();
 		}
+		await expect(nextLesson).toHaveAttribute('data-blurs', '0');
 
 		await page.goto('/planning');
 

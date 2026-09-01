@@ -1,10 +1,10 @@
-// What `use:enhance` does on this app's forms. Three shapes cover every form: refresh the page
-// data, toast the server's reason on a refusal, and create-then-select.
+// What `use:enhance` does on this app's forms. Four shapes cover every form: refresh the page
+// data, toast the server's reason on a refusal, create in place, and create-then-select.
 //
 // A form action's `result.data` is typed as a loose record, so each of these narrows it in one
 // place rather than casting at the call site.
 import { applyAction } from '$app/forms';
-import { goto } from '$app/navigation';
+import { goto, invalidateAll } from '$app/navigation';
 import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 import { toast } from 'svelte-sonner';
 
@@ -53,15 +53,17 @@ export function createdId(result: ActionResult, key: string): string | null {
 	return typeof id === 'string' ? id : null;
 }
 
-// A create-and-clear box must be ready for the next entry as soon as the write lands: Ed types a
-// name, presses Enter, and types the next one. A form reset leaves the box focused but with no
-// caret in Chrome, and `focus()` on the element that already holds focus does nothing — so the
-// box is emptied by hand, and the caret comes back only after a blur.
-export function readyForNext(input: HTMLInputElement | null): void {
-	if (!input) return;
-	input.value = '';
-	input.blur();
-	input.focus();
+// A create box that stays where it is: the new row appears in the list above it, and the box is
+// ready for the next entry. `applyAction` ends a success with SvelteKit's own `reset_focus`, which
+// takes the caret out of the box — so a success refreshes the data and nothing else, and only a
+// refusal goes through the ordinary action handling to put its reason on the page.
+export function createInPlace(clear: () => void): SubmitFunction {
+	return () =>
+		async ({ result }) => {
+			if (result.type !== 'success') return applyAction(result);
+			clear();
+			await invalidateAll();
+		};
 }
 
 // Creating a Course, a Topic or a Lesson selects it: the three-pane Courses view is driven by the
@@ -70,19 +72,17 @@ export function readyForNext(input: HTMLInputElement | null): void {
 export function createThenSelect(
 	key: string,
 	href: (id: string) => string,
-	input: () => HTMLInputElement | null
+	clear: () => void
 ): SubmitFunction {
 	return () =>
 		async ({ result }) => {
 			const id = createdId(result, key);
 			if (id === null) return applyAction(result);
 
-			// The name just written must not sit in the box while the new row loads, and the caret
-			// goes back only once the panes have settled.
-			const box = input();
-			if (box) box.value = '';
+			// The name just written must not sit in the box while the new row loads. The caret stays
+			// where it is: `NAVIGATION` keeps the focus, so nothing blurs the box.
+			clear();
 			await replaceQuery(href(id));
-			readyForNext(input());
 		};
 }
 
