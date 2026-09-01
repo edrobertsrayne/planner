@@ -15,6 +15,7 @@ import {
 	moveAssignedTopic,
 	takeSlot,
 	clearSlot,
+	renameClass,
 	topicsOf,
 	unassignTopic
 } from '$lib/server/planner';
@@ -48,6 +49,20 @@ export const load: PageServerLoad = ({ params, url }) => {
 };
 
 export const actions: Actions = {
+	renameClass: async ({ request }) => {
+		const data = await request.formData();
+		const id = trimmed(data, 'id');
+		const label = trimmed(data, 'label');
+		if (!label) return fail(400, { error: 'A Class needs a label.' });
+		try {
+			const cls = renameClass(db, { id, label });
+			if (!cls) return fail(404, { error: 'No such Class.' });
+			return { class: cls };
+		} catch (error) {
+			return badRequest(error, 'Could not rename the Class.');
+		}
+	},
+
 	toggleSlot: async ({ request }) => {
 		const data = await request.formData();
 		const classId = trimmed(data, 'classId');

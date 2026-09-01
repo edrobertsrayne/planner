@@ -23,6 +23,18 @@ export function createClass(db: Db, { label, courseId }: { label: string; course
 	return row;
 }
 
+// Changes a Class's label only — its Course and Tone are fixed at creation and untouched here.
+export function renameClass(db: Db, { id, label }: { id: string; label: string }) {
+	const trimmed = label.trim();
+	const [row] = db
+		.update(schema.classes)
+		.set({ label: trimmed })
+		.where(eq(schema.classes.id, id))
+		.returning()
+		.all();
+	return row;
+}
+
 // Every Class, alphabetical — what classLanes and the Class page's create form read.
 export function listClasses(db: Db) {
 	return db

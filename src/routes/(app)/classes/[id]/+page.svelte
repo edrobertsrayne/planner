@@ -3,6 +3,7 @@
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import { replaceQuery } from '$lib/client/enhance';
 	import { formatDate } from '$lib/date';
+	import RenameableRow from '$lib/components/renameable-row.svelte';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
@@ -51,6 +52,10 @@
 		<ChevronLeftIcon class="size-3" />Classes
 	</a>
 
+	{#if form?.error}
+		<p role="alert" class="mt-3 text-xs text-destructive">{form.error}</p>
+	{/if}
+
 	<div class="mt-3 grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
 		<section class="min-w-0">
 			<div class="flex flex-wrap items-baseline justify-between gap-2">
@@ -85,10 +90,6 @@
 			</div>
 
 			<div class="mt-3 rounded-xl border p-4">
-				{#if form?.error}
-					<p role="alert" class="mb-3 text-xs text-destructive">{form.error}</p>
-				{/if}
-
 				<TimetableGrid
 					classId={data.class.id}
 					classLabel={data.class.label}
@@ -124,7 +125,13 @@
 
 		<aside class="space-y-5 lg:sticky lg:top-6 lg:self-start">
 			<div>
-				<h1 class="text-lg font-semibold tracking-tight">{data.class.label}</h1>
+				<RenameableRow
+					name={data.class.label}
+					action="?/renameClass"
+					hidden={{ id: data.class.id }}
+					field="label"
+					heading
+				/>
 				<Badge variant="outline" class="mt-1">{data.class.courseName}</Badge>
 				<p class="mt-2 text-xs text-muted-foreground">
 					The Course is fixed at creation — a mis-pick means deleting the Class and starting again.
