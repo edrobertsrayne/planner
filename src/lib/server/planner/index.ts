@@ -42,6 +42,7 @@ export {
 	createClass,
 	listClasses,
 	moveAssignedTopic,
+	renameClass,
 	unassignTopic,
 	type ClassLane
 } from './classes';

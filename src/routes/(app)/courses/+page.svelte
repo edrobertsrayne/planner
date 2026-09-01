@@ -6,9 +6,9 @@
 	import ReorderButtons from '$lib/components/reorder-buttons.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
+	import RenameableRow from '$lib/components/renameable-row.svelte';
 	import ConfirmDeleteDialog from './ConfirmDeleteDialog.svelte';
 	import LessonEditor from './LessonEditor.svelte';
-	import RenameableRow from './RenameableRow.svelte';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
