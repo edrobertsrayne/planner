@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { createThenSelect, readyForNext } from '$lib/client/enhance';
+	import { createInPlace, createThenSelect } from '$lib/client/enhance';
 	import XIcon from '@lucide/svelte/icons/x';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import ReorderButtons from '$lib/components/reorder-buttons.svelte';
@@ -13,9 +13,10 @@
 
 	let { data, form }: PageProps = $props();
 
-	let courseNameInput: HTMLInputElement | null = $state(null);
-	let topicNameInput: HTMLInputElement | null = $state(null);
-	let lessonTitleInput: HTMLInputElement | null = $state(null);
+	// Each create box clears itself once the write lands, so the next name can be typed straight in.
+	let newCourseName = $state('');
+	let newTopicName = $state('');
+	let newLessonTitle = $state('');
 
 	// A Course or Topic that still holds children — the delete form submits unconfirmed first;
 	// the server answers `needsConfirm` rather than deleting, and this opens the dialog instead
@@ -89,11 +90,11 @@
 				use:enhance={createThenSelect(
 					'course',
 					(id) => `?course=${id}`,
-					() => courseNameInput
+					() => (newCourseName = '')
 				)}
 			>
 				<Input
-					bind:ref={courseNameInput}
+					bind:value={newCourseName}
 					name="name"
 					required
 					autocomplete="off"
@@ -162,12 +163,12 @@
 					use:enhance={createThenSelect(
 						'topic',
 						(id) => `?course=${data.course?.id}&topic=${id}`,
-						() => topicNameInput
+						() => (newTopicName = '')
 					)}
 				>
 					<input type="hidden" name="courseId" value={data.course.id} />
 					<Input
-						bind:ref={topicNameInput}
+						bind:value={newTopicName}
 						name="name"
 						required
 						autocomplete="off"
@@ -243,18 +244,11 @@
 					method="POST"
 					action="?/createLesson"
 					class="border-t px-6 py-3"
-					use:enhance={() => {
-						return async ({ update }) => {
-							// The box clears itself in `readyForNext`; a form reset here would leave it
-							// focused with no caret.
-							await update({ reset: false });
-							readyForNext(lessonTitleInput);
-						};
-					}}
+					use:enhance={createInPlace(() => (newLessonTitle = ''))}
 				>
 					<input type="hidden" name="topicId" value={data.topic.id} />
 					<Input
-						bind:ref={lessonTitleInput}
+						bind:value={newLessonTitle}
 						name="title"
 						required
 						autocomplete="off"
