@@ -118,13 +118,16 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		await page.getByRole('option', { name: 'Forces' }).click();
 
 		await page.goto(`/classes/${classBId}`);
-		// Tuesday P3 — a day classA leaves untouched. The cells are positions, not dates (see
-		// above), so any weekday does; this one needs no real-date arithmetic at all.
-		await page
-			.getByRole('button', {
-				name: new RegExp(`^Week ${letter} Tue P3 — empty`)
-			})
-			.click();
+		// Tuesday P3 — a day classA leaves untouched — in BOTH letters, so whatever the run
+		// date, a Tuesday sits within the Agenda's This Week horizon, and the week the Calendar
+		// test loads always carries one. The cells are positions, not dates (see above).
+		for (const week of ['A', 'B'] as const) {
+			await page
+				.getByRole('button', {
+					name: new RegExp(`^Week ${week} Tue P3 — empty`)
+				})
+				.click();
+		}
 
 		// A Session dated before today — the only way "Last taught" is ever populated (there is
 		// no way to create one through the UI, since the Class page refuses to edit the
@@ -185,9 +188,13 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 	});
 
 	test('opening a Session from the Calendar, and dismissing it by Escape', async () => {
-		await page.goto('/calendar');
+		// A Slot dated before today is on no stream — scheduled and openSlots both cut at today —
+		// so the Calendar offers an Open Slot only from its date onward. 9C/Sc1's Slot is
+		// Tuesday P3 in both letters, so load the week of the next Tuesday: this week's grid
+		// early in the week, next week's from Wednesday on.
+		const tuesday = (2 - new Date().getUTCDay() + 7) % 7;
+		await page.goto(`/calendar?week=${isoDate(tuesday - 1)}`);
 		await page.getByRole('button', { name: '9C/Sc1 Open Slot' }).click();
-
 		await openSessionAndExpect(page);
 		await expect(page.locator('[data-session-panel]')).toContainText('9C/Sc1');
 

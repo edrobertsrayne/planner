@@ -356,15 +356,16 @@ test.describe.serial('the Calendar setup mode', () => {
 		// 9B/Sc1's Slot. The day menu is the only door to blocking: its "Block one Slot"
 		// heading lists the day's Periods, one line per real Slot.
 		const monday = mondayOf(new Date().toISOString().slice(0, 10));
+		const cell = page.locator('tbody tr').first().locator('td').first();
 		for (const offset of [7, 14]) {
 			await page.goto(`/calendar?week=${plusDays(monday, offset)}`);
-			if ((await page.locator('[data-session-trigger]').count()) > 0) break;
+			// Monday P1 is 9B/Sc1's Slot, and 9C/Sc1 tiles Tuesdays in both letters — so the
+			// probe is the one cell the test acts on, not any tile on the page.
+			if ((await cell.locator('[data-session-trigger]').count()) > 0) break;
 		}
 		// One of the two weeks carries the Slots' letter; if neither does, fail here, at the
 		// cause, not later in a menu that never opens.
-		await expect(page.locator('[data-session-trigger]').first()).toBeVisible();
-
-		const cell = page.locator('tbody tr').first().locator('td').first();
+		await expect(cell.locator('[data-session-trigger]')).toBeVisible();
 
 		await openDayMenu('Mon');
 		await page.getByRole('menuitem', { name: '9B/Sc1, P1…' }).click();
@@ -409,13 +410,14 @@ test.describe.serial('the Calendar setup mode', () => {
 		// The same week the previous test landed on: one of the two weeks after the engineered
 		// one carries the Slots' letter, and Monday's P1 is 9B/Sc1's Slot.
 		const monday = mondayOf(new Date().toISOString().slice(0, 10));
+		const cell = page.locator('tbody tr').first().locator('td').first();
 		for (const offset of [7, 14]) {
 			await page.goto(`/calendar?week=${plusDays(monday, offset)}`);
-			if ((await page.locator('[data-session-trigger]').count()) > 0) break;
+			// Monday P1 is 9B/Sc1's Slot, and 9C/Sc1 tiles Tuesdays in both letters — so the
+			// probe is the one cell the test acts on, not any tile on the page.
+			if ((await cell.locator('[data-session-trigger]').count()) > 0) break;
 		}
-		await expect(page.locator('[data-session-trigger]').first()).toBeVisible();
-
-		const cell = page.locator('tbody tr').first().locator('td').first();
+		await expect(cell.locator('[data-session-trigger]')).toBeVisible();
 		const note = page.getByRole('textbox', { name: 'Block 9B/Sc1, P1' });
 
 		// A pick is for the week it was made in: walking to the neighbouring week and back
