@@ -393,8 +393,14 @@
 				// Stored: {lessonId, date, slotId}. The Slot leaves the engine's Available Slot
 				// stream; the occasion names its Lesson directly. Length is resolved at derivation
 				// time by taking the next Available Slots after it.
+				//
+				// The stored Slot is an anchor, not a reservation: the placement takes the first
+				// Available Slot at or after it, so blocking the day it lands on shift-rights the
+				// placement exactly as it shift-rights everything else. Nothing is ever orphaned.
 				function deriveA(state, stream, parts) {
 					const warnings = [];
+					// Reported, not broken: what the teacher should be told happened.
+					const notes = [];
 					const consumed = new Set();
 					const rows = [];
 					// A placement dated before the boundary is part of the record, like every other
@@ -403,13 +409,21 @@
 						.filter((p) => p.date >= state.boundary)
 						.sort((a, b) => (a.date < b.date ? -1 : 1))) {
 						const lesson = lessonOf(p.lessonId);
-						const at = stream.findIndex((s) => s.date === p.date && s.slotId === p.slotId);
+						const anchor = SLOTS.find((s) => s.id === p.slotId);
+						const at = stream.findIndex(
+							(s) =>
+								s.date > p.date || (s.date === p.date && s.period >= (anchor?.period ?? 0))
+						);
 						if (at < 0) {
 							warnings.push(
-								`${titleOf(p.lessonId)} is placed on ${fmt(p.date)}, which is no longer an Available Slot for this Class. The placement has nowhere to go.`
+								`${titleOf(p.lessonId)} is anchored to ${fmt(p.date)}, and the year holds no Available Slot on or after it.`
 							);
 							continue;
 						}
+						if (stream[at].date !== p.date || stream[at].slotId !== p.slotId)
+							notes.push(
+								`${titleOf(p.lessonId)} was placed on ${fmt(p.date)} and that Slot is no longer Available, so it moved right to ${fmt(stream[at].date)} P${stream[at].period} — the next Available Slot.`
+							);
 						const run = [];
 						for (let i = at; i < stream.length && run.length < lesson.length; i++)
 							if (!consumed.has(key(stream[i]))) run.push(stream[i]);
@@ -434,7 +448,8 @@
 						rows: [...rows, ...sessions].sort(byOccasion),
 						unplaced,
 						openSlots,
-						warnings
+						warnings,
+						notes
 					};
 				}
 
@@ -595,7 +610,8 @@
 							...mech,
 							...result,
 							history,
-							runway: result.openSlots[0]?.date ?? null
+							runway: result.openSlots[0]?.date ?? null,
+							notes: result.notes ?? []
 						};
 					}
 					return out;
@@ -828,6 +844,31 @@
 						['Move today past it, to the fourth Slot', () => ({ type: 'advance', date: nth(3).date })],
 						['Forces 3 needs more time', () => ({ type: 'continue', lessonId: 'F3' })]
 					]
+				},
+				{
+					title: '9. The placed day is blocked',
+					blurb: 'Place Revision, then block the very day it lands on. The placement must not be lost and must not stay on a day the Class is not taught: it moves right to the next Available Slot, like every other disruption. Unblock the day and it comes back.',
+					steps: [
+						['Start again', () => ({ type: 'reset' })],
+						[
+							'Place Revision on the fourth Slot',
+							() => ({ type: 'place', lessonId: 'REV', ...nth(3) })
+						],
+						['Block the day it lands on', () => ({ type: 'blockDay', date: nth(3).date })],
+						['Unblock that day again', () => ({ type: 'unblockDay', date: nth(3).date })]
+					]
+				},
+				{
+					title: '10. A day before it is blocked',
+					blurb: 'The same placement, but this time block an earlier day. The Topic Lessons before the placement shift right onto it, and the placement itself must keep the date it was given: it is anchored to a day the teacher chose, not queued behind the Topic.',
+					steps: [
+						['Start again', () => ({ type: 'reset' })],
+						[
+							'Place Revision on the fourth Slot',
+							() => ({ type: 'place', lessonId: 'REV', ...nth(3) })
+						],
+						['Block the second Slot’s day', () => ({ type: 'blockDay', date: nth(1).date })]
+					]
 				}
 			];
 
@@ -904,6 +945,7 @@
 								<div class="verdict ${broken ? 'broken' : ''}">
 									<strong>${broken ? 'Something broke' : 'Nothing broke'}</strong>
 									${broken ? `<ul>${result.warnings.map((w) => `<li>${w}</li>`).join('')}</ul>` : ''}
+									${result.notes.length ? `<ul>${result.notes.map((n) => `<li>Reported to the teacher: ${n}</li>`).join('')}</ul>` : ''}
 								</div>
 								${rowsTable(result)}
 							</div>`;

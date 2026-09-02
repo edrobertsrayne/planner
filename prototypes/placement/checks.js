@@ -178,4 +178,47 @@ function report(title, state, note) {
 	}
 }
 
+// 9. The day the placement lands on is blocked: it shift-rights rather than being orphaned.
+{
+	const placed = nth(3);
+	const blocked = run([
+		{ type: 'place', lessonId: 'REV', ...placed },
+		{ type: 'blockDay', date: placed.date }
+	]);
+	const derived = report(`9. The placed day (${placed.date}) is blocked`, blocked);
+	for (const id of MECHS) {
+		const landed = at(upcoming(derived[id], blocked), 'REV');
+		console.log(
+			`     ${id}: Revision is now ${where(landed)}; still in the plan: ${Boolean(landed)}; still on the Blocked Day: ${landed?.date === placed.date}`
+		);
+	}
+	const restored = run([
+		{ type: 'place', lessonId: 'REV', ...placed },
+		{ type: 'blockDay', date: placed.date },
+		{ type: 'unblockDay', date: placed.date }
+	]);
+	const back = MODEL.derive(restored);
+	for (const id of MECHS)
+		console.log(
+			`     ${id}: unblocked again, Revision is back at ${where(at(upcoming(back[id], restored), 'REV'))} (placed on ${placed.date} P${placed.period})`
+		);
+}
+
+// 10. A day before the placement is blocked: the placement keeps its own date.
+{
+	const placed = nth(3);
+	const state = run([
+		{ type: 'place', lessonId: 'REV', ...placed },
+		{ type: 'blockDay', date: nth(1).date }
+	]);
+	const derived = report(`10. An earlier day (${nth(1).date}) is blocked`, state);
+	for (const id of MECHS) {
+		const rows = upcoming(derived[id], state);
+		const landed = at(rows, 'REV');
+		console.log(
+			`     ${id}: Revision kept its date: ${landed?.date === placed.date} (${where(landed)}); the Topic Lesson now before it is ${MODEL.titleOf(rows[rows.indexOf(landed) - 1]?.lessonId)}`
+		);
+	}
+}
+
 console.log('');
