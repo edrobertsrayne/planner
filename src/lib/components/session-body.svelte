@@ -1,16 +1,24 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
+	import { page } from '$app/state';
 	import { toast } from 'svelte-sonner';
 	import { formatWeekday } from '$lib/date';
 	import type { Occasion } from '$lib/client/session-panel.svelte';
 	import { createSessionNotes } from '$lib/client/session-note';
 	import type { AtRiskSession, SessionDetail } from '$lib/server/planner';
+	import { protoTagsFor, protoTagColor } from '$lib/prototype-lesson-tags';
 	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
 	import { Textarea } from '$lib/components/ui/textarea';
+	import TagIcon from '@lucide/svelte/icons/tag';
 
+	// PROTOTYPE ONLY (issue #232) — reads the same `?tagVariant=` param as the Agenda prototype
+	// (+page.svelte) so flipping the switcher on either screen updates both at once. No Lesson
+	// id reaches this panel today (SessionDetail#lesson carries no id), so the fake tags here
+	// hash the Lesson's title instead — good enough to judge the rendering, not the data model.
+	const tagVariant = $derived(page.url.searchParams.get('tagVariant') ?? 'A');
 	// The one body every entry point renders (issue #88): plan first — the Lesson is the subject —
 	// with "How it went" beneath it.
 	let { occasion }: { occasion: Occasion } = $props();
@@ -116,9 +124,37 @@
 	<Separator class="my-4" />
 
 	{#if detail.lesson}
-		<h2 class="text-lg leading-snug font-semibold">{detail.lesson.title}</h2>
+		{@const tags = protoTagsFor(detail.lesson.title)}
+		<h2 class="flex items-center gap-1.5 text-lg leading-snug font-semibold">
+			<span class="truncate">{detail.lesson.title}</span>
+			{#if tagVariant === 'C' && tags.length}
+				<span
+					class="inline-flex shrink-0 items-center gap-0.5 text-xs font-normal text-muted-foreground"
+					title={tags.join(', ')}
+				>
+					<TagIcon class="size-3" />
+					{tags.length}
+				</span>
+			{/if}
+		</h2>
 		{#if detail.lesson.topicName}
 			<p class="mt-1 text-xs text-muted-foreground">{detail.lesson.topicName}</p>
+		{/if}
+		{#if tagVariant === 'A' && tags.length}
+			<span class="mt-2 flex flex-wrap items-center gap-1">
+				{#each tags as tag (tag)}
+					{@const color = protoTagColor(tag)}
+					<span
+						class="h-fit shrink-0 rounded-2xl px-2 py-0.5 text-[10px] font-medium"
+						style:background-color={color.bg}
+						style:color={color.fg}
+					>
+						{tag}
+					</span>
+				{/each}
+			</span>
+		{:else if tagVariant === 'B' && tags.length}
+			<p class="mt-1 text-xs text-muted-foreground/80">{tags.join(' · ')}</p>
 		{/if}
 
 		{#if detail.lesson.body}
