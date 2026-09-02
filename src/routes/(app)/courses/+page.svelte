@@ -1,11 +1,15 @@
 <script lang="ts">
+	import { dev } from '$app/environment';
 	import { enhance } from '$app/forms';
+	import { page } from '$app/state';
 	import { createInPlace, createThenSelect } from '$lib/client/enhance';
 	import XIcon from '@lucide/svelte/icons/x';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import ReorderButtons from '$lib/components/reorder-buttons.svelte';
+	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
+	import PrototypeSwitcher from '$lib/components/prototype-switcher.svelte';
 	import RenameableRow from '$lib/components/renameable-row.svelte';
 	import ConfirmDeleteDialog from './ConfirmDeleteDialog.svelte';
 	import LessonEditor from './LessonEditor.svelte';
@@ -22,6 +26,27 @@
 	// the server answers `needsConfirm` rather than deleting, and this opens the dialog instead
 	// of showing the plain error banner.
 	let pendingDelete = $state<{ kind: 'course' | 'topic'; id: string; name: string } | null>(null);
+
+	// PROTOTYPE ONLY (issue #214) — Tag doesn't exist in the schema yet, so tags here are
+	// deterministically faked from the Lesson id, purely to judge the Courses-list rendering.
+	// Drop this whole block, the variant markup below, and the switcher once a variant wins.
+	const PROTO_TAGS = ['Practical', 'Demonstration', 'Trip', 'Assessment'];
+	function protoTagsFor(lessonId: string): string[] {
+		let hash = 0;
+		for (const ch of lessonId) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+		const count = hash % 3; // 0, 1 or 2 tags — most Lessons stay untagged
+		return Array.from(
+			new Set(
+				Array.from({ length: count }, (_, i) => PROTO_TAGS[(hash >>> (i + 2)) % PROTO_TAGS.length])
+			)
+		);
+	}
+	const variant = $derived(page.url.searchParams.get('variant') ?? 'A');
+	const PROTO_VARIANTS = [
+		{ key: 'A', label: 'Text chips' },
+		{ key: 'B', label: 'Colour dots' },
+		{ key: 'C', label: 'Count badge' }
+	];
 </script>
 
 <svelte:head><title>Courses</title></svelte:head>
@@ -196,7 +221,8 @@
 
 				<ol class="flex-1 divide-y overflow-y-auto">
 					{#each data.lessons as lesson, i (lesson.id)}
-						<li class="group flex items-baseline gap-3 pl-2">
+						{@const tags = protoTagsFor(lesson.id)}
+						<li class="group flex items-center gap-3 pl-2">
 							<span class="w-6 shrink-0 pl-4 font-mono text-xs text-muted-foreground/60">
 								{i + 1}
 							</span>
@@ -210,6 +236,35 @@
 									field="title"
 								/>
 							</div>
+
+							<!-- PROTOTYPE ONLY (issue #214): three Tag-rendering variants for the
+							     Courses-list "at a glance" scan. Drop all three once one wins. -->
+							{#if variant === 'A'}
+								<span class="flex shrink-0 flex-wrap items-center justify-end gap-1 pr-1">
+									{#each tags as tag (tag)}
+										<Badge variant="outline" class="text-[10px] text-muted-foreground">{tag}</Badge>
+									{/each}
+								</span>
+							{:else if variant === 'B'}
+								<span class="flex shrink-0 items-center gap-1 pr-2" title={tags.join(', ')}>
+									{#each tags as tag (tag)}
+										{@const hue = (tag.charCodeAt(0) * 47) % 360}
+										<span
+											class="size-2.5 rounded-full"
+											style:background-color="hsl({hue} 70% 55%)"
+											aria-hidden="true"
+										></span>
+									{/each}
+								</span>
+							{:else if variant === 'C' && tags.length}
+								<span
+									class="shrink-0 pr-1 text-[10px] text-muted-foreground"
+									title={tags.join(', ')}
+								>
+									{tags.length} tag{tags.length === 1 ? '' : 's'}
+								</span>
+							{/if}
+
 							<span
 								class="flex shrink-0 items-center gap-0.5 pr-2 opacity-0 group-hover:opacity-100"
 							>
@@ -281,6 +336,10 @@
 		hrefFor={(lessonId, topicId) =>
 			`?course=${courseId}&topic=${topicId}${lessonId ? `&lesson=${lessonId}` : ''}`}
 	/>
+{/if}
+
+{#if dev}
+	<PrototypeSwitcher variants={PROTO_VARIANTS} current={variant} />
 {/if}
 
 <ConfirmDeleteDialog
