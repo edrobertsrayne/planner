@@ -80,10 +80,11 @@ export function makeLessons(
 }
 
 // Course/Topic/Lesson authoring needs no calendar, no Class and no Slot — a bare migrated
-// database is enough, so this skips the heavy setUp() above.
+// database is enough, so this skips the heavy setUp() above. The temp directory comes back too:
+// attachment storage writes its files beside the database, so its tests assert them there.
 export function setUpAuthoring() {
 	dir = mkdtempSync(join(tmpdir(), 'planner-authoring-'));
 	const { client, db } = openDatabase(join(dir, 'test.db'));
 	runMigrations(client, 'drizzle');
-	return { db, client };
+	return { db, client, dir };
 }
