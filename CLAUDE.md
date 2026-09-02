@@ -62,6 +62,11 @@ not one.
 
 When Claude in Chrome is not available, drive the browser with `Bun.WebView` — the headless browser built into the Bun runtime. It navigates, clicks, types, and takes screenshots. See <https://bun.com/docs/runtime/webview.md>.
 
+## Prototyping
+
+Disable the auth guard for a prototype, unless the prototype is testing the authentication
+pages themselves. This keeps the prototype easy for a non-developer to open and use.
+
 ## Communication style
 
 - Give brief context before the main point. Do not jump straight to the answer with no lead-in.
