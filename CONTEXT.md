@@ -37,10 +37,10 @@ addressed by its identity and never by its title.
 _Avoid_: Period, session, class
 
 **Standalone Lesson**:
-A Lesson belonging to no Topic. It sits in no Course, so it reaches no Class's Lesson stream and
-is never Scheduled, but every Session that already taught it still names it. This is what lets a
-taught Lesson leave the plan without erasing what a Class was taught (ADR-0015).
-_Avoid_: Orphan, archived Lesson, deleted Lesson, loose Lesson
+A Lesson belonging to no Topic. It sits in no Course, so no Class's Assigned Topics reach it, and
+it takes a date only by being Placed. Every Session that already taught it still names it. This is
+what lets a taught Lesson leave the plan without erasing what a Class was taught (ADR-0015).
+_Avoid_: Orphan, archived Lesson, deleted Lesson, loose Lesson, ad-hoc Lesson, one-off Lesson
 
 **Detach**:
 Removing a Lesson from its Topic, making it a Standalone Lesson. The Lesson keeps its title, body,
@@ -121,6 +121,16 @@ The place where anything class-specific lives, including notes on how the teachi
 A Session is identified by its occasion — Class, date and Period — not by its Lesson, so notes
 stay put when a Rewind changes which Lesson that occasion carried.
 _Avoid_: Teaching period, occurrence, instance, event
+
+**Placement**:
+One Standalone Lesson put on one Class on one date the teacher chooses, with no Topic behind it.
+To **Place** is to make one; the reverse is to remove it, which leaves the Lesson standing as a
+Standalone Lesson. A Placement is anchored to the date and Slot chosen and takes the first
+Available Slot at or after it, so it shifts right when that Slot stops being Available, and
+returns when the Slot is Available again. It consumes the Slot it takes, so the Class's Assigned
+Topics move on past it. Made for today or a later date, never a past one.
+_Avoid_: Insertion, injection, ad-hoc Lesson, one-off Lesson, pinned Session, placed Slot,
+reservation, pin, lock, unplace, cancel
 
 **Timetable**:
 The full recurring pattern of Slots across the two-week cycle.
