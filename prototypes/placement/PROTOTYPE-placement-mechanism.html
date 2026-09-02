@@ -1,0 +1,1021 @@
+<!doctype html>
+<html lang="en-GB">
+	<head>
+		<meta charset="utf-8" />
+		<title>PROTOTYPE — placing a Lesson outside a Topic onto a Class</title>
+		<style>
+			:root {
+				--ink: #16181d;
+				--dim: #666c78;
+				--line: #dcdfe6;
+				--accent: #1f6f5c;
+				--bad: #a3341f;
+				--paper: #fbfbfa;
+			}
+			* {
+				box-sizing: border-box;
+			}
+			body {
+				margin: 0;
+				padding: 32px clamp(16px, 4vw, 56px) 96px;
+				font:
+					15px/1.55 -apple-system,
+					BlinkMacSystemFont,
+					'Segoe UI',
+					Roboto,
+					sans-serif;
+				color: var(--ink);
+				background: var(--paper);
+			}
+			h1 {
+				font-size: 24px;
+				margin: 0 0 6px;
+			}
+			h2 {
+				font-size: 15px;
+				text-transform: uppercase;
+				letter-spacing: 0.08em;
+				color: var(--dim);
+				margin: 36px 0 12px;
+			}
+			p.lede {
+				max-width: 62ch;
+				margin: 0 0 6px;
+			}
+			.mono {
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+				font-size: 13px;
+			}
+			.panel {
+				background: #fff;
+				border: 1px solid var(--line);
+				border-radius: 8px;
+				padding: 14px 16px;
+			}
+			.state {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+				gap: 14px 22px;
+			}
+			.field .label {
+				font-size: 11px;
+				text-transform: uppercase;
+				letter-spacing: 0.08em;
+				color: var(--dim);
+			}
+			.field .value {
+				font-weight: 600;
+			}
+			.cols {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+				gap: 16px;
+			}
+			.mech h3 {
+				margin: 0 0 2px;
+				font-size: 16px;
+			}
+			.mech .shape {
+				color: var(--dim);
+				margin: 0 0 10px;
+			}
+			table {
+				border-collapse: collapse;
+				width: 100%;
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+				font-size: 12.5px;
+			}
+			th {
+				text-align: left;
+				font-weight: 600;
+				color: var(--dim);
+				border-bottom: 1px solid var(--line);
+				padding: 3px 6px 5px;
+			}
+			td {
+				padding: 3px 6px;
+				border-bottom: 1px solid #f0f1f4;
+				white-space: nowrap;
+			}
+			tr.placed td {
+				background: #eef6f2;
+			}
+			tr.history td {
+				color: var(--dim);
+			}
+			tr.open td {
+				color: #8b919c;
+				font-style: italic;
+			}
+			.verdict {
+				margin: 0 0 10px;
+				padding: 8px 10px;
+				border-radius: 6px;
+				background: #eef6f2;
+				border: 1px solid #cfe4db;
+			}
+			.verdict.broken {
+				background: #fdf0ec;
+				border-color: #f0cfc4;
+			}
+			.verdict ul {
+				margin: 4px 0 0;
+				padding-left: 18px;
+			}
+			.verdict li {
+				margin: 2px 0;
+			}
+			button {
+				font: inherit;
+				padding: 5px 11px;
+				border: 1px solid var(--line);
+				background: #fff;
+				border-radius: 6px;
+				cursor: pointer;
+			}
+			button:hover {
+				border-color: var(--accent);
+				color: var(--accent);
+			}
+			button.step {
+				display: block;
+				width: 100%;
+				text-align: left;
+				margin: 5px 0;
+			}
+			button.step.done {
+				color: var(--dim);
+				background: #f4f5f7;
+			}
+			button.step.next {
+				border-color: var(--accent);
+				box-shadow: inset 3px 0 0 var(--accent);
+			}
+			select {
+				font: inherit;
+				padding: 4px 6px;
+				border: 1px solid var(--line);
+				border-radius: 6px;
+				background: #fff;
+			}
+			.controls {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 8px;
+				align-items: center;
+			}
+			.tabs {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 6px;
+				margin-bottom: 12px;
+			}
+			.tabs button[aria-selected='true'] {
+				border-color: var(--accent);
+				color: var(--accent);
+				font-weight: 600;
+			}
+			.walk {
+				display: grid;
+				grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+				gap: 18px;
+			}
+			.log {
+				max-height: 150px;
+				overflow: auto;
+				color: var(--dim);
+			}
+			code {
+				background: #f1f2f5;
+				padding: 1px 4px;
+				border-radius: 4px;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>Placing a Lesson outside a Topic onto one Class</h1>
+		<p class="lede">
+			<strong>PROTOTYPE — throwaway.</strong> Question (issue #225): how does a Lesson with no
+			Topic reach one Class's schedule, on one chosen date, without breaking the one derived
+			function? ADR-0007 says the schedule is a pure zip of Lessons against Available Slots, with
+			no move, shift or insert, so a placement has to be a change to the <em>input</em>, the way a
+			Blocked Slot is. This page runs three candidate mechanisms side by side over the real 2026/27
+			calendar and one real Class (9B/Sc1, five Periods a fortnight including the Thursday double),
+			so you can watch which of them tells the truth and which one loses a Lesson.
+		</p>
+		<p class="lede">
+			The Class teaches one Topic, <strong>Forces</strong>, of eight Lessons. Two Lessons stand
+			outside every Topic and are the ones you place: <strong>Revision</strong> (Length 1) and
+			<strong>Feedback</strong> (Length 2).
+		</p>
+
+		<h2>The state (the inputs, shared by all three)</h2>
+		<div class="panel state" id="state"></div>
+
+		<h2>Free play</h2>
+		<div class="panel controls" id="controls"></div>
+
+		<h2>What each mechanism derives</h2>
+		<div class="cols" id="mechs"></div>
+
+		<h2>Guided walkthroughs</h2>
+		<div class="tabs" id="tabs"></div>
+		<div class="panel walk">
+			<div id="scenario"></div>
+			<div id="steps"></div>
+		</div>
+
+		<h2>What you did</h2>
+		<div class="panel log mono" id="log"></div>
+
+		<!-- ===================== THE PURE MODEL — begin ===================== -->
+		<script id="model">
+			// The bit worth keeping: no DOM, no clock, no storage. `MODEL.reduce(state, action)` is the
+			// whole surface; `MODEL.derive(state)` reports what each candidate mechanism produces.
+			// Lifted straight from src/lib/server/planner/engine.ts, with one Class and one Topic.
+
+			const MODEL = (() => {
+				// ---- dates (src/lib/date.ts) --------------------------------------------------
+				const addDays = (iso, days) => {
+					const [y, m, d] = iso.split('-').map(Number);
+					const date = new Date(Date.UTC(y, m - 1, d));
+					date.setUTCDate(date.getUTCDate() + days);
+					return date.toISOString().slice(0, 10);
+				};
+				const weekday = (iso) => new Date(`${iso}T00:00:00Z`).getUTCDay();
+				const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+				const MONTHS = [
+					'Jan',
+					'Feb',
+					'Mar',
+					'Apr',
+					'May',
+					'Jun',
+					'Jul',
+					'Aug',
+					'Sep',
+					'Oct',
+					'Nov',
+					'Dec'
+				];
+				const fmt = (iso) => {
+					const [, m, d] = iso.split('-').map(Number);
+					return `${DAYS[weekday(iso)]} ${d} ${MONTHS[m - 1]}`;
+				};
+
+				// ---- the real 2026/27 calendar (src/lib/server/planner/fixtures.ts) -----------
+				const TERMS = [
+					{ opens: '2026-09-03', closes: '2026-10-23' },
+					{ opens: '2026-11-02', closes: '2026-12-22' },
+					{ opens: '2027-01-05', closes: '2027-02-12' },
+					{ opens: '2027-02-22', closes: '2027-03-26' },
+					{ opens: '2027-04-19', closes: '2027-05-28' },
+					{ opens: '2027-06-07', closes: '2027-07-19' }
+				];
+				const INSET = ['2026-11-26', '2026-11-27'];
+				// 9B/Sc1: Mon P3, Wed P1 and the Thursday double in Week A; Tue P2 and Fri P4 in Week B.
+				const SLOTS = [
+					{ id: 'monA3', week: 'A', day: 1, period: 3 },
+					{ id: 'wedA1', week: 'A', day: 3, period: 1 },
+					{ id: 'thuA5', week: 'A', day: 4, period: 5 },
+					{ id: 'thuA6', week: 'A', day: 4, period: 6 },
+					{ id: 'tueB2', week: 'B', day: 2, period: 2 },
+					{ id: 'friB4', week: 'B', day: 5, period: 4 }
+				];
+
+				const TOPIC_LESSONS = Array.from({ length: 8 }, (_, i) => ({
+					id: `F${i + 1}`,
+					title: `Forces ${i + 1}`,
+					length: 1
+				}));
+				const LOOSE_LESSONS = [
+					{ id: 'REV', title: 'Revision', length: 1 },
+					{ id: 'FBK', title: 'Feedback', length: 2 }
+				];
+				const ALL_LESSONS = [...TOPIC_LESSONS, ...LOOSE_LESSONS];
+				const lessonOf = (id) => ALL_LESSONS.find((l) => l.id === id);
+				const titleOf = (id) => lessonOf(id)?.title ?? id;
+
+				// ---- the calendar model (engine.ts availableSlots + ADR-0020 week letters) ----
+				const inAnyTerm = (date) => TERMS.some((t) => date >= t.opens && date <= t.closes);
+
+				function teachingWeeks() {
+					// Letters come from the Term dates alone; a Blocked Day never moves the cycle.
+					const weeks = [];
+					const opensOn = weekday(TERMS[0].opens);
+					let cursor = addDays(TERMS[0].opens, opensOn === 0 ? -6 : 1 - opensOn);
+					let letter = 'A';
+					const lastCloses = TERMS[TERMS.length - 1].closes;
+					while (cursor <= lastCloses) {
+						const weekdays = Array.from({ length: 5 }, (_, i) => addDays(cursor, i));
+						if (weekdays.some(inAnyTerm)) {
+							weeks.push({ weekCommencing: cursor, letter });
+							letter = letter === 'A' ? 'B' : 'A';
+						}
+						cursor = addDays(cursor, 7);
+					}
+					return weeks;
+				}
+				const WEEKS = teachingWeeks();
+
+				// An Available Slot: in Term, not a Blocked Day. Calendar order IS the schedule.
+				function availableSlots(blockedDays, from) {
+					const blocked = new Set(blockedDays);
+					const out = [];
+					for (const week of WEEKS) {
+						for (let day = 1; day <= 5; day++) {
+							const date = addDays(week.weekCommencing, day - 1);
+							if (from && date < from) continue;
+							if (!inAnyTerm(date)) continue;
+							if (blocked.has(date)) continue;
+							for (const slot of SLOTS.filter((s) => s.week === week.letter && s.day === day).sort(
+								(a, b) => a.period - b.period
+							))
+								out.push({ date, period: slot.period, slotId: slot.id, week: week.letter });
+						}
+					}
+					return out;
+				}
+
+				const key = (s) => `${s.date}|${s.slotId}`;
+				const occ = (r) => `${r.date}|${r.period}`;
+				const byOccasion = (a, b) =>
+					a.date === b.date ? a.period - b.period : a.date < b.date ? -1 : 1;
+
+				// ---- the zip (engine.ts remainingParts + layOut) ------------------------------
+				const partsFor = (lesson, from = 1) => {
+					const of = lesson.length;
+					const out = [];
+					for (let part = from; part <= of; part++) out.push({ lessonId: lesson.id, part, of });
+					return out;
+				};
+
+				function remainingParts(continuations, delivered) {
+					const parts = [];
+					for (const lesson of TOPIC_LESSONS) {
+						const need = lesson.length + continuations.filter((c) => c === lesson.id).length;
+						for (let part = (delivered[lesson.id] || 0) + 1; part <= need; part++)
+							parts.push({ lessonId: lesson.id, part, of: need });
+					}
+					return parts;
+				}
+
+				function layOut(parts, stream) {
+					return {
+						sessions: parts.slice(0, stream.length).map((p, i) => ({ ...p, ...stream[i] })),
+						unplaced: parts.slice(stream.length),
+						openSlots: stream.slice(parts.length)
+					};
+				}
+
+				// ---- state --------------------------------------------------------------------
+				// `asks` is what the teacher asked for, kept for judging only. Each mechanism stores
+				// the placement in the shape its own storage can hold, and derives from that.
+				const initial = () => ({
+					boundary: '2026-09-03',
+					blockedDays: [...INSET],
+					continuations: [],
+					asks: [],
+					placed: { A: [], B: [], C: [] },
+					stores: { A: [], B: [], C: [] },
+					log: []
+				});
+
+				const deliveredIn = (rows, boundary) => {
+					const delivered = {};
+					for (const row of rows)
+						if (row.date < boundary && row.lessonId)
+							delivered[row.lessonId] = (delivered[row.lessonId] || 0) + 1;
+					return delivered;
+				};
+
+				// ---- mechanism A: the Placed Slot, shaped like a Blocked Slot -----------------
+				// Stored: {lessonId, date, slotId}. The Slot leaves the engine's Available Slot
+				// stream; the occasion names its Lesson directly. Length is resolved at derivation
+				// time by taking the next Available Slots after it.
+				function deriveA(state, stream, parts) {
+					const warnings = [];
+					const consumed = new Set();
+					const rows = [];
+					// A placement dated before the boundary is part of the record, like every other
+					// Session before today — never re-derived.
+					for (const p of state.placed.A
+						.filter((p) => p.date >= state.boundary)
+						.sort((a, b) => (a.date < b.date ? -1 : 1))) {
+						const lesson = lessonOf(p.lessonId);
+						const at = stream.findIndex((s) => s.date === p.date && s.slotId === p.slotId);
+						if (at < 0) {
+							warnings.push(
+								`${titleOf(p.lessonId)} is placed on ${fmt(p.date)}, which is no longer an Available Slot for this Class. The placement has nowhere to go.`
+							);
+							continue;
+						}
+						const run = [];
+						for (let i = at; i < stream.length && run.length < lesson.length; i++)
+							if (!consumed.has(key(stream[i]))) run.push(stream[i]);
+						for (const s of run) consumed.add(key(s));
+						if (run.length < lesson.length)
+							warnings.push(
+								`${titleOf(p.lessonId)} needs ${lesson.length} Available Slots and the year ran out after ${run.length}.`
+							);
+						run.forEach((s, i) =>
+							rows.push({
+								...s,
+								lessonId: p.lessonId,
+								part: i + 1,
+								of: lesson.length,
+								placed: true
+							})
+						);
+					}
+					const rest = stream.filter((s) => !consumed.has(key(s)));
+					const { sessions, unplaced, openSlots } = layOut(parts, rest);
+					return {
+						rows: [...rows, ...sessions].sort(byOccasion),
+						unplaced,
+						openSlots,
+						warnings
+					};
+				}
+
+				// ---- mechanism B: a per-Class assigned-Lesson record --------------------------
+				// Stored: {lessonId, date} alongside the Assigned Topics, feeding a second branch of
+				// the Lesson stream. The stream is positional and the record is dated, so the date
+				// has to be turned into a position in the parts list at derivation time.
+				function deriveB(state, stream, parts) {
+					const warnings = [];
+					let merged = [...parts];
+					for (const p of state.placed.B
+						.filter((p) => p.date >= state.boundary)
+						.sort((a, b) => (a.date < b.date ? -1 : 1))) {
+						const lesson = lessonOf(p.lessonId);
+						const at = stream.findIndex((s) => s.date === p.date);
+						const index = at < 0 ? merged.length : Math.min(at, merged.length);
+						if (at >= 0 && at > merged.length)
+							warnings.push(
+								`${titleOf(p.lessonId)} was asked for ${fmt(p.date)}, position ${at + 1} in the stream, but the Class only owes ${merged.length} Lesson-parts. A dated entry in a positional stream has no position to take, so it falls to the end of the queue instead of the chosen date.`
+							);
+						merged.splice(index, 0, ...partsFor(lesson));
+					}
+					const { sessions, unplaced, openSlots } = layOut(merged, stream);
+					const placedIds = new Set(state.placed.B.map((p) => p.lessonId));
+					const rows = sessions.map((s) => ({ ...s, placed: placedIds.has(s.lessonId) }));
+					for (const ask of state.asks.filter((a) => a.date >= state.boundary)) {
+						const landed = rows.find((r) => r.lessonId === ask.lessonId && r.part === 1);
+						if (!landed) continue;
+						if (landed.date !== ask.date)
+							warnings.push(
+								`${titleOf(ask.lessonId)} landed on ${fmt(landed.date)} P${landed.period}, not the chosen ${fmt(ask.date)} P${ask.period}.`
+							);
+						else if (landed.period !== ask.period)
+							warnings.push(
+								`${titleOf(ask.lessonId)} landed on P${landed.period}, not the chosen P${ask.period}: the record holds a date and this day carries two Slots, so the Period cannot be stored.`
+							);
+					}
+					return { rows, unplaced, openSlots, warnings };
+				}
+
+				// ---- mechanism C: an authoritative Session row --------------------------------
+				// Stored: Session rows the re-derivation must not relabel, extending the note
+				// precedent at derive.ts:229-236. The run is fixed when the placement is written,
+				// because a written row is output, not input.
+				function deriveC(state, stream, parts) {
+					const warnings = [];
+					const held = new Map();
+					for (const row of state.placed.C)
+						if (row.date >= state.boundary) held.set(occ(row), row);
+					const { sessions, unplaced, openSlots } = layOut(parts, stream);
+					const lost = sessions.filter((s) => held.has(occ(s)));
+					for (const s of lost)
+						warnings.push(
+							`${titleOf(s.lessonId)} was derived onto ${fmt(s.date)} P${s.period}, which a placed row holds. The derivation cannot write it and nothing shifts, so this Lesson is skipped — the outcome ADR-0007 rejects outright.`
+						);
+					const blocked = new Set(state.blockedDays);
+					const available = new Set(stream.map(occ));
+					for (const row of state.placed.C) {
+						if (row.date < state.boundary) continue;
+						if (blocked.has(row.date))
+							warnings.push(
+								`The placed row on ${fmt(row.date)} P${row.period} sits on a Blocked Day: it was written when that Slot was Available and a written row cannot move.`
+							);
+						else if (!available.has(occ(row)))
+							warnings.push(
+								`The placed row on ${fmt(row.date)} P${row.period} is not an Available Slot any more, and a written row cannot move.`
+							);
+					}
+					const rows = [
+						// Rows before the boundary are the record; the store already holds them.
+						...state.placed.C
+							.filter((r) => r.date >= state.boundary)
+							.map((r) => ({ ...r, placed: true })),
+						...sessions.filter((s) => !held.has(occ(s)))
+					].sort(byOccasion);
+					return { rows, unplaced, openSlots, warnings };
+				}
+
+				const MECHS = {
+					A: {
+						name: 'A — the Placed Slot',
+						shape: 'placement {classId, date, slotId, lessonId}, shaped like a Blocked Slot: the Slot leaves the engine’s input.',
+						derive: deriveA,
+						place: (state, ask) =>
+							state.placed.A.push({
+								lessonId: ask.lessonId,
+								date: ask.date,
+								slotId: ask.slotId
+							}),
+						unplace: (state, lessonId) => {
+							state.placed.A = state.placed.A.filter((p) => p.lessonId !== lessonId);
+						},
+						rewind: () => {} // an input: re-derived from scratch, so it survives untouched
+					},
+					B: {
+						name: 'B — the assigned Lesson',
+						shape: 'assignedLesson {classId, lessonId, date} beside the Assigned Topics, feeding a second branch of the Lesson stream.',
+						derive: deriveB,
+						place: (state, ask) =>
+							state.placed.B.push({ lessonId: ask.lessonId, date: ask.date }),
+						unplace: (state, lessonId) => {
+							state.placed.B = state.placed.B.filter((p) => p.lessonId !== lessonId);
+						},
+						rewind: () => {}
+					},
+					C: {
+						name: 'C — the authoritative Session row',
+						shape: 'session rows carrying a flag the re-derivation must not relabel — an edit to the output.',
+						derive: deriveC,
+						place: (state, ask) => {
+							// A written row is output: its run is fixed now, from the calendar as it stands.
+							const stream = availableSlots(state.blockedDays, state.boundary);
+							const at = stream.findIndex((s) => s.date === ask.date && s.slotId === ask.slotId);
+							const lesson = lessonOf(ask.lessonId);
+							const taken = new Set(state.placed.C.map(occ));
+							const run = [];
+							for (let i = at; i >= 0 && i < stream.length && run.length < lesson.length; i++)
+								if (!taken.has(occ(stream[i]))) run.push(stream[i]);
+							run.forEach((s, i) =>
+								state.placed.C.push({
+									...s,
+									lessonId: ask.lessonId,
+									part: i + 1,
+									of: lesson.length,
+									note: null
+								})
+							);
+						},
+						unplace: (state, lessonId) => {
+							state.placed.C = state.placed.C.filter((r) => r.lessonId !== lessonId);
+						},
+						rewind: (state, to) => {
+							// A Rewind re-derives every Session on and after `to`; a row with no note is
+							// discarded (engine.ts rewind). The placement lives in that table.
+							const kept = state.placed.C.filter((r) => r.date < to || r.note);
+							const dropped = state.placed.C.length - kept.length;
+							state.placed.C = kept;
+							if (dropped)
+								state.log.push(
+									`C: the Rewind discarded ${dropped} placed Session row(s) — the placement is stored in the very table a Rewind clears.`
+								);
+						}
+					}
+				};
+
+				// ---- derivation for every mechanism, plus the persisted write ------------------
+				function derive(state) {
+					const out = {};
+					for (const [id, mech] of Object.entries(MECHS)) {
+						const stream = availableSlots(state.blockedDays, state.boundary);
+						const parts = remainingParts(
+							state.continuations,
+							deliveredIn(state.stores[id], state.boundary)
+						);
+						const result = mech.derive(state, stream, parts);
+						const history = state.stores[id].filter((r) => r.date < state.boundary);
+						out[id] = {
+							...mech,
+							...result,
+							history,
+							runway: result.openSlots[0]?.date ?? null
+						};
+					}
+					return out;
+				}
+
+				// What `rederive` persists: rows before the boundary are the record and are never
+				// touched; rows on and after it are replaced by the derived answer, notes kept by
+				// occasion (derive.ts:170-245).
+				function persist(state) {
+					const derived = derive(state);
+					for (const id of Object.keys(MECHS)) {
+						const notes = new Map(
+							state.stores[id].filter((r) => r.note).map((r) => [occ(r), r.note])
+						);
+						state.stores[id] = [
+							...state.stores[id].filter((r) => r.date < state.boundary),
+							...derived[id].rows
+								.filter((r) => r.date >= state.boundary)
+								.map((r) => ({ ...r, note: r.note ?? notes.get(occ(r)) ?? null }))
+						].sort(byOccasion);
+					}
+					return state;
+				}
+
+				// ---- the reducer ---------------------------------------------------------------
+				function reduce(state, action) {
+					const next = structuredClone(state);
+					switch (action.type) {
+						case 'reset':
+							return persist(initial());
+						case 'place': {
+							const ask = {
+								lessonId: action.lessonId,
+								date: action.date,
+								slotId: action.slotId,
+								period: action.period
+							};
+							next.asks.push(ask);
+							for (const mech of Object.values(MECHS)) mech.place(next, ask);
+							next.log.push(
+								`Placed ${titleOf(ask.lessonId)} on ${fmt(ask.date)} P${ask.period}.`
+							);
+							break;
+						}
+						case 'unplace': {
+							next.asks = next.asks.filter((a) => a.lessonId !== action.lessonId);
+							for (const mech of Object.values(MECHS)) mech.unplace(next, action.lessonId);
+							next.log.push(`Removed the placement of ${titleOf(action.lessonId)}.`);
+							break;
+						}
+						case 'blockDay':
+							if (!next.blockedDays.includes(action.date)) next.blockedDays.push(action.date);
+							next.log.push(`Blocked ${fmt(action.date)} — the whole day.`);
+							break;
+						case 'unblockDay':
+							next.blockedDays = next.blockedDays.filter((d) => d !== action.date);
+							next.log.push(`Unblocked ${fmt(action.date)}.`);
+							break;
+						case 'continue':
+							next.continuations.push(action.lessonId);
+							next.log.push(`${titleOf(action.lessonId)} needs more time — one Continuation.`);
+							break;
+						case 'note':
+							for (const id of Object.keys(MECHS)) {
+								for (const row of next.stores[id])
+									if (row.date === action.date && row.period === action.period)
+										row.note = action.note;
+								for (const row of next.placed.C)
+									if (row.date === action.date && row.period === action.period)
+										row.note = action.note;
+							}
+							next.log.push(`Wrote a note on ${fmt(action.date)} P${action.period}.`);
+							break;
+						case 'advance':
+							next.boundary = action.date;
+							next.log.push(`Today is now ${fmt(action.date)}; earlier Sessions are the record.`);
+							break;
+						case 'rewind':
+							next.boundary = action.date;
+							for (const mech of Object.values(MECHS)) mech.rewind(next, action.date);
+							next.log.push(`Rewound to ${fmt(action.date)}.`);
+							break;
+						case 'rerun':
+							next.log.push('Re-ran the derivation with no change of input.');
+							break;
+						default:
+							throw new Error(`unknown action ${action.type}`);
+					}
+					return persist(next);
+				}
+
+				return {
+					initial: () => persist(initial()),
+					reduce,
+					derive,
+					availableSlots,
+					fmt,
+					titleOf,
+					lessonOf,
+					occ,
+					TOPIC_LESSONS,
+					LOOSE_LESSONS,
+					INSET,
+					MECHS
+				};
+			})();
+		</script>
+		<!-- ====================== THE PURE MODEL — end ====================== -->
+
+		<script>
+			// Throwaway shell. Nothing here is worth keeping; it only presses the model's buttons.
+			let state = MODEL.initial();
+			let scenario = 0;
+			let step = 0;
+
+			const el = (id) => document.getElementById(id);
+			const slotsFrom = () => MODEL.availableSlots(state.blockedDays, state.boundary).slice(0, 24);
+			const pick = () => {
+				const chosen = el('slot').value;
+				return slotsFrom().find((s) => `${s.date}|${s.slotId}` === chosen) ?? slotsFrom()[0];
+			};
+
+			function dispatch(action) {
+				state = MODEL.reduce(state, action);
+				render();
+			}
+
+			function nth(n) {
+				return MODEL.availableSlots(state.blockedDays, state.boundary)[n];
+			}
+
+			// Each walkthrough resets first, so it runs the same way every time.
+			const WALKTHROUGHS = [
+				{
+					title: '1. A placement mid-sequence',
+					blurb: 'The Class is part-way through Forces. Put Revision on its fourth remaining Slot and watch what happens to Forces 4 and everything after it. Shift-right should move the rest of the plan right by exactly one Slot, in order, with nothing skipped.',
+					steps: [
+						['Start again', () => ({ type: 'reset' })],
+						[
+							'Place Revision on the fourth Slot',
+							() => ({ type: 'place', lessonId: 'REV', ...nth(3) })
+						]
+					]
+				},
+				{
+					title: '2. Remove the placement again',
+					blurb: 'Take the same placement away. The sequence should close back up with no residue: no gap, no Lesson taught twice, and the plan back on the dates it had before.',
+					steps: [
+						['Start again', () => ({ type: 'reset' })],
+						[
+							'Place Revision on the fourth Slot',
+							() => ({ type: 'place', lessonId: 'REV', ...nth(3) })
+						],
+						['Remove the Revision placement', () => ({ type: 'unplace', lessonId: 'REV' })]
+					]
+				},
+				{
+					title: '3. A Length 2 placement',
+					blurb: 'Feedback is two Periods long. Place it on the third Slot: it should take two Available Slots — here the Thursday double — and push the Topic on by two, not one.',
+					steps: [
+						['Start again', () => ({ type: 'reset' })],
+						[
+							'Place Feedback on the third Slot',
+							() => ({ type: 'place', lessonId: 'FBK', ...nth(2) })
+						]
+					]
+				},
+				{
+					title: '4. A Blocked Day inside the run',
+					blurb: 'Place Feedback so its two Periods straddle two days, then block the second of those days. Its second Period has to move to the next Available Slot — unless the mechanism has already written it down.',
+					steps: [
+						['Start again', () => ({ type: 'reset' })],
+						[
+							'Place Feedback on the second Slot',
+							() => ({ type: 'place', lessonId: 'FBK', ...nth(1) })
+						],
+						['Block the day the second Period falls on', () => ({ type: 'blockDay', date: nth(2).date })]
+					]
+				},
+				{
+					title: '5. A placement where the plan had run out',
+					blurb: 'Eight Lessons of Forces run out long before the year does; every Slot after them is an Open Slot. Place Revision well past that point, on the twentieth Slot, and check it lands on the day you chose.',
+					steps: [
+						['Start again', () => ({ type: 'reset' })],
+						[
+							'Place Revision on the twentieth Slot',
+							() => ({ type: 'place', lessonId: 'REV', ...nth(19) })
+						]
+					]
+				},
+				{
+					title: '6. A Rewind across a placement',
+					blurb: 'Place Revision, teach past it, note the occasion after it, then enter a Blocked Day in the past and rewind to it. The placement must still be there, on the same Slot, after the Rewind.',
+					steps: [
+						['Start again', () => ({ type: 'reset' })],
+						[
+							'Place Revision on the second Slot',
+							() => ({ type: 'place', lessonId: 'REV', ...nth(1) })
+						],
+						['Move today to the fifth Slot', () => ({ type: 'advance', date: nth(4).date })],
+						[
+							'Write a note on the next Session',
+							() => ({ type: 'note', ...nth(0), note: 'practical overran' })
+						],
+						['Rewind to the first Slot of the year', () => ({ type: 'rewind', date: '2026-09-03' })]
+					]
+				},
+				{
+					title: '7. Re-run with no change',
+					blurb: 'The derivation is meant to be re-runnable at any time from any state. Place Revision, then re-run twice. Nothing at all should move.',
+					steps: [
+						['Start again', () => ({ type: 'reset' })],
+						[
+							'Place Revision on the third Slot',
+							() => ({ type: 'place', lessonId: 'REV', ...nth(2) })
+						],
+						['Re-run the derivation', () => ({ type: 'rerun' })],
+						['Re-run it again', () => ({ type: 'rerun' })]
+					]
+				},
+				{
+					title: '8. A placed Lesson in the record',
+					blurb: 'Teach past a placement so it becomes history, then add a Continuation to a Topic Lesson. The engine counts what was delivered by Lesson; a placed Lesson must not be counted as progress through Forces, and no Forces Lesson may go missing or double.',
+					steps: [
+						['Start again', () => ({ type: 'reset' })],
+						[
+							'Place Revision on the second Slot',
+							() => ({ type: 'place', lessonId: 'REV', ...nth(1) })
+						],
+						['Move today past it, to the fourth Slot', () => ({ type: 'advance', date: nth(3).date })],
+						['Forces 3 needs more time', () => ({ type: 'continue', lessonId: 'F3' })]
+					]
+				}
+			];
+
+			function renderState() {
+				const derived = MODEL.derive(state);
+				const asks = state.asks.length
+					? state.asks
+							.map((a) => `${MODEL.titleOf(a.lessonId)} → ${MODEL.fmt(a.date)} P${a.period}`)
+							.join('; ')
+					: 'none';
+				const extraBlocks = state.blockedDays.filter((d) => !MODEL.INSET.includes(d));
+				const fields = [
+					['Today (the boundary)', MODEL.fmt(state.boundary)],
+					['Placements asked for', asks],
+					['Blocked Days added', extraBlocks.length ? extraBlocks.map(MODEL.fmt).join('; ') : 'none beyond the two INSET days'],
+					[
+						'Continuations',
+						state.continuations.length
+							? state.continuations.map(MODEL.titleOf).join('; ')
+							: 'none'
+					],
+					['Forces Lessons still owed', String(derived.A.rows.filter((r) => !r.placed).length)],
+					['Runway (first Open Slot)', derived.A.runway ? MODEL.fmt(derived.A.runway) : '—']
+				];
+				el('state').innerHTML = fields
+					.map(
+						([label, value]) =>
+							`<div class="field"><div class="label">${label}</div><div class="value">${value}</div></div>`
+					)
+					.join('');
+			}
+
+			function rowsTable(result) {
+				// The next few occasions, plus any placed row further out than that window — a
+				// placement in October must not simply be off the bottom of the table.
+				const future = result.rows.filter((r) => r.date >= state.boundary);
+				const head = future.slice(0, 8);
+				const upcoming = [...head, ...future.slice(8).filter((r) => r.placed)];
+				const history = result.history.slice(-3);
+				const line = (r, cls) => `
+					<tr class="${cls}">
+						<td>${MODEL.fmt(r.date)}</td>
+						<td>P${r.period}</td>
+						<td>${r.lessonId ? MODEL.titleOf(r.lessonId) : '— Open Slot —'}</td>
+						<td>${r.of > 1 ? `part ${r.part}/${r.of}` : ''}</td>
+						<td>${r.placed ? 'placed' : ''}${r.note ? ' · noted' : ''}</td>
+					</tr>`;
+				const opens = result.openSlots
+					.filter((s) => !upcoming.some((r) => MODEL.occ(r) === MODEL.occ(s)))
+					.slice(0, Math.max(0, 10 - upcoming.length))
+					.map((s) => line(s, 'open'))
+					.join('');
+				return `
+					<table>
+						<thead><tr><th>Date</th><th>P</th><th>Lesson</th><th></th><th></th></tr></thead>
+						<tbody>
+							${history.map((r) => line(r, 'history')).join('')}
+							${upcoming.map((r) => line(r, r.placed ? 'placed' : '')).join('')}
+							${opens}
+						</tbody>
+					</table>`;
+			}
+
+			function renderMechs() {
+				const derived = MODEL.derive(state);
+				el('mechs').innerHTML = ['A', 'B', 'C']
+					.map((id) => {
+						const result = derived[id];
+						const broken = result.warnings.length > 0;
+						return `
+							<div class="panel mech">
+								<h3>${result.name}</h3>
+								<p class="shape">${result.shape}</p>
+								<div class="verdict ${broken ? 'broken' : ''}">
+									<strong>${broken ? 'Something broke' : 'Nothing broke'}</strong>
+									${broken ? `<ul>${result.warnings.map((w) => `<li>${w}</li>`).join('')}</ul>` : ''}
+								</div>
+								${rowsTable(result)}
+							</div>`;
+					})
+					.join('');
+			}
+
+			function renderControls() {
+				const slots = slotsFrom();
+				const chosen = el('slot')?.value;
+				el('controls').innerHTML = `
+					<label>Place
+						<select id="lesson">
+							${MODEL.LOOSE_LESSONS.map(
+								(l) => `<option value="${l.id}">${l.title} (Length ${l.length})</option>`
+							).join('')}
+						</select>
+					</label>
+					<label>on
+						<select id="slot">
+							${slots
+								.map(
+									(s) =>
+										`<option value="${s.date}|${s.slotId}" ${chosen === `${s.date}|${s.slotId}` ? 'selected' : ''}>${MODEL.fmt(s.date)} P${s.period}</option>`
+								)
+								.join('')}
+						</select>
+					</label>
+					<button id="do-place">Place it here</button>
+					<button id="do-block">Block this day</button>
+					<button id="do-unblock">Unblock this day</button>
+					<button id="do-advance">Today is this date</button>
+					<button id="do-rewind">Rewind to this date</button>
+					<button id="do-note">Note this occasion</button>
+					<button id="do-continue">First upcoming Lesson needs more time</button>
+					${MODEL.LOOSE_LESSONS.map(
+						(l) => `<button data-unplace="${l.id}">Remove ${l.title}</button>`
+					).join('')}
+					<button id="do-rerun">Re-run the derivation</button>
+					<button id="do-reset">Start again</button>`;
+
+				el('do-place').onclick = () => {
+					const slot = pick();
+					dispatch({ type: 'place', lessonId: el('lesson').value, ...slot });
+				};
+				el('do-block').onclick = () => dispatch({ type: 'blockDay', date: pick().date });
+				el('do-unblock').onclick = () => dispatch({ type: 'unblockDay', date: pick().date });
+				el('do-advance').onclick = () => dispatch({ type: 'advance', date: pick().date });
+				el('do-rewind').onclick = () => dispatch({ type: 'rewind', date: pick().date });
+				el('do-note').onclick = () => {
+					const slot = pick();
+					dispatch({ type: 'note', ...slot, note: 'went badly — redo' });
+				};
+				el('do-continue').onclick = () => {
+					const first = MODEL.derive(state).A.rows.find(
+						(r) => r.date >= state.boundary && r.lessonId && !r.placed
+					);
+					if (first) dispatch({ type: 'continue', lessonId: first.lessonId });
+				};
+				el('do-rerun').onclick = () => dispatch({ type: 'rerun' });
+				el('do-reset').onclick = () => {
+					step = 0;
+					dispatch({ type: 'reset' });
+				};
+				for (const button of el('controls').querySelectorAll('[data-unplace]'))
+					button.onclick = () =>
+						dispatch({ type: 'unplace', lessonId: button.dataset.unplace });
+			}
+
+			function renderWalkthrough() {
+				el('tabs').innerHTML = WALKTHROUGHS.map(
+					(w, i) =>
+						`<button data-tab="${i}" aria-selected="${i === scenario}">${w.title}</button>`
+				).join('');
+				for (const button of el('tabs').querySelectorAll('[data-tab]'))
+					button.onclick = () => {
+						scenario = Number(button.dataset.tab);
+						step = 0;
+						dispatch({ type: 'reset' });
+					};
+
+				const walk = WALKTHROUGHS[scenario];
+				el('scenario').innerHTML = `<h3>${walk.title}</h3><p>${walk.blurb}</p>`;
+				el('steps').innerHTML = walk.steps
+					.map(
+						([label], i) =>
+							`<button class="step ${i < step ? 'done' : ''} ${i === step ? 'next' : ''}" data-step="${i}">${i + 1}. ${label}</button>`
+					)
+					.join('');
+				for (const button of el('steps').querySelectorAll('[data-step]'))
+					button.onclick = () => {
+						const i = Number(button.dataset.step);
+						step = i + 1;
+						dispatch(walk.steps[i][1]());
+					};
+			}
+
+			function renderLog() {
+				el('log').innerHTML = state.log.length
+					? state.log.map((line) => `<div>${line}</div>`).join('')
+					: '<div>Nothing yet.</div>';
+			}
+
+			function render() {
+				renderState();
+				renderControls();
+				renderMechs();
+				renderWalkthrough();
+				renderLog();
+			}
+
+			render();
+		</script>
+	</body>
+</html>
