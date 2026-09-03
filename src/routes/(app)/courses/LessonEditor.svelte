@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
-	import { replaceQuery } from '$lib/client/enhance';
+	import { onFail, replaceQuery } from '$lib/client/enhance';
+	import { toast } from 'svelte-sonner';
 	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import XIcon from '@lucide/svelte/icons/x';
@@ -11,7 +12,6 @@
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.js';
 	import AttachmentRow from './AttachmentRow.svelte';
-	import { onFail } from '$lib/client/enhance';
 	import LinkRow from './LinkRow.svelte';
 	let {
 		lesson,
@@ -60,6 +60,12 @@
 	let statusInput: HTMLInputElement | null = $state(null);
 	let addingLink = $state(false);
 	let fileInput: HTMLInputElement | null = $state(null);
+
+	// Mirrors attachments.ts's MAX_BYTES (spec #219): a file over this never reaches the form
+	// action, since a body over the server's own request-size cap (Dockerfile's BODY_SIZE_LIMIT)
+	// fails before the action runs, turning what should be this same readable refusal into a
+	// SvelteKit error page instead.
+	const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 
 	// The Dialog starts open every time this component mounts — it only exists while a Lesson is
 	// selected. Escape, overlay-click and the close button all flow through bits-ui setting this to
@@ -359,10 +365,19 @@
 						class="hidden"
 						aria-label="Choose a file to attach"
 						onchange={(e) => {
+							const input = e.currentTarget;
+							// Refused here, before the request ever starts: a file over the server's own
+							// body-size cap would otherwise fail the request itself, and use:enhance turns
+							// that into a full error page rather than this same readable toast.
+							if ((input.files?.[0]?.size ?? 0) > MAX_ATTACHMENT_BYTES) {
+								toast.error('Attachments are limited to 10 MB.');
+								input.value = '';
+								return;
+							}
 							// The submit snapshots the form data synchronously, so clearing here keeps the
 							// upload in flight while letting a re-pick of the same file fire change again.
-							e.currentTarget.form?.requestSubmit();
-							e.currentTarget.value = '';
+							input.form?.requestSubmit();
+							input.value = '';
 						}}
 					/>
 					<Button
