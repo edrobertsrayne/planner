@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { tick } from 'svelte';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
@@ -9,18 +10,30 @@
 	import { formatDayMonth } from '$lib/date';
 	import { refresh } from '$lib/client/enhance';
 	import { openSession } from '$lib/client/session-panel.svelte';
+	import { fakePlacementFor, placeFake } from '$lib/client/prototype-228-placement.svelte';
 	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
 	import AtRiskReport from '$lib/components/at-risk-report.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { cn } from '$lib/utils.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import PageHeader from '$lib/components/page-header.svelte';
+	import PrototypeSwitcher from '$lib/components/prototype-switcher.svelte';
 	import BlockPopover from './BlockPopover.svelte';
 	import CalendarSetup from './CalendarSetup.svelte';
+	import PlacePopover from './PlacePopover.svelte';
 	import { availableSlotLines, blockedSlotLines, PERIODS, toGrid } from './calendar-grid';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
+
+	// PROTOTYPE for issue #228 — three answers to "what do the two doors, the Calendar day menu
+	// and the Session panel, look like for a Placement". See PrototypeSwitcher.
+	const PLACEMENT_VARIANTS = [
+		{ key: 'A', label: 'A slot line + popover, marked by a ring' },
+		{ key: 'B', label: 'B menu hands off to the panel, unmarked' },
+		{ key: 'C', label: 'C one expanding menu row, marked by a dot' }
+	];
+	const variant = $derived(page.url.searchParams.get('variant') ?? 'A');
 
 	// Setup mode replaces the week grid in place, on the same route. It opens by itself when no
 	// Term is set — the first-run empty state of the year — and closing lands on the week the
@@ -69,6 +82,43 @@
 		const picked = slotNote;
 		slotNote = null;
 		if (picked) tick().then(() => document.getElementById(`day-menu-${picked.date}`)?.focus());
+	}
+
+	// PROTOTYPE for issue #228, variant A: the Slot the day menu picked to place on, asked for
+	// over its tile — same shape as slotNote above, kept separate so the two popovers never
+	// fight over one pick.
+	let placePick = $state<{ date: string; slotId: string; period: number } | null>(null);
+
+	function closePlacePick() {
+		const picked = placePick;
+		placePick = null;
+		if (picked) tick().then(() => document.getElementById(`day-menu-${picked.date}`)?.focus());
+	}
+
+	// PROTOTYPE for issue #228, variant C: the one "Place a Lesson…" row expands in place inside
+	// the day's menu into a Slot picker and a title field, rather than opening anything else.
+	let placeFormDate = $state<string | null>(null);
+	let placeFormSlot = $state<string>('');
+	let placeFormTitle = $state('');
+
+	function submitPlaceForm(
+		date: string,
+		slots: { slotId: string; period: number; classLabel: string }[]
+	) {
+		const chosen = slots.find((s) => s.slotId === placeFormSlot) ?? slots[0];
+		if (!chosen || !placeFormTitle.trim()) return;
+		const cell = data.week?.cells.find((c) => c.date === date && c.slotIds.includes(chosen.slotId));
+		if (!cell) return;
+		placeFake(cell.classId, date, chosen.period, placeFormTitle.trim());
+		placeFormDate = null;
+		placeFormTitle = '';
+		placeFormSlot = '';
+	}
+
+	// PROTOTYPE for issue #228: a day-menu line names a Class by label only; placing needs its
+	// id, read off the cell the Slot belongs to.
+	function classIdForSlot(date: string, slotId: string): string | undefined {
+		return data.week?.cells.find((c) => c.date === date && c.slotIds.includes(slotId))?.classId;
 	}
 
 	// The day head's menu acts through one hidden form rather than three: a Blocked Day records
@@ -248,6 +298,65 @@
 														{/each}
 													</DropdownMenu.Group>
 												{/if}
+												{#if variant === 'C'}
+													<DropdownMenu.Separator />
+													<DropdownMenu.Group>
+														<DropdownMenu.Item
+															onSelect={(e) => {
+																e.preventDefault();
+																placeFormDate = placeFormDate === date ? null : date;
+																placeFormSlot = availableSlots[0]?.slotId ?? '';
+																placeFormTitle = '';
+															}}>Place a Lesson…</DropdownMenu.Item
+														>
+														{#if placeFormDate === date}
+															<div class="space-y-1.5 px-2 py-1.5">
+																<select
+																	bind:value={placeFormSlot}
+																	class="h-7 w-full rounded border bg-background px-1.5 text-xs"
+																>
+																	{#each availableSlots as slot (slot.slotId)}
+																		<option value={slot.slotId}
+																			>{slot.classLabel}, P{slot.period}</option
+																		>
+																	{/each}
+																</select>
+																<input
+																	bind:value={placeFormTitle}
+																	placeholder="New Lesson title — press Enter"
+																	class="h-7 w-full rounded border bg-background px-1.5 text-xs"
+																	onkeydown={(e) => {
+																		if (e.key === 'Enter') submitPlaceForm(date, availableSlots);
+																	}}
+																/>
+															</div>
+														{/if}
+													</DropdownMenu.Group>
+												{:else}
+													<DropdownMenu.Separator />
+													<DropdownMenu.Group>
+														<DropdownMenu.GroupHeading class="text-muted-foreground"
+															>Place a Lesson</DropdownMenu.GroupHeading
+														>
+														{#each availableSlots as slot (slot.slotId)}
+															<DropdownMenu.Item
+																onSelect={() => {
+																	if (variant === 'A')
+																		placePick = { date, slotId: slot.slotId, period: slot.period };
+																	else {
+																		const classId = classIdForSlot(date, slot.slotId);
+																		if (classId)
+																			openSession({ classId, date, period: slot.period });
+																	}
+																}}
+																>{variant === 'A' ? 'Place on' : 'Open'}
+																{slot.classLabel}, P{slot.period}{variant === 'A'
+																	? '…'
+																	: ' to place…'}</DropdownMenu.Item
+															>
+														{/each}
+													</DropdownMenu.Group>
+												{/if}
 											{/if}
 											{#if blockedSlots.length > 0}
 												<DropdownMenu.Separator />
@@ -317,11 +426,12 @@
 										{@const cell = entry.cell}
 										{@const rowspan = cell.periodTo - cell.periodFrom + 1}
 										{@const tone = classTone(cell.tone)}
+										{@const fake = fakePlacementFor(cell.classId, cell.date, cell.periodFrom)}
 										<td {rowspan} class="relative h-16 align-top">
 											{#if cell.kind === 'blocked'}
 												<!-- A Blocked Slot on an otherwise teaching day: a removal, so it keeps
-											the hatch and its note. Its unblock lives in the day's menu, like every
-											other act on the day — no control sits on a tile. -->
+										the hatch and its note. Its unblock lives in the day's menu, like every
+										other act on the day — no control sits on a tile. -->
 												<div
 													class="hatched flex h-full min-h-16 flex-col rounded-lg border border-dashed px-2 py-1.5"
 												>
@@ -336,7 +446,11 @@
 												<button
 													type="button"
 													data-session-trigger
-													class="flex h-full min-h-16 w-full flex-col overflow-hidden rounded-lg border px-2 py-1.5 text-left"
+													class={cn(
+														'flex h-full min-h-16 w-full flex-col overflow-hidden rounded-lg border px-2 py-1.5 text-left',
+														fake && variant === 'A' && 'ring-dashed ring-2 ring-inset',
+														fake && variant === 'A' && 'border-dashed'
+													)}
 													style:background-color={tone.bg}
 													style:border-color={tone.ring}
 													onclick={() =>
@@ -346,15 +460,32 @@
 															period: cell.periodFrom
 														})}
 												>
-													<span class="truncate text-xs font-semibold" style:color={tone.fg}>
+													<span
+														class="flex items-center gap-1 truncate text-xs font-semibold"
+														style:color={tone.fg}
+													>
 														{cell.classLabel}
+														{#if fake && variant === 'C'}
+															<span
+																class="inline-block size-1.5 rounded-full"
+																style:background-color={tone.fg}
+																aria-label="Placed"
+															></span>
+														{/if}
 													</span>
-													{#if cell.kind === 'lesson'}
+													{#if cell.kind === 'lesson' || fake}
 														<span
 															class="mt-0.5 line-clamp-2 text-xs leading-tight font-medium"
-															style:color={tone.fg}>{cell.lesson?.title}</span
+															style:color={tone.fg}>{fake?.title ?? cell.lesson?.title}</span
 														>
-														{#if cell.lesson?.topicName}
+														{#if fake}
+															{#if variant !== 'B'}
+																<span
+																	class="mt-auto line-clamp-1 text-[11px] opacity-80"
+																	style:color={tone.fg}>Standalone Lesson</span
+																>
+															{/if}
+														{:else if cell.lesson?.topicName}
 															<span
 																class="mt-auto line-clamp-1 text-[11px] opacity-80"
 																style:color={tone.fg}>{cell.lesson.topicName}</span
@@ -369,8 +500,8 @@
 
 												{#if slotNote && slotNote.date === cell.date && cell.slotIds.includes(slotNote.slotId)}
 													<!-- The day menu chose this Slot; the note is asked for over the tile
-												it names, so the teacher can see which one they picked. For a Lesson
-												over two Periods both lines open the same tile, each naming its own. -->
+											it names, so the teacher can see which one they picked. For a Lesson
+											over two Periods both lines open the same tile, each naming its own. -->
 													<BlockPopover
 														pick={{
 															classId: cell.classId,
@@ -381,6 +512,21 @@
 														}}
 														onOpenChange={(o) => {
 															if (!o) closePick();
+														}}
+													/>
+												{/if}
+												{#if placePick && placePick.date === cell.date && cell.slotIds.includes(placePick.slotId)}
+													<!-- PROTOTYPE for issue #228, variant A: same anchoring as the block popover
+											above, for the day menu's Place lines. -->
+													<PlacePopover
+														pick={{
+															classId: cell.classId,
+															classLabel: cell.classLabel,
+															date: cell.date,
+															period: placePick.period
+														}}
+														onOpenChange={(o) => {
+															if (!o) closePlacePick();
 														}}
 													/>
 												{/if}
@@ -398,6 +544,10 @@
 		<p class="text-sm text-muted-foreground">This is not a Teaching Week.</p>
 	{/if}
 </div>
+
+{#if import.meta.env.DEV}
+	<PrototypeSwitcher variants={PLACEMENT_VARIANTS} current={variant} />
+{/if}
 
 <style>
 	/*

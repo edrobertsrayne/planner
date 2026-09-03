@@ -1,19 +1,38 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
+	import { page } from '$app/state';
 	import { toast } from 'svelte-sonner';
 	import { formatWeekday } from '$lib/date';
 	import type { Occasion } from '$lib/client/session-panel.svelte';
 	import { createSessionNotes } from '$lib/client/session-note';
+	import {
+		fakePlacementFor,
+		placeFake,
+		removeFake
+	} from '$lib/client/prototype-228-placement.svelte';
 	import type { AtRiskSession, SessionDetail } from '$lib/server/planner';
 	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import { Separator } from '$lib/components/ui/separator';
 	import { Textarea } from '$lib/components/ui/textarea';
 
 	// The one body every entry point renders (issue #88): plan first — the Lesson is the subject —
 	// with "How it went" beneath it.
 	let { occasion }: { occasion: Occasion } = $props();
+
+	// PROTOTYPE for issue #228 — the same three answers as the Calendar's day menu (see
+	// PrototypeSwitcher on /calendar), read from the same `?variant=` param so switching there
+	// switches this panel too.
+	const variant = $derived(page.url.searchParams.get('variant') ?? 'A');
+	const fake = $derived(fakePlacementFor(occasion.classId, occasion.date, occasion.period));
+	let placeTitle = $state('');
+	function submitPlace() {
+		if (!placeTitle.trim()) return;
+		placeFake(occasion.classId, occasion.date, occasion.period, placeTitle.trim());
+		placeTitle = '';
+	}
 
 	// The note's persistence rules (issue #89) live in the module; here they meet the exits.
 	// Every dismissal — click-away, Escape, ✕, Back, switching Session — unmounts the panel or
@@ -115,21 +134,42 @@
 {#if detail}
 	<Separator class="my-4" />
 
-	{#if detail.lesson}
-		<h2 class="text-lg leading-snug font-semibold">{detail.lesson.title}</h2>
-		{#if detail.lesson.topicName}
+	{#if detail.lesson || fake}
+		{#if fake && variant === 'B'}
+			<p
+				class="mb-2 rounded border border-dashed border-muted-foreground/40 px-2 py-1 text-xs text-muted-foreground"
+			>
+				Standalone — not part of {detail.classLabel}'s Course sequence.
+			</p>
+		{/if}
+		<div class="flex items-center gap-1.5">
+			<h2 class="text-lg leading-snug font-semibold">{fake?.title ?? detail.lesson?.title}</h2>
+			{#if fake && variant === 'C'}
+				<button
+					type="button"
+					class="text-xs text-muted-foreground hover:text-destructive"
+					onclick={() => removeFake(occasion.classId, occasion.date, occasion.period)}
+					aria-label="Remove placement">×</button
+				>
+			{/if}
+		</div>
+		{#if fake}
+			{#if variant !== 'B'}
+				<p class="mt-1 text-xs text-muted-foreground">Standalone Lesson · Placed</p>
+			{/if}
+		{:else if detail.lesson?.topicName}
 			<p class="mt-1 text-xs text-muted-foreground">{detail.lesson.topicName}</p>
 		{/if}
 
-		{#if detail.lesson.body}
+		{#if !fake && detail.lesson?.body}
 			<p class="mt-4 text-sm whitespace-pre-line text-foreground/80">{detail.lesson.body}</p>
-		{:else}
+		{:else if !fake}
 			<p class="mt-4 text-sm text-muted-foreground italic">
 				No plan written yet — a title alone is a complete Lesson.
 			</p>
 		{/if}
 
-		{#if detail.lesson.links.length}
+		{#if !fake && detail.lesson && detail.lesson.links.length}
 			<ul class="mt-4 space-y-1">
 				{#each detail.lesson.links as link (link.id)}
 					<li>
@@ -144,25 +184,85 @@
 			</ul>
 		{/if}
 
-		<div class="mt-5">
-			<Button variant="outline" size="sm" disabled={continuing} onclick={markContinuation}>
-				{continuing ? 'Marking…' : 'Needs more time'}
-			</Button>
-			<p class="mt-1.5 text-xs text-muted-foreground">
-				Widens this Lesson onto the Class's next Available Slot.
-			</p>
-			{#if continuationError}
-				<p class="mt-1 text-xs text-destructive">{continuationError}</p>
-			{/if}
-			{#if continuationAtRisk.length > 0}
-				<div class="mt-3">
-					<AtRiskAlert atRisk={continuationAtRisk} />
-				</div>
-			{/if}
-		</div>
+		{#if !fake && detail.lesson}
+			<div class="mt-5">
+				<Button variant="outline" size="sm" disabled={continuing} onclick={markContinuation}>
+					{continuing ? 'Marking…' : 'Needs more time'}
+				</Button>
+				<p class="mt-1.5 text-xs text-muted-foreground">
+					Widens this Lesson onto the Class's next Available Slot.
+				</p>
+				{#if continuationError}
+					<p class="mt-1 text-xs text-destructive">{continuationError}</p>
+				{/if}
+				{#if continuationAtRisk.length > 0}
+					<div class="mt-3">
+						<AtRiskAlert atRisk={continuationAtRisk} />
+					</div>
+				{/if}
+			</div>
+		{/if}
+
+		{#if fake && variant !== 'C'}
+			<div class="mt-5">
+				<Button
+					variant={variant === 'B' ? 'ghost' : 'outline'}
+					size="sm"
+					onclick={() => removeFake(occasion.classId, occasion.date, occasion.period)}
+					>Remove placement</Button
+				>
+			</div>
+		{/if}
 	{:else}
 		<h2 class="text-lg font-semibold text-muted-foreground italic">Open Slot</h2>
 		<p class="mt-1 text-xs text-muted-foreground">No Lesson planned for this occasion.</p>
+
+		<!-- PROTOTYPE for issue #228: the panel's own door onto a Placement. -->
+		{#if variant === 'B'}
+			<div class="mt-4 rounded-lg border p-3">
+				<p class="text-xs font-semibold">Place a Lesson</p>
+				<p class="mt-1 text-xs text-muted-foreground">
+					A Lesson with no Topic, scheduled directly on this occasion. It will not be part of
+					{detail.classLabel}'s Course sequence.
+				</p>
+				<Input
+					bind:value={placeTitle}
+					placeholder="New Lesson title — press Enter"
+					class="mt-2 h-8"
+					onkeydown={(e) => {
+						if (e.key === 'Enter') submitPlace();
+					}}
+				/>
+			</div>
+		{:else if variant === 'C'}
+			<div class="mt-3 flex gap-1.5">
+				<Input
+					bind:value={placeTitle}
+					placeholder="New Lesson title — press Enter"
+					class="h-7 text-xs"
+					onkeydown={(e) => {
+						if (e.key === 'Enter') submitPlace();
+					}}
+				/>
+			</div>
+		{:else}
+			<div class="mt-4">
+				<label
+					for="place-title"
+					class="text-xs font-semibold tracking-wider text-muted-foreground uppercase"
+					>Place a Lesson</label
+				>
+				<Input
+					id="place-title"
+					bind:value={placeTitle}
+					placeholder="New Lesson title — press Enter"
+					class="mt-1.5 h-8"
+					onkeydown={(e) => {
+						if (e.key === 'Enter') submitPlace();
+					}}
+				/>
+			</div>
+		{/if}
 	{/if}
 
 	<Separator class="my-5" />
