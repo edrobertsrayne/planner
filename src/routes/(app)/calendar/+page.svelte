@@ -18,6 +18,11 @@
 	import BlockPopover from './BlockPopover.svelte';
 	import CalendarSetup from './CalendarSetup.svelte';
 	import { availableSlotLines, blockedSlotLines, PERIODS, toGrid } from './calendar-grid';
+	import { dev } from '$app/environment';
+	import { page } from '$app/state';
+	import TagIcon from '@lucide/svelte/icons/tag';
+	import { protoTagColor, protoTagsFor } from '$lib/prototype-lesson-tags';
+	import PrototypeSwitcher from '$lib/components/prototype-switcher.svelte';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -86,6 +91,21 @@
 		input.value = value;
 		form.requestSubmit();
 	}
+
+	// PROTOTYPE ONLY (issue #233) — four tag-rendering variants for a Calendar tile, the
+	// densest place a Lesson is shown: the tile is one Period tall, already carries the Class's
+	// Tone as its whole background, and a multi-Period Lesson is the only tile with room to
+	// spare. Drop this block, the variant markup below, and the switcher once a variant wins.
+	//
+	// `CalendarCell.lesson` is a LessonName — title and topicName, no id — so the fake tags are
+	// hashed from the title here, exactly as the Session panel prototype had to.
+	const tagVariant = $derived(page.url.searchParams.get('tagVariant') ?? 'A');
+	const TAG_VARIANTS = [
+		{ key: 'A', label: 'Coloured chips on the tile' },
+		{ key: 'B', label: 'Coloured dots, names on hover' },
+		{ key: 'C', label: 'Tag icon + count, names on hover' },
+		{ key: 'D', label: 'No tag on the tile' }
+	];
 </script>
 
 <svelte:head><title>Calendar</title></svelte:head>
@@ -333,10 +353,11 @@
 													</div>
 												</div>
 											{:else}
+												{@const tags = cell.lesson ? protoTagsFor(cell.lesson.title) : []}
 												<button
 													type="button"
 													data-session-trigger
-													class="flex h-full min-h-16 w-full flex-col overflow-hidden rounded-lg border px-2 py-1.5 text-left"
+													class="relative flex h-full min-h-16 w-full flex-col overflow-hidden rounded-lg border px-2 py-1.5 text-left"
 													style:background-color={tone.bg}
 													style:border-color={tone.ring}
 													onclick={() =>
@@ -346,8 +367,36 @@
 															period: cell.periodFrom
 														})}
 												>
-													<span class="truncate text-xs font-semibold" style:color={tone.fg}>
-														{cell.classLabel}
+													{#if tagVariant === 'B' && tags.length}
+														<!-- Colour only, no text: one dot per tag in the corner the tile has
+													     to spare, names behind the hover title. -->
+														<span
+															class="absolute top-1.5 right-1.5 flex gap-0.5"
+															title={tags.join(', ')}
+														>
+															{#each tags as tag (tag)}
+																<span
+																	class="size-2 rounded-full"
+																	style:background-color={protoTagColor(tag).fg}
+																></span>
+															{/each}
+														</span>
+													{/if}
+													<span
+														class="flex items-center gap-1 text-xs font-semibold"
+														style:color={tone.fg}
+													>
+														<span class="truncate">{cell.classLabel}</span>
+														{#if tagVariant === 'C' && tags.length}
+															<span
+																class="inline-flex shrink-0 items-center gap-0.5 opacity-80"
+																title={tags.join(', ')}
+															>
+																<TagIcon class="size-3" />
+																{#if tags.length > 1}<span class="text-[10px]">{tags.length}</span
+																	>{/if}
+															</span>
+														{/if}
 													</span>
 													{#if cell.kind === 'lesson'}
 														<span
@@ -359,6 +408,20 @@
 																class="mt-auto line-clamp-1 text-[11px] opacity-80"
 																style:color={tone.fg}>{cell.lesson.topicName}</span
 															>
+														{/if}
+														{#if tagVariant === 'A' && tags.length}
+															<span class="mt-1 flex flex-wrap gap-1">
+																{#each tags as tag (tag)}
+																	{@const color = protoTagColor(tag)}
+																	<span
+																		class="rounded-2xl px-1.5 py-0.5 text-[10px] leading-none font-medium"
+																		style:background-color={color.bg}
+																		style:color={color.fg}
+																	>
+																		{tag}
+																	</span>
+																{/each}
+															</span>
 														{/if}
 													{:else}
 														<span class="mt-0.5 text-xs italic" style:color={tone.fg}>
@@ -398,6 +461,10 @@
 		<p class="text-sm text-muted-foreground">This is not a Teaching Week.</p>
 	{/if}
 </div>
+
+{#if dev}
+	<PrototypeSwitcher variants={TAG_VARIANTS} current={tagVariant} paramName="tagVariant" />
+{/if}
 
 <style>
 	/*
