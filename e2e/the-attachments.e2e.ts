@@ -64,7 +64,9 @@ test.describe.serial('Attachments on Lessons', () => {
 
 	test('a new Attachment appends at the end, and a file over the framework default body limit uploads cleanly', async () => {
 		// 1 MiB — twice the framework's default form-action body limit (512K), far under the
-		// app's own 10 MiB ceiling, so the raised limit is exercised through the whole stack.
+		// app's own 10 MiB ceiling. This only proves the upload works past the default; the
+		// raised BODY_SIZE_LIMIT itself is a container-image setting the built adapter reads,
+		// which `bun run preview` never exercises, so it stays untested here.
 		await attach(page, {
 			name: 'field-notes.txt',
 			mimeType: 'text/plain',
