@@ -7,6 +7,7 @@
 	import type { AtRiskSession, SessionDetail } from '$lib/server/planner';
 	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
 	import { Badge } from '$lib/components/ui/badge';
+	import { tagColor } from '$lib/tag-color';
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
 	import { Textarea } from '$lib/components/ui/textarea';
@@ -119,6 +120,20 @@
 		<h2 class="text-lg leading-snug font-semibold">{detail.lesson.title}</h2>
 		{#if detail.lesson.topicName}
 			<p class="mt-1 text-xs text-muted-foreground">{detail.lesson.topicName}</p>
+		{/if}
+		{#if detail.lesson.tags.length}
+			<div class="mt-2 flex flex-wrap gap-1">
+				{#each detail.lesson.tags as tag (tag)}
+					{@const color = tagColor(tag)}
+					<Badge
+						variant="outline"
+						class="text-[10px]"
+						style="background-color: {color.bg}; color: {color.fg}; border-color: transparent;"
+					>
+						{tag}
+					</Badge>
+				{/each}
+			</div>
 		{/if}
 
 		{#if detail.lesson.body}

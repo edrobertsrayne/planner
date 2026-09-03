@@ -4,9 +4,11 @@ import { db } from '$lib/server/db/client';
 import * as schema from '$lib/server/db/schema';
 import { lessonActions } from '$lib/server/lesson-actions';
 import {
+	attachedTags,
 	classesTaughtLesson,
 	lessonDetail,
 	lessonsOf,
+	listTagNames,
 	planningStream,
 	topicsOf
 } from '$lib/server/planner';
@@ -47,6 +49,8 @@ export const load: PageServerLoad = ({ url }) => {
 		lessons,
 		lessonIndex,
 		links: detail?.links ?? [],
+		tags: detail ? attachedTags(db, detail.id) : [],
+		existingTagNames: listTagNames(db),
 		taughtBy
 	};
 };

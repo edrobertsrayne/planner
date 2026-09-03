@@ -4,6 +4,7 @@ import { db } from '$lib/server/db/client';
 import { badRequest, conflict, trimmed } from '$lib/server/form';
 import { lessonActions } from '$lib/server/lesson-actions';
 import {
+	attachedTags,
 	classesTaughtLesson,
 	createCourse,
 	createLesson,
@@ -14,11 +15,13 @@ import {
 	lessonDetail,
 	lessonsOf,
 	listCourses,
+	listTagNames,
 	moveLesson,
 	NameCollision,
 	renameCourse,
 	renameLesson,
 	renameTopic,
+	tagsByLesson,
 	topicsOf
 } from '$lib/server/planner';
 import type { Actions, PageServerLoad } from './$types';
@@ -57,6 +60,12 @@ export const load: PageServerLoad = ({ url }) => {
 		lessons,
 		lesson: detail,
 		links: detail?.links ?? [],
+		tags: detail ? attachedTags(db, detail.id) : [],
+		existingTagNames: listTagNames(db),
+		tagsByLesson: tagsByLesson(
+			db,
+			lessons.map((l) => l.id)
+		),
 		lessonIndex,
 		taughtBy
 	};

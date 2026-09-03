@@ -383,6 +383,59 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		await expect(page.getByText('Showing 10 of 10')).toBeHidden();
 	});
 
+	test('tagging a Lesson in the editor shows its chip on the Courses list and Planning', async () => {
+		await page.goto('/courses');
+		await page.getByRole('link', { name: 'KS3 Science' }).click();
+		await page.getByRole('link', { name: 'Forces' }).click();
+		await page.getByRole('link', { name: 'Motion', exact: true }).click();
+
+		await page.getByRole('button', { name: '+ Add Tag' }).click();
+		await page.getByPlaceholder('Tag name').fill('Practical');
+		await page.getByPlaceholder('Tag name').press('Enter');
+		await expect(page.getByRole('dialog').getByText('Practical', { exact: true })).toBeVisible();
+
+		await page.keyboard.press('Escape');
+		await expect(page.getByRole('dialog')).toBeHidden();
+
+		const courseRow = page.locator('li').filter({ hasText: 'Motion' });
+		await expect(courseRow.getByText('Practical', { exact: true })).toBeVisible();
+
+		await page.goto('/planning');
+		const motionRow = page.locator('li').filter({ hasText: 'Motion' });
+		await expect(motionRow.getByText('Practical', { exact: true })).toBeVisible();
+	});
+
+	test('a tagged Lesson shows its chip on the Agenda and Session panel, and click-through from the Calendar', async () => {
+		// Motion (9B/Sc1's next scheduled Lesson, carrying the Practical Tag attached above) is
+		// this Class's row both on the Agenda and on the current week's Calendar grid.
+		await page.goto('/');
+		const agendaRow = page.locator('li').filter({ hasText: '9B/Sc1' }).first();
+		await expect(agendaRow.getByText('Practical', { exact: true })).toBeVisible();
+
+		await agendaRow.getByRole('button').first().click();
+		await openSessionAndExpect(page);
+		await expect(
+			page.locator('[data-session-panel]').getByText('Practical', { exact: true })
+		).toBeVisible();
+		await page.keyboard.press('Escape');
+		await expectSessionClosed(page);
+
+		// The Calendar tile itself carries no Tag — only the click-through does.
+		await page.goto('/calendar');
+		const tile = page
+			.getByRole('button')
+			.filter({ hasText: '9B/Sc1' })
+			.filter({ hasText: 'Motion' });
+		await expect(tile.getByText('Practical', { exact: true })).toBeHidden();
+		await tile.click();
+		await openSessionAndExpect(page);
+		await expect(
+			page.locator('[data-session-panel]').getByText('Practical', { exact: true })
+		).toBeVisible();
+		await page.keyboard.press('Escape');
+		await expectSessionClosed(page);
+	});
+
 	test('ticking Ready on an Agenda row updates state and survives a reload', async () => {
 		await page.goto('/');
 		// Check that the heading carries "Ready to teach?"

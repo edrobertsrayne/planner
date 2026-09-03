@@ -36,6 +36,15 @@ Lesson titles are not unique: one Topic may hold two Lessons called "Revision", 
 addressed by its identity and never by its title.
 _Avoid_: Period, session, class
 
+**Tag**:
+A short, teacher-typed label a Lesson may carry zero or more of — freely created, never drawn
+from a fixed set. Typing a name that already exists elsewhere attaches that same Tag rather than
+creating a duplicate, so "Practical" on one Lesson means the same thing as "Practical" on
+another. Removing a Tag from a Lesson never deletes the Tag itself: a Tag with no Lessons left
+still exists, ready to be reused. Set from the Lesson editor; read wherever a Lesson is shown
+except the Calendar tile.
+_Avoid_: Label, category
+
 **Standalone Lesson**:
 A Lesson belonging to no Topic. It sits in no Course, so it reaches no Class's Lesson stream and
 is never Scheduled, but every Session that already taught it still names it. This is what lets a

@@ -4,11 +4,13 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import ReorderButtons from '$lib/components/reorder-buttons.svelte';
+	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import RenameableRow from '$lib/components/renameable-row.svelte';
 	import ConfirmDeleteDialog from './ConfirmDeleteDialog.svelte';
 	import LessonEditor from './LessonEditor.svelte';
+	import { tagColor } from '$lib/tag-color';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -196,7 +198,8 @@
 
 				<ol class="flex-1 divide-y overflow-y-auto">
 					{#each data.lessons as lesson, i (lesson.id)}
-						<li class="group flex items-baseline gap-3 pl-2">
+						{@const tags = data.tagsByLesson.get(lesson.id) ?? []}
+						<li class="group flex items-center gap-3 pl-2">
 							<span class="w-6 shrink-0 pl-4 font-mono text-xs text-muted-foreground/60">
 								{i + 1}
 							</span>
@@ -210,6 +213,20 @@
 									field="title"
 								/>
 							</div>
+							{#if tags.length}
+								<span class="flex shrink-0 flex-wrap items-center justify-end gap-1 pr-1">
+									{#each tags as tag (tag)}
+										{@const color = tagColor(tag)}
+										<Badge
+											variant="outline"
+											class="text-[10px]"
+											style="background-color: {color.bg}; color: {color.fg}; border-color: transparent;"
+										>
+											{tag}
+										</Badge>
+									{/each}
+								</span>
+							{/if}
 							<span
 								class="flex shrink-0 items-center gap-0.5 pr-2 opacity-0 group-hover:opacity-100"
 							>
@@ -269,6 +286,8 @@
 	<LessonEditor
 		lesson={data.lesson}
 		links={data.links}
+		tags={data.tags}
+		existingTagNames={data.existingTagNames}
 		index={data.lessonIndex}
 		count={data.lessons.length}
 		previousId={data.lessonIndex > 0 ? data.lessons[data.lessonIndex - 1].id : null}

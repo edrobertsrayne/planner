@@ -4,7 +4,7 @@ import { and, eq } from 'drizzle-orm';
 import * as schema from '../db/schema';
 import { classDetail } from './classes';
 import { rederive, type Db, type WriteReport } from './derive';
-import { linksOf } from './authoring';
+import { linksOf, tagsOf } from './authoring';
 
 // A Session is identified by its occasion (ADR-0002), never by row id, so every function here
 // takes the triple rather than an id.
@@ -28,6 +28,7 @@ export interface SessionDetail extends Occasion {
 		topicName: string | null;
 		body: string | null;
 		links: ReturnType<typeof linksOf>;
+		tags: string[];
 	} | null;
 	ready: boolean | null;
 	note: string | null;
@@ -61,7 +62,7 @@ export function sessionDetail(db: Db, occasion: Occasion): SessionDetail | null 
 			.where(eq(schema.lesson.id, row.lessonId))
 			.all();
 		if (lessonRow) {
-			lesson = { ...lessonRow, links: linksOf(db, row.lessonId) };
+			lesson = { ...lessonRow, links: linksOf(db, row.lessonId), tags: tagsOf(db, row.lessonId) };
 			const [readyRow] = db
 				.select()
 				.from(schema.readiness)

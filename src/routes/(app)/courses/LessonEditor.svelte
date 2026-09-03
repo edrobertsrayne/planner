@@ -6,15 +6,19 @@
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import XIcon from '@lucide/svelte/icons/x';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
+	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.js';
+	import { tagColor } from '$lib/tag-color';
 	import LinkRow from './LinkRow.svelte';
 
 	let {
 		lesson,
 		links,
+		tags,
+		existingTagNames,
 		index,
 		count,
 		previousId,
@@ -32,6 +36,8 @@
 			length: number;
 		};
 		links: { id: string; label: string; url: string }[];
+		tags: { id: string; name: string }[];
+		existingTagNames: string[];
 		index: number;
 		count: number;
 		previousId: string | null;
@@ -56,6 +62,7 @@
 
 	let statusInput: HTMLInputElement | null = $state(null);
 	let addingLink = $state(false);
+	let addingTag = $state(false);
 
 	// The Dialog starts open every time this component mounts — it only exists while a Lesson is
 	// selected. Escape, overlay-click and the close button all flow through bits-ui setting this to
@@ -321,6 +328,88 @@
 						+ Add Link
 					</Button>
 				{/if}
+			</div>
+
+			<div class="min-h-0 overflow-y-auto">
+				<span class="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
+					Tags
+				</span>
+				<div class="mt-1 flex flex-wrap gap-1">
+					{#each tags as tag (tag.id)}
+						{@const color = tagColor(tag.name)}
+						<form method="POST" action="?/detachTag" use:enhance class="contents">
+							<input type="hidden" name="lessonId" value={lesson.id} />
+							<input type="hidden" name="tagId" value={tag.id} />
+							<Badge
+								variant="outline"
+								style="background-color: {color.bg}; color: {color.fg}; border-color: transparent;"
+							>
+								{tag.name}
+								<button
+									type="submit"
+									class="-mr-0.5 ml-0.5 rounded-full hover:opacity-70"
+									aria-label="Remove {tag.name}"
+								>
+									<XIcon class="size-3" />
+								</button>
+							</Badge>
+						</form>
+					{/each}
+					{#if !tags.length}
+						<span class="px-1 py-1 text-xs text-muted-foreground">No Tags yet.</span>
+					{/if}
+				</div>
+
+				{#if addingTag}
+					<form
+						method="POST"
+						action="?/attachTag"
+						class="mt-2 flex gap-1"
+						use:enhance={() => {
+							return async ({ result, update }) => {
+								await update();
+								if (result.type === 'success') addingTag = false;
+							};
+						}}
+					>
+						<input type="hidden" name="lessonId" value={lesson.id} />
+						<Input
+							autofocus
+							name="name"
+							required
+							autocomplete="off"
+							list="existing-tag-names"
+							class="h-7 min-w-0 flex-1 text-xs md:text-xs"
+							placeholder="Tag name"
+						/>
+						<Button type="submit" size="sm" class="shrink-0">Add</Button>
+						<Button
+							type="button"
+							variant="ghost"
+							size="sm"
+							class="shrink-0"
+							onclick={() => (addingTag = false)}
+						>
+							Cancel
+						</Button>
+					</form>
+				{:else}
+					<Button
+						type="button"
+						variant="ghost"
+						size="sm"
+						class="mt-2 text-xs text-muted-foreground"
+						onclick={() => (addingTag = true)}
+					>
+						+ Add Tag
+					</Button>
+				{/if}
+
+				<datalist id="existing-tag-names">
+					{#each existingTagNames as name (name)}
+						<option value={name}></option>
+					{/each}
+				</datalist>
 			</div>
 		</div>
 	</Dialog.Content>

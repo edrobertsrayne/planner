@@ -4,7 +4,7 @@
 import { eq } from 'drizzle-orm';
 import { addDays } from '$lib/date';
 import * as schema from '../db/schema';
-import { type LessonStatus } from './authoring';
+import { tagsByLesson, type LessonStatus } from './authoring';
 import { lessonNames, loadCalendar, scheduleFor, type Db, type LessonName } from './derive';
 import { agendaRows, inAnyTerm, slotHolds, type AgendaRow, type Calendar } from './engine';
 import { listClasses } from './classes';
@@ -55,6 +55,7 @@ export interface AgendaEntry {
 		title: string;
 		topicName: string | null;
 		ready: boolean;
+		tags: string[];
 	} | null;
 }
 
@@ -73,6 +74,11 @@ export function agenda(
 		keep: (r) => r.date < horizonEnd
 	});
 	const names = namesFor(db, batches);
+	const tags = tagsByLesson(db, [
+		...new Set(
+			batches.flatMap(({ rows }) => rows.flatMap((r) => (r.lesson ? [r.lesson.lessonId] : [])))
+		)
+	]);
 	const readinessSet = new Set(
 		db
 			.select({
@@ -103,7 +109,8 @@ export function agenda(
 									id: lessonId,
 									title: lessonInfo.title,
 									topicName: lessonInfo.topicName,
-									ready: readinessSet.has(`${lessonId}|${cls.id}`)
+									ready: readinessSet.has(`${lessonId}|${cls.id}`),
+									tags: tags.get(lessonId) ?? []
 								}
 							: null
 				};
@@ -298,6 +305,7 @@ export interface PlanningEntry {
 	courseName: string | null;
 	status: LessonStatus;
 	occurrence: PlanningOccurrence | null;
+	tags: string[];
 }
 
 // The Planning stream: one row per Lesson across every Course and Topic, ordered by soonest next
@@ -346,6 +354,11 @@ export function planningStream(db: Db, today: string): PlanningEntry[] {
 
 	type EntryWithPosition = PlanningEntry & { position: number };
 
+	const tags = tagsByLesson(
+		db,
+		lessons.map((l) => l.id)
+	);
+
 	const entries: EntryWithPosition[] = lessons.map((l) => ({
 		id: l.id,
 		title: l.title,
@@ -353,7 +366,8 @@ export function planningStream(db: Db, today: string): PlanningEntry[] {
 		courseName: l.courseName,
 		status: l.status,
 		position: l.position,
-		occurrence: soonestByLesson.get(l.id) ?? null
+		occurrence: soonestByLesson.get(l.id) ?? null,
+		tags: tags.get(l.id) ?? []
 	}));
 
 	const compareSecondary = (a: EntryWithPosition, b: EntryWithPosition) => {
@@ -387,6 +401,7 @@ export function planningStream(db: Db, today: string): PlanningEntry[] {
 		topicName: entry.topicName,
 		courseName: entry.courseName,
 		status: entry.status,
-		occurrence: entry.occurrence
+		occurrence: entry.occurrence,
+		tags: entry.tags
 	}));
 }

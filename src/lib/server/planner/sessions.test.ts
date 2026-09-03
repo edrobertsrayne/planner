@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest';
 import { makeLessons, makeTopic, setUp } from './fixtures';
 import {
 	assignTopic,
+	attachTag,
 	blockDay,
 	blockSlot,
 	classSchedule,
@@ -145,10 +146,23 @@ describe('the Session panel', () => {
 			}
 		});
 		expect(detail!.lesson!.links).toMatchObject([{ url: 'https://example.com', label: 'Slides' }]);
+		expect(detail!.lesson!.tags).toEqual([]);
 
 		setReadiness(db, lesson.id, classA.id, true);
 		const readyDetail = sessionDetail(db, { classId: classA.id, date: '2026-09-03', period: 5 });
 		expect(readyDetail?.ready).toBe(true);
+	});
+
+	test('a Lesson with Tags shows them on the Session panel', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [lesson] = makeLessons(db, topic.id, 1);
+		attachTag(db, { lessonId: lesson.id, name: 'Practical' });
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+
+		const detail = sessionDetail(db, { classId: classA.id, date: '2026-09-03', period: 5 });
+
+		expect(detail!.lesson!.tags).toEqual(['Practical']);
 	});
 
 	test('opens on an Open Slot showing no plan, and still offers the note', () => {
