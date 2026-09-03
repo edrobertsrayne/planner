@@ -32,11 +32,13 @@ export const GET: RequestHandler = ({ params }) => {
 	const ascii = row.filename.replace(/[^\x20-\x7e]/g, '_').replace(/"/g, "'");
 	const utf8 = encodeURIComponent(row.filename);
 
-	return new Response(new Uint8Array(bytes), {
+	// `Buffer` types as `Uint8Array<ArrayBufferLike>`; `Response`'s DOM types want the more
+	// specific `Uint8Array<ArrayBuffer>` `BufferSource` — a real Bun `Buffer` always satisfies it
+	// at runtime, so this is a type-only widening, not a data copy.
+	return new Response(bytes as Uint8Array<ArrayBuffer>, {
 		headers: {
 			'Content-Type': row.mimeType,
-			'Content-Disposition': `attachment; filename="${ascii}"; filename*=UTF-8''${utf8}`,
-			'Content-Length': String(row.size)
+			'Content-Disposition': `attachment; filename="${ascii}"; filename*=UTF-8''${utf8}`
 		}
 	});
 };
