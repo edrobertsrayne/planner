@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
-	import { replaceQuery } from '$lib/client/enhance';
+	import { onFail, replaceQuery } from '$lib/client/enhance';
+	import { toast } from 'svelte-sonner';
 	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import XIcon from '@lucide/svelte/icons/x';
@@ -10,11 +11,12 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.js';
+	import AttachmentRow from './AttachmentRow.svelte';
 	import LinkRow from './LinkRow.svelte';
-
 	let {
 		lesson,
 		links,
+		attachments,
 		index,
 		count,
 		previousId,
@@ -32,6 +34,7 @@
 			length: number;
 		};
 		links: { id: string; label: string; url: string }[];
+		attachments: { id: string; filename: string; size: number }[];
 		index: number;
 		count: number;
 		previousId: string | null;
@@ -56,6 +59,13 @@
 
 	let statusInput: HTMLInputElement | null = $state(null);
 	let addingLink = $state(false);
+	let fileInput: HTMLInputElement | null = $state(null);
+
+	// Mirrors attachments.ts's MAX_BYTES (spec #219): a file over this never reaches the form
+	// action, since a body over the server's own request-size cap (Dockerfile's BODY_SIZE_LIMIT)
+	// fails before the action runs, turning what should be this same readable refusal into a
+	// SvelteKit error page instead.
+	const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 
 	// The Dialog starts open every time this component mounts — it only exists while a Lesson is
 	// selected. Escape, overlay-click and the close button all flow through bits-ui setting this to
@@ -321,6 +331,65 @@
 						+ Add Link
 					</Button>
 				{/if}
+				<!-- Attachments sit below Links, in the same column. The hidden file input is
+				     the real control: the button clicks it, and choosing a file submits the form
+				     at once — there is no label/URL pair to type, so no inline form step. -->
+				<span
+					class="mt-4 block text-[11px] font-bold tracking-wider text-muted-foreground uppercase"
+				>
+					Attachments
+				</span>
+				<ul class="mt-1 space-y-1">
+					{#each attachments as attachment (attachment.id)}
+						<li class="rounded-md bg-muted px-2 py-1.5 text-sm">
+							<AttachmentRow {attachment} />
+						</li>
+					{/each}
+					{#if !attachments.length}
+						<li class="px-1 py-1 text-xs text-muted-foreground">No Attachments yet.</li>
+					{/if}
+				</ul>
+
+				<form
+					method="POST"
+					action="?/createAttachment"
+					enctype="multipart/form-data"
+					class="mt-2"
+					use:enhance={onFail('Could not attach the file.')}
+				>
+					<input type="hidden" name="lessonId" value={lesson.id} />
+					<input
+						bind:this={fileInput}
+						type="file"
+						name="file"
+						class="hidden"
+						aria-label="Choose a file to attach"
+						onchange={(e) => {
+							const input = e.currentTarget;
+							// Refused here, before the request ever starts: a file over the server's own
+							// body-size cap would otherwise fail the request itself, and use:enhance turns
+							// that into a full error page rather than this same readable toast.
+							if ((input.files?.[0]?.size ?? 0) > MAX_ATTACHMENT_BYTES) {
+								toast.error('Attachments are limited to 10 MB.');
+								input.value = '';
+								return;
+							}
+							// The submit snapshots the form data synchronously, so clearing here keeps the
+							// upload in flight while letting a re-pick of the same file fire change again.
+							input.form?.requestSubmit();
+							input.value = '';
+						}}
+					/>
+					<Button
+						type="button"
+						variant="ghost"
+						size="sm"
+						class="text-xs text-muted-foreground"
+						onclick={() => fileInput?.click()}
+					>
+						+ Add Attachment
+					</Button>
+				</form>
 			</div>
 		</div>
 	</Dialog.Content>

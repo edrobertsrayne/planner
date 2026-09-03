@@ -604,7 +604,7 @@ describe('Readiness dies with its pairing', () => {
 	});
 
 	test('deleteLesson takes its marks', () => {
-		const { db, course, classA, classB } = setUp();
+		const { db, course, classA, classB, atDir: dir } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		const [l1, l2] = makeLessons(db, topic.id, 2);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
@@ -615,7 +615,7 @@ describe('Readiness dies with its pairing', () => {
 		setReadiness(db, l2.id, classA.id, true);
 
 		// Delete lesson l1
-		deleteLesson(db, { id: l1.id, today: '2026-09-03' });
+		deleteLesson(db, { id: l1.id, today: '2026-09-03', dir });
 
 		// Readiness rows for l1 are deleted
 		const l1Readiness = db

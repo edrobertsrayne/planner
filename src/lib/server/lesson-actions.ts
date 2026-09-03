@@ -1,9 +1,13 @@
 import { fail, type Actions } from '@sveltejs/kit';
 import { today } from '$lib/date';
-import { db } from '$lib/server/db/client';
-import { trimmed } from '$lib/server/form';
+import { DATABASE_URL, db } from '$lib/server/db/client';
+import { badRequest, trimmed } from '$lib/server/form';
 import {
+	AttachmentRejected,
+	attachmentsDir,
+	createAttachment,
 	createLink,
+	deleteAttachment,
 	deleteLink,
 	moveLessonToTopic,
 	moveLink,
@@ -23,7 +27,7 @@ function isHttpUrl(url: string) {
 }
 
 // The lesson-editing actions the Courses view and the Planning board share — the Lesson editor
-// posts to the same seven actions whichever screen opens it over.
+// posts to the same nine actions whichever screen opens it over.
 export const lessonActions = {
 	updateLesson: async ({ request }) => {
 		const data = await request.formData();
@@ -98,6 +102,47 @@ export const lessonActions = {
 		const direction = trimmed(data, 'direction');
 		if (direction !== 'up' && direction !== 'down') return fail(400, { error: 'Bad direction.' });
 		moveLink(db, { lessonId, id, direction });
+		return {};
+	},
+
+	// Thin over the seam's create: read the multipart form, call create, and let a validation
+	// refusal ride the standard failure payload — its message is already written for Ed, and the
+	// client's toast convention shows it as-is.
+	createAttachment: async ({ request }) => {
+		const data = await request.formData();
+		const lessonId = trimmed(data, 'lessonId');
+		const file = data.get('file');
+		if (!(file instanceof File) || !file.name) {
+			return fail(400, { error: 'Choose a file to attach.' });
+		}
+		try {
+			return {
+				attachment: createAttachment(
+					db,
+					{
+						lessonId,
+						filename: file.name,
+						mimeType: file.type,
+						bytes: new Uint8Array(await file.arrayBuffer())
+					},
+					attachmentsDir(DATABASE_URL)
+				)
+			};
+		} catch (error) {
+			// Only a validation refusal the seam has already written for Ed rides the standard
+			// failure payload — anything else (a disk fault, a foreign-key violation) is a server
+			// fault, not a bad request, and should reach the error page and the log like any other.
+			if (error instanceof AttachmentRejected)
+				return badRequest(error, 'Could not attach the file.');
+			throw error;
+		}
+	},
+
+	deleteAttachment: async ({ request }) => {
+		const data = await request.formData();
+		const id = trimmed(data, 'id');
+		const attachment = deleteAttachment(db, id, attachmentsDir(DATABASE_URL));
+		if (!attachment) return fail(404, { error: 'No such Attachment.' });
 		return {};
 	}
 } satisfies Actions;

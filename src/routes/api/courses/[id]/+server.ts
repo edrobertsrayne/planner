@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { today } from '$lib/date';
-import { db } from '$lib/server/db/client';
+import { DATABASE_URL, db } from '$lib/server/db/client';
 import { course } from '$lib/server/db/schema';
 import { requireApiKey } from '$lib/server/api-key';
 import {
@@ -9,7 +9,7 @@ import {
 	requireExisting,
 	validateString
 } from '$lib/server/api-helpers';
-import { renameCourse, deleteCourse, NameCollision } from '$lib/server/planner/authoring';
+import { renameCourse, deleteCourse, NameCollision, attachmentsDir } from '$lib/server/planner';
 import { eq } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
@@ -74,7 +74,10 @@ export const DELETE: RequestHandler = async (event) => {
 	const auth = await requireApiKey(event);
 	if (auth) return auth;
 
-	const result = deleteCourse(db, event.params.id, { today: today() });
+	const result = deleteCourse(db, event.params.id, {
+		today: today(),
+		dir: attachmentsDir(DATABASE_URL)
+	});
 
 	if (!result.ok) {
 		if (result.reason === 'not found') {

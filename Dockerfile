@@ -45,4 +45,7 @@ ENV NODE_ENV=production
 ENV ORIGIN="http://localhost:3000"
 ENV BETTER_AUTH_URL="http://localhost:3000"
 ENV DATABASE_URL=local.db
+# Above the 10 MiB attachment ceiling plus multipart overhead: the adapter's Bun.serve would
+# otherwise reject a legal upload at its 512K default before the app's own validation runs.
+ENV BODY_SIZE_LIMIT=12M
 CMD [ "bun", "--bun", "run", "build/index.js" ]

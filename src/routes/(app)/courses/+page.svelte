@@ -269,6 +269,7 @@
 	<LessonEditor
 		lesson={data.lesson}
 		links={data.links}
+		attachments={data.attachments}
 		index={data.lessonIndex}
 		count={data.lessons.length}
 		previousId={data.lessonIndex > 0 ? data.lessons[data.lessonIndex - 1].id : null}

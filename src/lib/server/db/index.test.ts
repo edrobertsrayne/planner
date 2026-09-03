@@ -29,6 +29,7 @@ test('booting against a fresh empty file produces the complete schema', () => {
 		'topic',
 		'lesson',
 		'link',
+		'attachment',
 		'class',
 		'assigned_topic',
 		'slot',

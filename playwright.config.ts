@@ -26,7 +26,9 @@ export default defineConfig({
 		trace: 'retain-on-failure'
 	},
 	webServer: {
-		command: `rm -f ${DATABASE_URL} ${DATABASE_URL}-shm ${DATABASE_URL}-wal && bun run build && bun run preview`,
+		// The scratch database and its attachment files are deleted before every run, so two
+		// consecutive suites see the same fresh state.
+		command: `rm -f ${DATABASE_URL} ${DATABASE_URL}-shm ${DATABASE_URL}-wal && rm -rf attachments && bun run build && bun run preview`,
 		port: 4173,
 		// Never reuse a server already on this port — that could be the developer's own `bun run
 		// preview`, serving local.db, which is exactly what this file exists to keep the suite off.
