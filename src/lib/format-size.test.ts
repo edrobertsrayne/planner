@@ -17,6 +17,10 @@ describe('formatSize', () => {
 		expect(formatSize(5 * 1024 * 1024)).toBe('5.0 MB');
 	});
 
+	test('rounding at a unit boundary promotes rather than overflowing the figure', () => {
+		expect(formatSize(1_048_100)).toBe('1.0 MB');
+	});
+
 	test('from ten units up the size is a whole figure', () => {
 		expect(formatSize(512 * 1024)).toBe('512 kB');
 		expect(formatSize(10 * 1024 * 1024)).toBe('10 MB');

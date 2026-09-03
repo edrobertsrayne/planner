@@ -10,5 +10,13 @@ export function formatSize(bytes: number): string {
 		unit++;
 	}
 	if (unit === 0) return `${value} B`;
+
+	// Rounding can carry a value up to the next unit's own threshold — 1023.53 kB rounds to
+	// "1024 kB" rather than promoting to "1.0 MB" — so re-check after rounding, not before.
+	if (Math.round(value) >= 1024 && unit < UNITS.length - 1) {
+		value /= 1024;
+		unit++;
+	}
+
 	return value >= 10 ? `${Math.round(value)} ${UNITS[unit]}` : `${value.toFixed(1)} ${UNITS[unit]}`;
 }
