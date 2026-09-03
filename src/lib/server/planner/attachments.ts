@@ -7,7 +7,7 @@
 // undoing the file if the row fails, so a failed create leaves neither.
 import { mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import type { Db } from './derive';
 import { nextPosition } from './ordering';
 import * as schema from '../db/schema';
@@ -72,6 +72,17 @@ function rejectionReason(filename: string, mimeType: string, size: number): stri
 		return 'Attachments are limited to 10 MB.';
 	}
 	return null;
+}
+
+// A Lesson's Attachments in their own position order — independent of Link's, the sections are
+// separate (spec #220).
+export function attachmentsOf(db: Db, lessonId: string) {
+	return db
+		.select()
+		.from(schema.attachment)
+		.where(eq(schema.attachment.lessonId, lessonId))
+		.orderBy(asc(schema.attachment.position))
+		.all();
 }
 
 // Appended at the next position in its Lesson's own order, independent of Link's — the sections

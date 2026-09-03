@@ -103,4 +103,4 @@ export {
 	type LessonStatus
 } from './authoring';
 
-export { AttachmentRejected, attachmentsDir, createAttachment } from './attachments';
+export { AttachmentRejected, attachmentsDir, attachmentsOf, createAttachment } from './attachments';

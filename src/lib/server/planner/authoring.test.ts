@@ -610,10 +610,10 @@ describe('the Lesson editor', () => {
 		return { db, topic, lesson };
 	}
 
-	test('reads a Lesson back with its Links, in position order', () => {
+	test('reads a Lesson back with its Links and Attachments, in position order', () => {
 		const { db, lesson } = setUpLesson();
 
-		expect(lessonDetail(db, lesson.id)).toEqual({ ...lesson, links: [] });
+		expect(lessonDetail(db, lesson.id)).toEqual({ ...lesson, links: [], attachments: [] });
 	});
 
 	test('a Lesson holds a markdown body and a Length in Periods', () => {

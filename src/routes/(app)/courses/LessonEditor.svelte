@@ -10,11 +10,13 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.js';
+	import AttachmentRow from './AttachmentRow.svelte';
+	import { onFail } from '$lib/client/enhance';
 	import LinkRow from './LinkRow.svelte';
-
 	let {
 		lesson,
 		links,
+		attachments,
 		index,
 		count,
 		previousId,
@@ -32,6 +34,7 @@
 			length: number;
 		};
 		links: { id: string; label: string; url: string }[];
+		attachments: { id: string; filename: string; size: number }[];
 		index: number;
 		count: number;
 		previousId: string | null;
@@ -56,6 +59,7 @@
 
 	let statusInput: HTMLInputElement | null = $state(null);
 	let addingLink = $state(false);
+	let fileInput: HTMLInputElement | null = $state(null);
 
 	// The Dialog starts open every time this component mounts — it only exists while a Lesson is
 	// selected. Escape, overlay-click and the close button all flow through bits-ui setting this to
@@ -321,6 +325,51 @@
 						+ Add Link
 					</Button>
 				{/if}
+				<!-- Attachments sit below Links, in the same column. The hidden file input is
+				     the real control: the button clicks it, and choosing a file submits the form
+				     at once — there is no label/URL pair to type, so no inline form step. -->
+				<span
+					class="mt-4 block text-[11px] font-bold tracking-wider text-muted-foreground uppercase"
+				>
+					Attachments
+				</span>
+				<ul class="mt-1 space-y-1">
+					{#each attachments as attachment (attachment.id)}
+						<li class="rounded-md bg-muted px-2 py-1.5 text-sm">
+							<AttachmentRow {attachment} />
+						</li>
+					{/each}
+					{#if !attachments.length}
+						<li class="px-1 py-1 text-xs text-muted-foreground">No Attachments yet.</li>
+					{/if}
+				</ul>
+
+				<form
+					method="POST"
+					action="?/createAttachment"
+					enctype="multipart/form-data"
+					class="mt-2"
+					use:enhance={onFail('Could not attach the file.')}
+				>
+					<input type="hidden" name="lessonId" value={lesson.id} />
+					<input
+						bind:this={fileInput}
+						type="file"
+						name="file"
+						class="hidden"
+						aria-label="Choose a file to attach"
+						onchange={(e) => e.currentTarget.form?.requestSubmit()}
+					/>
+					<Button
+						type="button"
+						variant="ghost"
+						size="sm"
+						class="text-xs text-muted-foreground"
+						onclick={() => fileInput?.click()}
+					>
+						+ Add Attachment
+					</Button>
+				</form>
 			</div>
 		</div>
 	</Dialog.Content>

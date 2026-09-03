@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
-import { createCourse, createLesson } from './authoring';
+import { createCourse, createLesson, createLink, lessonDetail } from './authoring';
 import { AttachmentRejected, attachmentsDir, createAttachment } from './index';
 import { makeTopic, setUpAuthoring } from './fixtures';
 
@@ -228,6 +228,35 @@ describe('attachment storage', () => {
 		).toThrow();
 
 		expect(readdirSync(atDir)).toEqual([]);
+	});
+
+	test("the Lesson editor's detail read returns Attachments in position order alongside Links", () => {
+		const { db, lesson, atDir } = setUpLesson();
+		const slides = createAttachment(
+			db,
+			{
+				lessonId: lesson.id,
+				filename: 'slides.pptx',
+				mimeType: 'application/octet-stream',
+				bytes: new Uint8Array(2)
+			},
+			atDir
+		);
+		const worksheet = createAttachment(
+			db,
+			{
+				lessonId: lesson.id,
+				filename: 'worksheet.pdf',
+				mimeType: 'application/pdf',
+				bytes: new Uint8Array(1)
+			},
+			atDir
+		);
+		createLink(db, { lessonId: lesson.id, label: 'PhET', url: 'https://phet.example' });
+
+		const detail = lessonDetail(db, lesson.id)!;
+		expect(detail.links).toHaveLength(1);
+		expect(detail.attachments.map((a) => a.id)).toEqual([slides.id, worksheet.id]);
 	});
 
 	test('the attachments directory is derived from the database path', () => {

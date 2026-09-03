@@ -8,6 +8,7 @@ import type { Database } from 'bun:sqlite';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import { rederiveTopic, type Db } from './derive';
+import { attachmentsOf } from './attachments';
 import { nextPosition, swapTargets, type Direction } from './ordering';
 
 // Course and Topic names carry an explicit uniqueness rule (issue #131, §6 of the planning API
@@ -373,11 +374,12 @@ export function linksOf(db: Db, lessonId: string) {
 		.all();
 }
 
-// The Lesson editor's one full-detail read: the Lesson plus its Links, in position order.
+// The Lesson editor's one full-detail read: the Lesson plus its Links and its Attachments, each
+// in position order.
 export function lessonDetail(db: Db, id: string) {
 	const [row] = db.select().from(schema.lesson).where(eq(schema.lesson.id, id)).all();
 	if (!row) return null;
-	return { ...row, links: linksOf(db, id) };
+	return { ...row, links: linksOf(db, id), attachments: attachmentsOf(db, id) };
 }
 
 // Length is a scheduling input, so this re-derives every Class assigned this Lesson's

@@ -47,6 +47,7 @@ export const load: PageServerLoad = ({ url }) => {
 		lessons,
 		lessonIndex,
 		links: detail?.links ?? [],
+		attachments: detail?.attachments ?? [],
 		taughtBy
 	};
 };
