@@ -3,6 +3,7 @@ import { today } from '$lib/date';
 import { DATABASE_URL, db } from '$lib/server/db/client';
 import { badRequest, trimmed } from '$lib/server/form';
 import {
+	AttachmentRejected,
 	attachmentsDir,
 	createAttachment,
 	createLink,
@@ -26,7 +27,7 @@ function isHttpUrl(url: string) {
 }
 
 // The lesson-editing actions the Courses view and the Planning board share — the Lesson editor
-// posts to the same eight actions whichever screen opens it over.
+// posts to the same nine actions whichever screen opens it over.
 export const lessonActions = {
 	updateLesson: async ({ request }) => {
 		const data = await request.formData();
@@ -128,7 +129,12 @@ export const lessonActions = {
 				)
 			};
 		} catch (error) {
-			return badRequest(error, 'Could not attach the file.');
+			// Only a validation refusal the seam has already written for Ed rides the standard
+			// failure payload — anything else (a disk fault, a foreign-key violation) is a server
+			// fault, not a bad request, and should reach the error page and the log like any other.
+			if (error instanceof AttachmentRejected)
+				return badRequest(error, 'Could not attach the file.');
+			throw error;
 		}
 	},
 
