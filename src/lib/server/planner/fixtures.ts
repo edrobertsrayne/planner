@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterEach } from 'vitest';
 import { openDatabase, runMigrations } from '../db';
 import * as schema from '../db/schema';
-import { addSlot, createClass } from './index';
+import { addSlot, attachmentsDir, createClass } from './index';
 
 // The real 2026/27 calendar: six Terms opening Thursday 3 September 2026, INSET on Thu 26 +
 // Fri 27 Nov 2026, 40 Teaching Weeks, 20 A, 20 B, 187 teaching days. Monday 14 September 2026 is
@@ -53,7 +53,7 @@ export function setUp() {
 	addSlot(db, { classId: classB.id, week: 'A', day: 1, period: 1 }); // Mon
 	addSlot(db, { classId: classB.id, week: 'B', day: 3, period: 4 }); // Wed
 
-	return { db, client, course, classA, classB };
+	return { db, client, course, classA, classB, dir, atDir: attachmentsDir(join(dir, 'test.db')) };
 }
 
 export function makeTopic(db: ReturnType<typeof setUp>['db'], courseId: string, name: string) {
@@ -80,10 +80,13 @@ export function makeLessons(
 }
 
 // Course/Topic/Lesson authoring needs no calendar, no Class and no Slot — a bare migrated
-// database is enough, so this skips the heavy setUp() above.
+// database is enough, so this skips the heavy setUp() above. The temp directory comes back too:
+// attachment storage writes its files beside the database, so its tests assert them there.
+// `atDir` is that derived attachments directory (what `deleteLesson`/`deleteTopic`/`deleteCourse`
+// mean by `dir`); `dir`, the temp root itself, stays for callers building their own database path.
 export function setUpAuthoring() {
 	dir = mkdtempSync(join(tmpdir(), 'planner-authoring-'));
 	const { client, db } = openDatabase(join(dir, 'test.db'));
 	runMigrations(client, 'drizzle');
-	return { db, client };
+	return { db, client, dir, atDir: attachmentsDir(join(dir, 'test.db')) };
 }

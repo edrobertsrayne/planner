@@ -94,6 +94,16 @@ export const lessonTag = sqliteTable(
 	},
 	(table) => [primaryKey({ columns: [table.lessonId, table.tagId] })]
 );
+export const attachment = sqliteTable('attachment', {
+	id: id(),
+	lessonId: text('lesson_id')
+		.notNull()
+		.references(() => lesson.id),
+	filename: text('filename').notNull(),
+	mimeType: text('mime_type').notNull(),
+	size: integer('size').notNull(),
+	position: integer('position').notNull()
+});
 
 export const readiness = sqliteTable(
 	'readiness',

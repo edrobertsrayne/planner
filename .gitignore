@@ -28,10 +28,17 @@ vite.config.ts.timestamp-*
 # Playwright
 test-results
 
+# vitest-browser screenshots
+__screenshots__
+
 # SQLite
 *.db
 *.db-shm
 *.db-wal
+
+# Attachment files written beside the database — the e2e scratch pair and a dev local.db alike
+# (spec #237)
+/attachments/
 
 # Docker test instance
 /data/

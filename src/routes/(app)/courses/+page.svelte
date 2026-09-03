@@ -274,6 +274,7 @@
 		links={data.links}
 		tags={data.tags}
 		existingTagNames={data.existingTagNames}
+		attachments={data.attachments}
 		index={data.lessonIndex}
 		count={data.lessons.length}
 		previousId={data.lessonIndex > 0 ? data.lessons[data.lessonIndex - 1].id : null}

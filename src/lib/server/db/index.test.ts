@@ -31,6 +31,7 @@ test('booting against a fresh empty file produces the complete schema', () => {
 		'link',
 		'tag',
 		'lesson_tag',
+		'attachment',
 		'class',
 		'assigned_topic',
 		'slot',

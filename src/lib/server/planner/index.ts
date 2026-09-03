@@ -17,6 +17,7 @@
 //   sessions.ts     one occasion: its detail, its note, its Continuation
 //   views.ts        the Agenda stream and the Calendar grid, across every Class
 //   authoring.ts    Courses, Topics, Lessons and Links
+//   attachments.ts  files a Lesson holds: the directory, the allow-list, the create
 
 export type { AtRiskSession, LessonName, WriteReport } from './derive';
 
@@ -107,3 +108,12 @@ export {
 	updateLink,
 	type LessonStatus
 } from './authoring';
+
+export {
+	AttachmentRejected,
+	attachmentById,
+	attachmentsDir,
+	attachmentsOf,
+	createAttachment,
+	deleteAttachment
+} from './attachments';

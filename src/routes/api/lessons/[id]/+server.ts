@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { db } from '$lib/server/db/client';
+import { DATABASE_URL, db } from '$lib/server/db/client';
 import { requireApiKey } from '$lib/server/api-key';
 import {
 	MAX_NAME_LENGTH,
@@ -9,7 +9,7 @@ import {
 	validateLength,
 	getDateToday
 } from '$lib/server/api-helpers';
-import { lessonDetail, deleteLesson, patchLesson } from '$lib/server/planner/authoring';
+import { attachmentsDir, lessonDetail, deleteLesson, patchLesson } from '$lib/server/planner';
 import type { RequestHandler } from './$types';
 
 const LESSON_FIELDS = new Set(['title', 'body', 'length', 'status', 'topicId']);
@@ -96,7 +96,11 @@ export const DELETE: RequestHandler = async (event) => {
 	if (auth) return auth;
 
 	const today = getDateToday();
-	const result = deleteLesson(db, { id: event.params.id, today });
+	const result = deleteLesson(db, {
+		id: event.params.id,
+		today,
+		dir: attachmentsDir(DATABASE_URL)
+	});
 
 	if (!result.ok) {
 		if (result.reason === 'not found') return json({ error: 'Lesson not found.' }, { status: 404 });

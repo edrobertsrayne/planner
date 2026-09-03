@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { toast } from 'svelte-sonner';
 	import { formatWeekday } from '$lib/date';
+	import { formatSize } from '$lib/format-size';
 	import type { Occasion } from '$lib/client/session-panel.svelte';
 	import { createSessionNotes } from '$lib/client/session-note';
 	import type { AtRiskSession, SessionDetail } from '$lib/server/planner';
@@ -141,6 +143,24 @@
 							rel="noopener noreferrer"
 							class="text-sm underline underline-offset-4">{link.label}</a
 						>
+					</li>
+				{/each}
+			</ul>
+		{/if}
+
+		{#if detail.lesson.attachments.length}
+			<ul class="mt-2 space-y-1">
+				{#each detail.lesson.attachments as attachment (attachment.id)}
+					<li class="flex items-baseline gap-2 text-sm">
+						<a
+							href={resolve('/attachments/[id]', { id: attachment.id })}
+							class="min-w-0 flex-1 truncate underline underline-offset-4"
+						>
+							{attachment.filename}
+						</a>
+						<span class="shrink-0 font-mono text-[10px] text-muted-foreground">
+							{formatSize(attachment.size)}
+						</span>
 					</li>
 				{/each}
 			</ul>
