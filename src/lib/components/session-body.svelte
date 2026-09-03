@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { toast } from 'svelte-sonner';
 	import { formatWeekday } from '$lib/date';
 	import { formatSize } from '$lib/format-size';
@@ -150,7 +151,7 @@
 				{#each detail.lesson.attachments as attachment (attachment.id)}
 					<li class="flex items-baseline gap-2 text-sm">
 						<a
-							href="/attachments/{attachment.id}"
+							href={resolve('/attachments/[id]', { id: attachment.id })}
 							class="min-w-0 flex-1 truncate underline underline-offset-4"
 						>
 							{attachment.filename}
