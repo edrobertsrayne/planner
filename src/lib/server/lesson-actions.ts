@@ -109,7 +109,7 @@ export const lessonActions = {
 		const name = trimmed(data, 'name');
 		const result = attachTag(db, { lessonId, name });
 		if (!result.ok) return fail(400, { error: 'A Tag needs a name.' });
-		return { tags: result.tags };
+		return {};
 	},
 
 	detachTag: async ({ request }) => {

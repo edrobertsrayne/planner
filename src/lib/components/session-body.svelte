@@ -7,7 +7,7 @@
 	import type { AtRiskSession, SessionDetail } from '$lib/server/planner';
 	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
 	import { Badge } from '$lib/components/ui/badge';
-	import { tagColor } from '$lib/tag-color';
+	import TagChips from '$lib/components/tag-chips.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
 	import { Textarea } from '$lib/components/ui/textarea';
@@ -121,20 +121,7 @@
 		{#if detail.lesson.topicName}
 			<p class="mt-1 text-xs text-muted-foreground">{detail.lesson.topicName}</p>
 		{/if}
-		{#if detail.lesson.tags.length}
-			<div class="mt-2 flex flex-wrap gap-1">
-				{#each detail.lesson.tags as tag (tag)}
-					{@const color = tagColor(tag)}
-					<Badge
-						variant="outline"
-						class="text-[10px]"
-						style="background-color: {color.bg}; color: {color.fg}; border-color: transparent;"
-					>
-						{tag}
-					</Badge>
-				{/each}
-			</div>
-		{/if}
+		<TagChips tags={detail.lesson.tags} class="mt-2" />
 
 		{#if detail.lesson.body}
 			<p class="mt-4 text-sm whitespace-pre-line text-foreground/80">{detail.lesson.body}</p>

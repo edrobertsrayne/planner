@@ -50,7 +50,7 @@ export const load: PageServerLoad = ({ url }) => {
 		lessonIndex,
 		links: detail?.links ?? [],
 		tags: detail ? attachedTags(db, detail.id) : [],
-		existingTagNames: listTagNames(db),
+		existingTagNames: detail ? listTagNames(db) : [],
 		taughtBy
 	};
 };

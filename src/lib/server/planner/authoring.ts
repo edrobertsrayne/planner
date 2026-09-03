@@ -373,18 +373,10 @@ export function linksOf(db: Db, lessonId: string) {
 		.all();
 }
 
-// Tag names are unique across the planner, case-insensitive and trimmed (mirrors
-// assertCourseNameAvailable's comparison via nameMatchesIgnoringCaseAndWhitespace). Typing a name
-// that matches an existing Tag reuses it — attach, never create-or-refuse, is Tag's whole point.
+// Same rows as attachedTags, names only — every Lesson-showing read outside the editor itself
+// (the editor needs attachedTags's ids to post to detachTag).
 export function tagsOf(db: Db, lessonId: string): string[] {
-	return db
-		.select({ name: schema.tag.name })
-		.from(schema.lessonTag)
-		.innerJoin(schema.tag, eq(schema.tag.id, schema.lessonTag.tagId))
-		.where(eq(schema.lessonTag.lessonId, lessonId))
-		.orderBy(asc(schema.tag.name))
-		.all()
-		.map((row) => row.name);
+	return attachedTags(db, lessonId).map((tag) => tag.name);
 }
 
 // Same rows as tagsOf, but carrying each Tag's id alongside its name — the Lesson editor's chip
@@ -437,6 +429,9 @@ export function listTagNames(db: Db): string[] {
 		.map((row) => row.name);
 }
 
+// Tag names are unique across the planner, case-insensitive and trimmed (mirrors
+// assertCourseNameAvailable's comparison via nameMatchesIgnoringCaseAndWhitespace). Typing a name
+// that matches an existing Tag reuses it — attach, never create-or-refuse, is Tag's whole point.
 // Finds a Tag matching trimmed + case-insensitive, reusing it, or creates one. Then inserts
 // lesson_tag (idempotent on the composite key — INSERT OR IGNORE). Refuses an empty/whitespace-only
 // name the same way updateLesson refuses an empty title. No re-derive: a Tag is descriptive

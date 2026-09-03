@@ -5,8 +5,7 @@
 	import { formatShortWeekday } from '$lib/date';
 	import { statusTone, type PlanningStatus } from '$lib/feedback-tone';
 	import PageHeader from '$lib/components/page-header.svelte';
-	import { Badge } from '$lib/components/ui/badge/index.js';
-	import { tagColor } from '$lib/tag-color';
+	import TagChips from '$lib/components/tag-chips.svelte';
 	import LessonEditor from '../courses/LessonEditor.svelte';
 	import type { PageProps } from './$types';
 
@@ -142,20 +141,7 @@
 									{lesson.topicName} · {lesson.courseName}
 								{/if}
 							</div>
-							{#if lesson.tags.length}
-								<div class="mt-1 flex flex-wrap gap-1">
-									{#each lesson.tags as tag (tag)}
-										{@const color = tagColor(tag)}
-										<Badge
-											variant="outline"
-											class="text-[10px]"
-											style="background-color: {color.bg}; color: {color.fg}; border-color: transparent;"
-										>
-											{tag}
-										</Badge>
-									{/each}
-								</div>
-							{/if}
+							<TagChips tags={lesson.tags} class="mt-1" />
 						</div>
 
 						<form method="POST" action="?/setLessonStatus" use:enhance class="contents">

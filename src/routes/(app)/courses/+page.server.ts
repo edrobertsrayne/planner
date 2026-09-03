@@ -61,7 +61,7 @@ export const load: PageServerLoad = ({ url }) => {
 		lesson: detail,
 		links: detail?.links ?? [],
 		tags: detail ? attachedTags(db, detail.id) : [],
-		existingTagNames: listTagNames(db),
+		existingTagNames: detail ? listTagNames(db) : [],
 		tagsByLesson: tagsByLesson(
 			db,
 			lessons.map((l) => l.id)

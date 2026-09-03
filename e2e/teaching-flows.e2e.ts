@@ -420,8 +420,13 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		await page.keyboard.press('Escape');
 		await expectSessionClosed(page);
 
-		// The Calendar tile itself carries no Tag — only the click-through does.
-		await page.goto('/calendar');
+		// The Calendar tile itself carries no Tag — only the click-through does. Pinned to the same
+		// week `defaultWeek` resolves today's date to (the week containing today, or the next one
+		// during a weekend) — the week beforeAll's setup used to letter 9B/Sc1's Slots, so a bare
+		// load would already agree, but pinning removes any doubt on a Saturday/Sunday run.
+		const day = new Date().getUTCDay();
+		const mondayOffset = day === 0 ? 1 : day === 6 ? 2 : 1 - day;
+		await page.goto(`/calendar?week=${isoDate(mondayOffset)}`);
 		const tile = page
 			.getByRole('button')
 			.filter({ hasText: '9B/Sc1' })

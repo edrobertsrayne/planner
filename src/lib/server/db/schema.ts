@@ -79,8 +79,9 @@ export const tag = sqliteTable(
 );
 
 // The Lesson/Tag attachment. The composite primary key makes attaching idempotent — attaching a
-// Tag a Lesson already carries is a no-op, not a duplicate row. Cascades on the Lesson side only:
-// deleting a Lesson drops its attachments, but a Tag with no Lessons left survives.
+// Tag a Lesson already carries is a no-op, not a duplicate row. Both sides cascade: deleting a
+// Lesson drops its attachments, and deleting a Tag drops the attachments that named it — but
+// deleting a Lesson never cascades into `tag` itself, so an untagged Tag survives.
 export const lessonTag = sqliteTable(
 	'lesson_tag',
 	{

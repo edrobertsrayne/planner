@@ -6,12 +6,11 @@
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import XIcon from '@lucide/svelte/icons/x';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
-	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.js';
-	import { tagColor } from '$lib/tag-color';
+	import TagBadge from '$lib/components/tag-badge.svelte';
 	import LinkRow from './LinkRow.svelte';
 
 	let {
@@ -336,15 +335,10 @@
 				</span>
 				<div class="mt-1 flex flex-wrap gap-1">
 					{#each tags as tag (tag.id)}
-						{@const color = tagColor(tag.name)}
 						<form method="POST" action="?/detachTag" use:enhance class="contents">
 							<input type="hidden" name="lessonId" value={lesson.id} />
 							<input type="hidden" name="tagId" value={tag.id} />
-							<Badge
-								variant="outline"
-								style="background-color: {color.bg}; color: {color.fg}; border-color: transparent;"
-							>
-								{tag.name}
+							<TagBadge name={tag.name}>
 								<button
 									type="submit"
 									class="-mr-0.5 ml-0.5 rounded-full hover:opacity-70"
@@ -352,7 +346,7 @@
 								>
 									<XIcon class="size-3" />
 								</button>
-							</Badge>
+							</TagBadge>
 						</form>
 					{/each}
 					{#if !tags.length}
