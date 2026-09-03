@@ -371,7 +371,7 @@ describe("a Lesson's planning status", () => {
 
 describe('reordering and moving Lessons', () => {
 	function setUpTopics() {
-		const { db, dir } = setUpAuthoring();
+		const { db, atDir: dir } = setUpAuthoring();
 		const course = createCourse(db, { name: 'Year 9 Physics' });
 		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
 		const otherTopic = createTopic(db, { courseId: course.id, name: 'Waves' });
@@ -451,7 +451,7 @@ describe('reordering and moving Lessons', () => {
 	});
 
 	test('refuses to delete a Lesson that a Class has already been taught', () => {
-		const { db, course, classA, dir } = setUp();
+		const { db, course, classA, atDir: dir } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		const lessons = makeLessons(db, topic.id, 1);
 
@@ -491,7 +491,7 @@ describe('content edits re-derive the schedule from today', () => {
 	});
 
 	test('deleting a not-yet-taught Lesson from a half-taught Topic re-derives the rest', () => {
-		const { db, course, classA, dir } = setUp();
+		const { db, course, classA, atDir: dir } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		// 30 Lessons comfortably outlast the ~12 Sessions 9B/Sc1 has by "later" below, so the last
 		// one is still safely open-for-teaching, not history.
@@ -708,7 +708,7 @@ describe('the Lesson editor', () => {
 // already been taught: those refuse unconditionally, confirmed or not.
 describe('deleting a Course or a Topic', () => {
 	test('an empty Course or Topic deletes at once, unconfirmed', () => {
-		const { db, dir } = setUpAuthoring();
+		const { db, atDir: dir } = setUpAuthoring();
 		const course = createCourse(db, { name: 'Year 9 Physics' });
 		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
 
@@ -718,7 +718,7 @@ describe('deleting a Course or a Topic', () => {
 	});
 
 	test('a Topic that still holds Lessons asks for confirmation, then removes them with it', () => {
-		const { db, dir } = setUpAuthoring();
+		const { db, atDir: dir } = setUpAuthoring();
 		const course = createCourse(db, { name: 'Year 9 Physics' });
 		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
 		const lesson = createLesson(db, { topicId: topic.id, title: 'Newton I', today: '2026-09-03' });
@@ -738,7 +738,7 @@ describe('deleting a Course or a Topic', () => {
 	});
 
 	test('a Course that still holds Topics asks for confirmation, then removes every Topic and Lesson with it', () => {
-		const { db, dir } = setUpAuthoring();
+		const { db, atDir: dir } = setUpAuthoring();
 		const course = createCourse(db, { name: 'Year 9 Physics' });
 		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
 		const lesson = createLesson(db, { topicId: topic.id, title: 'Newton I', today: '2026-09-03' });
@@ -757,7 +757,7 @@ describe('deleting a Course or a Topic', () => {
 	});
 
 	test('refuses a Course a Class follows, even confirmed', () => {
-		const { db, course, dir } = setUp();
+		const { db, course, atDir: dir } = setUp();
 
 		expect(deleteCourse(db, course.id, { today: '2026-09-03', confirmed: true, dir })).toEqual({
 			ok: false,
@@ -767,7 +767,7 @@ describe('deleting a Course or a Topic', () => {
 	});
 
 	test('refuses a Topic assigned to a Class, even confirmed', () => {
-		const { db, course, classA, dir } = setUp();
+		const { db, course, classA, atDir: dir } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		makeLessons(db, topic.id, 1);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
@@ -783,7 +783,7 @@ describe('deleting a Course or a Topic', () => {
 		// unassignTopic refuses to unassign a Topic already reached, so the only way a Topic ends
 		// up holding an already-taught Lesson while itself unassigned is a Lesson moved in after
 		// the fact (moveLessonToTopic) — the loophole this guard exists for.
-		const { db, course, classA, dir } = setUp();
+		const { db, course, classA, atDir: dir } = setUp();
 		const taughtTopic = makeTopic(db, course.id, 'Forces');
 		const lessons = makeLessons(db, taughtTopic.id, 1);
 		assignTopic(db, { classId: classA.id, topicId: taughtTopic.id, today: '2026-09-03' });

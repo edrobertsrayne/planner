@@ -604,7 +604,7 @@ describe('Readiness dies with its pairing', () => {
 	});
 
 	test('deleteLesson takes its marks', () => {
-		const { db, course, classA, classB, dir } = setUp();
+		const { db, course, classA, classB, atDir: dir } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		const [l1, l2] = makeLessons(db, topic.id, 2);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
