@@ -9,8 +9,7 @@ import {
 	requireExisting,
 	validateString
 } from '$lib/server/api-helpers';
-import { renameCourse, deleteCourse, NameCollision } from '$lib/server/planner/authoring';
-import { attachmentsDir } from '$lib/server/planner/attachments';
+import { renameCourse, deleteCourse, NameCollision, attachmentsDir } from '$lib/server/planner';
 import { eq } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
