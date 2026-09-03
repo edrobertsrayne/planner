@@ -24,6 +24,8 @@ vite.config.ts.timestamp-*
 
 # Playwright
 test-results
+.vitest-attachments
+__screenshots__
 
 # SQLite
 *.db
