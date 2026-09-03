@@ -36,6 +36,15 @@ Lesson titles are not unique: one Topic may hold two Lessons called "Revision", 
 addressed by its identity and never by its title.
 _Avoid_: Period, session, class
 
+**Attachment**:
+A file a Lesson holds that the planner stores itself — a worksheet PDF, a slide deck — as
+distinct from a Link, which points at a resource elsewhere on the web. Carried by the Lesson like
+its notes and Links, it shows its original filename and size, downloads under its own name, and is
+never edited in place: replacing one is delete-then-add. Outside the Lesson editor it is
+download-only. It dies with its Lesson, never with its place — deleting the Lesson removes it,
+Detaching or moving the Lesson keeps it.
+_Avoid_: Upload, media, resource
+
 **Standalone Lesson**:
 A Lesson belonging to no Topic. It sits in no Course, so it reaches no Class's Lesson stream and
 is never Scheduled, but every Session that already taught it still names it. This is what lets a
@@ -288,13 +297,16 @@ Note that this names a _screen_; "planning" unqualified means the activity, and 
 of the Language above names its parts.
 
 **Lesson editor**:
-The single surface for one Lesson — its title, its markdown body, its links and its Length. Opens as a modal over the Courses view, and steps to the next or previous Lesson in the
+The single surface for one Lesson — its title, its markdown body, its links, its attachments and
+its Length. Opens as a modal over the Courses view, and steps to the next or previous Lesson in the
 Topic without closing. Distinct from the Session panel: the Lesson editor writes the plan shared
 by every Class, the Session panel writes one Class's occasion.
 
 **Session panel**:
-The single surface for one Session — its Lesson's plan and links, the note on the occasion, and
-the Continuation control. Opened from any of the three reading views; there is no other place a
+The single surface for one Session — its Lesson's plan, links and attachments, the note on the
+occasion, and the Continuation control. Attachments here are view-and-download only, like Links —
+the panel never rewrites the shared plan. Opened from any of the three reading views; there is no
+other place a
 Session is read or written. It opens on an Open Slot too, showing no plan and offering the
 note — a Session is identified by its occasion, not by its Lesson, so a Slot carrying no Lesson is
 still an occasion the teacher may want to write about. Shows the Class's Readiness for this

@@ -1,4 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
+import { readFile, rm } from 'node:fs/promises';
+import { join } from 'node:path';
 
 // Runs after teaching-flows.e2e.ts — the one user and the KS3 Science course already exist —
 // and before the-calendar-setup.e2e.ts, for the suite's single-worker ordering (see
@@ -92,10 +94,8 @@ test.describe.serial('Attachments on Lessons', () => {
 		await expect(page.getByRole('dialog').getByText('field-notes.txt')).toBeVisible();
 	});
 
-	// The extension/MIME disagreement refusal has no e2e: Bun's form-data parser rewrites a file
-	// part's type from its filename extension before the action reads it, so a browser-declared
-	// mismatch cannot reach the app. The refusal is a pure check, proven directly at the unit
-	// seam (attachments.test.ts).
+	// No e2e for the extension/MIME mismatch refusal: Bun rewrites a file part's type from its
+	// extension, so a browser-declared mismatch cannot reach the app — see attachments.ts.
 	test('a file over the ceiling is refused', async () => {
 		await attach(page, {
 			name: 'big.md',
@@ -105,5 +105,88 @@ test.describe.serial('Attachments on Lessons', () => {
 
 		await expectToast(page, 'Attachments are limited to 10 MB.');
 		await expect(page.getByRole('dialog').getByText('big.md')).toHaveCount(0);
+	});
+
+	test('downloading an Attachment returns the original filename, identical bytes, its MIME type, and no cache headers', async () => {
+		const dialog = page.getByRole('dialog');
+		const link = dialog.getByRole('link', { name: 'worksheet.pdf' });
+		const href = await link.getAttribute('href');
+
+		const [download] = await Promise.all([page.waitForEvent('download'), link.click()]);
+
+		expect(download.suggestedFilename()).toBe('worksheet.pdf');
+		const bytes = await readFile(await download.path());
+		expect(bytes.equals(Buffer.alloc(14, 0x25))).toBe(true);
+
+		// The link the download came from is the one the row shows — proves the row and the
+		// served bytes agree on which Attachment this is.
+		expect(href).toMatch(/^\/attachments\/[^/]+$/);
+
+		const response = await page.request.get(href!);
+		expect(response.headers()['content-type']).toBe('application/pdf');
+		expect(response.headers()['cache-control']).toBeUndefined();
+		expect(response.headers()['etag']).toBeUndefined();
+	});
+
+	test('a filename with accented characters downloads un-mangled', async () => {
+		await attach(page, {
+			name: 'café-menu.pdf',
+			mimeType: 'application/pdf',
+			buffer: Buffer.alloc(3, 0x2a)
+		});
+
+		const dialog = page.getByRole('dialog');
+		const link = dialog.getByRole('link', { name: 'café-menu.pdf' });
+		const [download] = await Promise.all([page.waitForEvent('download'), link.click()]);
+
+		expect(download.suggestedFilename()).toBe('café-menu.pdf');
+	});
+
+	test('a row whose file is missing on disk serves a 500 with a generic body', async () => {
+		await attach(page, {
+			name: 'ghost.txt',
+			mimeType: 'text/plain',
+			buffer: Buffer.alloc(5, 0x67)
+		});
+
+		const dialog = page.getByRole('dialog');
+		const href = await dialog.getByRole('link', { name: 'ghost.txt' }).getAttribute('href');
+		const id = href!.split('/').pop()!;
+		await rm(join('attachments', id));
+
+		const response = await page.request.get(href!);
+		expect(response.status()).toBe(500);
+		expect(await response.text()).not.toContain('ENOENT');
+	});
+
+	test('deleting an Attachment removes its row, and its link 404s afterward', async () => {
+		const dialog = page.getByRole('dialog');
+		const href = await dialog.getByRole('link', { name: 'field-notes.txt' }).getAttribute('href');
+
+		await dialog.getByRole('button', { name: 'Remove field-notes.txt' }).click();
+		await expect(dialog.getByText('field-notes.txt')).toHaveCount(0);
+
+		const response = await page.request.get(href!);
+		expect(response.status()).toBe(404);
+	});
+
+	test('a signed-out request to an Attachment link is redirected to /login', async ({
+		browser
+	}) => {
+		const dialog = page.getByRole('dialog');
+		const href = await dialog.getByRole('link', { name: 'worksheet.pdf' }).getAttribute('href');
+
+		// A fresh, cookie-less context — signed-out, unlike `page` above.
+		const signedOut = await browser.newContext();
+		const response = await signedOut.request.get(href!);
+		expect(response.url()).toContain('/login');
+		await signedOut.close();
+	});
+
+	test('a traversal payload 404s rather than resolving to a real file', async () => {
+		const response = await page.request.get(
+			'/attachments/' + encodeURIComponent('../../package.json')
+		);
+		expect(response.status()).toBe(404);
 	});
 });

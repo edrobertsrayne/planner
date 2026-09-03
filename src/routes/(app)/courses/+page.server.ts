@@ -1,9 +1,11 @@
 import { fail } from '@sveltejs/kit';
 import { today } from '$lib/date';
-import { db } from '$lib/server/db/client';
+import { DATABASE_URL, db } from '$lib/server/db/client';
 import { badRequest, conflict, trimmed } from '$lib/server/form';
 import { lessonActions } from '$lib/server/lesson-actions';
 import {
+	attachmentsDir,
+	attachmentsOf,
 	classesTaughtLesson,
 	createCourse,
 	createLesson,
@@ -46,6 +48,7 @@ export const load: PageServerLoad = ({ url }) => {
 	const lessonId = url.searchParams.get('lesson');
 	const detail =
 		lessonId && lessons.some((l) => l.id === lessonId) ? lessonDetail(db, lessonId) : null;
+	const attachments = detail ? attachmentsOf(db, detail.id) : [];
 	const lessonIndex = detail ? lessons.findIndex((l) => l.id === detail.id) : -1;
 	const taughtBy = detail ? classesTaughtLesson(db, { lessonId: detail.id, today: today() }) : [];
 
@@ -57,7 +60,7 @@ export const load: PageServerLoad = ({ url }) => {
 		lessons,
 		lesson: detail,
 		links: detail?.links ?? [],
-		attachments: detail?.attachments ?? [],
+		attachments,
 		lessonIndex,
 		taughtBy
 	};
@@ -137,7 +140,7 @@ export const actions: Actions = {
 	deleteLesson: async ({ request }) => {
 		const data = await request.formData();
 		const id = trimmed(data, 'id');
-		const result = deleteLesson(db, { id, today: today() });
+		const result = deleteLesson(db, { id, today: today(), dir: attachmentsDir(DATABASE_URL) });
 		if (!result.ok) {
 			if (result.reason === 'not found') return fail(404, { error: 'No such Lesson.' });
 			return fail(409, { error: 'This Lesson has already been taught and cannot be deleted.' });
@@ -149,7 +152,11 @@ export const actions: Actions = {
 		const data = await request.formData();
 		const id = trimmed(data, 'id');
 		const confirmed = trimmed(data, 'confirmed') === 'true';
-		const result = deleteCourse(db, id, { today: today(), confirmed });
+		const result = deleteCourse(db, id, {
+			today: today(),
+			confirmed,
+			dir: attachmentsDir(DATABASE_URL)
+		});
 		if (!result.ok) {
 			if (result.reason === 'not found') return fail(404, { error: 'No such Course.' });
 			return fail(409, { error: result.reason, needsConfirm: result.needsConfirm });
@@ -161,7 +168,11 @@ export const actions: Actions = {
 		const data = await request.formData();
 		const id = trimmed(data, 'id');
 		const confirmed = trimmed(data, 'confirmed') === 'true';
-		const result = deleteTopic(db, id, { today: today(), confirmed });
+		const result = deleteTopic(db, id, {
+			today: today(),
+			confirmed,
+			dir: attachmentsDir(DATABASE_URL)
+		});
 		if (!result.ok) {
 			if (result.reason === 'not found') return fail(404, { error: 'No such Topic.' });
 			return fail(409, { error: result.reason, needsConfirm: result.needsConfirm });

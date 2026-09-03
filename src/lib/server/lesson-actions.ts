@@ -6,6 +6,7 @@ import {
 	attachmentsDir,
 	createAttachment,
 	createLink,
+	deleteAttachment,
 	deleteLink,
 	moveLessonToTopic,
 	moveLink,
@@ -129,5 +130,13 @@ export const lessonActions = {
 		} catch (error) {
 			return badRequest(error, 'Could not attach the file.');
 		}
+	},
+
+	deleteAttachment: async ({ request }) => {
+		const data = await request.formData();
+		const id = trimmed(data, 'id');
+		const attachment = deleteAttachment(db, id, attachmentsDir(DATABASE_URL));
+		if (!attachment) return fail(404, { error: 'No such Attachment.' });
+		return {};
 	}
 } satisfies Actions;

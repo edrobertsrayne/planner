@@ -1,9 +1,25 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
-import { createCourse, createLesson, createLink, lessonDetail } from './authoring';
-import { AttachmentRejected, attachmentsDir, createAttachment } from './index';
+import {
+	createCourse,
+	createLesson,
+	createLink,
+	createTopic,
+	deleteLesson,
+	lessonDetail,
+	moveLessonToTopic
+} from './authoring';
+import {
+	AttachmentRejected,
+	attachmentById,
+	attachmentsDir,
+	attachmentsOf,
+	createAttachment,
+	deleteAttachment
+} from './index';
 import { makeTopic, setUpAuthoring } from './fixtures';
+import * as schema from '../db/schema';
 
 const MB = 1024 * 1024;
 
@@ -39,10 +55,11 @@ describe('attachment storage', () => {
 		expect(first.position).toBe(0);
 		expect(second.position).toBe(1);
 
-		// The file lives at the derived path, named by the row's own id, with identical bytes.
+		// The files live at the derived path, named by each row's own id with no extension, and
+		// they are the only files the create writes.
 		expect(readFileSync(join(atDir, first.id)).equals(Buffer.from(bytes))).toBe(true);
 		expect(readFileSync(join(atDir, second.id)).equals(Buffer.from(bytes))).toBe(true);
-		expect(existsSync(join(atDir, first.id + '.pdf'))).toBe(false);
+		expect(readdirSync(atDir).sort()).toEqual([first.id, second.id].sort());
 	});
 
 	test('exactly 10 MiB passes and one byte over refuses', () => {
@@ -230,7 +247,7 @@ describe('attachment storage', () => {
 		expect(readdirSync(atDir)).toEqual([]);
 	});
 
-	test("the Lesson editor's detail read returns Attachments in position order alongside Links", () => {
+	test("attachmentsOf returns a Lesson's Attachments in position order, the read the Lesson editor's load composes with lessonDetail", () => {
 		const { db, lesson, atDir } = setUpLesson();
 		const slides = createAttachment(
 			db,
@@ -254,13 +271,141 @@ describe('attachment storage', () => {
 		);
 		createLink(db, { lessonId: lesson.id, label: 'PhET', url: 'https://phet.example' });
 
-		const detail = lessonDetail(db, lesson.id)!;
-		expect(detail.links).toHaveLength(1);
-		expect(detail.attachments.map((a) => a.id)).toEqual([slides.id, worksheet.id]);
+		expect(attachmentsOf(db, lesson.id).map((a) => a.id)).toEqual([slides.id, worksheet.id]);
+		expect(lessonDetail(db, lesson.id)!.links).toHaveLength(1);
+	});
+
+	test('attachmentById resolves the row for a real id and is undefined for a lookup miss', () => {
+		const { db, lesson, atDir } = setUpLesson();
+		const worksheet = createAttachment(
+			db,
+			{
+				lessonId: lesson.id,
+				filename: 'worksheet.pdf',
+				mimeType: 'application/pdf',
+				bytes: new Uint8Array(1)
+			},
+			atDir
+		);
+
+		expect(attachmentById(db, worksheet.id)?.id).toBe(worksheet.id);
+		expect(attachmentById(db, 'no-such-id')).toBeUndefined();
+		expect(attachmentById(db, '../../package.json')).toBeUndefined();
 	});
 
 	test('the attachments directory is derived from the database path', () => {
 		expect(attachmentsDir('/app/data/planner.db')).toBe('/app/data/attachments');
 		expect(attachmentsDir('e2e.db')).toBe('attachments');
+	});
+});
+
+describe('removing an Attachment', () => {
+	test('a direct delete removes the row and unlinks the file', () => {
+		const { db, lesson, atDir } = setUpLesson();
+		const kept = createAttachment(
+			db,
+			{
+				lessonId: lesson.id,
+				filename: 'slides.pptx',
+				mimeType: 'application/octet-stream',
+				bytes: new Uint8Array(1)
+			},
+			atDir
+		);
+		const removed = createAttachment(
+			db,
+			{
+				lessonId: lesson.id,
+				filename: 'worksheet.pdf',
+				mimeType: 'application/pdf',
+				bytes: new Uint8Array(2)
+			},
+			atDir
+		);
+
+		const result = deleteAttachment(db, removed.id, atDir);
+
+		expect(result?.id).toBe(removed.id);
+		expect(attachmentsOf(db, lesson.id).map((a) => a.id)).toEqual([kept.id]);
+		expect(existsSync(join(atDir, removed.id))).toBe(false);
+		expect(existsSync(join(atDir, kept.id))).toBe(true);
+	});
+
+	test('a missing row is a no-op, and a missing file at delete time is swallowed', () => {
+		const { db, lesson, atDir } = setUpLesson();
+		expect(deleteAttachment(db, 'does-not-exist', atDir)).toBeUndefined();
+
+		const attachment = createAttachment(
+			db,
+			{
+				lessonId: lesson.id,
+				filename: 'worksheet.pdf',
+				mimeType: 'application/pdf',
+				bytes: new Uint8Array(2)
+			},
+			atDir
+		);
+		// The file is already gone by some other means — ENOENT at unlink time is the desired
+		// end state, not a failure to report.
+		rmSync(join(atDir, attachment.id));
+
+		expect(() => deleteAttachment(db, attachment.id, atDir)).not.toThrow();
+		expect(attachmentsOf(db, lesson.id)).toEqual([]);
+	});
+});
+
+describe("an Attachment's lifecycle follows its Lesson", () => {
+	test('deleting a Lesson removes every Attachment row and unlinks every file', () => {
+		const { db, lesson, atDir } = setUpLesson();
+		const first = createAttachment(
+			db,
+			{
+				lessonId: lesson.id,
+				filename: 'slides.pptx',
+				mimeType: 'application/octet-stream',
+				bytes: new Uint8Array(1)
+			},
+			atDir
+		);
+		const second = createAttachment(
+			db,
+			{
+				lessonId: lesson.id,
+				filename: 'worksheet.pdf',
+				mimeType: 'application/pdf',
+				bytes: new Uint8Array(2)
+			},
+			atDir
+		);
+
+		const result = deleteLesson(db, { id: lesson.id, today: '2026-09-03', dir: atDir });
+
+		expect(result.ok).toBe(true);
+		expect(existsSync(join(atDir, first.id))).toBe(false);
+		expect(existsSync(join(atDir, second.id))).toBe(false);
+	});
+
+	test('Detaching a Lesson, or moving it to another Topic, leaves its Attachments untouched', () => {
+		const { db, lesson, atDir } = setUpLesson();
+		const attachment = createAttachment(
+			db,
+			{
+				lessonId: lesson.id,
+				filename: 'worksheet.pdf',
+				mimeType: 'application/pdf',
+				bytes: new Uint8Array(2)
+			},
+			atDir
+		);
+
+		moveLessonToTopic(db, { id: lesson.id, topicId: null, today: '2026-09-03' });
+		expect(attachmentsOf(db, lesson.id).map((a) => a.id)).toEqual([attachment.id]);
+		expect(existsSync(join(atDir, attachment.id))).toBe(true);
+
+		const [course] = db.select().from(schema.course).all();
+		const otherTopic = createTopic(db, { courseId: course.id, name: 'Waves' });
+		moveLessonToTopic(db, { id: lesson.id, topicId: otherTopic.id, today: '2026-09-03' });
+		expect(attachmentsOf(db, lesson.id).map((a) => a.id)).toEqual([attachment.id]);
+		expect(existsSync(join(atDir, attachment.id))).toBe(true);
 	});
 });

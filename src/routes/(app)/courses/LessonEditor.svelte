@@ -358,7 +358,12 @@
 						name="file"
 						class="hidden"
 						aria-label="Choose a file to attach"
-						onchange={(e) => e.currentTarget.form?.requestSubmit()}
+						onchange={(e) => {
+							// The submit snapshots the form data synchronously, so clearing here keeps the
+							// upload in flight while letting a re-pick of the same file fire change again.
+							e.currentTarget.form?.requestSubmit();
+							e.currentTarget.value = '';
+						}}
 					/>
 					<Button
 						type="button"

@@ -53,7 +53,7 @@ export function setUp() {
 	addSlot(db, { classId: classB.id, week: 'A', day: 1, period: 1 }); // Mon
 	addSlot(db, { classId: classB.id, week: 'B', day: 3, period: 4 }); // Wed
 
-	return { db, client, course, classA, classB };
+	return { db, client, course, classA, classB, dir };
 }
 
 export function makeTopic(db: ReturnType<typeof setUp>['db'], courseId: string, name: string) {

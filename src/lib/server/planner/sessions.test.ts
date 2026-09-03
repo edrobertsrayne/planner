@@ -1,11 +1,14 @@
+import { join } from 'node:path';
 import { eq } from 'drizzle-orm';
 import { describe, expect, test } from 'vitest';
 import { makeLessons, makeTopic, setUp } from './fixtures';
 import {
 	assignTopic,
+	attachmentsDir,
 	blockDay,
 	blockSlot,
 	classSchedule,
+	createAttachment,
 	createLink,
 	recordContinuation,
 	sessionDetail,
@@ -118,8 +121,8 @@ describe('Continuation', () => {
 });
 
 describe('the Session panel', () => {
-	test('reads a scheduled occasion back with its Lesson, plan and Links', () => {
-		const { db, course, classA } = setUp();
+	test('reads a scheduled occasion back with its Lesson, plan, Links and Attachments', () => {
+		const { db, dir, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		const [lesson] = makeLessons(db, topic.id, 1);
 		db.update(schema.lesson)
@@ -127,6 +130,17 @@ describe('the Session panel', () => {
 			.where(eq(schema.lesson.id, lesson.id))
 			.run();
 		createLink(db, { lessonId: lesson.id, url: 'https://example.com', label: 'Slides' });
+		const atDir = attachmentsDir(join(dir, 'test.db'));
+		createAttachment(
+			db,
+			{
+				lessonId: lesson.id,
+				filename: 'worksheet.pdf',
+				mimeType: 'application/pdf',
+				bytes: new Uint8Array(2)
+			},
+			atDir
+		);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 
 		const detail = sessionDetail(db, { classId: classA.id, date: '2026-09-03', period: 5 });
@@ -145,6 +159,7 @@ describe('the Session panel', () => {
 			}
 		});
 		expect(detail!.lesson!.links).toMatchObject([{ url: 'https://example.com', label: 'Slides' }]);
+		expect(detail!.lesson!.attachments).toMatchObject([{ filename: 'worksheet.pdf', size: 2 }]);
 
 		setReadiness(db, lesson.id, classA.id, true);
 		const readyDetail = sessionDetail(db, { classId: classA.id, date: '2026-09-03', period: 5 });

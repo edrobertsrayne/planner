@@ -4,6 +4,7 @@ import { db } from '$lib/server/db/client';
 import * as schema from '$lib/server/db/schema';
 import { lessonActions } from '$lib/server/lesson-actions';
 import {
+	attachmentsOf,
 	classesTaughtLesson,
 	lessonDetail,
 	lessonsOf,
@@ -17,6 +18,7 @@ export const load: PageServerLoad = ({ url }) => {
 
 	const lessonId = url.searchParams.get('lesson');
 	const detail = lessonId ? lessonDetail(db, lessonId) : null;
+	const attachments = detail ? attachmentsOf(db, detail.id) : [];
 
 	let course = null;
 	let topic = null;
@@ -47,7 +49,7 @@ export const load: PageServerLoad = ({ url }) => {
 		lessons,
 		lessonIndex,
 		links: detail?.links ?? [],
-		attachments: detail?.attachments ?? [],
+		attachments,
 		taughtBy
 	};
 };

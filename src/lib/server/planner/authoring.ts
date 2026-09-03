@@ -8,8 +8,8 @@ import type { Database } from 'bun:sqlite';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import { rederiveTopic, type Db } from './derive';
-import { attachmentsOf } from './attachments';
 import { nextPosition, swapTargets, type Direction } from './ordering';
+import { deleteAttachmentsOfLesson } from './attachments';
 
 // Course and Topic names carry an explicit uniqueness rule (issue #131, §6 of the planning API
 // spec). The database indexes are the guard of last resort — every route handler maps a collision
@@ -152,7 +152,7 @@ function topicCascadeBlocker(db: Db, topicId: string, today: string): 'assigned'
 export function deleteCourse(
 	db: Db,
 	id: string,
-	{ today, confirmed = false }: { today: string; confirmed?: boolean }
+	{ today, confirmed = false, dir }: { today: string; confirmed?: boolean; dir: string }
 ): { ok: false; reason: string; needsConfirm: boolean } | { ok: true } {
 	const [course] = db.select().from(schema.course).where(eq(schema.course.id, id)).all();
 	if (!course) return { ok: false, reason: 'not found', needsConfirm: false };
@@ -199,7 +199,7 @@ export function deleteCourse(
 			};
 		}
 		for (const topic of topics) {
-			const result = deleteTopic(db, topic.id, { today, confirmed: true });
+			const result = deleteTopic(db, topic.id, { today, confirmed: true, dir });
 			if (!result.ok) return result;
 		}
 	}
@@ -240,7 +240,7 @@ export function renameTopic(db: Db, { id, name }: { id: string; name: string }) 
 export function deleteTopic(
 	db: Db,
 	id: string,
-	{ today, confirmed = false }: { today: string; confirmed?: boolean }
+	{ today, confirmed = false, dir }: { today: string; confirmed?: boolean; dir: string }
 ): { ok: false; reason: string; needsConfirm: boolean } | { ok: true } {
 	const [topic] = db.select().from(schema.topic).where(eq(schema.topic.id, id)).all();
 	if (!topic) return { ok: false, reason: 'not found', needsConfirm: false };
@@ -270,7 +270,7 @@ export function deleteTopic(
 				needsConfirm: true
 			};
 		}
-		for (const lesson of lessons) deleteLesson(db, { id: lesson.id, today });
+		for (const lesson of lessons) deleteLesson(db, { id: lesson.id, today, dir });
 	}
 
 	db.delete(schema.topic).where(eq(schema.topic.id, id)).run();
@@ -374,12 +374,13 @@ export function linksOf(db: Db, lessonId: string) {
 		.all();
 }
 
-// The Lesson editor's one full-detail read: the Lesson plus its Links and its Attachments, each
-// in position order.
+// The Lesson editor's full-detail read: the Lesson plus its Links, in position order. Attachments
+// are composed onto this by the page loads — the bearer-key API shares this read, and the
+// planning API stays as it is (spec #237, Out of Scope).
 export function lessonDetail(db: Db, id: string) {
 	const [row] = db.select().from(schema.lesson).where(eq(schema.lesson.id, id)).all();
 	if (!row) return null;
-	return { ...row, links: linksOf(db, id), attachments: attachmentsOf(db, id) };
+	return { ...row, links: linksOf(db, id) };
 }
 
 // Length is a scheduling input, so this re-derives every Class assigned this Lesson's
@@ -412,7 +413,7 @@ export function updateLesson(
 // the taught-by block in the Lesson editor is what warns Ed before he tries this and it fails.
 export function deleteLesson(
 	db: Db,
-	{ id, today }: { id: string; today: string }
+	{ id, today, dir }: { id: string; today: string; dir: string }
 ):
 	| { ok: false; reason: 'not found' }
 	| { ok: false; reason: 'taught' }
@@ -438,6 +439,7 @@ export function deleteLesson(
 
 	db.delete(schema.readiness).where(eq(schema.readiness.lessonId, id)).run();
 	db.delete(schema.link).where(eq(schema.link.lessonId, id)).run();
+	deleteAttachmentsOfLesson(db, id, dir);
 	db.delete(schema.lesson).where(eq(schema.lesson.id, id)).run();
 
 	if (row.topicId) rederiveTopic(db, row.topicId, today);
