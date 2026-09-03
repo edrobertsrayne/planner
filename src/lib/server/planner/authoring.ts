@@ -3,7 +3,7 @@
 // a Class, the Lesson is part of that Class's schedule, so every write to a Lesson re-derives
 // every Class with that Topic assigned — quietly, on the same write, with no separate recompute
 // step (issue #31).
-import { and, asc, eq, lt, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, lt, sql } from 'drizzle-orm';
 import type { Database } from 'bun:sqlite';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
@@ -374,13 +374,103 @@ export function linksOf(db: Db, lessonId: string) {
 		.all();
 }
 
+// Same rows as attachedTags, names only — every Lesson-showing read outside the editor itself
+// (the editor needs attachedTags's ids to post to detachTag).
+export function tagsOf(db: Db, lessonId: string): string[] {
+	return attachedTags(db, lessonId).map((tag) => tag.name);
+}
+
+// Same rows as tagsOf, but carrying each Tag's id alongside its name — the Lesson editor's chip
+// list, which needs an id to post to detachTag. Every other Lesson-showing read is names only
+// (per the spec: tags are read-at-a-glance, never addressed by id outside the editor itself).
+export function attachedTags(db: Db, lessonId: string): { id: string; name: string }[] {
+	return db
+		.select({ id: schema.tag.id, name: schema.tag.name })
+		.from(schema.lessonTag)
+		.innerJoin(schema.tag, eq(schema.tag.id, schema.lessonTag.tagId))
+		.where(eq(schema.lessonTag.lessonId, lessonId))
+		.orderBy(asc(schema.tag.name))
+		.all();
+}
+
+// Batch form of tagsOf, for a row of Lessons rendered together — the Agenda, Planning and the
+// Courses list each resolve every Lesson's Tags in one query rather than one per row, mirroring
+// derive.ts's lessonNames. Lives here, not in derive.ts, because Tag is authored from this module;
+// re-exported through the barrel for views.ts to import, the same way views.ts already imports
+// LessonStatus from authoring.ts.
+export function tagsByLesson(db: Db, lessonIds: readonly string[]): Map<string, string[]> {
+	const map = new Map<string, string[]>();
+	if (lessonIds.length === 0) return map;
+
+	const rows = db
+		.select({ lessonId: schema.lessonTag.lessonId, name: schema.tag.name })
+		.from(schema.lessonTag)
+		.innerJoin(schema.tag, eq(schema.tag.id, schema.lessonTag.tagId))
+		.where(inArray(schema.lessonTag.lessonId, lessonIds))
+		.orderBy(asc(schema.tag.name))
+		.all();
+
+	for (const row of rows) {
+		const existing = map.get(row.lessonId);
+		if (existing) existing.push(row.name);
+		else map.set(row.lessonId, [row.name]);
+	}
+	return map;
+}
+
+// Every distinct Tag name that exists, sorted — the Lesson editor's typing suggestions, so a
+// teacher reaching for "Practical" a second time sees it rather than retyping it slightly
+// differently.
+export function listTagNames(db: Db): string[] {
+	return db
+		.select({ name: schema.tag.name })
+		.from(schema.tag)
+		.orderBy(asc(schema.tag.name))
+		.all()
+		.map((row) => row.name);
+}
+
+// Tag names are unique across the planner, case-insensitive and trimmed (mirrors
+// assertCourseNameAvailable's comparison via nameMatchesIgnoringCaseAndWhitespace). Typing a name
+// that matches an existing Tag reuses it — attach, never create-or-refuse, is Tag's whole point.
+// Finds a Tag matching trimmed + case-insensitive, reusing it, or creates one. Then inserts
+// lesson_tag (idempotent on the composite key — INSERT OR IGNORE). Refuses an empty/whitespace-only
+// name the same way updateLesson refuses an empty title. No re-derive: a Tag is descriptive
+// metadata, exactly like Readiness, and never changes a date.
+export function attachTag(
+	db: Db,
+	{ lessonId, name }: { lessonId: string; name: string }
+): { ok: true; tags: string[] } | { ok: false; reason: 'empty name' } {
+	const trimmed = name.trim();
+	if (!trimmed) return { ok: false, reason: 'empty name' };
+
+	const [existing] = db
+		.select()
+		.from(schema.tag)
+		.where(sql`lower(${schema.tag.name}) = lower(${trimmed})`)
+		.all();
+	const tagRow = existing ?? db.insert(schema.tag).values({ name: trimmed }).returning().all()[0];
+
+	db.insert(schema.lessonTag).values({ lessonId, tagId: tagRow.id }).onConflictDoNothing().run();
+
+	return { ok: true, tags: tagsOf(db, lessonId) };
+}
+
+// Deletes the one lesson_tag row. Idempotent: detaching a Tag the Lesson doesn't carry is a
+// no-op, not an error, the same way unblocking an already-open day is.
+export function detachTag(db: Db, { lessonId, tagId }: { lessonId: string; tagId: string }): void {
+	db.delete(schema.lessonTag)
+		.where(and(eq(schema.lessonTag.lessonId, lessonId), eq(schema.lessonTag.tagId, tagId)))
+		.run();
+}
+
 // The Lesson editor's full-detail read: the Lesson plus its Links, in position order. Attachments
 // are composed onto this by the page loads — the bearer-key API shares this read, and the
 // planning API stays as it is (spec #237, Out of Scope).
 export function lessonDetail(db: Db, id: string) {
 	const [row] = db.select().from(schema.lesson).where(eq(schema.lesson.id, id)).all();
 	if (!row) return null;
-	return { ...row, links: linksOf(db, id) };
+	return { ...row, links: linksOf(db, id), tags: tagsOf(db, id) };
 }
 
 // Length is a scheduling input, so this re-derives every Class assigned this Lesson's

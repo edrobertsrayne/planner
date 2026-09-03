@@ -4,6 +4,7 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import ReorderButtons from '$lib/components/reorder-buttons.svelte';
+	import TagChips from '$lib/components/tag-chips.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import RenameableRow from '$lib/components/renameable-row.svelte';
@@ -196,6 +197,7 @@
 
 				<ol class="flex-1 divide-y overflow-y-auto">
 					{#each data.lessons as lesson, i (lesson.id)}
+						{@const tags = data.tagsByLesson.get(lesson.id) ?? []}
 						<li class="group flex items-baseline gap-3 pl-2">
 							<span class="w-6 shrink-0 pl-4 font-mono text-xs text-muted-foreground/60">
 								{i + 1}
@@ -210,6 +212,7 @@
 									field="title"
 								/>
 							</div>
+							<TagChips {tags} class="max-w-40 shrink justify-end self-center pr-1" />
 							<span
 								class="flex shrink-0 items-center gap-0.5 pr-2 opacity-0 group-hover:opacity-100"
 							>
@@ -269,6 +272,8 @@
 	<LessonEditor
 		lesson={data.lesson}
 		links={data.links}
+		tags={data.tags}
+		existingTagNames={data.existingTagNames}
 		attachments={data.attachments}
 		index={data.lessonIndex}
 		count={data.lessons.length}

@@ -6,6 +6,7 @@ import {
 	agenda,
 	assignedTopicsOf,
 	assignTopic,
+	attachTag,
 	blockDay,
 	blockSlot,
 	calendarWeek,
@@ -52,6 +53,18 @@ describe('the Agenda', () => {
 		const dates = rows.map((r) => r.date);
 		expect(dates).toEqual([...dates].sort());
 		expect(rows.some((r) => r.classId === classB.id && r.date === '2026-09-09')).toBe(true);
+	});
+
+	test('a tagged Lesson carries its Tags on the Agenda row; an untagged Lesson carries none', () => {
+		const { db, course, classA } = setUp();
+		const forces = makeTopic(db, course.id, 'Forces');
+		const [lesson] = makeLessons(db, forces.id, 1);
+		attachTag(db, { lessonId: lesson.id, name: 'Practical' });
+		assignTopic(db, { classId: classA.id, topicId: forces.id, today: '2026-09-03' });
+
+		const rows = agenda(db, { today: '2026-09-03', horizonDays: 14 });
+
+		expect(rows[0].lesson?.tags).toEqual(['Practical']);
 	});
 
 	test('the horizon is calendar days: weekends inside it produce no row, and it can be narrowed to today', () => {
@@ -322,6 +335,18 @@ describe('the Planning stream', () => {
 		});
 	});
 
+	test("carries each Lesson's Tags, empty when untagged", () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [l1, l2] = makeLessons(db, topic.id, 2);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+		attachTag(db, { lessonId: l1.id, name: 'Practical' });
+
+		const stream = planningStream(db, '2026-09-03');
+		expect(stream.find((s) => s.id === l1.id)?.tags).toEqual(['Practical']);
+		expect(stream.find((s) => s.id === l2.id)?.tags).toEqual([]);
+	});
+
 	test('a Lesson taught by two Classes takes the sooner of the two', () => {
 		const { db, course, classA, classB } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
@@ -511,7 +536,8 @@ describe('the Agenda carries the tick', () => {
 			id: l1.id,
 			title: l1.title,
 			topicName: 'Forces',
-			ready: false
+			ready: false,
+			tags: []
 		});
 		expect(rowB?.lesson).toBeNull();
 

@@ -123,10 +123,12 @@ test.describe.serial('the Lesson endpoints', () => {
 			'links',
 			'position',
 			'status',
+			'tags',
 			'title',
 			'topicId'
 		]);
 		expect(detailBody.links).toEqual([]);
+		expect(detailBody.tags).toEqual([]);
 
 		const missingDetail = await request.get('/api/lessons/does-not-exist', {
 			headers: BEARER(token)

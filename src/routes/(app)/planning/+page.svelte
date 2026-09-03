@@ -5,6 +5,7 @@
 	import { formatShortWeekday } from '$lib/date';
 	import { statusTone, type PlanningStatus } from '$lib/feedback-tone';
 	import PageHeader from '$lib/components/page-header.svelte';
+	import TagChips from '$lib/components/tag-chips.svelte';
 	import LessonEditor from '../courses/LessonEditor.svelte';
 	import type { PageProps } from './$types';
 
@@ -140,6 +141,7 @@
 									{lesson.topicName} · {lesson.courseName}
 								{/if}
 							</div>
+							<TagChips tags={lesson.tags} class="mt-1" />
 						</div>
 
 						<form method="POST" action="?/setLessonStatus" use:enhance class="contents">
@@ -193,6 +195,8 @@
 	<LessonEditor
 		lesson={data.lesson}
 		links={data.links}
+		tags={data.tags}
+		existingTagNames={data.existingTagNames}
 		attachments={data.attachments}
 		index={data.lessonIndex}
 		count={data.lessons.length}

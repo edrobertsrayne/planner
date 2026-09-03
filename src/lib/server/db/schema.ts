@@ -1,4 +1,12 @@
-import { check, integer, sqliteTable, text, unique, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import {
+	check,
+	integer,
+	primaryKey,
+	sqliteTable,
+	text,
+	unique,
+	uniqueIndex
+} from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 const id = () =>
@@ -57,6 +65,35 @@ export const link = sqliteTable('link', {
 	position: integer('position').notNull()
 });
 
+// A Tag is a short, user-typed label a Lesson may carry zero or more of — freely created, never
+// drawn from a fixed set. Names are unique across the planner, case-insensitive, mirroring
+// course.name's COLLATE NOCASE pattern. A Tag with zero Lessons still exists: detaching it from
+// a Lesson never deletes the row.
+export const tag = sqliteTable(
+	'tag',
+	{
+		id: id(),
+		name: text('name').notNull()
+	},
+	(table) => [uniqueIndex('tag_name_unique').on(sql`${table.name} COLLATE NOCASE`)]
+);
+
+// The Lesson/Tag attachment. The composite primary key makes attaching idempotent — attaching a
+// Tag a Lesson already carries is a no-op, not a duplicate row. Both sides cascade: deleting a
+// Lesson drops its attachments, and deleting a Tag drops the attachments that named it — but
+// deleting a Lesson never cascades into `tag` itself, so an untagged Tag survives.
+export const lessonTag = sqliteTable(
+	'lesson_tag',
+	{
+		lessonId: text('lesson_id')
+			.notNull()
+			.references(() => lesson.id, { onDelete: 'cascade' }),
+		tagId: text('tag_id')
+			.notNull()
+			.references(() => tag.id, { onDelete: 'cascade' })
+	},
+	(table) => [primaryKey({ columns: [table.lessonId, table.tagId] })]
+);
 export const attachment = sqliteTable('attachment', {
 	id: id(),
 	lessonId: text('lesson_id')

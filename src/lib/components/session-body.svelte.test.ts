@@ -34,6 +34,7 @@ describe('the Session panel', () => {
 				topicName: 'Forces',
 				body: 'Recap Newton I',
 				links: [],
+				tags: [],
 				attachments: [
 					{
 						id: 'att-1',

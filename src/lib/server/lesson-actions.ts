@@ -3,12 +3,14 @@ import { today } from '$lib/date';
 import { DATABASE_URL, db } from '$lib/server/db/client';
 import { badRequest, trimmed } from '$lib/server/form';
 import {
+	attachTag,
 	AttachmentRejected,
 	attachmentsDir,
 	createAttachment,
 	createLink,
 	deleteAttachment,
 	deleteLink,
+	detachTag,
 	moveLessonToTopic,
 	moveLink,
 	setLessonStatus,
@@ -27,7 +29,7 @@ function isHttpUrl(url: string) {
 }
 
 // The lesson-editing actions the Courses view and the Planning board share — the Lesson editor
-// posts to the same nine actions whichever screen opens it over.
+// posts to the same eleven actions whichever screen opens it over.
 export const lessonActions = {
 	updateLesson: async ({ request }) => {
 		const data = await request.formData();
@@ -102,6 +104,23 @@ export const lessonActions = {
 		const direction = trimmed(data, 'direction');
 		if (direction !== 'up' && direction !== 'down') return fail(400, { error: 'Bad direction.' });
 		moveLink(db, { lessonId, id, direction });
+		return {};
+	},
+
+	attachTag: async ({ request }) => {
+		const data = await request.formData();
+		const lessonId = trimmed(data, 'lessonId');
+		const name = trimmed(data, 'name');
+		const result = attachTag(db, { lessonId, name });
+		if (!result.ok) return fail(400, { error: 'A Tag needs a name.' });
+		return {};
+	},
+
+	detachTag: async ({ request }) => {
+		const data = await request.formData();
+		const lessonId = trimmed(data, 'lessonId');
+		const tagId = trimmed(data, 'tagId');
+		detachTag(db, { lessonId, tagId });
 		return {};
 	},
 
