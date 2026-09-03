@@ -11,14 +11,16 @@ import {
 	moveLessonToTopic
 } from './authoring';
 import {
+	assignTopic,
 	AttachmentRejected,
 	attachmentById,
 	attachmentsDir,
 	attachmentsOf,
+	classSchedule,
 	createAttachment,
 	deleteAttachment
 } from './index';
-import { makeTopic, setUpAuthoring } from './fixtures';
+import { makeLessons, makeTopic, setUp, setUpAuthoring } from './fixtures';
 import * as schema from '../db/schema';
 
 const MB = 1024 * 1024;
@@ -407,5 +409,57 @@ describe("an Attachment's lifecycle follows its Lesson", () => {
 		moveLessonToTopic(db, { id: lesson.id, topicId: otherTopic.id, today: '2026-09-03' });
 		expect(attachmentsOf(db, lesson.id).map((a) => a.id)).toEqual([attachment.id]);
 		expect(existsSync(join(atDir, attachment.id))).toBe(true);
+	});
+
+	test('a refused Lesson deletion leaves its Attachment rows and files untouched', () => {
+		const { db, course, classA, dir } = setUp();
+		const atDir = attachmentsDir(join(dir, 'test.db'));
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [lesson] = makeLessons(db, topic.id, 1);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+		const attachment = createAttachment(
+			db,
+			{
+				lessonId: lesson.id,
+				filename: 'worksheet.pdf',
+				mimeType: 'application/pdf',
+				bytes: new Uint8Array(2)
+			},
+			atDir
+		);
+
+		// Far enough past the assignment date that 9B/Sc1's schedule has already reached and
+		// taught this Lesson, so the delete is refused rather than confirmed.
+		const result = deleteLesson(db, { id: lesson.id, today: '2026-09-10', dir: atDir });
+
+		expect(result).toEqual({ ok: false, reason: 'taught' });
+		expect(attachmentsOf(db, lesson.id).map((a) => a.id)).toEqual([attachment.id]);
+		expect(existsSync(join(atDir, attachment.id))).toBe(true);
+	});
+
+	test('no Attachment write re-derives any Class schedule', () => {
+		const { db, course, classA, dir } = setUp();
+		const atDir = attachmentsDir(join(dir, 'test.db'));
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [lesson] = makeLessons(db, topic.id, 1);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+
+		const today = '2026-09-10';
+		const before = classSchedule(db, { classId: classA.id, today });
+
+		const attachment = createAttachment(
+			db,
+			{
+				lessonId: lesson.id,
+				filename: 'worksheet.pdf',
+				mimeType: 'application/pdf',
+				bytes: new Uint8Array(2)
+			},
+			atDir
+		);
+		deleteAttachment(db, attachment.id, atDir);
+
+		const after = classSchedule(db, { classId: classA.id, today });
+		expect(after).toEqual(before);
 	});
 });
