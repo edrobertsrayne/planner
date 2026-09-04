@@ -413,6 +413,32 @@ describe('the Planning stream', () => {
 		expect(stream[1].id).toBe(la.id);
 		expect(stream[1].occurrence).toMatchObject({ date: '2026-09-08', period: 2 });
 	});
+
+	test('a placed Lesson (no Topic) carries its occurrence with the Standalone label and no Course', () => {
+		const { db, classA } = setUp();
+		const [lesson] = db
+			.insert(schema.lesson)
+			.values({ title: 'Revision session', position: 0, length: 1 })
+			.returning()
+			.all();
+
+		const before = classSchedule(db, { classId: classA.id, today: '2026-09-03' });
+		const [anchor] = before.openSlots;
+		db.insert(schema.placement)
+			.values({ classId: classA.id, date: anchor.date, slotId: anchor.slotId, lessonId: lesson.id })
+			.run();
+
+		const stream = planningStream(db, '2026-09-03');
+		const entry = stream.find((e) => e.id === lesson.id);
+		expect(entry).not.toBeUndefined();
+		expect(entry!.topicName).toBeNull();
+		expect(entry!.courseName).toBeNull();
+		expect(entry!.occurrence).toMatchObject({
+			classId: classA.id,
+			date: anchor.date,
+			period: anchor.period
+		});
+	});
 });
 
 describe('Readiness', () => {
@@ -699,7 +725,12 @@ describe('a Standalone Lesson', () => {
 		db.run(sql`update "lesson" set "topic_id" = NULL where "id" = ${l1.id}`);
 
 		// 1) Session panel: still shows l1's title and no topic name
-		const detail = sessionDetail(db, { classId: classA.id, date: '2026-09-03', period: 5 });
+		const detail = sessionDetail(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			period: 5,
+			today: '2026-09-05'
+		});
 		expect(detail).not.toBeNull();
 		expect(detail!.lesson).not.toBeNull();
 		expect(detail!.lesson!.title).toBe(l1.title);

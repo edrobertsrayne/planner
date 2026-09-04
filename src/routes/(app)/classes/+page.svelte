@@ -7,6 +7,7 @@
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
+	import PlacementsMovedAlert from '$lib/components/placements-moved-alert.svelte';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Select from '$lib/components/ui/select/index.js';
@@ -32,6 +33,9 @@
 
 	{#if form?.atRisk}
 		<AtRiskAlert atRisk={form.atRisk} />
+	{/if}
+	{#if form?.placementsMoved}
+		<PlacementsMovedAlert placementsMoved={form.placementsMoved} />
 	{/if}
 
 	{#if !data.courses.length}

@@ -11,6 +11,7 @@
 	import { openSession } from '$lib/client/session-panel.svelte';
 	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
 	import AtRiskReport from '$lib/components/at-risk-report.svelte';
+	import PlacementsMovedAlert from '$lib/components/placements-moved-alert.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { cn } from '$lib/utils.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
@@ -32,7 +33,11 @@
 	// The save's report, narrowed once: what the Rewind put at risk, or the plain statement that
 	// it put nothing at risk — silence would be ambiguous. ActionData is a loose record, so the
 	// narrowing lives here rather than in the markup.
-	const savedYear = $derived(form && 'yearSaved' in form ? { atRisk: form.atRisk ?? [] } : null);
+	const savedYear = $derived(
+		form && 'yearSaved' in form
+			? { atRisk: form.atRisk ?? [], placementsMoved: form.placementsMoved ?? [] }
+			: null
+	);
 
 	const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
@@ -169,8 +174,14 @@
 			none="The year is saved. No Sessions were put at risk."
 			class="mb-4 text-sm"
 		/>
-	{:else if form?.atRisk}
-		<AtRiskAlert atRisk={form.atRisk} />
+		<PlacementsMovedAlert placementsMoved={savedYear.placementsMoved} />
+	{:else}
+		{#if form?.atRisk}
+			<AtRiskAlert atRisk={form.atRisk} />
+		{/if}
+		{#if form?.placementsMoved}
+			<PlacementsMovedAlert placementsMoved={form.placementsMoved} />
+		{/if}
 	{/if}
 
 	{#if setup}
@@ -244,6 +255,29 @@
 																		slotId: slot.slotId,
 																		period: slot.period
 																	})}>{slot.classLabel}, P{slot.period}…</DropdownMenu.Item
+															>
+														{/each}
+													</DropdownMenu.Group>
+												{/if}
+												{#if date >= data.today}
+													<DropdownMenu.Separator />
+													<DropdownMenu.Group>
+														<DropdownMenu.GroupHeading class="text-muted-foreground"
+															>Place a Lesson</DropdownMenu.GroupHeading
+														>
+														<!-- Placing is future-and-today only (issue #254), unlike Block one
+													     Slot above — a past week's day menu shows no line here. Lands on
+													     the Session panel's own Place-a-Lesson card, the one place the
+													     title is typed. -->
+														{#each availableSlots as slot (slot.slotId)}
+															<DropdownMenu.Item
+																onSelect={() =>
+																	openSession({
+																		classId: slot.classId,
+																		date,
+																		period: slot.period
+																	})}
+																>Open {slot.classLabel}, P{slot.period} to place…</DropdownMenu.Item
 															>
 														{/each}
 													</DropdownMenu.Group>
@@ -336,7 +370,7 @@
 												<button
 													type="button"
 													data-session-trigger
-													class="flex h-full min-h-16 w-full flex-col overflow-hidden rounded-lg border px-2 py-1.5 text-left"
+													class="relative flex h-full min-h-16 w-full flex-col overflow-hidden rounded-lg border px-2 py-1.5 text-left"
 													style:background-color={tone.bg}
 													style:border-color={tone.ring}
 													onclick={() =>
@@ -359,6 +393,19 @@
 																class="mt-auto line-clamp-1 text-[11px] opacity-80"
 																style:color={tone.fg}>{cell.lesson.topicName}</span
 															>
+														{:else}
+															<!-- A placed Lesson carries no Topic (issue #254): the dashed inner
+													     ring plus this line are what tell it apart from a Topic Lesson's
+													     tile at a glance, no change to the Class's own Tone. -->
+															<span
+																class="mt-auto line-clamp-1 text-[11px] italic opacity-80"
+																style:color={tone.fg}>Standalone Lesson</span
+															>
+															<span
+																data-standalone-ring
+																class="pointer-events-none absolute inset-1 rounded-md border border-dashed"
+																style:border-color={tone.ring}
+															></span>
 														{/if}
 													{:else}
 														<span class="mt-0.5 text-xs italic" style:color={tone.fg}>

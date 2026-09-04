@@ -60,7 +60,7 @@ export const load: PageServerLoad = ({ url }) => {
 		.orderBy(asc(schema.blockedDay.date))
 		.all();
 
-	return { selected, week, ribbon, prev, next, current, terms, blockedDays };
+	return { selected, week, ribbon, prev, next, current, terms, blockedDays, today: today() };
 };
 
 export const actions: Actions = {
@@ -72,7 +72,7 @@ export const actions: Actions = {
 
 		const report = blockDay(db, { date, note: note || undefined, today: today() });
 		if (!report.ok) return fail(report.status, { error: report.reason });
-		return { atRisk: report.atRisk };
+		return { atRisk: report.atRisk, placementsMoved: report.placementsMoved };
 	},
 
 	unblockDay: async ({ request }) => {
@@ -81,7 +81,7 @@ export const actions: Actions = {
 
 		const report = unblockDay(db, { date, today: today() });
 		if (!report) return fail(400, { error: 'No such Blocked Day.' });
-		return { atRisk: report.atRisk };
+		return { atRisk: report.atRisk, placementsMoved: report.placementsMoved };
 	},
 
 	blockSlot: async ({ request }) => {
@@ -94,7 +94,7 @@ export const actions: Actions = {
 		if (!note) return fail(400, { error: 'A Blocked Slot needs a note.' });
 
 		const report = blockSlot(db, { classId, date, slotId, note, today: today() });
-		return { atRisk: report.atRisk };
+		return { atRisk: report.atRisk, placementsMoved: report.placementsMoved };
 	},
 
 	unblockSlot: async ({ request }) => {
@@ -103,7 +103,7 @@ export const actions: Actions = {
 
 		const report = unblockSlot(db, { id, today: today() });
 		if (!report) return fail(400, { error: 'No such Blocked Slot.' });
-		return { atRisk: report.atRisk };
+		return { atRisk: report.atRisk, placementsMoved: report.placementsMoved };
 	},
 
 	// The whole year, replaced as one document through the Terms seam — the seam owns every
@@ -120,6 +120,6 @@ export const actions: Actions = {
 
 		const result = replaceTerms(db, client, { terms, today: today() });
 		if (!result.ok) return fail(400, { error: result.reason });
-		return { atRisk: result.atRisk, yearSaved: true };
+		return { atRisk: result.atRisk, placementsMoved: result.placementsMoved, yearSaved: true };
 	}
 };

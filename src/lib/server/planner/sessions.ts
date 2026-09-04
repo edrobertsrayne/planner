@@ -34,13 +34,25 @@ export interface SessionDetail extends Occasion {
 	} | null;
 	ready: boolean | null;
 	note: string | null;
+	// The Placement naming this occasion's Lesson, if it has one — what the Session panel's
+	// Remove-placement button deletes by (issue #254). A Standalone Lesson may in the rare case
+	// be placed on this same Class twice (ADR-0022); the first Placement naming this pairing is
+	// taken, since telling the two apart from one occasion alone needs no further design here.
+	placement: { id: string } | null;
+	// Whether the Session panel's Place-a-Lesson card should show: no Lesson sits on this
+	// occasion yet, and Placing is future-and-today only (placement.ts), never a correction to
+	// the past.
+	canPlace: boolean;
 }
 
 // The Session panel's one read (issue #35) — the only place a Session is read or written. A
 // Session is identified by its occasion, not by its Lesson, so this never fails to resolve just
 // because the occasion carries no Lesson: an Open Slot is still an occasion Ed may want to
 // write about.
-export function sessionDetail(db: Db, occasion: Occasion): SessionDetail | null {
+export function sessionDetail(
+	db: Db,
+	{ today, ...occasion }: Occasion & { today: string }
+): SessionDetail | null {
 	const cls = classDetail(db, occasion.classId);
 	if (!cls) return null;
 
@@ -52,6 +64,7 @@ export function sessionDetail(db: Db, occasion: Occasion): SessionDetail | null 
 
 	let lesson: SessionDetail['lesson'] = null;
 	let ready: boolean | null = null;
+	let placement: SessionDetail['placement'] = null;
 	if (row?.lessonId) {
 		const [lessonRow] = db
 			.select({
@@ -81,10 +94,30 @@ export function sessionDetail(db: Db, occasion: Occasion): SessionDetail | null 
 				)
 				.all();
 			ready = readyRow !== undefined;
+
+			const [placementRow] = db
+				.select({ id: schema.placement.id })
+				.from(schema.placement)
+				.where(
+					and(
+						eq(schema.placement.lessonId, row.lessonId),
+						eq(schema.placement.classId, occasion.classId)
+					)
+				)
+				.all();
+			placement = placementRow ?? null;
 		}
 	}
 
-	return { ...occasion, classLabel: cls.label, lesson, ready, note: row?.note ?? null };
+	return {
+		...occasion,
+		classLabel: cls.label,
+		lesson,
+		ready,
+		note: row?.note ?? null,
+		placement,
+		canPlace: !row?.lessonId && occasion.date >= today
+	};
 }
 
 // The Session panel's one write (issue #35): a free-text note against the occasion, never against

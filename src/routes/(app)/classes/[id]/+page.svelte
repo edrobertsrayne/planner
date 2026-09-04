@@ -149,6 +149,7 @@
 				assigned={data.assignedTopics}
 				courseTopics={data.courseTopics}
 				atRisk={form?.atRisk}
+				placementsMoved={form?.placementsMoved}
 			/>
 		</aside>
 	</div>

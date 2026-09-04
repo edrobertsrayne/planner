@@ -11,7 +11,9 @@ import {
 	classSchedule,
 	createAttachment,
 	createLink,
+	placeLesson,
 	recordContinuation,
+	removePlacement,
 	sessionDetail,
 	setReadiness,
 	writeSessionNote
@@ -144,7 +146,12 @@ describe('the Session panel', () => {
 		);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 
-		const detail = sessionDetail(db, { classId: classA.id, date: '2026-09-03', period: 5 });
+		const detail = sessionDetail(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			period: 5,
+			today: '2026-09-03'
+		});
 
 		expect(detail).toMatchObject({
 			classId: classA.id,
@@ -164,7 +171,12 @@ describe('the Session panel', () => {
 		expect(detail!.lesson!.attachments).toMatchObject([{ filename: 'worksheet.pdf', size: 2 }]);
 
 		setReadiness(db, lesson.id, classA.id, true);
-		const readyDetail = sessionDetail(db, { classId: classA.id, date: '2026-09-03', period: 5 });
+		const readyDetail = sessionDetail(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			period: 5,
+			today: '2026-09-03'
+		});
 		expect(readyDetail?.ready).toBe(true);
 	});
 
@@ -175,7 +187,12 @@ describe('the Session panel', () => {
 		attachTag(db, { lessonId: lesson.id, name: 'Practical' });
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 
-		const detail = sessionDetail(db, { classId: classA.id, date: '2026-09-03', period: 5 });
+		const detail = sessionDetail(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			period: 5,
+			today: '2026-09-03'
+		});
 
 		expect(detail!.lesson!.tags).toEqual(['Practical']);
 	});
@@ -184,9 +201,96 @@ describe('the Session panel', () => {
 		const { db, classA } = setUp();
 		// No Topic assigned: 3 Sep P5 is an Open Slot, with no Session row yet at all.
 
-		const detail = sessionDetail(db, { classId: classA.id, date: '2026-09-03', period: 5 });
+		const detail = sessionDetail(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			period: 5,
+			today: '2026-09-03'
+		});
 
-		expect(detail).toMatchObject({ classId: classA.id, lesson: null, ready: null, note: null });
+		expect(detail).toMatchObject({
+			classId: classA.id,
+			lesson: null,
+			ready: null,
+			note: null,
+			placement: null,
+			canPlace: true
+		});
+	});
+
+	test("canPlace is false once today has passed the Open Slot's date", () => {
+		const { db, classA } = setUp();
+
+		const detail = sessionDetail(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			period: 5,
+			today: '2026-09-04'
+		});
+
+		expect(detail?.canPlace).toBe(false);
+	});
+
+	test('canPlace is false once a Lesson already sits on the occasion', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		makeLessons(db, topic.id, 1);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+
+		const detail = sessionDetail(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			period: 5,
+			today: '2026-09-03'
+		});
+
+		expect(detail?.canPlace).toBe(false);
+	});
+
+	test('a placed Lesson carries its Placement id, cleared once the Placement is removed', () => {
+		const { db, classA } = setUp();
+		const mondaySlot = db
+			.select()
+			.from(schema.slot)
+			.all()
+			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3)!;
+
+		const result = placeLesson(db, {
+			classId: classA.id,
+			date: '2026-09-14',
+			slotId: mondaySlot.id,
+			title: 'Assembly',
+			today: '2026-09-03'
+		});
+		if (!result.ok) throw new Error('unreachable');
+
+		const placed = sessionDetail(db, {
+			classId: classA.id,
+			date: '2026-09-14',
+			period: 3,
+			today: '2026-09-03'
+		});
+		expect(placed?.lesson?.title).toBe('Assembly');
+		expect(placed?.lesson?.topicName).toBeNull();
+		expect(placed?.canPlace).toBe(false);
+		expect(placed?.placement?.id).toEqual(expect.any(String));
+
+		const [placementRow] = db
+			.select()
+			.from(schema.placement)
+			.where(eq(schema.placement.lessonId, result.lesson.id))
+			.all();
+		removePlacement(db, { id: placementRow.id, today: '2026-09-03' });
+
+		const reopened = sessionDetail(db, {
+			classId: classA.id,
+			date: '2026-09-14',
+			period: 3,
+			today: '2026-09-03'
+		});
+		expect(reopened?.lesson).toBeNull();
+		expect(reopened?.placement).toBeNull();
+		expect(reopened?.canPlace).toBe(true);
 	});
 
 	test('a note is written against the occasion, saved and reopened', () => {
@@ -202,7 +306,12 @@ describe('the Session panel', () => {
 			note: 'went badly — redo the practical'
 		});
 
-		const detail = sessionDetail(db, { classId: classA.id, date: '2026-09-03', period: 5 });
+		const detail = sessionDetail(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			period: 5,
+			today: '2026-09-03'
+		});
 		expect(detail!.note).toBe('went badly — redo the practical');
 		// The Lesson stayed exactly as scheduled — writing a note never touches the schedule.
 		expect(detail!.lesson).not.toBeNull();
@@ -224,7 +333,12 @@ describe('the Session panel', () => {
 		makeLessons(db, topic.id, 1);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-10' });
 
-		const detail = sessionDetail(db, { classId: classA.id, date: '2026-09-03', period: 5 });
+		const detail = sessionDetail(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			period: 5,
+			today: '2026-09-10'
+		});
 		expect(detail!.note).toBe('covered by a colleague, ad hoc revision');
 	});
 
@@ -259,7 +373,12 @@ describe('the Session panel', () => {
 			today: '2026-09-10'
 		});
 
-		const detail = sessionDetail(db, { classId: classA.id, date: '2026-09-03', period: 6 });
+		const detail = sessionDetail(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			period: 6,
+			today: '2026-09-10'
+		});
 		expect(detail!.note).toBe('went badly — redo the practical');
 		expect(detail!.lesson?.title).toBe(lessons[0].title);
 	});

@@ -71,7 +71,7 @@ describe('toGrid', () => {
 describe('availableSlotLines', () => {
 	test('a Lesson of one Period offers its one Slot', () => {
 		expect(availableSlotLines([cell({ slotIds: ['s1'] })], '2026-08-31')).toEqual([
-			{ slotId: 's1', period: 1, classLabel: '9A/Ph1' }
+			{ slotId: 's1', period: 1, classId: 'c1', classLabel: '9A/Ph1' }
 		]);
 	});
 
@@ -81,14 +81,14 @@ describe('availableSlotLines', () => {
 			'2026-08-31'
 		);
 		expect(slots).toEqual([
-			{ slotId: 's3', period: 3, classLabel: '9A/Ph1' },
-			{ slotId: 's4', period: 4, classLabel: '9A/Ph1' }
+			{ slotId: 's3', period: 3, classId: 'c1', classLabel: '9A/Ph1' },
+			{ slotId: 's4', period: 4, classId: 'c1', classLabel: '9A/Ph1' }
 		]);
 	});
 
 	test('an Open Slot is offered — the Period is taught even when no Lesson is scheduled', () => {
 		expect(availableSlotLines([cell({ kind: 'open', lesson: null })], '2026-08-31')).toEqual([
-			{ slotId: 's1', period: 1, classLabel: '9A/Ph1' }
+			{ slotId: 's1', period: 1, classId: 'c1', classLabel: '9A/Ph1' }
 		]);
 	});
 

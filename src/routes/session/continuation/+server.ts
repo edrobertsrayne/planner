@@ -13,7 +13,11 @@ export const POST: RequestHandler = async ({ request }) => {
 
 	try {
 		const report = recordContinuation(db, { ...occasion, today: today() });
-		return json({ ...sessionDetail(db, occasion), atRisk: report.atRisk });
+		return json({
+			...sessionDetail(db, { ...occasion, today: today() }),
+			atRisk: report.atRisk,
+			placementsMoved: report.placementsMoved
+		});
 	} catch (e) {
 		error(400, e instanceof Error ? e.message : 'Could not record the Continuation.');
 	}

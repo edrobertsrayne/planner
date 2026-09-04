@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { classTone } from '$lib/class-tone';
 	import { replaceQuery } from '$lib/client/enhance';
+	import { openSession } from '$lib/client/session-panel.svelte';
 	import { formatShortWeekday } from '$lib/date';
 	import { statusTone, type PlanningStatus } from '$lib/feedback-tone';
 	import PageHeader from '$lib/components/page-header.svelte';
@@ -129,16 +130,25 @@
 						<div class="h-8 w-px bg-border"></div>
 
 						<div class="min-w-0 flex-1">
-							<button
-								type="button"
-								class="block max-w-full truncate text-left text-sm font-medium hover:underline"
-								onclick={() => replaceQuery(`?lesson=${lesson.id}`)}
-							>
-								{lesson.title}
-							</button>
+							{#if !lesson.topicName && !s}
+								<span class="block max-w-full truncate text-sm font-medium">{lesson.title}</span>
+							{:else}
+								<button
+									type="button"
+									class="block max-w-full truncate text-left text-sm font-medium hover:underline"
+									onclick={() =>
+										!lesson.topicName && s
+											? openSession({ classId: s.classId, date: s.date, period: s.period })
+											: replaceQuery(`?lesson=${lesson.id}`)}
+								>
+									{lesson.title}
+								</button>
+							{/if}
 							<div class="truncate text-xs text-muted-foreground">
 								{#if lesson.topicName}
 									{lesson.topicName} · {lesson.courseName}
+								{:else}
+									Standalone Lesson
 								{/if}
 							</div>
 							<TagChips tags={lesson.tags} class="mt-1" />

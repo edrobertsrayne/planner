@@ -93,7 +93,7 @@ export const actions: Actions = {
 		if (!topicId) return fail(400, { error: 'Pick a Topic to assign.' });
 		try {
 			const report = assignTopic(db, { classId, topicId, today: today() });
-			return { atRisk: report.atRisk };
+			return { atRisk: report.atRisk, placementsMoved: report.placementsMoved };
 		} catch (error) {
 			return badRequest(error, 'Could not assign the Topic.');
 		}
@@ -105,7 +105,7 @@ export const actions: Actions = {
 		const id = trimmed(data, 'id');
 		try {
 			const report = unassignTopic(db, { classId, id, today: today() });
-			return { atRisk: report?.atRisk ?? [] };
+			return { atRisk: report?.atRisk ?? [], placementsMoved: report?.placementsMoved ?? [] };
 		} catch (error) {
 			return badRequest(error, 'Could not unassign the Topic.');
 		}
@@ -118,6 +118,6 @@ export const actions: Actions = {
 		const direction = trimmed(data, 'direction');
 		if (direction !== 'up' && direction !== 'down') return fail(400, { error: 'Bad direction.' });
 		const report = moveAssignedTopic(db, { classId, id, direction, today: today() });
-		return { atRisk: report.atRisk };
+		return { atRisk: report.atRisk, placementsMoved: report.placementsMoved };
 	}
 };

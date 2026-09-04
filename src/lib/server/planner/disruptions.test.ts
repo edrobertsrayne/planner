@@ -166,7 +166,12 @@ describe('Blocked Slot', () => {
 			today: '2026-09-10'
 		});
 
-		const detail = sessionDetail(db, { classId: classA.id, date: '2026-09-03', period: 5 });
+		const detail = sessionDetail(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			period: 5,
+			today: '2026-09-10'
+		});
 		expect(detail?.note).toBe('went badly — redo the practical');
 		expect(detail?.lesson).toBeNull();
 	});

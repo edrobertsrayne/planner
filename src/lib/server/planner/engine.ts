@@ -54,6 +54,18 @@ export interface Continuation {
 	lessonId: string;
 }
 
+// A Placement: a Lesson scheduled directly onto a Class at a chosen date/Slot, with no Topic
+// behind it (issue #250). `length` is the Lesson's own length — a Placement carries no
+// Continuation of its own.
+export interface Placement {
+	id: string;
+	classId: string;
+	date: string;
+	slotId: string;
+	lessonId: string;
+	length: number;
+}
+
 export interface SessionRecord {
 	classId: string;
 	date: string;
@@ -69,6 +81,9 @@ export interface RemainingPart {
 
 export interface ScheduledSession extends RemainingPart, AvailableSlot {
 	classId: string;
+	// Set only on a Session a Placement produced — the derived-from-Topic-Lesson kind carries
+	// none, so `undefined` there reads as "not a Placement" rather than needing its own flag.
+	placementId?: string;
 }
 
 export interface ScheduleResult {
@@ -167,6 +182,64 @@ export function layOut(
 	};
 }
 
+// Lay every Placement onto the stream of Available Slots before any Topic Lesson gets a look in.
+// Walked in ascending anchor order — by date, then by the anchor Slot's own Period, both stable
+// and pure so re-deriving the same Placements in the same state always walks them the same way —
+// each claims the first `length` Available Slots at-or-after its own anchor from whatever the
+// stream still holds, so a later Placement whose anchor collides with an earlier one's claim
+// shifts right past it, never refused. `delivered` is the same record `remainingParts` reads for
+// Topic Lessons — a Placement's Lesson never appears in the Topic stream (it has no Topic), so
+// the two never contend for the same entry, but a Placement's own already-taught parts (dated
+// before the boundary) still need to stop counting against its `length` on every re-derive,
+// exactly the way a Topic Lesson's do.
+function layPlacements(
+	cal: Calendar,
+	placements: Placement[],
+	delivered: Record<string, number>,
+	stream: AvailableSlot[]
+): { sessions: ScheduledSession[]; openSlots: AvailableSlot[] } {
+	const periodOf: Record<string, number> = Object.fromEntries(
+		cal.slots.map((s) => [s.id, s.period])
+	);
+	const ordered = [...placements].sort((a, b) => {
+		if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+		return (periodOf[a.slotId] ?? 0) - (periodOf[b.slotId] ?? 0);
+	});
+
+	let remaining = stream;
+	const sessions: ScheduledSession[] = [];
+
+	for (const placement of ordered) {
+		const already = delivered[placement.lessonId] || 0;
+		const used = Math.min(already, placement.length);
+		delivered[placement.lessonId] = already - used;
+		const need = placement.length - used;
+		if (need <= 0) continue;
+
+		const period = periodOf[placement.slotId] ?? 0;
+		const anchorIndex = remaining.findIndex(
+			(s) => s.date > placement.date || (s.date === placement.date && s.period >= period)
+		);
+		const start = anchorIndex === -1 ? remaining.length : anchorIndex;
+		const claimed = remaining.slice(start, start + need);
+
+		claimed.forEach((slot, i) =>
+			sessions.push({
+				...slot,
+				classId: placement.classId,
+				lessonId: placement.lessonId,
+				part: used + i + 1,
+				of: placement.length,
+				placementId: placement.id
+			})
+		);
+
+		remaining = [...remaining.slice(0, start), ...remaining.slice(start + claimed.length)];
+	}
+
+	return { sessions, openSlots: remaining };
+}
+
 // THE ONE FUNCTION. Re-runnable in full, at any time, from any state. `boundary` is the only
 // thing stopping it rewriting the past: it writes on and after that date and never before.
 // Sessions dated before the boundary are the record of what happened — inputs here, not outputs.
@@ -176,6 +249,7 @@ export function schedule({
 	classId,
 	sessions,
 	continuations,
+	placements,
 	boundary
 }: {
 	cal: Calendar;
@@ -183,6 +257,7 @@ export function schedule({
 	classId: string;
 	sessions: SessionRecord[];
 	continuations: Continuation[];
+	placements: Placement[];
 	boundary: string;
 }): ScheduleResult {
 	const history = sessions
@@ -192,19 +267,27 @@ export function schedule({
 	const delivered: Record<string, number> = {};
 	for (const s of history) delivered[s.lessonId] = (delivered[s.lessonId] || 0) + 1;
 
-	const {
-		sessions: scheduled,
-		unplaced,
-		openSlots
-	} = layOut(
-		remainingParts(lessons, classId, continuations, delivered),
+	const { sessions: placed, openSlots: afterPlacements } = layPlacements(
+		cal,
+		placements.filter((p) => p.classId === classId),
+		delivered,
 		availableSlots(cal, classId, boundary)
 	);
+
+	const {
+		sessions: laid,
+		unplaced,
+		openSlots
+	} = layOut(remainingParts(lessons, classId, continuations, delivered), afterPlacements);
+
+	const scheduled = [...placed, ...laid]
+		.sort((a, b) => (a.date + a.period).localeCompare(b.date + b.period))
+		.map((p) => ({ ...p, classId }));
 
 	return {
 		boundary,
 		history,
-		scheduled: scheduled.map((p) => ({ ...p, classId })),
+		scheduled,
 		unplaced,
 		openSlots
 	};

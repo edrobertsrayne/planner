@@ -13,13 +13,14 @@
 //   timetable.ts    Slots: which Class holds which Period, over which dates
 //   classes.ts      a Class, its Assigned Topics, and how far through them it has got
 //   disruptions.ts  Blocked Days and Blocked Slots
+//   placement.ts    Placement: a Standalone Lesson put directly onto a Class, no Topic behind it
 //   terms.ts        the six Terms, replaced as one document — the Week letter derives from them
 //   sessions.ts     one occasion: its detail, its note, its Continuation
 //   views.ts        the Agenda stream and the Calendar grid, across every Class
 //   authoring.ts    Courses, Topics, Lessons and Links
 //   attachments.ts  files a Lesson holds: the directory, the allow-list, the create
 
-export type { AtRiskSession, LessonName, WriteReport } from './derive';
+export type { AtRiskSession, LessonName, PlacementMoved, WriteReport } from './derive';
 
 export { teachingWeeks } from './derive';
 
@@ -49,6 +50,8 @@ export {
 } from './classes';
 
 export { blockDay, blockSlot, unblockDay, unblockSlot } from './disruptions';
+
+export { placeLesson, removePlacement } from './placement';
 
 export { replaceTerms } from './terms';
 

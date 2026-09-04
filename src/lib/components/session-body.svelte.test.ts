@@ -21,7 +21,9 @@ const baseDetail: SessionDetail = {
 	period: occasion.period,
 	note: null,
 	ready: null,
-	lesson: null
+	lesson: null,
+	placement: null,
+	canPlace: false
 };
 
 describe('the Session panel', () => {
@@ -79,5 +81,43 @@ describe('the Session panel', () => {
 
 		await expect.element(screen.getByText('Open Slot')).toBeVisible();
 		await expect.element(screen.getByRole('link', { name: /\.pdf$/ })).not.toBeInTheDocument();
+	});
+
+	test('an Open Slot open to Placing shows the Place-a-Lesson card', async () => {
+		stubSessionFetch({ ...baseDetail, canPlace: true });
+
+		const screen = await render(SessionBody, { occasion });
+
+		await expect.element(screen.getByText('Place a Lesson')).toBeVisible();
+		await expect.element(screen.getByRole('textbox', { name: 'Lesson title' })).toBeVisible();
+	});
+
+	test('an Open Slot not open to Placing shows no Place-a-Lesson card', async () => {
+		stubSessionFetch({ ...baseDetail, canPlace: false });
+
+		const screen = await render(SessionBody, { occasion });
+
+		await expect.element(screen.getByText('Open Slot')).toBeVisible();
+		await expect.element(screen.getByText('Place a Lesson')).not.toBeInTheDocument();
+	});
+
+	test('a placed Lesson shows "Standalone Lesson · Placed" and a Remove-placement button', async () => {
+		stubSessionFetch({
+			...baseDetail,
+			placement: { id: 'placement-1' },
+			lesson: {
+				title: 'Assembly',
+				topicName: null,
+				body: null,
+				links: [],
+				tags: [],
+				attachments: []
+			}
+		});
+
+		const screen = await render(SessionBody, { occasion });
+
+		await expect.element(screen.getByText('Standalone Lesson · Placed')).toBeVisible();
+		await expect.element(screen.getByRole('button', { name: 'Remove placement' })).toBeVisible();
 	});
 });

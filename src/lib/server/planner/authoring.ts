@@ -7,7 +7,7 @@ import { and, asc, eq, inArray, lt, sql } from 'drizzle-orm';
 import type { Database } from 'bun:sqlite';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
-import { rederiveTopic, type Db } from './derive';
+import { rederivePlacementLesson, rederiveTopic, type Db } from './derive';
 import { nextPosition, swapTargets, type Direction } from './ordering';
 import { deleteAttachmentsOfLesson } from './attachments';
 
@@ -494,6 +494,7 @@ export function updateLesson(
 		.all();
 	if (!row) return row;
 	if (row.topicId) rederiveTopic(db, row.topicId, today);
+	else rederivePlacementLesson(db, row.id, today);
 	return row;
 }
 
@@ -501,18 +502,31 @@ export function updateLesson(
 // Topic. Refuses when a Class has already been taught this Lesson: the historical Session rows
 // reference it (ADR-0002), so deleting it would erase part of the record of what happened —
 // the taught-by block in the Lesson editor is what warns Ed before he tries this and it fails.
+// Refuses too while any Placement names the Lesson (ADR-0022): the "no mark" answer to whether a
+// Standalone Lesson is schedulable depends entirely on a `placement` row naming it, so deleting
+// one out from under a live Placement would leave that row naming a Lesson that no longer exists.
 export function deleteLesson(
 	db: Db,
 	{ id, today, dir }: { id: string; today: string; dir: string }
 ):
 	| { ok: false; reason: 'not found' }
 	| { ok: false; reason: 'taught' }
+	| { ok: false; reason: 'placed' }
 	| { ok: true; lesson: typeof schema.lesson.$inferSelect } {
 	const [row] = db.select().from(schema.lesson).where(eq(schema.lesson.id, id)).all();
 	if (!row) return { ok: false, reason: 'not found' };
 
 	if (classesTaughtLesson(db, { lessonId: id, today }).length > 0) {
 		return { ok: false, reason: 'taught' };
+	}
+
+	const [placedBy] = db
+		.select({ id: schema.placement.id })
+		.from(schema.placement)
+		.where(eq(schema.placement.lessonId, id))
+		.all();
+	if (placedBy) {
+		return { ok: false, reason: 'placed' };
 	}
 
 	// Not-yet-taught Sessions carrying this Lesson are about to be replaced by `rederiveTopic`
@@ -558,7 +572,7 @@ export function patchLesson(
 	}
 ):
 	| { ok: true; lesson: typeof schema.lesson.$inferSelect }
-	| { ok: false; reason: 'not found' | 'topic not found' } {
+	| { ok: false; reason: 'not found' | 'topic not found' | 'standalone' } {
 	const [row] = db.select().from(schema.lesson).where(eq(schema.lesson.id, id)).all();
 	if (!row) return { ok: false, reason: 'not found' };
 
@@ -573,6 +587,10 @@ export function patchLesson(
 	const newTopicId = fields.topicId;
 
 	if (newTopicId !== undefined && newTopicId !== null && newTopicId !== oldTopicId) {
+		// ADR-0022: a Standalone Lesson reaches a Class only through a Placement, never a Topic —
+		// re-filing it into one would let a Lesson a Placement names silently regain a Topic
+		// mid-Placement. Detach is one-way. Moving a Lesson between two Topics is untouched.
+		if (oldTopicId === null) return { ok: false, reason: 'standalone' };
 		const [existing] = db.select().from(schema.topic).where(eq(schema.topic.id, newTopicId)).all();
 		if (!existing) return { ok: false, reason: 'topic not found' };
 		update.topicId = newTopicId;

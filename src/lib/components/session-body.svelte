@@ -6,11 +6,13 @@
 	import { formatSize } from '$lib/format-size';
 	import type { Occasion } from '$lib/client/session-panel.svelte';
 	import { createSessionNotes } from '$lib/client/session-note';
-	import type { AtRiskSession, SessionDetail } from '$lib/server/planner';
+	import type { AtRiskSession, PlacementMoved, SessionDetail } from '$lib/server/planner';
 	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
+	import PlacementsMovedAlert from '$lib/components/placements-moved-alert.svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import TagChips from '$lib/components/tag-chips.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import { Separator } from '$lib/components/ui/separator';
 	import { Textarea } from '$lib/components/ui/textarea';
 
@@ -46,6 +48,11 @@
 	let continuing = $state(false);
 	let continuationError = $state<string | null>(null);
 	let continuationAtRisk = $state<AtRiskSession[]>([]);
+	let continuationPlacementsMoved = $state<PlacementMoved[]>([]);
+	let placeTitle = $state('');
+	let placing = $state(false);
+	let placeError = $state<string | null>(null);
+	let removingPlacement = $state(false);
 
 	$effect(() => {
 		const { classId, date, period } = occasion;
@@ -54,6 +61,7 @@
 		continuing = false;
 		continuationError = null;
 		continuationAtRisk = [];
+		continuationPlacementsMoved = [];
 		fetch(`/session?classId=${encodeURIComponent(classId)}&date=${date}&period=${period}`)
 			.then((r) => r.json())
 			.then((d: SessionDetail) => {
@@ -63,6 +71,8 @@
 				detail = d;
 				note = notes.open(occasion, d.note);
 				continuationError = null;
+				placeTitle = '';
+				placeError = null;
 			})
 			.catch(() => {
 				// The panel has nothing to show without its Session; a silent miss beats an
@@ -79,6 +89,7 @@
 		continuing = true;
 		continuationError = null;
 		continuationAtRisk = [];
+		continuationPlacementsMoved = [];
 		fetch('/session/continuation', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
@@ -86,19 +97,77 @@
 		})
 			.then(async (r) => {
 				if (!r.ok) throw new Error((await r.json().catch(() => null))?.message ?? 'Failed.');
-				return r.json() as Promise<SessionDetail & { atRisk: AtRiskSession[] }>;
+				return r.json() as Promise<
+					SessionDetail & { atRisk: AtRiskSession[]; placementsMoved: PlacementMoved[] }
+				>;
 			})
 			.then((d) => {
 				if (target !== occasion) return;
 				detail = d;
 				continuing = false;
 				continuationAtRisk = d.atRisk;
+				continuationPlacementsMoved = d.placementsMoved;
 				invalidateAll();
 			})
 			.catch((e: Error) => {
 				if (target !== occasion) return;
 				continuing = false;
 				continuationError = e.message;
+			});
+	}
+
+	function placeLessonNow() {
+		const target = occasion;
+		const title = placeTitle.trim();
+		if (!title) return;
+		placing = true;
+		placeError = null;
+		fetch('/session/placement', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ ...target, title })
+		})
+			.then(async (r) => {
+				if (!r.ok) throw new Error((await r.json().catch(() => null))?.message ?? 'Failed.');
+				return r.json() as Promise<SessionDetail>;
+			})
+			.then((d) => {
+				if (target !== occasion) return;
+				detail = d;
+				placing = false;
+				placeTitle = '';
+				invalidateAll();
+			})
+			.catch((e: Error) => {
+				if (target !== occasion) return;
+				placing = false;
+				placeError = e.message;
+			});
+	}
+
+	function removePlacementNow() {
+		const target = occasion;
+		const id = detail?.placement?.id;
+		if (!id) return;
+		removingPlacement = true;
+		fetch('/session/placement', {
+			method: 'DELETE',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ ...target, id })
+		})
+			.then(async (r) => {
+				if (!r.ok) throw new Error((await r.json().catch(() => null))?.message ?? 'Failed.');
+				return r.json() as Promise<SessionDetail>;
+			})
+			.then((d) => {
+				if (target !== occasion) return;
+				detail = d;
+				removingPlacement = false;
+				invalidateAll();
+			})
+			.catch(() => {
+				if (target !== occasion) return;
+				removingPlacement = false;
 			});
 	}
 </script>
@@ -120,7 +189,9 @@
 
 	{#if detail.lesson}
 		<h2 class="text-lg leading-snug font-semibold">{detail.lesson.title}</h2>
-		{#if detail.lesson.topicName}
+		{#if detail.placement}
+			<p class="mt-1 text-xs text-muted-foreground">Standalone Lesson · Placed</p>
+		{:else if detail.lesson.topicName}
 			<p class="mt-1 text-xs text-muted-foreground">{detail.lesson.topicName}</p>
 		{/if}
 		<TagChips tags={detail.lesson.tags} class="mt-2" />
@@ -181,10 +252,45 @@
 					<AtRiskAlert atRisk={continuationAtRisk} />
 				</div>
 			{/if}
+			{#if continuationPlacementsMoved.length > 0}
+				<div class="mt-3">
+					<PlacementsMovedAlert placementsMoved={continuationPlacementsMoved} />
+				</div>
+			{/if}
 		</div>
 	{:else}
 		<h2 class="text-lg font-semibold text-muted-foreground italic">Open Slot</h2>
 		<p class="mt-1 text-xs text-muted-foreground">No Lesson planned for this occasion.</p>
+		{#if detail.canPlace}
+			<div class="mt-4 rounded-lg border border-dashed p-3">
+				<h3 class="text-sm font-semibold">Place a Lesson</h3>
+				<p class="mt-1 text-xs text-muted-foreground">
+					A Lesson with no Topic, scheduled directly on this occasion. It will not be part of
+					{detail.classLabel}'s Course sequence.
+				</p>
+				<Input
+					class="mt-2 h-8 text-sm"
+					placeholder="Title"
+					aria-label="Lesson title"
+					value={placeTitle}
+					oninput={(e) => (placeTitle = e.currentTarget.value)}
+					onkeydown={(e) => {
+						if (e.key === 'Enter') placeLessonNow();
+					}}
+				/>
+				<Button
+					class="mt-2"
+					size="sm"
+					disabled={placing || !placeTitle.trim()}
+					onclick={placeLessonNow}
+				>
+					{placing ? 'Placing…' : 'Place'}
+				</Button>
+				{#if placeError}
+					<p class="mt-1.5 text-xs text-destructive">{placeError}</p>
+				{/if}
+			</div>
+		{/if}
 	{/if}
 
 	<Separator class="my-5" />
@@ -195,7 +301,19 @@
 			class="text-xs font-semibold tracking-wider text-muted-foreground uppercase"
 			>How it went</label
 		>
-		<span class="text-xs text-muted-foreground">stays with the occasion</span>
+		{#if detail.placement}
+			<Button
+				variant="ghost"
+				size="sm"
+				class="h-6 px-2 text-xs text-destructive"
+				disabled={removingPlacement}
+				onclick={removePlacementNow}
+			>
+				{removingPlacement ? 'Removing…' : 'Remove placement'}
+			</Button>
+		{:else}
+			<span class="text-xs text-muted-foreground">stays with the occasion</span>
+		{/if}
 	</div>
 	<Textarea
 		id="session-note"

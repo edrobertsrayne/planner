@@ -14,6 +14,8 @@ import {
 	type Calendar,
 	type Continuation,
 	type LessonInput,
+	type Placement,
+	type ScheduledSession,
 	type ScheduleResult,
 	type SessionRecord
 } from './engine';
@@ -107,6 +109,24 @@ function loadLessonStream(db: Db, classId: string): LessonInput[] {
 		.all();
 }
 
+// A Class's Placements, joined to their Lesson for `length` — same shape as
+// `loadContinuations`/`loadLessonStream`.
+function loadPlacements(db: Db, classId: string): Placement[] {
+	return db
+		.select({
+			id: schema.placement.id,
+			classId: schema.placement.classId,
+			date: schema.placement.date,
+			slotId: schema.placement.slotId,
+			lessonId: schema.placement.lessonId,
+			length: schema.lesson.length
+		})
+		.from(schema.placement)
+		.innerJoin(schema.lesson, eq(schema.lesson.id, schema.placement.lessonId))
+		.where(eq(schema.placement.classId, classId))
+		.all();
+}
+
 function loadContinuations(db: Db, classId: string): Continuation[] {
 	return db
 		.select({ classId: schema.session.classId, lessonId: schema.session.lessonId })
@@ -144,6 +164,7 @@ export function scheduleFor(
 		classId,
 		sessions: loadSessions(db, classId),
 		continuations: loadContinuations(db, classId),
+		placements: loadPlacements(db, classId),
 		boundary
 	});
 }
@@ -175,7 +196,9 @@ export function rederive(db: Db, classId: string, boundary: string, cal?: Calend
 		.all();
 	const byOccasion = new Map(existing.map((row) => [occasionKey(row), row]));
 
-	const result = scheduleFor(db, { classId, boundary, cal });
+	const resolvedCal = cal ?? loadCalendar(db);
+	const placements = loadPlacements(db, classId);
+	const result = scheduleFor(db, { classId, boundary, cal: resolvedCal });
 
 	const touched: (typeof existing)[number][] = [];
 
@@ -241,12 +264,18 @@ export function rederive(db: Db, classId: string, boundary: string, cal?: Calend
 	);
 	const { atRisk } = rewind(touchedWithLesson, classId, boundary);
 
-	return { atRisk: describeAtRisk(db, atRisk) };
+	return {
+		atRisk: describeAtRisk(db, atRisk),
+		placementsMoved: describePlacementsMoved(db, resolvedCal, placements, result)
+	};
 }
 
 // Every Class currently assigned this Topic — the Classes whose schedule a change to one of the
-// Topic's Lessons touches.
-export function rederiveTopic(db: Db, topicId: string, today: string) {
+// Topic's Lessons touches. `placementsMoved` across every touched Class is folded into one
+// combined report, same as rederivePlacementLesson below: a Class holding both this Topic and a
+// Placement can have the Placement shift sideways when the Topic-Lesson stream in front of it
+// changes shape.
+export function rederiveTopic(db: Db, topicId: string, today: string): WriteReport {
 	const classIds = db
 		.select({ classId: schema.assignedTopic.classId })
 		.from(schema.assignedTopic)
@@ -254,14 +283,39 @@ export function rederiveTopic(db: Db, topicId: string, today: string) {
 		.all()
 		.map((row) => row.classId);
 
-	for (const classId of classIds) rederive(db, classId, today);
+	return combineReports(classIds.map((classId) => rederive(db, classId, today)));
 }
 
-// Re-derives every Class from a boundary and collects the combined atRisk report — shared by
-// every scheduling input that isn't scoped to one Class (a Blocked Day, its removal, and the
-// Week letter), so the aggregation logic lives in exactly one place. One Calendar is loaded for
-// the whole year rather than once per Class.
-export function rederiveAllClasses(db: Db, boundary: string): AtRiskSession[] {
+// Every Class currently holding a Placement of this Lesson — the placement-keyed mirror of
+// rederiveTopic, for a Standalone Lesson a Length edit must still re-derive sideways (ADR-0022):
+// a Standalone Lesson reaches a Class only through a Placement, never through assignedTopic, so
+// there is no Topic to re-derive through. `placementsMoved` across every touched Class is folded
+// into one combined report, the same shape `rederive` itself returns for one Class.
+export function rederivePlacementLesson(db: Db, lessonId: string, today: string): WriteReport {
+	const classIds = db
+		.selectDistinct({ classId: schema.placement.classId })
+		.from(schema.placement)
+		.where(eq(schema.placement.lessonId, lessonId))
+		.all()
+		.map((row) => row.classId);
+
+	return combineReports(classIds.map((classId) => rederive(db, classId, today)));
+}
+
+// Folds one WriteReport per Class into the single combined report every multi-Class re-derive
+// (rederiveTopic, rederivePlacementLesson, rederiveAllClasses) returns.
+function combineReports(reports: WriteReport[]): WriteReport {
+	return {
+		atRisk: reports.flatMap((r) => r.atRisk),
+		placementsMoved: reports.flatMap((r) => r.placementsMoved)
+	};
+}
+
+// Re-derives every Class from a boundary and collects the combined report — shared by every
+// scheduling input that isn't scoped to one Class (a Blocked Day, its removal, and the Week
+// letter), so the aggregation logic lives in exactly one place. One Calendar is loaded for the
+// whole year rather than once per Class.
+export function rederiveAllClasses(db: Db, boundary: string): WriteReport {
 	const cal = loadCalendar(db);
 	const classIds = db
 		.select({ id: schema.classes.id })
@@ -269,7 +323,7 @@ export function rederiveAllClasses(db: Db, boundary: string): AtRiskSession[] {
 		.all()
 		.map((row) => row.id);
 
-	return classIds.flatMap((classId) => rederive(db, classId, boundary, cal).atRisk);
+	return combineReports(classIds.map((classId) => rederive(db, classId, boundary, cal)));
 }
 
 export interface AtRiskSession {
@@ -280,10 +334,23 @@ export interface AtRiskSession {
 	lessonTitle: string;
 }
 
+export interface PlacementMoved {
+	placementId: string;
+	classId: string;
+	classLabel: string;
+	lessonTitle: string;
+	anchorDate: string;
+	anchorPeriod: number;
+	date: string;
+	period: number;
+}
+
 // What every scheduling write answers in one call: the Rewind's report of noted Sessions whose
 // Lesson the re-derivation changed, already named by Class and Lesson — the describing lives
-// inside `rederive` so no caller can forget it.
-export type WriteReport = { atRisk: AtRiskSession[] };
+// inside `rederive` so no caller can forget it. `placementsMoved` is the same idea for a
+// Placement whose anchor a Blocked Day or Blocked Slot has pushed off — unconditional, unlike
+// `atRisk`, since a Placement carries no note to make silence safe.
+export type WriteReport = { atRisk: AtRiskSession[]; placementsMoved: PlacementMoved[] };
 
 export interface LessonName {
 	title: string;
@@ -337,4 +404,68 @@ function describeAtRisk(db: Db, atRisk: SessionRecord[]): AtRiskSession[] {
 		period: s.period,
 		lessonTitle: names.get(s.lessonId)?.title ?? s.lessonId
 	}));
+}
+
+// A Placement's stored anchor, resolved to a Period via the Calendar's Slot table, compared
+// against where its own emitted ScheduledSession actually lands — matched by the Placement's id,
+// not its Lesson id alone, since the same Lesson may be placed twice on one Class. A Placement
+// fully covered by history (nothing left to schedule this call) has no landing to compare against
+// and is never reported: history is frozen, so it cannot have moved.
+function describePlacementsMoved(
+	db: Db,
+	cal: Calendar,
+	placements: Placement[],
+	result: ScheduleResult
+): PlacementMoved[] {
+	if (placements.length === 0) return [];
+
+	const periodOf: Record<string, number> = Object.fromEntries(
+		cal.slots.map((s) => [s.id, s.period])
+	);
+
+	const landing: Record<string, ScheduledSession> = {};
+	for (const s of result.scheduled) {
+		if (!s.placementId) continue;
+		const earliest = landing[s.placementId];
+		if (
+			!earliest ||
+			s.date < earliest.date ||
+			(s.date === earliest.date && s.period < earliest.period)
+		) {
+			landing[s.placementId] = s;
+		}
+	}
+
+	const moved = placements.filter((p) => {
+		const at = landing[p.id];
+		return at !== undefined && (at.date !== p.date || at.period !== (periodOf[p.slotId] ?? 0));
+	});
+
+	if (moved.length === 0) return [];
+
+	const labels = new Map(
+		db
+			.select({ id: schema.classes.id, label: schema.classes.label })
+			.from(schema.classes)
+			.all()
+			.map((row) => [row.id, row.label])
+	);
+	const names = lessonNames(
+		db,
+		moved.map((p) => p.lessonId)
+	);
+
+	return moved.map((p) => {
+		const at = landing[p.id];
+		return {
+			placementId: p.id,
+			classId: p.classId,
+			classLabel: labels.get(p.classId) ?? p.classId,
+			lessonTitle: names.get(p.lessonId)?.title ?? p.lessonId,
+			anchorDate: p.date,
+			anchorPeriod: periodOf[p.slotId] ?? 0,
+			date: at.date,
+			period: at.period
+		};
+	});
 }

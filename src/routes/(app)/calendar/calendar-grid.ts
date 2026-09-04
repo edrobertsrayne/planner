@@ -15,6 +15,7 @@ export const PERIODS = [1, 2, 3, 4, 5, 6];
 export interface AvailableSlotLine {
 	slotId: string;
 	period: number;
+	classId: string;
 	classLabel: string;
 }
 
@@ -40,6 +41,7 @@ export function availableSlotLines(
 			: c.slotIds.map((slotId, i) => ({
 					slotId,
 					period: c.periodFrom + i,
+					classId: c.classId,
 					classLabel: c.classLabel
 				}))
 	);
