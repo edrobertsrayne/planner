@@ -62,3 +62,10 @@ Class's stream, direct from Class to Lesson, bypassing Topic — a null `topic_i
 Lesson unreachable, never schedulable. That feature is deliberately out of scope. When it arrives,
 a retired Lesson and a one-off Lesson will be indistinguishable by `topic_id` alone, and it may
 need a mark to tell them apart. Adding one now would be guessing at a design not yet done.
+
+> **Amended 2026-09-04 (ADR-0022).** The second route arrived: a **Placement** schedules a
+> Standalone Lesson directly onto one Class, on one date, bypassing Topic. The predicted mark never
+> got built — a Placement's own record is the whole difference between a retired Standalone Lesson
+> and a schedulable one, so `lesson` gains no column. One consequence this ADR did not foresee:
+> because a Placement is the only door back onto a Class's schedule, the reverse of Detach —
+> re-filing a Standalone Lesson into a Topic — is retired along with it. Detach is one-way.
