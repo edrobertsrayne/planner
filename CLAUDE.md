@@ -67,6 +67,10 @@ When Claude in Chrome is not available, drive the browser with `Bun.WebView` —
 Disable the auth guard for a prototype, unless the prototype is testing the authentication
 pages themselves. This keeps the prototype easy for a non-developer to open and use.
 
+## Commits
+
+Commits follow the same conventional-commit type/scope rules and changelog updates as `omp commit` — run `omp commit` itself rather than hand-writing messages.
+
 ## Communication style
 
 - Give brief context before the main point. Do not jump straight to the answer with no lead-in.
