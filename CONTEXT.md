@@ -145,8 +145,10 @@ One Standalone Lesson put on one Class on one date the teacher chooses, with no 
 To **Place** is to make one; the reverse is to remove it, which leaves the Lesson standing as a
 Standalone Lesson. A Placement is anchored to the date and Slot chosen and takes the first
 Available Slot at or after it, so it shifts right when that Slot stops being Available, and
-returns when the Slot is Available again. It consumes the Slot it takes, so the Class's Assigned
-Topics move on past it. Made for today or a later date, never a past one.
+returns when the Slot is Available again. The Slot chosen may be an Open Slot or one a Topic
+Lesson already holds; a Placement consumes the Slot it takes, so that Lesson and every Lesson
+after it in the Class's Assigned Topics move on past it. Made for today or a later date, never a
+past one.
 _Avoid_: Insertion, injection, ad-hoc Lesson, one-off Lesson, pinned Session, placed Slot,
 reservation, pin, lock, unplace, cancel
 

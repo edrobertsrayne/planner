@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import { describe, expect, test } from 'vitest';
-import { setUp } from './fixtures';
-import { classSchedule, placeLesson, removePlacement, setReadiness } from './index';
+import { makeLessons, makeTopic, setUp } from './fixtures';
+import { assignTopic, classSchedule, placeLesson, removePlacement, setReadiness } from './index';
 import * as schema from '../db/schema';
 
 describe('placing a Lesson', () => {
@@ -98,6 +98,40 @@ describe('placing a Lesson', () => {
 		});
 		expect(db.select().from(schema.lesson).all()).toHaveLength(0);
 		expect(db.select().from(schema.placement).all()).toHaveLength(0);
+	});
+
+	// The mid-Topic throw-in (issue #256): the Slot chosen already carries a Topic Lesson, so the
+	// Placement claims it ahead of the Topic stream and the whole sequence moves on past it. No
+	// new mechanism — `layPlacements` runs before `layOut` — so this test pins the behaviour the
+	// widened door now exposes.
+	test('placing onto a Slot a Topic Lesson holds shift-rights that Lesson and the rest', () => {
+		const { db, client, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [first, second, third] = makeLessons(db, topic.id, 3);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+
+		const before = classSchedule(db, { classId: classA.id, today: '2026-09-03' }).scheduled;
+		expect(before.slice(0, 3).map((s) => s.lessonId)).toEqual([first.id, second.id, third.id]);
+
+		// The second Lesson's own occasion — the middle of the sequence, not a gap after it.
+		const target = before[1];
+		const result = placeLesson(db, client, {
+			classId: classA.id,
+			date: target.date,
+			slotId: target.slotId,
+			title: 'Assembly',
+			today: '2026-09-03'
+		});
+		if (!result.ok) throw new Error('unreachable');
+
+		const after = classSchedule(db, { classId: classA.id, today: '2026-09-03' }).scheduled;
+		expect(after.slice(0, 4).map((s) => s.lessonId)).toEqual([
+			first.id,
+			result.lesson.id,
+			second.id,
+			third.id
+		]);
+		expect(after[1]).toMatchObject({ date: target.date, period: target.period });
 	});
 });
 

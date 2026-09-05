@@ -39,9 +39,11 @@ export interface SessionDetail extends Occasion {
 	// be placed on this same Class twice (ADR-0022); the first Placement naming this pairing is
 	// taken, since telling the two apart from one occasion alone needs no further design here.
 	placement: { id: string } | null;
-	// Whether the Session panel's Place-a-Lesson card should show: no Lesson sits on this
-	// occasion yet, and Placing is future-and-today only (placement.ts), never a correction to
-	// the past.
+	// Whether the Session panel's Place-a-Lesson card should show. Placing is future-and-today
+	// only (placement.ts), never a correction to the past. A Topic Lesson already on the occasion
+	// is no refusal (issue #256): a Placement claims its Slot ahead of the Topic stream, so that
+	// Lesson and every Lesson after it shift right. A Placement already anchored here is the one
+	// refusal — a second one on the same anchor collides on `placement_anchor`.
 	canPlace: boolean;
 }
 
@@ -116,7 +118,7 @@ export function sessionDetail(
 		ready,
 		note: row?.note ?? null,
 		placement,
-		canPlace: !row?.lessonId && occasion.date >= today
+		canPlace: occasion.date >= today && placement === null
 	};
 }
 

@@ -231,7 +231,10 @@ describe('the Session panel', () => {
 		expect(detail?.canPlace).toBe(false);
 	});
 
-	test('canPlace is false once a Lesson already sits on the occasion', () => {
+	// The occupied-occasion door (issue #256): a Placement claims its Slot ahead of the Topic
+	// stream, so a Topic Lesson sitting here is no refusal — it shift-rights. Only a Placement
+	// already anchored here refuses, which the placed-Lesson test below covers.
+	test('canPlace is true on an occasion a Topic Lesson already holds', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		makeLessons(db, topic.id, 1);
@@ -242,6 +245,23 @@ describe('the Session panel', () => {
 			date: '2026-09-03',
 			period: 5,
 			today: '2026-09-03'
+		});
+
+		expect(detail?.lesson?.topicName).toBe('Forces');
+		expect(detail?.canPlace).toBe(true);
+	});
+
+	test("canPlace is false once today has passed the occasion's date", () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		makeLessons(db, topic.id, 1);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+
+		const detail = sessionDetail(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			period: 5,
+			today: '2026-09-04'
 		});
 
 		expect(detail?.canPlace).toBe(false);

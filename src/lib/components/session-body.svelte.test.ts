@@ -101,6 +101,32 @@ describe('the Session panel', () => {
 		await expect.element(screen.getByText('Place a Lesson')).not.toBeInTheDocument();
 	});
 
+	// The mid-Topic throw-in (issue #256): the card shows over a Topic Lesson too, and says what
+	// Placing there moves.
+	test('an occasion holding a Topic Lesson shows the Place-a-Lesson card and what it moves', async () => {
+		stubSessionFetch({
+			...baseDetail,
+			canPlace: true,
+			ready: false,
+			lesson: {
+				title: 'Forces recap',
+				topicName: 'Forces',
+				body: null,
+				links: [],
+				tags: [],
+				attachments: []
+			}
+		});
+
+		const screen = await render(SessionBody, { occasion });
+
+		await expect.element(screen.getByText('Place a Lesson')).toBeVisible();
+		await expect.element(screen.getByRole('textbox', { name: 'Lesson title' })).toBeVisible();
+		await expect
+			.element(screen.getByText(/Forces recap and every Lesson after it move/))
+			.toBeVisible();
+	});
+
 	test('a placed Lesson shows "Standalone Lesson · Placed" and a Remove-placement button', async () => {
 		stubSessionFetch({
 			...baseDetail,

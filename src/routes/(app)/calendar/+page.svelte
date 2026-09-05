@@ -260,7 +260,7 @@
 													</DropdownMenu.Group>
 												{/if}
 												{#if date >= data.today}
-													{@const placeableSlots = availableSlots.filter((s) => s.open)}
+													{@const placeableSlots = availableSlots.filter((s) => !s.placed)}
 													{#if placeableSlots.length > 0}
 														<DropdownMenu.Separator />
 														<DropdownMenu.Group>
@@ -268,10 +268,12 @@
 																>Place a Lesson</DropdownMenu.GroupHeading
 															>
 															<!-- Placing is future-and-today only (issue #254), unlike Block one
-													     Slot above — a past week's day menu shows no line here. Only an
-													     Open Slot is offered: the Session panel's own `canPlace`
-													     (sessions.ts) refuses a Slot a Lesson already occupies, so a line
-													     here always lands on the panel's Place-a-Lesson card. Lands on
+													     Slot above — a past week's day menu shows no line here. Every
+													     Available Slot is offered, an Open one and one a Topic Lesson
+													     holds alike (issue #256): a Placement claims its Slot ahead of
+													     the Topic stream, so the Lesson there and every Lesson after it
+													     shift right. Only a Slot already holding a placed Lesson is left
+													     out, matching the panel's own `canPlace` (sessions.ts). Lands on
 													     the Session panel's own Place-a-Lesson card, the one place the
 													     title is typed. -->
 															{#each placeableSlots as slot (slot.slotId)}

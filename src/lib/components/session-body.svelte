@@ -266,36 +266,44 @@
 	{:else}
 		<h2 class="text-lg font-semibold text-muted-foreground italic">Open Slot</h2>
 		<p class="mt-1 text-xs text-muted-foreground">No Lesson planned for this occasion.</p>
-		{#if detail.canPlace}
-			<div class="mt-4 rounded-lg border border-dashed p-3">
-				<h3 class="text-sm font-semibold">Place a Lesson</h3>
-				<p class="mt-1 text-xs text-muted-foreground">
-					A Lesson with no Topic, scheduled directly on this occasion. It will not be part of
-					{detail.classLabel}'s Course sequence.
-				</p>
-				<Input
-					class="mt-2 h-8 text-sm"
-					placeholder="Title"
-					aria-label="Lesson title"
-					value={placeTitle}
-					oninput={(e) => (placeTitle = e.currentTarget.value)}
-					onkeydown={(e) => {
-						if (e.key === 'Enter') placeLessonNow();
-					}}
-				/>
-				<Button
-					class="mt-2"
-					size="sm"
-					disabled={placing || !placeTitle.trim()}
-					onclick={placeLessonNow}
-				>
-					{placing ? 'Placing…' : 'Place'}
-				</Button>
-				{#if placeError}
-					<p class="mt-1.5 text-xs text-destructive">{placeError}</p>
+	{/if}
+
+	<!-- One card, on an Open Slot and on an occasion a Topic Lesson already holds alike (issue
+	     #256) — a Placement claims its Slot ahead of the Topic stream, so the Lesson there and
+	     every Lesson after it shift right. `canPlace` (sessions.ts) is the whole gate: future or
+	     today, and no Placement anchored here already. -->
+	{#if detail.canPlace}
+		<div class="mt-4 rounded-lg border border-dashed p-3">
+			<h3 class="text-sm font-semibold">Place a Lesson</h3>
+			<p class="mt-1 text-xs text-muted-foreground">
+				A Lesson with no Topic, scheduled directly on this occasion. It will not be part of
+				{detail.classLabel}'s Course sequence.
+				{#if detail.lesson}
+					{detail.lesson.title} and every Lesson after it move to the next Available Slots.
 				{/if}
-			</div>
-		{/if}
+			</p>
+			<Input
+				class="mt-2 h-8 text-sm"
+				placeholder="Title"
+				aria-label="Lesson title"
+				value={placeTitle}
+				oninput={(e) => (placeTitle = e.currentTarget.value)}
+				onkeydown={(e) => {
+					if (e.key === 'Enter') placeLessonNow();
+				}}
+			/>
+			<Button
+				class="mt-2"
+				size="sm"
+				disabled={placing || !placeTitle.trim()}
+				onclick={placeLessonNow}
+			>
+				{placing ? 'Placing…' : 'Place'}
+			</Button>
+			{#if placeError}
+				<p class="mt-1.5 text-xs text-destructive">{placeError}</p>
+			{/if}
+		</div>
 	{/if}
 
 	<Separator class="my-5" />
