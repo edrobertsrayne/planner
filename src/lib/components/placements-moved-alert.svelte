@@ -14,15 +14,19 @@
 		<TriangleAlertIcon />
 		<Alert.Title>
 			{placementsMoved.length === 1
-				? 'A Placement moved'
-				: `${placementsMoved.length} Placements moved`}
-			because its Slot stopped being Available.
+				? 'A Placement moved because its Slot stopped being Available.'
+				: `${placementsMoved.length} Placements moved because their Slots stopped being Available.`}
 		</Alert.Title>
 		<Alert.Description>
 			<ul class="mt-1 list-disc pl-4">
 				{#each placementsMoved as p (p.placementId)}
 					<li>
-						{p.classLabel} · {p.lessonTitle} — was {p.anchorDate} P{p.anchorPeriod}, now {p.date} P{p.period}
+						{p.classLabel} · {p.lessonTitle} — was {p.anchorDate} P{p.anchorPeriod}, now
+						{#if p.stranded}
+							has nowhere left to go
+						{:else}
+							{p.date} P{p.period}
+						{/if}
 					</li>
 				{/each}
 			</ul>

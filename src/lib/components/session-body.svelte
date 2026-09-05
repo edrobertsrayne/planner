@@ -53,6 +53,7 @@
 	let placing = $state(false);
 	let placeError = $state<string | null>(null);
 	let removingPlacement = $state(false);
+	let removeError = $state<string | null>(null);
 
 	$effect(() => {
 		const { classId, date, period } = occasion;
@@ -62,6 +63,11 @@
 		continuationError = null;
 		continuationAtRisk = [];
 		continuationPlacementsMoved = [];
+		placing = false;
+		placeTitle = '';
+		placeError = null;
+		removingPlacement = false;
+		removeError = null;
 		fetch(`/session?classId=${encodeURIComponent(classId)}&date=${date}&period=${period}`)
 			.then((r) => r.json())
 			.then((d: SessionDetail) => {
@@ -70,9 +76,6 @@
 				if (!current) return;
 				detail = d;
 				note = notes.open(occasion, d.note);
-				continuationError = null;
-				placeTitle = '';
-				placeError = null;
 			})
 			.catch(() => {
 				// The panel has nothing to show without its Session; a silent miss beats an
@@ -150,6 +153,7 @@
 		const id = detail?.placement?.id;
 		if (!id) return;
 		removingPlacement = true;
+		removeError = null;
 		fetch('/session/placement', {
 			method: 'DELETE',
 			headers: { 'content-type': 'application/json' },
@@ -165,9 +169,10 @@
 				removingPlacement = false;
 				invalidateAll();
 			})
-			.catch(() => {
+			.catch((e: Error) => {
 				if (target !== occasion) return;
 				removingPlacement = false;
+				removeError = e.message;
 			});
 	}
 </script>
@@ -315,6 +320,9 @@
 			<span class="text-xs text-muted-foreground">stays with the occasion</span>
 		{/if}
 	</div>
+	{#if removeError}
+		<p class="mb-1.5 text-xs text-destructive">{removeError}</p>
+	{/if}
 	<Textarea
 		id="session-note"
 		rows={6}

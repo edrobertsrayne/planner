@@ -414,7 +414,7 @@ describe('the Planning stream', () => {
 		expect(stream[1].occurrence).toMatchObject({ date: '2026-09-08', period: 2 });
 	});
 
-	test('a placed Lesson (no Topic) carries its occurrence with the Standalone label and no Course', () => {
+	test('a placed Lesson (no Topic) carries its occurrence, with no Topic and no Course name', () => {
 		const { db, classA } = setUp();
 		const [lesson] = db
 			.insert(schema.lesson)

@@ -6,14 +6,14 @@ import * as schema from '../db/schema';
 
 describe('placing a Lesson', () => {
 	test('creates a Standalone Lesson and a Placement together, and re-derives the Class', () => {
-		const { db, classA } = setUp();
+		const { db, client, classA } = setUp();
 		const mondaySlot = db
 			.select()
 			.from(schema.slot)
 			.all()
 			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3)!;
 
-		const result = placeLesson(db, {
+		const result = placeLesson(db, client, {
 			classId: classA.id,
 			date: '2026-09-14',
 			slotId: mondaySlot.id,
@@ -43,14 +43,14 @@ describe('placing a Lesson', () => {
 	});
 
 	test('refuses a date before today, creating neither the Lesson nor the Placement', () => {
-		const { db, classA } = setUp();
+		const { db, client, classA } = setUp();
 		const mondaySlot = db
 			.select()
 			.from(schema.slot)
 			.all()
 			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3)!;
 
-		const result = placeLesson(db, {
+		const result = placeLesson(db, client, {
 			classId: classA.id,
 			date: '2026-09-01',
 			slotId: mondaySlot.id,
@@ -71,14 +71,14 @@ describe('placing a Lesson', () => {
 
 describe('removing a Placement', () => {
 	test('re-derives the one Class from rewindBoundary, and is a no-op for an unknown id', () => {
-		const { db, classA } = setUp();
+		const { db, client, classA } = setUp();
 		const mondaySlot = db
 			.select()
 			.from(schema.slot)
 			.all()
 			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3)!;
 
-		const placed = placeLesson(db, {
+		const placed = placeLesson(db, client, {
 			classId: classA.id,
 			date: '2026-09-14',
 			slotId: mondaySlot.id,
@@ -97,11 +97,17 @@ describe('removing a Placement', () => {
 		expect(schedule.scheduled.find((s) => s.lessonId === placed.lesson.id)).toBeUndefined();
 		expect(db.select().from(schema.placement).all()).toHaveLength(0);
 
+		// The Lesson itself survives — no Placement names it now, so it stands as a Standalone
+		// Lesson (retired), not deleted (ADR-0022).
+		const survivingLessons = db.select().from(schema.lesson).all();
+		expect(survivingLessons).toHaveLength(1);
+		expect(survivingLessons[0]).toMatchObject({ id: placed.lesson.id, topicId: null });
+
 		expect(removePlacement(db, { id: 'does-not-exist', today: '2026-09-03' })).toBeNull();
 	});
 
 	test('allows a past-dated removal, the same as unblockSlot', () => {
-		const { db, classA } = setUp();
+		const { db, client, classA } = setUp();
 		const mondaySlot = db
 			.select()
 			.from(schema.slot)
@@ -109,7 +115,7 @@ describe('removing a Placement', () => {
 			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3)!;
 
 		const today = '2026-09-01';
-		const placed = placeLesson(db, {
+		const placed = placeLesson(db, client, {
 			classId: classA.id,
 			date: '2026-09-14',
 			slotId: mondaySlot.id,
@@ -130,7 +136,7 @@ describe('removing a Placement', () => {
 
 describe('Readiness and a removed Placement', () => {
 	test('survives while a second Placement still names the pair, and dies when the last one goes', () => {
-		const { db, classA } = setUp();
+		const { db, client, classA } = setUp();
 		const today = '2026-09-03';
 		const slots = db.select().from(schema.slot).all();
 		const mondaySlot = slots.find(
@@ -140,7 +146,7 @@ describe('Readiness and a removed Placement', () => {
 			(s) => s.classId === classA.id && s.week === 'A' && s.day === 3 && s.period === 1
 		)!;
 
-		const placed = placeLesson(db, {
+		const placed = placeLesson(db, client, {
 			classId: classA.id,
 			date: '2026-09-14',
 			slotId: mondaySlot.id,

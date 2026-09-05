@@ -465,18 +465,18 @@ describe('reordering and moving Lessons', () => {
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 
 		const result = deleteLesson(db, { id: lessons[0].id, today: '2026-09-10', dir });
-		expect(result).toEqual({ ok: false, reason: 'taught' });
+		expect(result).toEqual({ ok: false, reason: 'taught', hasTopic: true });
 	});
 
 	test('refuses to delete a Lesson that a Placement names', () => {
-		const { db, classA, atDir: dir } = setUp();
+		const { db, client, classA, atDir: dir } = setUp();
 		const mondaySlot = db
 			.select()
 			.from(schema.slot)
 			.all()
 			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3)!;
 
-		const placed = placeLesson(db, {
+		const placed = placeLesson(db, client, {
 			classId: classA.id,
 			date: '2026-09-14',
 			slotId: mondaySlot.id,
@@ -497,14 +497,14 @@ describe('reordering and moving Lessons', () => {
 // tests.
 describe('the Standalone-to-Topic PATCH path', () => {
 	test('refuses to give a Standalone Lesson a Topic, Detach being one-way', () => {
-		const { db, course, classA } = setUp();
+		const { db, client, course, classA } = setUp();
 		const mondaySlot = db
 			.select()
 			.from(schema.slot)
 			.all()
 			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3)!;
 
-		const placed = placeLesson(db, {
+		const placed = placeLesson(db, client, {
 			classId: classA.id,
 			date: '2026-09-14',
 			slotId: mondaySlot.id,
@@ -629,7 +629,7 @@ describe('content edits re-derive the schedule from today', () => {
 	});
 
 	test("changing a Standalone Lesson's Length re-derives every Class holding a Placement of it", () => {
-		const { db, classA, classB } = setUp();
+		const { db, client, classA, classB } = setUp();
 		const today = '2026-09-03';
 		const slots = db.select().from(schema.slot).all();
 		const classAMonday = slots.find(
@@ -639,7 +639,7 @@ describe('content edits re-derive the schedule from today', () => {
 			(s) => s.classId === classB.id && s.week === 'A' && s.day === 1 && s.period === 1
 		)!;
 
-		const placed = placeLesson(db, {
+		const placed = placeLesson(db, client, {
 			classId: classA.id,
 			date: '2026-09-14',
 			slotId: classAMonday.id,
@@ -733,7 +733,7 @@ describe('the Lesson editor', () => {
 			today: '2026-09-03'
 		});
 
-		expect(updated).toMatchObject({
+		expect(updated?.lesson).toMatchObject({
 			title: 'Newton I — inertia',
 			body: 'Objectives: state the First Law.',
 			length: 2

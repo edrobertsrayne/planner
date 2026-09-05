@@ -11,7 +11,7 @@ import {
 	unassignTopic,
 	writeSessionNote
 } from './index';
-import { rederive, scheduleFor } from './derive';
+import { rederive, rewindBoundary, scheduleFor } from './derive';
 import * as schema from '../db/schema';
 
 // ADR-0007: a Session whose Lesson changed is reported rather than silently relabelled. Every
@@ -311,5 +311,47 @@ describe('placementsMoved', () => {
 			period: anchor.period,
 			lessonTitle: 'Revision'
 		});
+	});
+
+	test('a Placement dated before the boundary is history, and live input again once a Rewind crosses back before it', () => {
+		const { db, classA } = setUp();
+		const [lesson] = db
+			.insert(schema.lesson)
+			.values({ title: 'Assembly', position: 0, length: 1 })
+			.returning()
+			.all();
+
+		const before = classSchedule(db, { classId: classA.id, today: '2026-09-01' });
+		const [anchor] = before.openSlots;
+
+		db.insert(schema.placement)
+			.values({ classId: classA.id, date: anchor.date, slotId: anchor.slotId, lessonId: lesson.id })
+			.run();
+		rederive(db, classA.id, '2026-09-01');
+
+		// Time passes well beyond the Placement's date — an ordinary re-derive from here on never
+		// touches it, exactly like a taught Topic Lesson's Session: it is history now, not a live
+		// scheduling input.
+		const later = '2026-09-20';
+		const untouched = rederive(db, classA.id, later);
+		expect(untouched.placementsMoved).toEqual([]);
+		const historyAfter = classSchedule(db, { classId: classA.id, today: later }).history;
+		expect(historyAfter).toContainEqual(
+			expect.objectContaining({ date: anchor.date, period: anchor.period, lessonId: lesson.id })
+		);
+
+		// A Blocked Day entered after the fact, on the Placement's own date — the one operation
+		// that is allowed to rewrite the past (ADR-0007). The boundary crosses back before the
+		// Placement's date, so it is live input again and shift-rights off the newly Blocked Day.
+		db.insert(schema.blockedDay).values({ date: anchor.date }).run();
+		const report = rederive(db, classA.id, rewindBoundary(anchor.date, later));
+
+		expect(report.placementsMoved).toHaveLength(1);
+		expect(report.placementsMoved[0]).toMatchObject({
+			classId: classA.id,
+			lessonTitle: 'Assembly',
+			anchorDate: anchor.date
+		});
+		expect(report.placementsMoved[0].date > anchor.date).toBe(true);
 	});
 });

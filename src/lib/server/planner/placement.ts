@@ -4,8 +4,10 @@
 // write to the schedule's output — with two additions: Placing also creates the Standalone
 // Lesson the Placement names, and removing prunes Readiness once the (Lesson, Class) pairing it
 // was recorded against no longer exists.
+import type { Database } from 'bun:sqlite';
 import { and, eq } from 'drizzle-orm';
 import * as schema from '../db/schema';
+import { inTransaction } from '../db';
 import { rederive, rewindBoundary, type Db, type WriteReport } from './derive';
 import { isRealDate } from '$lib/date';
 
@@ -13,9 +15,13 @@ import { isRealDate } from '$lib/date';
 // Topic's order) and a Placement anchoring it to one Class, one date and one Slot, then
 // re-derives that Class from the earlier of the date and today. A Placement is made for today or
 // a later date, never a past one (CONTEXT.md) — unlike a Blocked Day or a Blocked Slot, which
-// exist precisely to record a disruption after the fact.
+// exist precisely to record a disruption after the fact. The Lesson and its Placement are
+// created in one transaction, driven on the raw client exactly as the Topic import already is —
+// without it, a failed Placement insert (a taken anchor, a Class or Slot gone) would leave the
+// freshly created Standalone Lesson behind with no Placement naming it.
 export function placeLesson(
 	db: Db,
+	client: Database,
 	{
 		classId,
 		date,
@@ -37,13 +43,15 @@ export function placeLesson(
 		};
 	}
 
-	const [lesson] = db
-		.insert(schema.lesson)
-		.values({ topicId: null, title, position: 0 })
-		.returning()
-		.all();
-
-	db.insert(schema.placement).values({ classId, date, slotId, lessonId: lesson.id }).run();
+	const lesson = inTransaction(client, () => {
+		const [lesson] = db
+			.insert(schema.lesson)
+			.values({ topicId: null, title, position: 0 })
+			.returning()
+			.all();
+		db.insert(schema.placement).values({ classId, date, slotId, lessonId: lesson.id }).run();
+		return lesson;
+	});
 
 	return { ok: true, lesson, ...rederive(db, classId, rewindBoundary(date, today)) };
 }

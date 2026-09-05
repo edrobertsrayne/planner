@@ -260,27 +260,33 @@
 													</DropdownMenu.Group>
 												{/if}
 												{#if date >= data.today}
-													<DropdownMenu.Separator />
-													<DropdownMenu.Group>
-														<DropdownMenu.GroupHeading class="text-muted-foreground"
-															>Place a Lesson</DropdownMenu.GroupHeading
-														>
-														<!-- Placing is future-and-today only (issue #254), unlike Block one
-													     Slot above — a past week's day menu shows no line here. Lands on
+													{@const placeableSlots = availableSlots.filter((s) => s.open)}
+													{#if placeableSlots.length > 0}
+														<DropdownMenu.Separator />
+														<DropdownMenu.Group>
+															<DropdownMenu.GroupHeading class="text-muted-foreground"
+																>Place a Lesson</DropdownMenu.GroupHeading
+															>
+															<!-- Placing is future-and-today only (issue #254), unlike Block one
+													     Slot above — a past week's day menu shows no line here. Only an
+													     Open Slot is offered: the Session panel's own `canPlace`
+													     (sessions.ts) refuses a Slot a Lesson already occupies, so a line
+													     here always lands on the panel's Place-a-Lesson card. Lands on
 													     the Session panel's own Place-a-Lesson card, the one place the
 													     title is typed. -->
-														{#each availableSlots as slot (slot.slotId)}
-															<DropdownMenu.Item
-																onSelect={() =>
-																	openSession({
-																		classId: slot.classId,
-																		date,
-																		period: slot.period
-																	})}
-																>Open {slot.classLabel}, P{slot.period} to place…</DropdownMenu.Item
-															>
-														{/each}
-													</DropdownMenu.Group>
+															{#each placeableSlots as slot (slot.slotId)}
+																<DropdownMenu.Item
+																	onSelect={() =>
+																		openSession({
+																			classId: slot.classId,
+																			date,
+																			period: slot.period
+																		})}
+																	>Open {slot.classLabel}, P{slot.period} to place…</DropdownMenu.Item
+																>
+															{/each}
+														</DropdownMenu.Group>
+													{/if}
 												{/if}
 											{/if}
 											{#if blockedSlots.length > 0}

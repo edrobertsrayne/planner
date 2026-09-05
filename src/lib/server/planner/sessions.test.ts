@@ -248,14 +248,14 @@ describe('the Session panel', () => {
 	});
 
 	test('a placed Lesson carries its Placement id, cleared once the Placement is removed', () => {
-		const { db, classA } = setUp();
+		const { db, client, classA } = setUp();
 		const mondaySlot = db
 			.select()
 			.from(schema.slot)
 			.all()
 			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3)!;
 
-		const result = placeLesson(db, {
+		const result = placeLesson(db, client, {
 			classId: classA.id,
 			date: '2026-09-14',
 			slotId: mondaySlot.id,
@@ -273,13 +273,13 @@ describe('the Session panel', () => {
 		expect(placed?.lesson?.title).toBe('Assembly');
 		expect(placed?.lesson?.topicName).toBeNull();
 		expect(placed?.canPlace).toBe(false);
-		expect(placed?.placement?.id).toEqual(expect.any(String));
 
 		const [placementRow] = db
 			.select()
 			.from(schema.placement)
 			.where(eq(schema.placement.lessonId, result.lesson.id))
 			.all();
+		expect(placed?.placement?.id).toBe(placementRow.id);
 		removePlacement(db, { id: placementRow.id, today: '2026-09-03' });
 
 		const reopened = sessionDetail(db, {

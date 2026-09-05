@@ -144,6 +144,60 @@ test.describe.serial('Placing and removing a Lesson', () => {
 		await expectSessionClosed(page);
 	});
 
+	test('a Blocked Day forces a placed Lesson off its anchor, reported by the Placements-moved alert', async () => {
+		// A week not touched by any other test in this file or by teaching-flows.e2e.ts, with a
+		// full week of room after it before Term 2's own end (isoDate(56)) for the shift-right
+		// this test forces to land inside term.
+		const tuesday = nextTuesday(isoDate(7));
+		const shiftedTuesday = plusDays(tuesday, 7);
+
+		await page.goto(`/calendar?week=${mondayOf(tuesday)}`);
+		const cell = page.locator('td').filter({ hasText: '9C/Sc1' });
+
+		await page.getByRole('button', { name: '9C/Sc1 Open Slot' }).click();
+		await openSessionAndExpect(page);
+		await page.getByRole('textbox', { name: 'Lesson title' }).fill('Forced-move rehearsal');
+		await page.getByRole('button', { name: 'Place' }).click();
+		await expect(page.getByText('Standalone Lesson · Placed')).toBeVisible();
+		await page.keyboard.press('Escape');
+		await expectSessionClosed(page);
+
+		// Blocking the Placement's own day is the one input that can force it off its anchor
+		// with no note to carry the report — placementsMoved exists precisely for this (ADR-0022).
+		await openDayMenu('Tue');
+		await page.getByRole('menuitem', { name: 'Block day' }).click();
+
+		await expect(
+			page.getByText('A Placement moved because its Slot stopped being Available.')
+		).toBeVisible();
+		await expect(page.getByText('Forced-move rehearsal')).toBeVisible();
+		// A Blocked Day renders as a single "Blocked day" cell with no per-Class content — this is
+		// what proves the Lesson no longer sits here, rather than a per-Class label search that a
+		// whole-day block never carries.
+		await expect(page.getByText('Blocked day')).toBeVisible();
+
+		await page.goto(`/calendar?week=${mondayOf(shiftedTuesday)}`);
+		const shiftedCell = page.locator('td').filter({ hasText: '9C/Sc1' });
+		await expect(shiftedCell).toContainText('Forced-move rehearsal');
+		await expect(shiftedCell.locator('[data-standalone-ring]')).toBeVisible();
+
+		// Restore the state later files expect: unblocking returns the Slot to Available, and the
+		// Placement's anchor is where it lands again (CONTEXT.md: "returns when the Slot is
+		// Available again") — so removal happens back on the original Tuesday, not the shifted one.
+		await page.goto(`/calendar?week=${mondayOf(tuesday)}`);
+		await openDayMenu('Tue');
+		await page.getByRole('menuitem', { name: 'Unblock day' }).click();
+
+		await expect(cell).toContainText('Forced-move rehearsal');
+		await cell.getByRole('button').click();
+		await openSessionAndExpect(page);
+		await page.getByRole('button', { name: 'Remove placement' }).click();
+		await expect(page.getByRole('heading', { name: 'Open Slot' })).toBeVisible();
+		await page.keyboard.press('Escape');
+		await expectSessionClosed(page);
+		await expect(cell.locator('[data-standalone-ring]')).toHaveCount(0);
+	});
+
 	test('a day menu for a past week shows no Place a Lesson lines', async () => {
 		// Well inside Term 1 (isoDate(-84) to isoDate(-21)) — a real teaching week, wholly in the
 		// past. Placing is future-and-today only (unlike Blocking, which stays reachable after the

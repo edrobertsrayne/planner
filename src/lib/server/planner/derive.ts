@@ -156,7 +156,12 @@ function loadSessions(db: Db, classId: string): SessionRecord[] {
 // re-reading the whole Calendar per Class.
 export function scheduleFor(
 	db: Db,
-	{ classId, boundary, cal }: { classId: string; boundary: string; cal?: Calendar }
+	{
+		classId,
+		boundary,
+		cal,
+		placements
+	}: { classId: string; boundary: string; cal?: Calendar; placements?: Placement[] }
 ): ScheduleResult {
 	return schedule({
 		cal: cal ?? loadCalendar(db),
@@ -164,7 +169,7 @@ export function scheduleFor(
 		classId,
 		sessions: loadSessions(db, classId),
 		continuations: loadContinuations(db, classId),
-		placements: loadPlacements(db, classId),
+		placements: placements ?? loadPlacements(db, classId),
 		boundary
 	});
 }
@@ -198,7 +203,7 @@ export function rederive(db: Db, classId: string, boundary: string, cal?: Calend
 
 	const resolvedCal = cal ?? loadCalendar(db);
 	const placements = loadPlacements(db, classId);
-	const result = scheduleFor(db, { classId, boundary, cal: resolvedCal });
+	const result = scheduleFor(db, { classId, boundary, cal: resolvedCal, placements });
 
 	const touched: (typeof existing)[number][] = [];
 
@@ -343,6 +348,9 @@ export interface PlacementMoved {
 	anchorPeriod: number;
 	date: string;
 	period: number;
+	// Set when every Available Slot at or after the anchor is gone, so the Placement has nowhere
+	// left to land at all — `date`/`period` repeat the anchor, since there is no landing to name.
+	stranded?: boolean;
 }
 
 // What every scheduling write answers in one call: the Rewind's report of noted Sessions whose
@@ -410,7 +418,10 @@ function describeAtRisk(db: Db, atRisk: SessionRecord[]): AtRiskSession[] {
 // against where its own emitted ScheduledSession actually lands — matched by the Placement's id,
 // not its Lesson id alone, since the same Lesson may be placed twice on one Class. A Placement
 // fully covered by history (nothing left to schedule this call) has no landing to compare against
-// and is never reported: history is frozen, so it cannot have moved.
+// and is never reported: history is frozen, so it cannot have moved. A Placement in
+// `strandedPlacementIds` has no landing for a different reason — every Slot at or after its
+// anchor is gone — and is always reported, since silence there would be indistinguishable from
+// "nothing changed".
 function describePlacementsMoved(
 	db: Db,
 	cal: Calendar,
@@ -436,12 +447,15 @@ function describePlacementsMoved(
 		}
 	}
 
+	const stranded = new Set(result.strandedPlacementIds);
 	const moved = placements.filter((p) => {
 		const at = landing[p.id];
 		return at !== undefined && (at.date !== p.date || at.period !== (periodOf[p.slotId] ?? 0));
 	});
+	const strandedPlacements = placements.filter((p) => stranded.has(p.id));
+	const reported = [...moved, ...strandedPlacements];
 
-	if (moved.length === 0) return [];
+	if (reported.length === 0) return [];
 
 	const labels = new Map(
 		db
@@ -452,20 +466,22 @@ function describePlacementsMoved(
 	);
 	const names = lessonNames(
 		db,
-		moved.map((p) => p.lessonId)
+		reported.map((p) => p.lessonId)
 	);
 
-	return moved.map((p) => {
+	return reported.map((p) => {
 		const at = landing[p.id];
+		const anchorPeriod = periodOf[p.slotId] ?? 0;
 		return {
 			placementId: p.id,
 			classId: p.classId,
 			classLabel: labels.get(p.classId) ?? p.classId,
 			lessonTitle: names.get(p.lessonId)?.title ?? p.lessonId,
 			anchorDate: p.date,
-			anchorPeriod: periodOf[p.slotId] ?? 0,
-			date: at.date,
-			period: at.period
+			anchorPeriod,
+			date: at?.date ?? p.date,
+			period: at?.period ?? anchorPeriod,
+			...(at ? {} : { stranded: true })
 		};
 	});
 }

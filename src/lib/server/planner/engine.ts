@@ -92,6 +92,10 @@ export interface ScheduleResult {
 	scheduled: ScheduledSession[];
 	unplaced: RemainingPart[];
 	openSlots: AvailableSlot[];
+	// A Placement whose anchor, and every Available Slot after it, is gone — nothing was emitted
+	// for it at all, so it has no landing in `scheduled` for a caller to compare against its
+	// anchor. Reported by id so it is never silently dropped from `placementsMoved` (ADR-0022).
+	strandedPlacementIds: string[];
 }
 
 export interface Runway {
@@ -189,15 +193,17 @@ export function layOut(
 // stream still holds, so a later Placement whose anchor collides with an earlier one's claim
 // shifts right past it, never refused. `delivered` is the same record `remainingParts` reads for
 // Topic Lessons — a Placement's Lesson never appears in the Topic stream (it has no Topic), so
-// the two never contend for the same entry, but a Placement's own already-taught parts (dated
-// before the boundary) still need to stop counting against its `length` on every re-derive,
-// exactly the way a Topic Lesson's do.
+// the two never contend for the same entry; read from a local copy, never written back onto the
+// caller's map, so this stays the one pure function in the system with no hidden side effect on a
+// shared record. Still needed within the loop itself: the same Lesson may be placed twice on one
+// Class (ADR-0022), and the earlier-anchored Placement's already-taught parts must stop counting
+// against the later one's own length too.
 function layPlacements(
 	cal: Calendar,
 	placements: Placement[],
 	delivered: Record<string, number>,
 	stream: AvailableSlot[]
-): { sessions: ScheduledSession[]; openSlots: AvailableSlot[] } {
+): { sessions: ScheduledSession[]; openSlots: AvailableSlot[]; stranded: string[] } {
 	const periodOf: Record<string, number> = Object.fromEntries(
 		cal.slots.map((s) => [s.id, s.period])
 	);
@@ -206,13 +212,15 @@ function layPlacements(
 		return (periodOf[a.slotId] ?? 0) - (periodOf[b.slotId] ?? 0);
 	});
 
+	const left: Record<string, number> = { ...delivered };
 	let remaining = stream;
 	const sessions: ScheduledSession[] = [];
+	const stranded: string[] = [];
 
 	for (const placement of ordered) {
-		const already = delivered[placement.lessonId] || 0;
+		const already = left[placement.lessonId] || 0;
 		const used = Math.min(already, placement.length);
-		delivered[placement.lessonId] = already - used;
+		left[placement.lessonId] = already - used;
 		const need = placement.length - used;
 		if (need <= 0) continue;
 
@@ -222,6 +230,15 @@ function layPlacements(
 		);
 		const start = anchorIndex === -1 ? remaining.length : anchorIndex;
 		const claimed = remaining.slice(start, start + need);
+
+		// Every Slot at or after the anchor is gone — a Blocked Day at the end of term, or an
+		// earlier-anchored Placement's run having already claimed the rest. Nothing is emitted, so
+		// this Placement has no landing for describePlacementsMoved to compare against; reported
+		// separately, by id, so the vanish is never silent.
+		if (claimed.length === 0) {
+			stranded.push(placement.id);
+			continue;
+		}
 
 		claimed.forEach((slot, i) =>
 			sessions.push({
@@ -237,7 +254,7 @@ function layPlacements(
 		remaining = [...remaining.slice(0, start), ...remaining.slice(start + claimed.length)];
 	}
 
-	return { sessions, openSlots: remaining };
+	return { sessions, openSlots: remaining, stranded };
 }
 
 // THE ONE FUNCTION. Re-runnable in full, at any time, from any state. `boundary` is the only
@@ -267,7 +284,11 @@ export function schedule({
 	const delivered: Record<string, number> = {};
 	for (const s of history) delivered[s.lessonId] = (delivered[s.lessonId] || 0) + 1;
 
-	const { sessions: placed, openSlots: afterPlacements } = layPlacements(
+	const {
+		sessions: placed,
+		openSlots: afterPlacements,
+		stranded: strandedPlacementIds
+	} = layPlacements(
 		cal,
 		placements.filter((p) => p.classId === classId),
 		delivered,
@@ -289,7 +310,8 @@ export function schedule({
 		history,
 		scheduled,
 		unplaced,
-		openSlots
+		openSlots,
+		strandedPlacementIds
 	};
 }
 

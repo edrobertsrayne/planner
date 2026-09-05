@@ -116,8 +116,9 @@ export const DELETE: RequestHandler = async (event) => {
 			);
 		return json(
 			{
-				error:
-					'A Class has already been taught this Lesson, so it cannot be removed. Detach it instead with PATCH /api/lessons/:id and "topicId": null.'
+				error: result.hasTopic
+					? 'A Class has already been taught this Lesson, so it cannot be removed. Detach it instead with PATCH /api/lessons/:id and "topicId": null.'
+					: 'A Class has already been taught this Lesson, so it cannot be removed.'
 			},
 			{ status: 409 }
 		);

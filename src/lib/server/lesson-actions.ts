@@ -38,9 +38,13 @@ export const lessonActions = {
 		if (!title) return fail(400, { error: 'A Lesson needs a title.' });
 		const body = String(data.get('body') ?? '').trim() || null;
 		const length = Math.max(1, Math.round(Number(data.get('length'))) || 1);
-		const lesson = updateLesson(db, { id, title, body, length, today: today() });
-		if (!lesson) return fail(404, { error: 'No such Lesson.' });
-		return { lesson };
+		const result = updateLesson(db, { id, title, body, length, today: today() });
+		if (!result) return fail(404, { error: 'No such Lesson.' });
+		return {
+			lesson: result.lesson,
+			atRisk: result.atRisk,
+			placementsMoved: result.placementsMoved
+		};
 	},
 
 	setLessonStatus: async ({ request }) => {

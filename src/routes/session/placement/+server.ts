@@ -1,6 +1,6 @@
 import { error, json } from '@sveltejs/kit';
 import { today } from '$lib/date';
-import { db } from '$lib/server/db/client';
+import { client, db } from '$lib/server/db/client';
 import { classSchedule, placeLesson, removePlacement, sessionDetail } from '$lib/server/planner';
 import { occasionOf } from '../occasion';
 import type { RequestHandler } from './$types';
@@ -20,7 +20,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	const slot = openSlots.find((s) => s.date === occasion.date && s.period === occasion.period);
 	if (!slot) error(400, `${occasion.date} P${occasion.period} is not an Available Slot.`);
 
-	const result = placeLesson(db, {
+	const result = placeLesson(db, client, {
 		classId: occasion.classId,
 		date: occasion.date,
 		slotId: slot.slotId,

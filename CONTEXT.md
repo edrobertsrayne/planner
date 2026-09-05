@@ -76,14 +76,14 @@ _Avoid_: Planned Length, duration, double, span, periods
 A Lesson the teacher has not yet marked Planned — it is written but not reviewed and approved.
 Typically carries no more than its title. Belongs to the Lesson, so every Class assigned its Topic
 sees the same. Says nothing about whether any Class is Ready to teach it.
-_Avoid_: Bare, empty, stub, untouched
+_Avoid_: Bare, empty, stub, untouched, Placed
 
 **Planned**:
 A Lesson the teacher has reviewed and approved as ready to teach from. Belongs to the Lesson,
 shared by every Class assigned its Topic. Marked by the teacher and never derived from the body or
 the links. Names the Lesson's state, never its place on the calendar — a Lesson takes a date by
 being Scheduled, and the two are unrelated.
-_Avoid_: Drafted, written, complete, scheduled
+_Avoid_: Drafted, written, complete, scheduled, Placed
 
 **Import**:
 Creating one Topic, with its Lessons and their Links, in a single request — optionally creating
@@ -240,8 +240,9 @@ _Avoid_: Printed, done, prepared
 
 **Readiness**:
 The record that one Class is Ready for one Lesson. Exists only once made; it dies when the pairing
-does — unassignment or deletion — and nothing derived ever disturbs it. Separate from Draft and
-Planned, which describe the shared plan rather than one Class's preparation to teach it.
+does — unassignment, deletion, or the removal of the last Placement naming it — and nothing
+derived ever disturbs it. Separate from Draft and Planned, which describe the shared plan rather
+than one Class's preparation to teach it.
 _Avoid_: Checklist, handout list, preparation
 
 ## Views

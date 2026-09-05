@@ -120,4 +120,73 @@ describe('the Session panel', () => {
 		await expect.element(screen.getByText('Standalone Lesson · Placed')).toBeVisible();
 		await expect.element(screen.getByRole('button', { name: 'Remove placement' })).toBeVisible();
 	});
+
+	test('the Place button stays disabled for a blank or whitespace-only title', async () => {
+		stubSessionFetch({ ...baseDetail, canPlace: true });
+
+		const screen = await render(SessionBody, { occasion });
+		const input = screen.getByRole('textbox', { name: 'Lesson title' });
+		const button = screen.getByRole('button', { name: 'Place' });
+
+		await expect.element(button).toBeDisabled();
+		await input.fill('   ');
+		await expect.element(button).toBeDisabled();
+		await input.fill('Assembly');
+		await expect.element(button).not.toBeDisabled();
+	});
+
+	test('a failed Place surfaces the error and leaves the card usable again', async () => {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce(
+				new Response(JSON.stringify({ ...baseDetail, canPlace: true }), { status: 200 })
+			)
+			.mockResolvedValueOnce(
+				new Response(JSON.stringify({ message: 'That Slot is no longer Available.' }), {
+					status: 400
+				})
+			);
+		vi.stubGlobal('fetch', fetchMock);
+
+		const screen = await render(SessionBody, { occasion });
+		await screen.getByRole('textbox', { name: 'Lesson title' }).fill('Assembly');
+		await screen.getByRole('button', { name: 'Place' }).click();
+
+		await expect.element(screen.getByText('That Slot is no longer Available.')).toBeVisible();
+		await expect.element(screen.getByRole('button', { name: 'Place' })).not.toBeDisabled();
+	});
+
+	test('a failed Remove-placement surfaces the error and leaves the button usable again', async () => {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce(
+				new Response(
+					JSON.stringify({
+						...baseDetail,
+						placement: { id: 'placement-1' },
+						lesson: {
+							title: 'Assembly',
+							topicName: null,
+							body: null,
+							links: [],
+							tags: [],
+							attachments: []
+						}
+					}),
+					{ status: 200 }
+				)
+			)
+			.mockResolvedValueOnce(
+				new Response(JSON.stringify({ message: 'No such Placement.' }), { status: 404 })
+			);
+		vi.stubGlobal('fetch', fetchMock);
+
+		const screen = await render(SessionBody, { occasion });
+		await screen.getByRole('button', { name: 'Remove placement' }).click();
+
+		await expect.element(screen.getByText('No such Placement.')).toBeVisible();
+		await expect
+			.element(screen.getByRole('button', { name: 'Remove placement' }))
+			.not.toBeDisabled();
+	});
 });

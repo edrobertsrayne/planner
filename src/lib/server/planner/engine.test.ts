@@ -8,6 +8,7 @@ function resultOf(partial: Partial<ScheduleResult>): ScheduleResult {
 		scheduled: [],
 		unplaced: [],
 		openSlots: [],
+		strandedPlacementIds: [],
 		...partial
 	};
 }
@@ -326,5 +327,51 @@ describe('schedule with Placements', () => {
 				lesson: { lessonId: 'l1', part: 2, of: 2 }
 			}
 		]);
+	});
+
+	test('a Length-2 Placement anchored at the last Period of a day runs into the next day', () => {
+		const result = scheduleOf(calendarOf(), [
+			{ id: 'p1', classId: 'c1', date: DAYS[1], slotId: 'd1p3', lessonId: 'l1', length: 2 }
+		]);
+
+		const own = result.scheduled
+			.filter((s) => s.placementId === 'p1')
+			.sort((a, b) => a.part - b.part);
+		expect(own).toHaveLength(2);
+		expect(own[0]).toMatchObject({ date: DAYS[1], period: 3, part: 1 });
+		expect(own[1]).toMatchObject({ date: DAYS[2], period: 1, part: 2 });
+	});
+
+	test('a Placement with no Available Slot left at or after its anchor is reported stranded, not silently dropped', () => {
+		const cal = calendarOf({ blockedDays: [DAYS[5]] });
+		const result = scheduleOf(cal, [
+			{ id: 'p1', classId: 'c1', date: DAYS[5], slotId: 'd5p3', lessonId: 'l1', length: 1 }
+		]);
+
+		expect(result.scheduled.filter((s) => s.placementId === 'p1')).toEqual([]);
+		expect(result.strandedPlacementIds).toEqual(['p1']);
+	});
+
+	test('the same Lesson placed twice on one Class splits already-taught history between them in anchor order', () => {
+		const result = schedule({
+			cal: calendarOf(),
+			lessons: [],
+			classId: 'c1',
+			// One Period of this Lesson is already taught, dated before the boundary — shared
+			// history the two Placements below must not both count toward their own Length.
+			sessions: [{ classId: 'c1', date: DAYS[1], period: 1, lessonId: 'l1' }],
+			continuations: [],
+			placements: [
+				{ id: 'p1', classId: 'c1', date: DAYS[2], slotId: 'd2p1', lessonId: 'l1', length: 1 },
+				{ id: 'p2', classId: 'c1', date: DAYS[3], slotId: 'd3p1', lessonId: 'l1', length: 1 }
+			],
+			boundary: DAYS[2]
+		});
+
+		// The already-taught Period is consumed by whichever Placement is walked first (ascending
+		// anchor order), leaving the later one still owed its own full Length rather than being
+		// zeroed out by the same history a second time.
+		expect(result.scheduled.filter((s) => s.placementId === 'p1')).toEqual([]);
+		expect(result.scheduled.filter((s) => s.placementId === 'p2')).toHaveLength(1);
 	});
 });

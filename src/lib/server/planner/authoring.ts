@@ -7,7 +7,7 @@ import { and, asc, eq, inArray, lt, sql } from 'drizzle-orm';
 import type { Database } from 'bun:sqlite';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
-import { rederivePlacementLesson, rederiveTopic, type Db } from './derive';
+import { rederivePlacementLesson, rederiveTopic, type Db, type WriteReport } from './derive';
 import { nextPosition, swapTargets, type Direction } from './ordering';
 import { deleteAttachmentsOfLesson } from './attachments';
 
@@ -485,17 +485,18 @@ export function updateLesson(
 		length,
 		today
 	}: { id: string; title: string; body: string | null; length: number; today: string }
-) {
+): ({ lesson: typeof schema.lesson.$inferSelect } & WriteReport) | undefined {
 	const [row] = db
 		.update(schema.lesson)
 		.set({ title, body, length })
 		.where(eq(schema.lesson.id, id))
 		.returning()
 		.all();
-	if (!row) return row;
-	if (row.topicId) rederiveTopic(db, row.topicId, today);
-	else rederivePlacementLesson(db, row.id, today);
-	return row;
+	if (!row) return undefined;
+	const report = row.topicId
+		? rederiveTopic(db, row.topicId, today)
+		: rederivePlacementLesson(db, row.id, today);
+	return { lesson: row, ...report };
 }
 
 // Removes a Lesson entirely, along with its Links, and re-derives every Class assigned its
@@ -510,14 +511,14 @@ export function deleteLesson(
 	{ id, today, dir }: { id: string; today: string; dir: string }
 ):
 	| { ok: false; reason: 'not found' }
-	| { ok: false; reason: 'taught' }
+	| { ok: false; reason: 'taught'; hasTopic: boolean }
 	| { ok: false; reason: 'placed' }
 	| { ok: true; lesson: typeof schema.lesson.$inferSelect } {
 	const [row] = db.select().from(schema.lesson).where(eq(schema.lesson.id, id)).all();
 	if (!row) return { ok: false, reason: 'not found' };
 
 	if (classesTaughtLesson(db, { lessonId: id, today }).length > 0) {
-		return { ok: false, reason: 'taught' };
+		return { ok: false, reason: 'taught', hasTopic: row.topicId !== null };
 	}
 
 	const [placedBy] = db
@@ -587,12 +588,14 @@ export function patchLesson(
 	const newTopicId = fields.topicId;
 
 	if (newTopicId !== undefined && newTopicId !== null && newTopicId !== oldTopicId) {
+		const [existing] = db.select().from(schema.topic).where(eq(schema.topic.id, newTopicId)).all();
+		if (!existing) return { ok: false, reason: 'topic not found' };
 		// ADR-0022: a Standalone Lesson reaches a Class only through a Placement, never a Topic —
 		// re-filing it into one would let a Lesson a Placement names silently regain a Topic
 		// mid-Placement. Detach is one-way. Moving a Lesson between two Topics is untouched.
+		// Checked only once the named Topic is confirmed to exist, so an unknown `topicId` still
+		// answers 404 regardless of whether this Lesson currently has one (spec §3.4).
 		if (oldTopicId === null) return { ok: false, reason: 'standalone' };
-		const [existing] = db.select().from(schema.topic).where(eq(schema.topic.id, newTopicId)).all();
-		if (!existing) return { ok: false, reason: 'topic not found' };
 		update.topicId = newTopicId;
 		// A re-attach or move lands at the end of the target Topic's order, as moveLessonToTopic
 		// does — a Lesson carries no position of its own into a Topic it has never been in.
