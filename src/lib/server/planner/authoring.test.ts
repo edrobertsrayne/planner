@@ -530,6 +530,32 @@ describe('the Standalone-to-Topic PATCH path', () => {
 			.all();
 		expect(row.topicId).toBeNull();
 	});
+
+	test('an unknown topicId answers 404 ahead of the standalone 409, even for a Standalone Lesson', () => {
+		const { db, client, classA } = setUp();
+		const mondaySlot = db
+			.select()
+			.from(schema.slot)
+			.all()
+			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3)!;
+
+		const placed = placeLesson(db, client, {
+			classId: classA.id,
+			date: '2026-09-14',
+			slotId: mondaySlot.id,
+			title: 'Assembly',
+			today: '2026-09-03'
+		});
+		expect(placed.ok).toBe(true);
+		if (!placed.ok) throw new Error('unreachable');
+
+		const result = patchLesson(db, {
+			id: placed.lesson.id,
+			fields: { topicId: 'does-not-exist' },
+			today: '2026-09-03'
+		});
+		expect(result).toEqual({ ok: false, reason: 'topic not found' });
+	});
 });
 
 describe('content edits re-derive the schedule from today', () => {

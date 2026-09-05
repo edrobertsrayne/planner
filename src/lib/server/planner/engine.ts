@@ -203,7 +203,12 @@ function layPlacements(
 	placements: Placement[],
 	delivered: Record<string, number>,
 	stream: AvailableSlot[]
-): { sessions: ScheduledSession[]; openSlots: AvailableSlot[]; stranded: string[] } {
+): {
+	sessions: ScheduledSession[];
+	openSlots: AvailableSlot[];
+	stranded: string[];
+	unplaced: RemainingPart[];
+} {
 	const periodOf: Record<string, number> = Object.fromEntries(
 		cal.slots.map((s) => [s.id, s.period])
 	);
@@ -216,6 +221,7 @@ function layPlacements(
 	let remaining = stream;
 	const sessions: ScheduledSession[] = [];
 	const stranded: string[] = [];
+	const unplaced: RemainingPart[] = [];
 
 	for (const placement of ordered) {
 		const already = left[placement.lessonId] || 0;
@@ -251,10 +257,16 @@ function layPlacements(
 			})
 		);
 
+		// The stream ran out mid-run: the parts with nowhere left to go join the Topic stream's
+		// own unplaced tail rather than vanishing behind a "part 1 of 3" nothing can finish.
+		for (let i = claimed.length; i < need; i++) {
+			unplaced.push({ lessonId: placement.lessonId, part: used + i + 1, of: placement.length });
+		}
+
 		remaining = [...remaining.slice(0, start), ...remaining.slice(start + claimed.length)];
 	}
 
-	return { sessions, openSlots: remaining, stranded };
+	return { sessions, openSlots: remaining, stranded, unplaced };
 }
 
 // THE ONE FUNCTION. Re-runnable in full, at any time, from any state. `boundary` is the only
@@ -287,7 +299,8 @@ export function schedule({
 	const {
 		sessions: placed,
 		openSlots: afterPlacements,
-		stranded: strandedPlacementIds
+		stranded: strandedPlacementIds,
+		unplaced: strandedParts
 	} = layPlacements(
 		cal,
 		placements.filter((p) => p.classId === classId),
@@ -297,7 +310,7 @@ export function schedule({
 
 	const {
 		sessions: laid,
-		unplaced,
+		unplaced: topicUnplaced,
 		openSlots
 	} = layOut(remainingParts(lessons, classId, continuations, delivered), afterPlacements);
 
@@ -309,7 +322,7 @@ export function schedule({
 		boundary,
 		history,
 		scheduled,
-		unplaced,
+		unplaced: [...strandedParts, ...topicUnplaced],
 		openSlots,
 		strandedPlacementIds
 	};

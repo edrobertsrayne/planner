@@ -438,7 +438,12 @@ one-way (ADR-0022), so a Standalone Lesson may never re-attach:
 ```
 
 This is today's rule, unchanged. The message names the way out, because an agent that gets a bare
-refusal will try again rather than detach.
+refusal will try again rather than detach — except when the Lesson is already Standalone (its
+`topicId` is already `null`), where there is no Topic to detach it from:
+
+```json
+{ "error": "A Class has already been taught this Lesson, so it cannot be removed." }
+```
 
 → **409** if a Placement names the Lesson (ADR-0022):
 

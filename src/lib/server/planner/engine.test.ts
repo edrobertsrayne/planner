@@ -352,6 +352,22 @@ describe('schedule with Placements', () => {
 		expect(result.strandedPlacementIds).toEqual(['p1']);
 	});
 
+	test('a Length-3 Placement with only one Available Slot left at its anchor reports the unclaimed tail as unplaced, not stranded', () => {
+		const cal = calendarOf({ blockedDays: [DAYS[1], DAYS[2], DAYS[3], DAYS[4]] });
+		const result = scheduleOf(cal, [
+			{ id: 'p1', classId: 'c1', date: DAYS[5], slotId: 'd5p3', lessonId: 'l1', length: 3 }
+		]);
+
+		expect(result.scheduled.filter((s) => s.placementId === 'p1')).toMatchObject([
+			{ date: DAYS[5], period: 3, lessonId: 'l1', part: 1, of: 3 }
+		]);
+		expect(result.strandedPlacementIds).toEqual([]);
+		expect(result.unplaced).toEqual([
+			{ lessonId: 'l1', part: 2, of: 3 },
+			{ lessonId: 'l1', part: 3, of: 3 }
+		]);
+	});
+
 	test('the same Lesson placed twice on one Class splits already-taught history between them in anchor order', () => {
 		const result = schedule({
 			cal: calendarOf(),

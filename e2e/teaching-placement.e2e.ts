@@ -170,11 +170,19 @@ test.describe.serial('Placing and removing a Lesson', () => {
 		await expect(
 			page.getByText('A Placement moved because its Slot stopped being Available.')
 		).toBeVisible();
-		await expect(page.getByText('Forced-move rehearsal')).toBeVisible();
-		// A Blocked Day renders as a single "Blocked day" cell with no per-Class content — this is
-		// what proves the Lesson no longer sits here, rather than a per-Class label search that a
-		// whole-day block never carries.
-		await expect(page.getByText('Blocked day')).toBeVisible();
+		await expect(
+			page.getByText(
+				new RegExp(
+					`9C/Sc1 · Forced-move rehearsal — was ${tuesday} P\\d+, now ${shiftedTuesday} P\\d+`
+				)
+			)
+		).toBeVisible();
+		// A Blocked Day renders as a single "Blocked day" panel with no per-Class content — the
+		// day head's own data-day-kind flips to "blocked", and the per-Class cell the Lesson sat
+		// in disappears entirely, rather than a per-Class label search a whole-day block never
+		// carries (and which would still pass with the Lesson left rendered).
+		await expect(dayHead('Tue')).toHaveAttribute('data-day-kind', 'blocked');
+		await expect(cell).toHaveCount(0);
 
 		await page.goto(`/calendar?week=${mondayOf(shiftedTuesday)}`);
 		const shiftedCell = page.locator('td').filter({ hasText: '9C/Sc1' });

@@ -42,6 +42,38 @@ describe('placing a Lesson', () => {
 		);
 	});
 
+	test('rolls back the freshly created Lesson when the Placement insert collides on a taken anchor', () => {
+		const { db, client, classA } = setUp();
+		const mondaySlot = db
+			.select()
+			.from(schema.slot)
+			.all()
+			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3)!;
+
+		const first = placeLesson(db, client, {
+			classId: classA.id,
+			date: '2026-09-14',
+			slotId: mondaySlot.id,
+			title: 'Assembly',
+			today: '2026-09-03'
+		});
+		expect(first.ok).toBe(true);
+
+		expect(() =>
+			placeLesson(db, client, {
+				classId: classA.id,
+				date: '2026-09-14',
+				slotId: mondaySlot.id,
+				title: 'Fire drill',
+				today: '2026-09-03'
+			})
+		).toThrow();
+
+		const lessons = db.select().from(schema.lesson).all();
+		expect(lessons).toHaveLength(1);
+		expect(lessons[0].title).toBe('Assembly');
+	});
+
 	test('refuses a date before today, creating neither the Lesson nor the Placement', () => {
 		const { db, client, classA } = setUp();
 		const mondaySlot = db
