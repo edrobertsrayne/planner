@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { openSession } from '$lib/client/session-panel.svelte';
+	import Markdown from '$lib/components/markdown.svelte';
 	import { formatDate } from '$lib/date';
 	import type { ClassLane } from '$lib/server/planner';
 
@@ -35,7 +36,10 @@
 					>
 						{lt.title}
 					</button>
-					{#if lt.note}<p class="mt-0.5 text-muted-foreground">{lt.note}</p>{/if}
+					{#if lt.note}<Markdown
+							source={lt.note}
+							class="mt-0.5 text-xs text-muted-foreground"
+						/>{/if}
 				{:else}
 					<span class="text-muted-foreground">Not taught yet.</span>
 				{/if}

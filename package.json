@@ -46,6 +46,12 @@
 		"vitest-browser-svelte": "^2.1.1"
 	},
 	"dependencies": {
+		"@tiptap/core": "^3.31.3",
+		"@tiptap/extensions": "^3.31.3",
+		"@tiptap/markdown": "^3.31.3",
+		"@tiptap/pm": "^3.31.3",
+		"@tiptap/starter-kit": "^3.31.3",
+		"markdown-it": "^15.0.2",
 		"mode-watcher": "^1.1.0",
 		"zod": "^4.4.3"
 	},

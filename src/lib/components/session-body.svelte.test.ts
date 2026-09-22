@@ -80,4 +80,25 @@ describe('the Session panel', () => {
 		await expect.element(screen.getByText('Open Slot')).toBeVisible();
 		await expect.element(screen.getByRole('link', { name: /\.pdf$/ })).not.toBeInTheDocument();
 	});
+	test('renders the Lesson body as markdown, not source', async () => {
+		stubSessionFetch({
+			...baseDetail,
+			ready: true,
+			lesson: {
+				title: 'Forces recap',
+				topicName: 'Forces',
+				body: '## Aims\n\n- Recap **Newton I**',
+				links: [],
+				tags: [],
+				attachments: []
+			}
+		});
+
+		const screen = await render(SessionBody, { occasion });
+
+		await expect.element(screen.getByRole('heading', { level: 2, name: 'Aims' })).toBeVisible();
+		await expect.element(screen.getByRole('listitem')).toBeVisible();
+		expect(screen.container.querySelector('.markdown li')?.textContent).toBe('Recap Newton I');
+		expect(screen.container.querySelector('.markdown strong')?.textContent).toBe('Newton I');
+	});
 });

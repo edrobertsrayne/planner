@@ -248,7 +248,9 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 			.first()
 			.click();
 		await openSessionAndExpect(page);
-		await page.getByLabel('How it went').fill(note);
+		const noteField = page.getByLabel('How it went');
+		await noteField.click();
+		await noteField.pressSequentially(note);
 
 		await page.keyboard.press('Escape');
 		await expectSessionClosed(page);
@@ -260,7 +262,7 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 			.getByRole('button')
 			.first()
 			.click();
-		await expect(page.getByLabel('How it went')).toHaveValue(note);
+		await expect(page.getByLabel('How it went')).toHaveText(note);
 	});
 
 	test("the Agenda's horizon survives a reload via the URL", async () => {

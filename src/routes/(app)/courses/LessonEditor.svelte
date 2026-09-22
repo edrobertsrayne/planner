@@ -9,7 +9,7 @@
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import { Textarea } from '$lib/components/ui/textarea/index.js';
+	import MarkdownEditor from '$lib/components/markdown-editor.svelte';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.js';
 	import TagBadge from '$lib/components/tag-badge.svelte';
 	import AttachmentRow from './AttachmentRow.svelte';
@@ -63,6 +63,7 @@
 	}
 
 	let statusInput: HTMLInputElement | null = $state(null);
+	let bodyForm: HTMLFormElement | null = $state(null);
 	let addingLink = $state(false);
 	let addingTag = $state(false);
 	let fileInput: HTMLInputElement | null = $state(null);
@@ -144,9 +145,10 @@
 			class="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_18rem] gap-6 overflow-y-auto px-6 pt-2 pb-6"
 		>
 			<!-- title, body and Length save together as one Lesson write; Links are their own
-			     forms and so cannot nest inside this one — `contents` keeps this form's fields as
-			     direct grid items instead of a wrapping box. -->
+		     forms and so cannot nest inside this one — `contents` keeps this form's fields as
+		     direct grid items instead of a wrapping box. -->
 			<form
+				bind:this={bodyForm}
 				method="POST"
 				action="?/updateLesson"
 				class="contents"
@@ -171,19 +173,23 @@
 						onblur={(e) => e.currentTarget.form?.requestSubmit()}
 					/>
 				</div>
-
-				<label class="row-span-2 flex min-h-0 flex-col">
+				<div class="row-span-2 flex min-h-0 flex-col">
 					<span class="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
 						Notes & objectives
 					</span>
-					<Textarea
-						name="body"
-						value={lesson.body ?? ''}
-						class="mt-1.5 min-h-72 flex-1 resize-none font-mono text-xs leading-relaxed"
-						placeholder="Markdown — objectives, what to set up, what went wrong last time…"
-						onblur={(e) => e.currentTarget.form?.requestSubmit()}
-					/>
-				</label>
+					<!-- Stepping to the next Lesson keeps this editor mounted, so the field is keyed on
+				     the Lesson: a new id builds a new editor seeded from the new body. -->
+					{#key lesson.id}
+						<MarkdownEditor
+							name="body"
+							value={lesson.body ?? ''}
+							label="Notes & objectives"
+							placeholder="Objectives, what to set up, what went wrong last time…"
+							class="mt-1.5 min-h-72 flex-1"
+							onblur={() => bodyForm?.requestSubmit()}
+						/>
+					{/key}
+				</div>
 
 				<label class="block">
 					<span class="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
