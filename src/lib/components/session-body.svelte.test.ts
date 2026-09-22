@@ -32,9 +32,12 @@ describe('the Session panel', () => {
 			...baseDetail,
 			ready: true,
 			lesson: {
+				id: 'lesson-1',
 				title: 'Forces recap',
 				topicName: 'Forces',
 				body: 'Recap Newton I',
+				status: 'draft',
+				length: 1,
 				links: [],
 				tags: [],
 				attachments: [
@@ -88,9 +91,12 @@ describe('the Session panel', () => {
 			...baseDetail,
 			ready: true,
 			lesson: {
+				id: 'lesson-1',
 				title: 'Forces recap',
 				topicName: 'Forces',
 				body: '## Aims\n\n- Recap **Newton I**',
+				status: 'draft',
+				length: 1,
 				links: [],
 				tags: [],
 				attachments: []
@@ -131,9 +137,12 @@ describe('the Session panel', () => {
 			canPlace: true,
 			ready: false,
 			lesson: {
+				id: 'lesson-1',
 				title: 'Forces recap',
 				topicName: 'Forces',
 				body: null,
+				status: 'draft',
+				length: 1,
 				links: [],
 				tags: [],
 				attachments: []
@@ -154,9 +163,12 @@ describe('the Session panel', () => {
 			...baseDetail,
 			placement: { id: 'placement-1' },
 			lesson: {
+				id: 'lesson-1',
 				title: 'Assembly',
 				topicName: null,
 				body: null,
+				status: 'draft',
+				length: 1,
 				links: [],
 				tags: [],
 				attachments: []
@@ -213,9 +225,12 @@ describe('the Session panel', () => {
 						...baseDetail,
 						placement: { id: 'placement-1' },
 						lesson: {
+							id: 'lesson-1',
 							title: 'Assembly',
 							topicName: null,
 							body: null,
+							status: 'draft',
+							length: 1,
 							links: [],
 							tags: [],
 							attachments: []

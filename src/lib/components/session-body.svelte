@@ -6,7 +6,12 @@
 	import { formatSize } from '$lib/format-size';
 	import type { Occasion } from '$lib/client/session-panel.svelte';
 	import { createSessionNotes } from '$lib/client/session-note';
-	import type { AtRiskSession, PlacementMoved, SessionDetail } from '$lib/server/planner';
+	import type {
+		AtRiskSession,
+		LessonStatus,
+		PlacementMoved,
+		SessionDetail
+	} from '$lib/server/planner';
 	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
 	import PlacementsMovedAlert from '$lib/components/placements-moved-alert.svelte';
 	import { Badge } from '$lib/components/ui/badge';
@@ -16,6 +21,7 @@
 	import { Separator } from '$lib/components/ui/separator';
 	import Markdown from '$lib/components/markdown.svelte';
 	import MarkdownEditor from '$lib/components/markdown-editor.svelte';
+	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.js';
 
 	// The one body every entry point renders (issue #88): plan first — the Lesson is the subject —
 	// with "How it went" beneath it.
@@ -55,6 +61,24 @@
 	let placeError = $state<string | null>(null);
 	let removingPlacement = $state(false);
 	let removeError = $state<string | null>(null);
+	let planTitle = $state('');
+	let planBody = $state('');
+	let planLength = $state(1);
+	let planStatus = $state<LessonStatus>('draft');
+	let planError = $state<string | null>(null);
+	let planPlacementsMoved = $state<PlacementMoved[]>([]);
+
+	// Mirrors a fetched Lesson onto the plan-editing fields (issue: placed-Lesson editing). Runs
+	// after every fetch that can carry a Lesson, so the panel — not just the Place-a-Lesson flow —
+	// always edits the Lesson actually on screen. A no-op for an Open Slot or a Topic Lesson: the
+	// fields exist only to seed the placed-Lesson editor below.
+	function syncPlanFields(d: SessionDetail) {
+		if (!d.lesson) return;
+		planTitle = d.lesson.title;
+		planBody = d.lesson.body ?? '';
+		planLength = d.lesson.length;
+		planStatus = d.lesson.status;
+	}
 
 	$effect(() => {
 		const { classId, date, period } = occasion;
@@ -69,6 +93,12 @@
 		placeError = null;
 		removingPlacement = false;
 		removeError = null;
+		planTitle = '';
+		planBody = '';
+		planLength = 1;
+		planStatus = 'draft';
+		planError = null;
+		planPlacementsMoved = [];
 		fetch(`/session?classId=${encodeURIComponent(classId)}&date=${date}&period=${period}`)
 			.then((r) => r.json())
 			.then((d: SessionDetail) => {
@@ -77,6 +107,7 @@
 				if (!current) return;
 				detail = d;
 				note = notes.open(occasion, d.note);
+				syncPlanFields(d);
 			})
 			.catch(() => {
 				// The panel has nothing to show without its Session; a silent miss beats an
@@ -108,6 +139,7 @@
 			.then((d) => {
 				if (target !== occasion) return;
 				detail = d;
+				syncPlanFields(d);
 				continuing = false;
 				continuationAtRisk = d.atRisk;
 				continuationPlacementsMoved = d.placementsMoved;
@@ -138,6 +170,7 @@
 			.then((d) => {
 				if (target !== occasion) return;
 				detail = d;
+				syncPlanFields(d);
 				placing = false;
 				placeTitle = '';
 				invalidateAll();
@@ -167,6 +200,7 @@
 			.then((d) => {
 				if (target !== occasion) return;
 				detail = d;
+				syncPlanFields(d);
 				removingPlacement = false;
 				invalidateAll();
 			})
@@ -174,6 +208,47 @@
 				if (target !== occasion) return;
 				removingPlacement = false;
 				removeError = e.message;
+			});
+	}
+
+	// Writes a placed Standalone Lesson's title, plan, Length and Draft/Planned mark, one field at
+	// a time (issue: placed-Lesson editing). A Topic Lesson's plan has no editor here — it reaches
+	// no Lesson editor either, but rewriting it from the Session panel would rewrite what every
+	// other Class assigned the Topic shares (ADR-0022). `report.placementsMoved` renders the same
+	// alert a Continuation's Length change already does: a Length increase can push this or
+	// another Placement off its anchor.
+	function patchLesson(fields: {
+		title?: string;
+		body?: string | null;
+		length?: number;
+		status?: LessonStatus;
+	}) {
+		const target = occasion;
+		planError = null;
+		fetch('/session/placement', {
+			method: 'PATCH',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ ...target, ...fields })
+		})
+			.then(async (r) => {
+				if (!r.ok) throw new Error((await r.json().catch(() => null))?.message ?? 'Failed.');
+				return r.json() as Promise<
+					SessionDetail & { report: { atRisk: AtRiskSession[]; placementsMoved: PlacementMoved[] } }
+				>;
+			})
+			.then((d) => {
+				if (target !== occasion) return;
+				detail = d;
+				syncPlanFields(d);
+				planPlacementsMoved = d.report.placementsMoved;
+				// The Calendar tile behind this panel shows the Lesson's title and, on a Length
+				// change, may shift which Slots hold it — neither the plan body nor the Draft/Planned
+				// mark appears there, so only these two fields are worth the reload.
+				if ('title' in fields || 'length' in fields) invalidateAll();
+			})
+			.catch((e: Error) => {
+				if (target !== occasion) return;
+				planError = e.message;
 			});
 	}
 </script>
@@ -194,14 +269,89 @@
 	<Separator class="my-4" />
 
 	{#if detail.lesson}
-		<h2 class="text-lg leading-snug font-semibold">{detail.lesson.title}</h2>
 		{#if detail.placement}
+			<Input
+				class="h-9 text-lg leading-snug font-semibold"
+				aria-label="Lesson title"
+				value={planTitle}
+				oninput={(e) => (planTitle = e.currentTarget.value)}
+				onblur={() => {
+					const title = planTitle.trim();
+					if (!title) {
+						planTitle = detail?.lesson?.title ?? '';
+						return;
+					}
+					if (title !== detail?.lesson?.title) patchLesson({ title });
+				}}
+			/>
 			<p class="mt-1 text-xs text-muted-foreground">Standalone Lesson · Placed</p>
-		{:else if detail.lesson.topicName}
-			<p class="mt-1 text-xs text-muted-foreground">{detail.lesson.topicName}</p>
+		{:else}
+			<h2 class="text-lg leading-snug font-semibold">{detail.lesson.title}</h2>
+			{#if detail.lesson.topicName}
+				<p class="mt-1 text-xs text-muted-foreground">{detail.lesson.topicName}</p>
+			{/if}
 		{/if}
 		<TagChips tags={detail.lesson.tags} class="mt-2" />
-		{#if detail.lesson.body}
+		{#if detail.placement}
+			{#key detail.lesson.id}
+				<MarkdownEditor
+					value={planBody}
+					label="Plan"
+					placeholder="Objectives, what to set up…"
+					class="mt-4"
+					onchange={(markdown) => (planBody = markdown)}
+					onblur={() => {
+						if (planBody !== (detail?.lesson?.body ?? '')) patchLesson({ body: planBody || null });
+					}}
+				/>
+			{/key}
+			<div class="mt-3 flex flex-wrap items-center gap-3">
+				<ToggleGroup.Root
+					type="single"
+					variant="outline"
+					size="sm"
+					value={planStatus}
+					onValueChange={(v) => {
+						if (v && v !== planStatus) {
+							planStatus = v as LessonStatus;
+							patchLesson({ status: planStatus });
+						}
+					}}
+				>
+					<ToggleGroup.Item value="draft">Draft</ToggleGroup.Item>
+					<ToggleGroup.Item value="planned">Planned</ToggleGroup.Item>
+				</ToggleGroup.Root>
+				<label class="flex items-center gap-1.5">
+					<span class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+						Length
+					</span>
+					<Input
+						type="number"
+						min="1"
+						class="h-7 w-16"
+						value={planLength}
+						onchange={(e) => {
+							const length = Number(e.currentTarget.value);
+							if (Number.isInteger(length) && length >= 1 && length !== planLength) {
+								planLength = length;
+								patchLesson({ length });
+							} else {
+								e.currentTarget.value = String(planLength);
+							}
+						}}
+					/>
+					<span class="text-xs text-muted-foreground">Periods</span>
+				</label>
+			</div>
+			{#if planError}
+				<p class="mt-1.5 text-xs text-destructive">{planError}</p>
+			{/if}
+			{#if planPlacementsMoved.length > 0}
+				<div class="mt-3">
+					<PlacementsMovedAlert placementsMoved={planPlacementsMoved} />
+				</div>
+			{/if}
+		{:else if detail.lesson.body}
 			<Markdown source={detail.lesson.body} class="mt-4" />
 		{:else}
 			<p class="mt-4 text-sm text-muted-foreground italic">

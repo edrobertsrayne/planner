@@ -326,14 +326,16 @@ by every Class, the Session panel writes one Class's occasion.
 
 **Session panel**:
 The single surface for one Session — its Lesson's plan, links and attachments, the note on the
-occasion, and the Continuation control. Attachments here are view-and-download only, like Links —
-the panel never rewrites the shared plan. Opened from any of the three reading views; there is no
-other place a
-Session is read or written. It opens on an Open Slot too, showing no plan and offering the
-note — a Session is identified by its occasion, not by its Lesson, so a Slot carrying no Lesson is
-still an occasion the teacher may want to write about. Shows the Class's Readiness for this
-Lesson, read-only — the panel describes the exact (Lesson, Class) occasion the Agenda row already
-ticks, so it would otherwise hide a fact its own row displays. No other screen shows Readiness.
+occasion, and the Continuation control. Attachments here are view-and-download only, like Links.
+For a Topic Lesson the panel never rewrites the shared plan; for a placed Standalone Lesson it
+does — the panel writes that Lesson's title, plan, Length and Draft/Planned mark directly, because
+a Standalone Lesson reaches no Lesson editor (ADR-0022). Opened from any of the three reading
+views; there is no other place a Session is read or written. It opens on an Open Slot too, showing
+no plan and offering the note — a Session is identified by its occasion, not by its Lesson, so a
+Slot carrying no Lesson is still an occasion the teacher may want to write about. Shows the Class's
+Readiness for this Lesson, read-only — the panel describes the exact (Lesson, Class) occasion the
+Agenda row already ticks, so it would otherwise hide a fact its own row displays. No other screen
+shows Readiness.
 
 **Settings**:
 The change-password form and the API key manager, side by side. Reached from a control in the
