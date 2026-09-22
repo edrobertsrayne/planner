@@ -38,5 +38,9 @@ export const PUT: RequestHandler = async (event) => {
 	const result = replaceTerms(db, client, { terms, today: getDateToday() });
 	if (!result.ok) return json({ error: result.reason }, { status: 400 });
 
-	return json({ terms: termsInYearOrder(), atRisk: result.atRisk });
+	return json({
+		terms: termsInYearOrder(),
+		atRisk: result.atRisk,
+		placementsMoved: result.placementsMoved
+	});
 };

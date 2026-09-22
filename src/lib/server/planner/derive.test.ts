@@ -11,6 +11,7 @@ import {
 	unassignTopic,
 	writeSessionNote
 } from './index';
+import { rederive, rewindBoundary, scheduleFor } from './derive';
 import * as schema from '../db/schema';
 
 // ADR-0007: a Session whose Lesson changed is reported rather than silently relabelled. Every
@@ -35,7 +36,12 @@ describe('every scheduling write answers with its Rewind report', () => {
 		// Nothing recorded was lost — the occasion simply gains teaching — so the fill is
 		// deliberately silent; the note must stay put regardless.
 		expect(report.atRisk).toEqual([]);
-		const detail = sessionDetail(db, { classId: classA.id, date: '2026-09-03', period: 5 });
+		const detail = sessionDetail(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			period: 5,
+			today: '2026-09-03'
+		});
 		expect(detail?.note).toBe('fire drill during P5');
 		expect(detail?.lesson?.title).toBe('Lesson 1');
 	});
@@ -184,5 +190,168 @@ describe('the boundary', () => {
 			.all()
 			.filter((s) => s.classId === classA.id && s.date < today);
 		expect(historyAfter).toEqual(historyBefore);
+	});
+});
+
+// A Placement's Lesson carries no Topic (issue #250), so it never appears via `assignTopic` —
+// these insert `placement` and its bare Lesson straight into the schema, the same shortcut the
+// engine-level tests take.
+describe('placementsMoved', () => {
+	test('scheduleFor lays a Placement onto the stream, tagged with its Placement id', () => {
+		const { db, classA } = setUp();
+		const [lesson] = db
+			.insert(schema.lesson)
+			.values({ title: 'Assembly', position: 0, length: 1 })
+			.returning()
+			.all();
+
+		const before = scheduleFor(db, { classId: classA.id, boundary: '2026-09-01' });
+		const [anchor] = before.openSlots;
+
+		const [placement] = db
+			.insert(schema.placement)
+			.values({ classId: classA.id, date: anchor.date, slotId: anchor.slotId, lessonId: lesson.id })
+			.returning()
+			.all();
+
+		const after = scheduleFor(db, { classId: classA.id, boundary: '2026-09-01' });
+		expect(after.scheduled).toContainEqual({
+			classId: classA.id,
+			date: anchor.date,
+			period: anchor.period,
+			slotId: anchor.slotId,
+			week: anchor.week,
+			lessonId: lesson.id,
+			part: 1,
+			of: 1,
+			placementId: placement.id
+		});
+	});
+
+	test('is empty when a Placement lands on its own anchor', () => {
+		const { db, classA } = setUp();
+		const [lesson] = db
+			.insert(schema.lesson)
+			.values({ title: 'Assembly', position: 0, length: 1 })
+			.returning()
+			.all();
+
+		const before = classSchedule(db, { classId: classA.id, today: '2026-09-01' });
+		const [anchor] = before.openSlots;
+
+		db.insert(schema.placement)
+			.values({ classId: classA.id, date: anchor.date, slotId: anchor.slotId, lessonId: lesson.id })
+			.run();
+
+		const report = rederive(db, classA.id, '2026-09-01');
+		expect(report.placementsMoved).toEqual([]);
+	});
+
+	test('reports a Placement a Blocked Day forces off its anchor', () => {
+		const { db, classA } = setUp();
+		const [lesson] = db
+			.insert(schema.lesson)
+			.values({ title: 'Assembly', position: 0, length: 1 })
+			.returning()
+			.all();
+
+		const before = classSchedule(db, { classId: classA.id, today: '2026-09-01' });
+		const [anchor] = before.openSlots;
+
+		db.insert(schema.placement)
+			.values({ classId: classA.id, date: anchor.date, slotId: anchor.slotId, lessonId: lesson.id })
+			.run();
+		db.insert(schema.blockedDay).values({ date: anchor.date }).run();
+
+		const report = rederive(db, classA.id, '2026-09-01');
+
+		expect(report.placementsMoved).toHaveLength(1);
+		const [moved] = report.placementsMoved;
+		expect(moved).toMatchObject({
+			classId: classA.id,
+			lessonTitle: 'Assembly',
+			anchorDate: anchor.date
+		});
+		expect(moved.date > anchor.date).toBe(true);
+	});
+
+	test("a Rewind crossing a Placement's date reports its noted Session the same way an ordinary relabel already is", () => {
+		const { db, classA } = setUp();
+		const [lesson] = db
+			.insert(schema.lesson)
+			.values({ title: 'Revision', position: 0, length: 1 })
+			.returning()
+			.all();
+
+		const before = classSchedule(db, { classId: classA.id, today: '2026-09-01' });
+		const [anchor] = before.openSlots;
+
+		db.insert(schema.placement)
+			.values({ classId: classA.id, date: anchor.date, slotId: anchor.slotId, lessonId: lesson.id })
+			.run();
+		rederive(db, classA.id, '2026-09-01');
+
+		// A note written against the Placement's own occasion, exactly as any taught Session's is.
+		writeSessionNote(db, {
+			classId: classA.id,
+			date: anchor.date,
+			period: anchor.period,
+			note: 'Went well'
+		});
+
+		// A Blocked Day entered after the fact, on the Placement's own date — a Rewind whose
+		// boundary crosses it, the same as it would for a Topic Lesson's Session.
+		db.insert(schema.blockedDay).values({ date: anchor.date }).run();
+		const report = rederive(db, classA.id, anchor.date);
+
+		expect(report.atRisk).toHaveLength(1);
+		expect(report.atRisk[0]).toMatchObject({
+			classId: classA.id,
+			date: anchor.date,
+			period: anchor.period,
+			lessonTitle: 'Revision'
+		});
+	});
+
+	test('a Placement dated before the boundary is history, and live input again once a Rewind crosses back before it', () => {
+		const { db, classA } = setUp();
+		const [lesson] = db
+			.insert(schema.lesson)
+			.values({ title: 'Assembly', position: 0, length: 1 })
+			.returning()
+			.all();
+
+		const before = classSchedule(db, { classId: classA.id, today: '2026-09-01' });
+		const [anchor] = before.openSlots;
+
+		db.insert(schema.placement)
+			.values({ classId: classA.id, date: anchor.date, slotId: anchor.slotId, lessonId: lesson.id })
+			.run();
+		rederive(db, classA.id, '2026-09-01');
+
+		// Time passes well beyond the Placement's date — an ordinary re-derive from here on never
+		// touches it, exactly like a taught Topic Lesson's Session: it is history now, not a live
+		// scheduling input.
+		const later = '2026-09-20';
+		const untouched = rederive(db, classA.id, later);
+		expect(untouched.placementsMoved).toEqual([]);
+		const historyAfter = classSchedule(db, { classId: classA.id, today: later }).history;
+		expect(historyAfter).toContainEqual(
+			expect.objectContaining({ date: anchor.date, period: anchor.period, lessonId: lesson.id })
+		);
+
+		// A Blocked Day entered after the fact, on the Placement's own date — the one operation
+		// that is allowed to rewrite the past (ADR-0007). The boundary crosses back before the
+		// Placement's date, so it is live input again and shift-rights off the newly Blocked Day.
+		db.insert(schema.blockedDay).values({ date: anchor.date }).run();
+		const report = rederive(db, classA.id, rewindBoundary(anchor.date, later));
+
+		expect(report.placementsMoved).toHaveLength(1);
+		expect(report.placementsMoved[0]).toMatchObject({
+			classId: classA.id,
+			lessonTitle: 'Assembly',
+			anchorDate: anchor.date
+		});
+		expect(report.placementsMoved[0].date > anchor.date).toBe(true);
 	});
 });

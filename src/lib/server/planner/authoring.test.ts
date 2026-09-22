@@ -1,5 +1,5 @@
 import type { Database } from 'bun:sqlite';
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { describe, expect, test } from 'vitest';
 import { makeLessons, makeTopic, setUp, setUpAuthoring } from './fixtures';
 import {
@@ -26,6 +26,8 @@ import {
 	moveLessonToTopic,
 	moveLink,
 	NameCollision,
+	patchLesson,
+	placeLesson,
 	renameCourse,
 	renameLesson,
 	renameTopic,
@@ -463,7 +465,96 @@ describe('reordering and moving Lessons', () => {
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 
 		const result = deleteLesson(db, { id: lessons[0].id, today: '2026-09-10', dir });
-		expect(result).toEqual({ ok: false, reason: 'taught' });
+		expect(result).toEqual({ ok: false, reason: 'taught', hasTopic: true });
+	});
+
+	test('refuses to delete a Lesson that a Placement names', () => {
+		const { db, client, classA, atDir: dir } = setUp();
+		const mondaySlot = db
+			.select()
+			.from(schema.slot)
+			.all()
+			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3)!;
+
+		const placed = placeLesson(db, client, {
+			classId: classA.id,
+			date: '2026-09-14',
+			slotId: mondaySlot.id,
+			title: 'Assembly',
+			today: '2026-09-03'
+		});
+		expect(placed.ok).toBe(true);
+		if (!placed.ok) throw new Error('unreachable');
+
+		const result = deleteLesson(db, { id: placed.lesson.id, today: '2026-09-03', dir });
+		expect(result).toEqual({ ok: false, reason: 'placed' });
+	});
+});
+
+// A Standalone Lesson reaches a Class only through a Placement, never a Topic — the reverse of
+// Detach (giving a topicId-less Lesson a Topic) is retired (ADR-0022). Moving a Lesson between
+// two Topics it already sits between is untouched, and stays covered by moveLessonToTopic's own
+// tests.
+describe('the Standalone-to-Topic PATCH path', () => {
+	test('refuses to give a Standalone Lesson a Topic, Detach being one-way', () => {
+		const { db, client, course, classA } = setUp();
+		const mondaySlot = db
+			.select()
+			.from(schema.slot)
+			.all()
+			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3)!;
+
+		const placed = placeLesson(db, client, {
+			classId: classA.id,
+			date: '2026-09-14',
+			slotId: mondaySlot.id,
+			title: 'Assembly',
+			today: '2026-09-03'
+		});
+		expect(placed.ok).toBe(true);
+		if (!placed.ok) throw new Error('unreachable');
+
+		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
+
+		const result = patchLesson(db, {
+			id: placed.lesson.id,
+			fields: { topicId: topic.id },
+			today: '2026-09-03'
+		});
+		expect(result).toEqual({ ok: false, reason: 'standalone' });
+
+		const [row] = db
+			.select()
+			.from(schema.lesson)
+			.where(eq(schema.lesson.id, placed.lesson.id))
+			.all();
+		expect(row.topicId).toBeNull();
+	});
+
+	test('an unknown topicId answers 404 ahead of the standalone 409, even for a Standalone Lesson', () => {
+		const { db, client, classA } = setUp();
+		const mondaySlot = db
+			.select()
+			.from(schema.slot)
+			.all()
+			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3)!;
+
+		const placed = placeLesson(db, client, {
+			classId: classA.id,
+			date: '2026-09-14',
+			slotId: mondaySlot.id,
+			title: 'Assembly',
+			today: '2026-09-03'
+		});
+		expect(placed.ok).toBe(true);
+		if (!placed.ok) throw new Error('unreachable');
+
+		const result = patchLesson(db, {
+			id: placed.lesson.id,
+			fields: { topicId: 'does-not-exist' },
+			today: '2026-09-03'
+		});
+		expect(result).toEqual({ ok: false, reason: 'topic not found' });
 	});
 });
 
@@ -563,6 +654,42 @@ describe('content edits re-derive the schedule from today', () => {
 		expect(parts).toHaveLength(2);
 	});
 
+	test("changing a Standalone Lesson's Length re-derives every Class holding a Placement of it", () => {
+		const { db, client, classA, classB } = setUp();
+		const today = '2026-09-03';
+		const slots = db.select().from(schema.slot).all();
+		const classAMonday = slots.find(
+			(s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3
+		)!;
+		const classBMonday = slots.find(
+			(s) => s.classId === classB.id && s.week === 'A' && s.day === 1 && s.period === 1
+		)!;
+
+		const placed = placeLesson(db, client, {
+			classId: classA.id,
+			date: '2026-09-14',
+			slotId: classAMonday.id,
+			title: 'Assembly',
+			today
+		});
+		expect(placed.ok).toBe(true);
+		if (!placed.ok) throw new Error('unreachable');
+		const lessonId = placed.lesson.id;
+
+		// A second Placement of the same Standalone Lesson, on a different Class — the shortcut
+		// derive.test.ts's own placementsMoved tests take, inserting the row directly.
+		db.insert(schema.placement)
+			.values({ classId: classB.id, date: '2026-09-14', slotId: classBMonday.id, lessonId })
+			.run();
+
+		updateLesson(db, { id: lessonId, title: 'Assembly', body: null, length: 2, today });
+
+		const afterA = classSchedule(db, { classId: classA.id, today });
+		const afterB = classSchedule(db, { classId: classB.id, today });
+		expect(afterA.scheduled.filter((s) => s.lessonId === lessonId)).toHaveLength(2);
+		expect(afterB.scheduled.filter((s) => s.lessonId === lessonId)).toHaveLength(2);
+	});
+
 	test('assigning a Topic mid-year is itself an ordinary re-derive from today', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
@@ -632,7 +759,7 @@ describe('the Lesson editor', () => {
 			today: '2026-09-03'
 		});
 
-		expect(updated).toMatchObject({
+		expect(updated?.lesson).toMatchObject({
 			title: 'Newton I — inertia',
 			body: 'Objectives: state the First Law.',
 			length: 2

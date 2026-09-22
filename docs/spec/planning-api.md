@@ -420,6 +420,12 @@ its children, because a Lesson without its Links is not the plan.
 Accepts `title`, `body`, `length`, `status` and `topicId`. All optional. See section 3.4.
 
 → 200, `Lesson` (without `links`). → 404 if the Lesson, or a named `topicId`, does not exist.
+→ **409** if `topicId` names a Topic and the Lesson's current `topicId` is `null` — Detach is
+one-way (ADR-0022), so a Standalone Lesson may never re-attach:
+
+```json
+{ "error": "A Standalone Lesson cannot rejoin a Topic." }
+```
 
 **`DELETE /api/lessons/:id`** → 204. → 404.
 
@@ -432,7 +438,18 @@ Accepts `title`, `body`, `length`, `status` and `topicId`. All optional. See sec
 ```
 
 This is today's rule, unchanged. The message names the way out, because an agent that gets a bare
-refusal will try again rather than detach.
+refusal will try again rather than detach — except when the Lesson is already Standalone (its
+`topicId` is already `null`), where there is no Topic to detach it from:
+
+```json
+{ "error": "A Class has already been taught this Lesson, so it cannot be removed." }
+```
+
+→ **409** if a Placement names the Lesson (ADR-0022):
+
+```json
+{ "error": "A Placement names this Lesson, so it cannot be removed. Remove the Placement first." }
+```
 
 Deleting a Lesson deletes its Links.
 
@@ -462,10 +479,11 @@ Every Session that already taught it still names it. This is ADR-0015.
 Detach is allowed whether or not the Lesson has been taught. Delete and Detach are one rule each,
 and neither is aware of the other.
 
-Re-attaching is the same call with a real id: `{ "topicId": "3a77..." }`. The Lesson is appended at
-the end of the target Topic's order.
-
-Both the old Topic and the new one are re-derived.
+> **Amended (ADR-0022).** Re-attaching is retired: `{ "topicId": "3a77..." }` on a Lesson whose
+> current `topicId` is `null` now returns 409, not 200. A Standalone Lesson reaches a Class only
+> through a Placement, on a date the teacher chose; letting it silently regain a Topic mid-Placement
+> was the loophole this closes. Detach is one-way. Moving a Lesson _between_ two Topics — both
+> `topicId`s non-null — is untouched.
 
 ### 5.5 Link
 

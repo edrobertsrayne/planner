@@ -87,8 +87,8 @@ and returns the rest as unplaced. Silently dropping Lessons would make the tool 
 Nothing may write a Session dated before today except a Rewind.
 
 > **Amended 2026-09-04 (ADR-0022).** A fourth input joins the three above: **a Placement** removes
-> one Slot for one Class and lays one Lesson-part directly onto it (or its shift-right
-> destination), outside that Class's Assigned-Topic sequence — the second route into a Class's
-> Lesson stream ADR-0015 left open. The function itself is unchanged: still one pure zip, still
-> re-run in full from any state, still bound by the same boundary rule. Only the list of what
-> counts as an input to it grows.
+> one Slot per Period of its Lesson for one Class, and lays that Lesson's parts directly onto them
+> (or their shift-right destinations), outside that Class's Assigned-Topic sequence — the second
+> route into a Class's Lesson stream ADR-0015 left open. The function itself is unchanged: still
+> one pure zip, still re-run in full from any state, still bound by the same boundary rule. Only
+> the list of what counts as an input to it grows.

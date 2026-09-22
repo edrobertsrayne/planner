@@ -76,14 +76,14 @@ _Avoid_: Planned Length, duration, double, span, periods
 A Lesson the teacher has not yet marked Planned — it is written but not reviewed and approved.
 Typically carries no more than its title. Belongs to the Lesson, so every Class assigned its Topic
 sees the same. Says nothing about whether any Class is Ready to teach it.
-_Avoid_: Bare, empty, stub, untouched
+_Avoid_: Bare, empty, stub, untouched, Placed
 
 **Planned**:
 A Lesson the teacher has reviewed and approved as ready to teach from. Belongs to the Lesson,
 shared by every Class assigned its Topic. Marked by the teacher and never derived from the body or
 the links. Names the Lesson's state, never its place on the calendar — a Lesson takes a date by
 being Scheduled, and the two are unrelated.
-_Avoid_: Drafted, written, complete, scheduled
+_Avoid_: Drafted, written, complete, scheduled, Placed
 
 **Import**:
 Creating one Topic, with its Lessons and their Links, in a single request — optionally creating
@@ -145,8 +145,10 @@ One Standalone Lesson put on one Class on one date the teacher chooses, with no 
 To **Place** is to make one; the reverse is to remove it, which leaves the Lesson standing as a
 Standalone Lesson. A Placement is anchored to the date and Slot chosen and takes the first
 Available Slot at or after it, so it shifts right when that Slot stops being Available, and
-returns when the Slot is Available again. It consumes the Slot it takes, so the Class's Assigned
-Topics move on past it. Made for today or a later date, never a past one.
+returns when the Slot is Available again. The Slot chosen may be an Open Slot or one a Topic
+Lesson already holds; a Placement consumes the Slot it takes, so that Lesson and every Lesson
+after it in the Class's Assigned Topics move on past it. Made for today or a later date, never a
+past one.
 _Avoid_: Insertion, injection, ad-hoc Lesson, one-off Lesson, pinned Session, placed Slot,
 reservation, pin, lock, unplace, cancel
 
@@ -240,8 +242,9 @@ _Avoid_: Printed, done, prepared
 
 **Readiness**:
 The record that one Class is Ready for one Lesson. Exists only once made; it dies when the pairing
-does — unassignment or deletion — and nothing derived ever disturbs it. Separate from Draft and
-Planned, which describe the shared plan rather than one Class's preparation to teach it.
+does — unassignment, deletion, or the removal of the last Placement naming it — and nothing
+derived ever disturbs it. Separate from Draft and Planned, which describe the shared plan rather
+than one Class's preparation to teach it.
 _Avoid_: Checklist, handout list, preparation
 
 ## Views

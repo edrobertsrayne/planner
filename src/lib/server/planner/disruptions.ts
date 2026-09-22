@@ -3,19 +3,14 @@
 // and today — rather than from today alone (ADR-0007).
 import { eq } from 'drizzle-orm';
 import * as schema from '../db/schema';
-import {
-	rederive,
-	rederiveAllClasses,
-	rewindBoundary,
-	type AtRiskSession,
-	type Db,
-	type WriteReport
-} from './derive';
+import { rederive, rederiveAllClasses, rewindBoundary, type Db, type WriteReport } from './derive';
 import { isRealDate, weekday } from '$lib/date';
 
 // A Blocked Day removes every Slot on that date for every Class. Any Session that carried a note
 // and was relabelled by the re-derivation is reported back as `atRisk`, rather than silently
-// changed, so the teacher can be told.
+// changed, so the teacher can be told. A Placement this closure pushes off its anchor is reported
+// too, unconditionally, through `placementsMoved` — it carries no note, so the `atRisk` gate
+// alone cannot cover it (ADR-0022).
 //
 // The same rules every door on the seam applies — the setup-mode list, the grid popover and the
 // API: a malformed date, a weekend date, and a date already blocked are refused, and nothing
@@ -24,7 +19,7 @@ import { isRealDate, weekday } from '$lib/date';
 export function blockDay(
 	db: Db,
 	{ date, note, today }: { date: string; note?: string; today: string }
-): { ok: true; atRisk: AtRiskSession[] } | { ok: false; status: 400 | 409; reason: string } {
+): ({ ok: true } & WriteReport) | { ok: false; status: 400 | 409; reason: string } {
 	if (!isRealDate(date)) {
 		return { ok: false, status: 400, reason: `"${date}" is not a real date.` };
 	}
@@ -45,7 +40,7 @@ export function blockDay(
 	}
 
 	db.insert(schema.blockedDay).values({ date, note }).run();
-	return { ok: true, atRisk: rederiveAllClasses(db, rewindBoundary(date, today)) };
+	return { ok: true, ...rederiveAllClasses(db, rewindBoundary(date, today)) };
 }
 
 // A Blocked Slot removes one Slot on one date for one Class, leaving every other Class untouched.
@@ -71,7 +66,7 @@ export function unblockDay(db: Db, { date, today }: { date: string; today: strin
 	if (!row) return null;
 
 	db.delete(schema.blockedDay).where(eq(schema.blockedDay.date, date)).run();
-	return { atRisk: rederiveAllClasses(db, rewindBoundary(date, today)) };
+	return rederiveAllClasses(db, rewindBoundary(date, today));
 }
 
 // Removes a Blocked Slot and re-derives its one Class, the mirror of blockSlot.

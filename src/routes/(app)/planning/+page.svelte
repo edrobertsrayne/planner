@@ -2,14 +2,17 @@
 	import { enhance } from '$app/forms';
 	import { classTone } from '$lib/class-tone';
 	import { replaceQuery } from '$lib/client/enhance';
+	import { openSession } from '$lib/client/session-panel.svelte';
 	import { formatShortWeekday } from '$lib/date';
 	import { statusTone, type PlanningStatus } from '$lib/feedback-tone';
+	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
 	import PageHeader from '$lib/components/page-header.svelte';
+	import PlacementsMovedAlert from '$lib/components/placements-moved-alert.svelte';
 	import TagChips from '$lib/components/tag-chips.svelte';
 	import LessonEditor from '../courses/LessonEditor.svelte';
 	import type { PageProps } from './$types';
 
-	let { data }: PageProps = $props();
+	let { data, form }: PageProps = $props();
 
 	type Filter = 'all' | PlanningStatus;
 	type PageSize = 10 | 25 | 50 | 'all';
@@ -52,6 +55,13 @@
 
 <div class="mx-auto max-w-4xl px-6 py-6">
 	<PageHeader title="Planning" description="Every Lesson in scheduled order." />
+
+	{#if form?.atRisk}
+		<AtRiskAlert atRisk={form.atRisk} />
+	{/if}
+	{#if form?.placementsMoved}
+		<PlacementsMovedAlert placementsMoved={form.placementsMoved} />
+	{/if}
 
 	{#if data.stream.length === 0}
 		<div class="mt-6 rounded-xl border border-dashed px-6 py-12 text-center">
@@ -105,6 +115,7 @@
 			<ul class="mt-4 space-y-2">
 				{#each visible as lesson (lesson.id)}
 					{@const s = lesson.occurrence}
+					{@const placed = !lesson.topicName}
 					<li class="flex items-center gap-3 rounded-lg border bg-card px-3 py-2">
 						<div class="flex w-28 shrink-0 flex-col items-end gap-0.5">
 							{#if s}
@@ -129,16 +140,25 @@
 						<div class="h-8 w-px bg-border"></div>
 
 						<div class="min-w-0 flex-1">
-							<button
-								type="button"
-								class="block max-w-full truncate text-left text-sm font-medium hover:underline"
-								onclick={() => replaceQuery(`?lesson=${lesson.id}`)}
-							>
-								{lesson.title}
-							</button>
+							{#if placed && !s}
+								<span class="block max-w-full truncate text-sm font-medium">{lesson.title}</span>
+							{:else}
+								<button
+									type="button"
+									class="block max-w-full truncate text-left text-sm font-medium hover:underline"
+									onclick={() =>
+										placed && s
+											? openSession({ classId: s.classId, date: s.date, period: s.period })
+											: replaceQuery(`?lesson=${lesson.id}`)}
+								>
+									{lesson.title}
+								</button>
+							{/if}
 							<div class="truncate text-xs text-muted-foreground">
 								{#if lesson.topicName}
 									{lesson.topicName} · {lesson.courseName}
+								{:else}
+									Standalone Lesson
 								{/if}
 							</div>
 							<TagChips tags={lesson.tags} class="mt-1" />

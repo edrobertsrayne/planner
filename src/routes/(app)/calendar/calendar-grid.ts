@@ -11,11 +11,17 @@ export const PERIODS = [1, 2, 3, 4, 5, 6];
 
 // One line per Available Slot a day's menu offers to block: every non-blocked cell on the
 // date, read out per Slot in Period order — a Lesson over two Periods appears twice, once per
-// real Slot (issue #192). Blocked cells offer nothing; their Slot is already gone.
+// real Slot (issue #192). Blocked cells offer nothing; their Slot is already gone. `placed`
+// marks a Slot already holding a placed Standalone Lesson — a Lesson with no Topic name, the
+// same signal the tile's dashed ring reads. That is the one Slot the Place-a-Lesson door leaves
+// out (issue #256), matching the Session panel's own `canPlace` (sessions.ts); a Slot a Topic
+// Lesson holds is offered, and Placing there shift-rights that Lesson.
 export interface AvailableSlotLine {
 	slotId: string;
 	period: number;
+	classId: string;
 	classLabel: string;
+	placed: boolean;
 }
 
 // The date filter and the Period sort both menu-line derivations share, spelled once.
@@ -40,7 +46,9 @@ export function availableSlotLines(
 			: c.slotIds.map((slotId, i) => ({
 					slotId,
 					period: c.periodFrom + i,
-					classLabel: c.classLabel
+					classId: c.classId,
+					classLabel: c.classLabel,
+					placed: c.kind === 'lesson' && c.lesson?.topicName == null
 				}))
 	);
 }
