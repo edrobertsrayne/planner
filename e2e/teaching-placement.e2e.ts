@@ -98,7 +98,18 @@ test.describe.serial('Placing and removing a Lesson', () => {
 		await page.getByRole('button', { name: 'Place' }).click();
 
 		await expect(page.getByText('Standalone Lesson · Placed')).toBeVisible();
-		await expect(page.locator('[data-session-panel]')).toContainText('Revision session');
+		await expect(page.getByRole('textbox', { name: 'Lesson title' })).toHaveValue(
+			'Revision session'
+		);
+
+		// A placed Standalone Lesson's plan has no editor anywhere else (ADR-0022) — this Session
+		// panel is it.
+		await page
+			.getByRole('textbox', { name: 'Plan' })
+			.fill('Revise the whole unit, past paper Q1-6.');
+		await page.getByRole('textbox', { name: 'Plan' }).blur();
+		await page.getByRole('radio', { name: 'Planned' }).click();
+		await expect(page.getByRole('radio', { name: 'Planned' })).toHaveAttribute('data-state', 'on');
 
 		await page.keyboard.press('Escape');
 		await expectSessionClosed(page);
@@ -107,6 +118,16 @@ test.describe.serial('Placing and removing a Lesson', () => {
 		await expect(cell).toContainText('Revision session');
 		await expect(cell).toContainText('Standalone Lesson');
 		await expect(cell.locator('[data-standalone-ring]')).toBeVisible();
+
+		// Reopening reads the plan and the Planned mark back — not just the panel's own state.
+		await cell.getByRole('button').click();
+		await openSessionAndExpect(page);
+		await expect(page.getByRole('textbox', { name: 'Plan' })).toContainText(
+			'Revise the whole unit, past paper Q1-6.'
+		);
+		await expect(page.getByRole('radio', { name: 'Planned' })).toHaveAttribute('data-state', 'on');
+		await page.keyboard.press('Escape');
+		await expectSessionClosed(page);
 	});
 
 	test('opening the placed Lesson shows Standalone Lesson · Placed, and Remove placement returns the tile to an Open Slot', async () => {

@@ -1,7 +1,15 @@
 import { error, json } from '@sveltejs/kit';
 import { today } from '$lib/date';
 import { client, db } from '$lib/server/db/client';
-import { classSchedule, placeLesson, removePlacement, sessionDetail } from '$lib/server/planner';
+import {
+	classSchedule,
+	placeLesson,
+	removePlacement,
+	sessionDetail,
+	setLessonStatus,
+	updateLesson,
+	type WriteReport
+} from '$lib/server/planner';
 import { occasionOf } from '../occasion';
 import type { RequestHandler } from './$types';
 
@@ -54,6 +62,53 @@ export const DELETE: RequestHandler = async ({ request }) => {
 	const now = today();
 	const report = removePlacement(db, { id, today: now });
 	if (!report) error(404, 'No such Placement.');
+
+	return json({ ...sessionDetail(db, { ...occasion, today: now }), report });
+};
+
+// Writes a placed Standalone Lesson's title, plan, Length and Draft/Planned mark from the Session
+// panel — the only door onto it, since a Standalone Lesson reaches no Lesson editor (ADR-0022). A
+// Topic Lesson's plan stays read-only here; this route refuses when the occasion carries no
+// Placement. Each field is optional and merged over the Lesson's current values; a Length change
+// re-derives every Class this Lesson is placed on the same way the Lesson editor's does, while a
+// status change never re-derives (ADR-0014).
+export const PATCH: RequestHandler = async ({ request }) => {
+	const body = await request.json();
+	const occasion = occasionOf(body);
+	const now = today();
+	const before = sessionDetail(db, { ...occasion, today: now });
+	if (!before?.placement || !before.lesson) error(404, 'No placed Lesson on this occasion.');
+
+	let report: WriteReport = { atRisk: [], placementsMoved: [] };
+
+	if ('title' in body || 'body' in body || 'length' in body) {
+		const title =
+			'title' in body
+				? typeof body.title === 'string'
+					? body.title.trim()
+					: ''
+				: before.lesson.title;
+		if (!title) error(400, 'A title is required.');
+		const lessonBody =
+			'body' in body ? (typeof body.body === 'string' ? body.body : null) : before.lesson.body;
+		const length = 'length' in body ? Number(body.length) : before.lesson.length;
+		if (!Number.isInteger(length) || length < 1) error(400, 'Length must be one Period or more.');
+
+		const result = updateLesson(db, {
+			id: before.lesson.id,
+			title,
+			body: lessonBody,
+			length,
+			today: now
+		});
+		if (result) report = { atRisk: result.atRisk, placementsMoved: result.placementsMoved };
+	}
+
+	if ('status' in body) {
+		if (body.status !== 'draft' && body.status !== 'planned')
+			error(400, 'status must be draft or planned.');
+		setLessonStatus(db, before.lesson.id, body.status);
+	}
 
 	return json({ ...sessionDetail(db, { ...occasion, today: now }), report });
 };

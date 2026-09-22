@@ -4,7 +4,7 @@ import { and, eq } from 'drizzle-orm';
 import * as schema from '../db/schema';
 import { classDetail } from './classes';
 import { rederive, type Db, type WriteReport } from './derive';
-import { linksOf, tagsOf } from './authoring';
+import { linksOf, tagsOf, type LessonStatus } from './authoring';
 import { attachmentsOf } from './attachments';
 
 // A Session is identified by its occasion (ADR-0002), never by row id, so every function here
@@ -25,9 +25,12 @@ const atOccasion = ({ classId, date, period }: Occasion) =>
 export interface SessionDetail extends Occasion {
 	classLabel: string;
 	lesson: {
+		id: string;
 		title: string;
 		topicName: string | null;
 		body: string | null;
+		status: LessonStatus;
+		length: number;
 		links: ReturnType<typeof linksOf>;
 		tags: string[];
 		attachments: ReturnType<typeof attachmentsOf>;
@@ -70,8 +73,11 @@ export function sessionDetail(
 	if (row?.lessonId) {
 		const [lessonRow] = db
 			.select({
+				id: schema.lesson.id,
 				title: schema.lesson.title,
 				body: schema.lesson.body,
+				status: schema.lesson.status,
+				length: schema.lesson.length,
 				topicName: schema.topic.name
 			})
 			.from(schema.lesson)
