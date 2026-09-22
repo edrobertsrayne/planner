@@ -12,7 +12,8 @@
 	import TagChips from '$lib/components/tag-chips.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
-	import { Textarea } from '$lib/components/ui/textarea';
+	import Markdown from '$lib/components/markdown.svelte';
+	import MarkdownEditor from '$lib/components/markdown-editor.svelte';
 
 	// The one body every entry point renders (issue #88): plan first — the Lesson is the subject —
 	// with "How it went" beneath it.
@@ -124,9 +125,8 @@
 			<p class="mt-1 text-xs text-muted-foreground">{detail.lesson.topicName}</p>
 		{/if}
 		<TagChips tags={detail.lesson.tags} class="mt-2" />
-
 		{#if detail.lesson.body}
-			<p class="mt-4 text-sm whitespace-pre-line text-foreground/80">{detail.lesson.body}</p>
+			<Markdown source={detail.lesson.body} class="mt-4" />
 		{:else}
 			<p class="mt-4 text-sm text-muted-foreground italic">
 				No plan written yet — a title alone is a complete Lesson.
@@ -188,25 +188,19 @@
 	{/if}
 
 	<Separator class="my-5" />
-
 	<div class="mb-1.5 flex items-baseline justify-between">
-		<label
-			for="session-note"
-			class="text-xs font-semibold tracking-wider text-muted-foreground uppercase"
-			>How it went</label
-		>
+		<span class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+			How it went
+		</span>
 		<span class="text-xs text-muted-foreground">stays with the occasion</span>
 	</div>
-	<Textarea
-		id="session-note"
-		rows={6}
-		placeholder="Notes on this Session…"
+	<MarkdownEditor
 		value={note}
-		oninput={(e) => {
-			// Explicit value + handler rather than bind:value: the edit handed to notes must be
-			// the text in this very event, not whatever the binding has caught up to.
-			note = e.currentTarget.value;
-			notes.edit(occasion, note);
+		label="How it went"
+		placeholder="Notes on this Session…"
+		onchange={(markdown) => {
+			note = markdown;
+			notes.edit(occasion, markdown);
 		}}
 	/>
 {/if}

@@ -67,6 +67,14 @@ export default defineConfig(
 		}
 	},
 	{
+		// The one {@html} in the app. Its input is markdown-it output produced with `html: false`,
+		// so there is no raw HTML in it to sanitise.
+		files: ['src/lib/components/markdown.svelte'],
+		rules: {
+			'svelte/no-at-html-tags': 'off'
+		}
+	},
+	{
 		// Override or add rule settings here, such as:
 		// 'svelte/button-has-type': 'error'
 		rules: {}
