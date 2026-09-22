@@ -27,6 +27,16 @@ need, and no more.
 
 When you find a simpler approach than the one agreed, say so before you build it.
 
+## Branches and pull requests
+
+The `main` branch on GitHub is protected. Do not commit to it and do not push to it.
+
+- Put each change on its own branch. Open a pull request into `main`.
+- Keep each pull request atomic. One pull request does one thing.
+- A pull request is squash-merged, so its title becomes the one commit message on `main`. Write
+  the title as that commit message: a conventional-commit type, then a short summary.
+- Wait for the `Lint` and `Test Suite` checks to pass before you merge.
+
 ## Agent skills
 
 ### Issue tracker
