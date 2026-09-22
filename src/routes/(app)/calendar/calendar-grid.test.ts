@@ -71,7 +71,7 @@ describe('toGrid', () => {
 describe('availableSlotLines', () => {
 	test('a Lesson of one Period offers its one Slot', () => {
 		expect(availableSlotLines([cell({ slotIds: ['s1'] })], '2026-08-31')).toEqual([
-			{ slotId: 's1', period: 1, classLabel: '9A/Ph1' }
+			{ slotId: 's1', period: 1, classId: 'c1', classLabel: '9A/Ph1', placed: false }
 		]);
 	});
 
@@ -81,15 +81,23 @@ describe('availableSlotLines', () => {
 			'2026-08-31'
 		);
 		expect(slots).toEqual([
-			{ slotId: 's3', period: 3, classLabel: '9A/Ph1' },
-			{ slotId: 's4', period: 4, classLabel: '9A/Ph1' }
+			{ slotId: 's3', period: 3, classId: 'c1', classLabel: '9A/Ph1', placed: false },
+			{ slotId: 's4', period: 4, classId: 'c1', classLabel: '9A/Ph1', placed: false }
 		]);
 	});
 
 	test('an Open Slot is offered — the Period is taught even when no Lesson is scheduled', () => {
 		expect(availableSlotLines([cell({ kind: 'open', lesson: null })], '2026-08-31')).toEqual([
-			{ slotId: 's1', period: 1, classLabel: '9A/Ph1' }
+			{ slotId: 's1', period: 1, classId: 'c1', classLabel: '9A/Ph1', placed: false }
 		]);
+	});
+
+	// A Lesson with no Topic name is a placed Standalone Lesson (issue #256) — the one Slot the
+	// Place-a-Lesson group leaves out, since a second Placement on one anchor collides.
+	test('a Slot already holding a placed Lesson is marked placed', () => {
+		expect(
+			availableSlotLines([cell({ lesson: { title: 'Assembly', topicName: null } })], '2026-08-31')
+		).toEqual([{ slotId: 's1', period: 1, classId: 'c1', classLabel: '9A/Ph1', placed: true }]);
 	});
 
 	test('a Blocked cell offers nothing — its Slot is already gone', () => {

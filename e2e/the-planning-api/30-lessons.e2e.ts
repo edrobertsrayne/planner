@@ -4,7 +4,8 @@ import { BEARER, standingKey, keysOf, openPage, type Page } from './helpers.ts';
 // Covers the two Lesson endpoints over real HTTP (issue #159): creation with its defaults, the
 // list order, PATCH's partial semantics, and the null-topicId detach that makes a Standalone
 // Lesson (ADR-0015). Reads the Course the Course file created and the Topic the Topic file left
-// in it; the Link file after it reads the Lessons this one leaves.
+// in it; the Link file after it reads the Lessons this one leaves. Detach is one-way (ADR-0022):
+// re-attaching a Standalone Lesson to a Topic is refused, never a 200.
 test.describe.serial('the Lesson endpoints', () => {
 	let page: Page;
 	let token = '';
@@ -215,7 +216,7 @@ test.describe.serial('the Lesson endpoints', () => {
 		expect(await missingTopic.json()).toEqual({ error: 'Topic not found.' });
 	});
 
-	test('a Lesson detaches with a null topicId and re-attaches at the end of the target Topic', async ({
+	test('a Lesson detaches with a null topicId, and re-attaching it is refused', async ({
 		request
 	}) => {
 		const detach = await request.patch(`/api/lessons/${lessonBId}`, {
@@ -236,14 +237,10 @@ test.describe.serial('the Lesson endpoints', () => {
 			headers: BEARER(token),
 			data: { topicId: topicOneId }
 		});
-		expect(reattach.status()).toBe(200);
-		expect(await reattach.json()).toMatchObject({ topicId: topicOneId });
+		expect(reattach.status()).toBe(409);
+		expect(await reattach.json()).toEqual({ error: 'A Standalone Lesson cannot rejoin a Topic.' });
 
 		const list = await request.get(`/api/topics/${topicOneId}/lessons`, { headers: BEARER(token) });
-		expect((await list.json()).map((l: { id: string }) => l.id)).toEqual([
-			lessonAId,
-			lessonCId,
-			lessonBId
-		]);
+		expect((await list.json()).map((l: { id: string }) => l.id)).toEqual([lessonAId, lessonCId]);
 	});
 });

@@ -85,6 +85,8 @@ export const PATCH: RequestHandler = async (event) => {
 
 	if (!result.ok) {
 		if (result.reason === 'not found') return json({ error: 'Lesson not found.' }, { status: 404 });
+		if (result.reason === 'standalone')
+			return json({ error: 'A Standalone Lesson cannot rejoin a Topic.' }, { status: 409 });
 		return json({ error: 'Topic not found.' }, { status: 404 });
 	}
 
@@ -104,10 +106,19 @@ export const DELETE: RequestHandler = async (event) => {
 
 	if (!result.ok) {
 		if (result.reason === 'not found') return json({ error: 'Lesson not found.' }, { status: 404 });
+		if (result.reason === 'placed')
+			return json(
+				{
+					error:
+						'A Placement names this Lesson, so it cannot be removed. Remove the Placement first.'
+				},
+				{ status: 409 }
+			);
 		return json(
 			{
-				error:
-					'A Class has already been taught this Lesson, so it cannot be removed. Detach it instead with PATCH /api/lessons/:id and "topicId": null.'
+				error: result.hasTopic
+					? 'A Class has already been taught this Lesson, so it cannot be removed. Detach it instead with PATCH /api/lessons/:id and "topicId": null.'
+					: 'A Class has already been taught this Lesson, so it cannot be removed.'
 			},
 			{ status: 409 }
 		);

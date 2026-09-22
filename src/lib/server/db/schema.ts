@@ -175,6 +175,28 @@ export const session = sqliteTable(
 	(table) => [unique('session_occasion').on(table.classId, table.date, table.period)]
 );
 
+// A Placement: a Lesson scheduled directly onto a Class at a chosen date/Slot, with no Topic
+// behind it. The unique anchor constraint is what "shift-right" collides against — two
+// Placements may never claim the same anchor, but nothing stops their resolved Sessions landing
+// on the same date if one shifts into the other's way.
+export const placement = sqliteTable(
+	'placement',
+	{
+		id: id(),
+		classId: text('class_id')
+			.notNull()
+			.references(() => classes.id),
+		date: text('date').notNull(),
+		slotId: text('slot_id')
+			.notNull()
+			.references(() => slot.id),
+		lessonId: text('lesson_id')
+			.notNull()
+			.references(() => lesson.id)
+	},
+	(table) => [unique('placement_anchor').on(table.classId, table.date, table.slotId)]
+);
+
 export const continuation = sqliteTable('continuation', {
 	id: id(),
 	sessionId: text('session_id')

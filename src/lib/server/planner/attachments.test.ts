@@ -432,7 +432,7 @@ describe("an Attachment's lifecycle follows its Lesson", () => {
 		// taught this Lesson, so the delete is refused rather than confirmed.
 		const result = deleteLesson(db, { id: lesson.id, today: '2026-09-10', dir: atDir });
 
-		expect(result).toEqual({ ok: false, reason: 'taught' });
+		expect(result).toEqual({ ok: false, reason: 'taught', hasTopic: true });
 		expect(attachmentsOf(db, lesson.id).map((a) => a.id)).toEqual([attachment.id]);
 		expect(existsSync(join(atDir, attachment.id))).toBe(true);
 	});

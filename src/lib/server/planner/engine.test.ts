@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { agendaRows, type ScheduleResult } from './engine';
+import { agendaRows, schedule, type Calendar, type Placement, type ScheduleResult } from './engine';
 
 function resultOf(partial: Partial<ScheduleResult>): ScheduleResult {
 	return {
@@ -8,8 +8,52 @@ function resultOf(partial: Partial<ScheduleResult>): ScheduleResult {
 		scheduled: [],
 		unplaced: [],
 		openSlots: [],
+		strandedPlacementIds: [],
 		...partial
 	};
+}
+
+// One Class, one Teaching Week (Mon 7 Sep – Fri 11 Sep 2026), three Periods every day — enough
+// room to collide, block and shift-right without a second week's bookkeeping.
+const DAYS = {
+	1: '2026-09-07',
+	2: '2026-09-08',
+	3: '2026-09-09',
+	4: '2026-09-10',
+	5: '2026-09-11'
+};
+
+function calendarOf(overrides: Partial<Calendar> = {}): Calendar {
+	return {
+		terms: [{ opens: '2026-09-01', closes: '2026-09-30' }],
+		teachingWeeks: [{ weekCommencing: '2026-09-07', letter: 'A' }],
+		slots: ([1, 2, 3, 4, 5] as const).flatMap((day) =>
+			[1, 2, 3].map((period) => ({
+				id: `d${day}p${period}`,
+				classId: 'c1',
+				week: 'A' as const,
+				day,
+				period,
+				holdsFrom: null,
+				holdsTo: null
+			}))
+		),
+		blockedDays: [],
+		blockedSlots: [],
+		...overrides
+	};
+}
+
+function scheduleOf(cal: Calendar, placements: Placement[]): ScheduleResult {
+	return schedule({
+		cal,
+		lessons: [],
+		classId: 'c1',
+		sessions: [],
+		continuations: [],
+		placements,
+		boundary: '2026-09-01'
+	});
 }
 
 describe('agendaRows', () => {
@@ -182,5 +226,168 @@ describe('agendaRows', () => {
 		expect(rows.map((r) => r.classId)).toEqual(['c1', 'c1']);
 		expect(rows[0].lesson).not.toBeNull();
 		expect(rows[1].lesson).toBeNull();
+	});
+});
+
+describe('schedule with Placements', () => {
+	test('a Length-1 and a Length-2 Placement lay onto the stream with no disruption', () => {
+		const result = scheduleOf(calendarOf(), [
+			{ id: 'p1', classId: 'c1', date: DAYS[1], slotId: 'd1p1', lessonId: 'l1', length: 1 },
+			{ id: 'p2', classId: 'c1', date: DAYS[3], slotId: 'd3p1', lessonId: 'l2', length: 2 }
+		]);
+
+		expect(result.scheduled).toContainEqual({
+			classId: 'c1',
+			date: DAYS[1],
+			period: 1,
+			slotId: 'd1p1',
+			week: 'A',
+			lessonId: 'l1',
+			part: 1,
+			of: 1,
+			placementId: 'p1'
+		});
+		expect(result.scheduled).toContainEqual({
+			classId: 'c1',
+			date: DAYS[3],
+			period: 1,
+			slotId: 'd3p1',
+			week: 'A',
+			lessonId: 'l2',
+			part: 1,
+			of: 2,
+			placementId: 'p2'
+		});
+		expect(result.scheduled).toContainEqual({
+			classId: 'c1',
+			date: DAYS[3],
+			period: 2,
+			slotId: 'd3p2',
+			week: 'A',
+			lessonId: 'l2',
+			part: 2,
+			of: 2,
+			placementId: 'p2'
+		});
+	});
+
+	test('a Placement whose anchor Slot is later Blocked shift-rights past it', () => {
+		const cal = calendarOf({ blockedSlots: [{ classId: 'c1', date: DAYS[1], slotId: 'd1p1' }] });
+		const result = scheduleOf(cal, [
+			{ id: 'p1', classId: 'c1', date: DAYS[1], slotId: 'd1p1', lessonId: 'l1', length: 1 }
+		]);
+
+		const own = result.scheduled.filter((s) => s.placementId === 'p1');
+		expect(own).toHaveLength(1);
+		expect(own[0]).toMatchObject({ date: DAYS[1], period: 2 });
+	});
+
+	test("a Blocked Slot later in a Placement run only moves that Placement's own later parts", () => {
+		const cal = calendarOf({ blockedSlots: [{ classId: 'c1', date: DAYS[1], slotId: 'd1p2' }] });
+		const result = scheduleOf(cal, [
+			{ id: 'p1', classId: 'c1', date: DAYS[1], slotId: 'd1p1', lessonId: 'l1', length: 2 }
+		]);
+
+		const own = result.scheduled
+			.filter((s) => s.placementId === 'p1')
+			.sort((a, b) => a.part - b.part);
+		expect(own).toHaveLength(2);
+		expect(own[0]).toMatchObject({ date: DAYS[1], period: 1, part: 1 });
+		expect(own[1]).toMatchObject({ date: DAYS[1], period: 3, part: 2 });
+	});
+
+	test('two Placements whose anchors collide resolve by ascending-anchor order', () => {
+		const result = scheduleOf(calendarOf(), [
+			{ id: 'later', classId: 'c1', date: DAYS[1], slotId: 'd1p2', lessonId: 'l2', length: 1 },
+			{ id: 'earlier', classId: 'c1', date: DAYS[1], slotId: 'd1p1', lessonId: 'l1', length: 2 }
+		]);
+
+		// "earlier" (anchor P1) is walked first and claims P1 and P2, so "later" (anchor P2) is
+		// pushed past it to P3 — the later-anchored Placement shifts right, never the earlier one.
+		const earlier = result.scheduled.filter((s) => s.placementId === 'earlier');
+		const later = result.scheduled.filter((s) => s.placementId === 'later');
+		expect(earlier.map((s) => s.period)).toEqual([1, 2]);
+		expect(later.map((s) => s.period)).toEqual([3]);
+	});
+
+	test("a Placement's parts collapse into one agendaRows entry, mirroring a Continuation", () => {
+		const result = scheduleOf(calendarOf(), [
+			{ id: 'p1', classId: 'c1', date: DAYS[1], slotId: 'd1p1', lessonId: 'l1', length: 2 }
+		]);
+
+		const rows = agendaRows('c1', result).filter((r) => r.lesson?.lessonId === 'l1');
+		expect(rows).toEqual([
+			{
+				classId: 'c1',
+				date: DAYS[1],
+				week: 'A',
+				periodFrom: 1,
+				periodTo: 2,
+				slotIds: ['d1p1', 'd1p2'],
+				lesson: { lessonId: 'l1', part: 2, of: 2 }
+			}
+		]);
+	});
+
+	test('a Length-2 Placement anchored at the last Period of a day runs into the next day', () => {
+		const result = scheduleOf(calendarOf(), [
+			{ id: 'p1', classId: 'c1', date: DAYS[1], slotId: 'd1p3', lessonId: 'l1', length: 2 }
+		]);
+
+		const own = result.scheduled
+			.filter((s) => s.placementId === 'p1')
+			.sort((a, b) => a.part - b.part);
+		expect(own).toHaveLength(2);
+		expect(own[0]).toMatchObject({ date: DAYS[1], period: 3, part: 1 });
+		expect(own[1]).toMatchObject({ date: DAYS[2], period: 1, part: 2 });
+	});
+
+	test('a Placement with no Available Slot left at or after its anchor is reported stranded, not silently dropped', () => {
+		const cal = calendarOf({ blockedDays: [DAYS[5]] });
+		const result = scheduleOf(cal, [
+			{ id: 'p1', classId: 'c1', date: DAYS[5], slotId: 'd5p3', lessonId: 'l1', length: 1 }
+		]);
+
+		expect(result.scheduled.filter((s) => s.placementId === 'p1')).toEqual([]);
+		expect(result.strandedPlacementIds).toEqual(['p1']);
+	});
+
+	test('a Length-3 Placement with only one Available Slot left at its anchor reports the unclaimed tail as unplaced, not stranded', () => {
+		const cal = calendarOf({ blockedDays: [DAYS[1], DAYS[2], DAYS[3], DAYS[4]] });
+		const result = scheduleOf(cal, [
+			{ id: 'p1', classId: 'c1', date: DAYS[5], slotId: 'd5p3', lessonId: 'l1', length: 3 }
+		]);
+
+		expect(result.scheduled.filter((s) => s.placementId === 'p1')).toMatchObject([
+			{ date: DAYS[5], period: 3, lessonId: 'l1', part: 1, of: 3 }
+		]);
+		expect(result.strandedPlacementIds).toEqual([]);
+		expect(result.unplaced).toEqual([
+			{ lessonId: 'l1', part: 2, of: 3 },
+			{ lessonId: 'l1', part: 3, of: 3 }
+		]);
+	});
+
+	test('the same Lesson placed twice on one Class splits already-taught history between them in anchor order', () => {
+		const result = schedule({
+			cal: calendarOf(),
+			lessons: [],
+			classId: 'c1',
+			// One Period of this Lesson is already taught, dated before the boundary — shared
+			// history the two Placements below must not both count toward their own Length.
+			sessions: [{ classId: 'c1', date: DAYS[1], period: 1, lessonId: 'l1' }],
+			continuations: [],
+			placements: [
+				{ id: 'p1', classId: 'c1', date: DAYS[2], slotId: 'd2p1', lessonId: 'l1', length: 1 },
+				{ id: 'p2', classId: 'c1', date: DAYS[3], slotId: 'd3p1', lessonId: 'l1', length: 1 }
+			],
+			boundary: DAYS[2]
+		});
+
+		// The already-taught Period is consumed by whichever Placement is walked first (ascending
+		// anchor order), leaving the later one still owed its own full Length rather than being
+		// zeroed out by the same history a second time.
+		expect(result.scheduled.filter((s) => s.placementId === 'p1')).toEqual([]);
+		expect(result.scheduled.filter((s) => s.placementId === 'p2')).toHaveLength(1);
 	});
 });

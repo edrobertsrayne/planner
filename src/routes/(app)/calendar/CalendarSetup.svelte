@@ -9,8 +9,9 @@
 	} from '$lib/calendar/generate-teaching-weeks';
 	import { failureReason } from '$lib/client/enhance';
 	import { formatDateShort, isRealDate } from '$lib/date';
-	import type { AtRiskSession } from '$lib/server/planner';
+	import type { AtRiskSession, PlacementMoved } from '$lib/server/planner';
 	import AtRiskReport from '$lib/components/at-risk-report.svelte';
+	import PlacementsMovedAlert from '$lib/components/placements-moved-alert.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 
@@ -62,14 +63,20 @@
 	// handler makes of ActionData.
 	let dayError = $state<string | null>(null);
 	let dayReport = $state<AtRiskSession[] | null>(null);
+	let dayPlacementsMoved = $state<PlacementMoved[]>([]);
 
-	const onDay: SubmitFunction<{ atRisk: AtRiskSession[] }, { error: string }> =
+	const onDay: SubmitFunction<
+		{ atRisk: AtRiskSession[]; placementsMoved: PlacementMoved[] },
+		{ error: string }
+	> =
 		() =>
 		async ({ result }) => {
 			dayError = null;
 			dayReport = null;
+			dayPlacementsMoved = [];
 			if (result.type === 'success') {
 				dayReport = result.data?.atRisk ?? [];
+				dayPlacementsMoved = result.data?.placementsMoved ?? [];
 				await invalidateAll();
 			} else if (result.type === 'failure') {
 				dayError = failureReason(result, 'The Blocked Day was not saved.');
@@ -171,6 +178,7 @@
 					none="No Sessions were put at risk."
 					class="mt-2 text-sm text-muted-foreground"
 				/>
+				<PlacementsMovedAlert placementsMoved={dayPlacementsMoved} />
 			{/if}
 
 			<ul class="mt-1" data-blocked-days>

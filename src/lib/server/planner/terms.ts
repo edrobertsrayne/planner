@@ -10,7 +10,7 @@
 import type { Database } from 'bun:sqlite';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
-import { rederiveAllClasses, rewindBoundary, type AtRiskSession, type Db } from './derive';
+import { rederiveAllClasses, rewindBoundary, type Db, type WriteReport } from './derive';
 import { isRealDate } from '$lib/date';
 import type { TermInput } from '$lib/calendar/generate-teaching-weeks';
 
@@ -23,7 +23,7 @@ export function replaceTerms(
 	db: Db,
 	client: Database,
 	{ terms, today }: { terms: TermInput[]; today: string }
-): { ok: true; atRisk: AtRiskSession[] } | { ok: false; reason: string; cause?: unknown } {
+): ({ ok: true } & WriteReport) | { ok: false; reason: string; cause?: unknown } {
 	if (terms.length !== 6) {
 		return { ok: false, reason: `A year needs exactly six Terms, and ${terms.length} were given.` };
 	}
@@ -64,14 +64,14 @@ export function replaceTerms(
 	);
 
 	try {
-		const atRisk = inTransaction(client, () => {
+		const report = inTransaction(client, () => {
 			db.delete(schema.term).run();
 			for (const term of sorted) {
 				db.insert(schema.term).values({ opens: term.opens, closes: term.closes }).run();
 			}
 			return rederiveAllClasses(db, boundary);
 		});
-		return { ok: true, atRisk };
+		return { ok: true, ...report };
 	} catch (cause) {
 		return { ok: false, reason: 'Replacing the Terms failed.', cause };
 	}

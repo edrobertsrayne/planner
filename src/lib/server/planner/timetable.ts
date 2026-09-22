@@ -118,8 +118,7 @@ export function endSlot(
 			.run();
 	}
 
-	rederive(db, row.classId, today);
-	return row;
+	return { slot: row, ...rederive(db, row.classId, today) };
 }
 
 // Puts a Class in an empty Timetable position from a chosen date. A click on a position already
@@ -152,13 +151,12 @@ export function takeSlot(
 ) {
 	const holder = holderAt(db, { week, day, period, on: takeFrom ?? MIN_DATE });
 	if (holder) {
-		if (holder.classId === classId) return holder;
+		if (holder.classId === classId) return { slot: holder, atRisk: [], placementsMoved: [] };
 		throw takenError(week, day, period);
 	}
 
 	const row = addSlot(db, { classId, week, day, period, holdsFrom: takeFrom });
-	rederive(db, classId, today);
-	return row;
+	return { slot: row, ...rederive(db, classId, today) };
 }
 
 // Ends whatever this Class's Slot is at a position, from a chosen date. The mirror of takeSlot.

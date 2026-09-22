@@ -181,7 +181,7 @@ export function moveAssignedTopic(
 	}: { classId: string; id: string; direction: Direction; today: string }
 ): WriteReport {
 	const swap = swapTargets(assignedTopicsOf(db, classId), id, direction);
-	if (!swap) return { atRisk: [] };
+	if (!swap) return { atRisk: [], placementsMoved: [] };
 
 	const [a, b] = swap;
 	db.update(schema.assignedTopic)

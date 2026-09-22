@@ -2,7 +2,9 @@
 	import { enhance } from '$app/forms';
 	import { createInPlace, createThenSelect } from '$lib/client/enhance';
 	import XIcon from '@lucide/svelte/icons/x';
+	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
 	import PageHeader from '$lib/components/page-header.svelte';
+	import PlacementsMovedAlert from '$lib/components/placements-moved-alert.svelte';
 	import ReorderButtons from '$lib/components/reorder-buttons.svelte';
 	import TagChips from '$lib/components/tag-chips.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -32,6 +34,12 @@
 
 	{#if form?.error}
 		<p role="alert" class="mb-3 text-sm text-destructive">{form.error}</p>
+	{/if}
+	{#if form?.atRisk}
+		<AtRiskAlert atRisk={form.atRisk} />
+	{/if}
+	{#if form?.placementsMoved}
+		<PlacementsMovedAlert placementsMoved={form.placementsMoved} />
 	{/if}
 
 	<div class="flex min-h-0 flex-1 rounded-lg border">

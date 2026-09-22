@@ -53,7 +53,11 @@ export const POST: RequestHandler = async (event) => {
 	if (!report.ok) return json({ error: report.reason }, { status: report.status });
 
 	return json(
-		{ blockedDay: { date: data.date, note: note ?? null }, atRisk: report.atRisk },
+		{
+			blockedDay: { date: data.date, note: note ?? null },
+			atRisk: report.atRisk,
+			placementsMoved: report.placementsMoved
+		},
 		{ status: 201 }
 	);
 };
