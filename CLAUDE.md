@@ -1,72 +1,32 @@
-## Project Configuration
-
-- **Language**: TypeScript
-- **Package Manager**: bun
-- **Add-ons**: prettier, eslint, vitest, playwright, tailwindcss, sveltekit-adapter, drizzle, better-auth
-
----
-
 # planner
 
-An electronic teacher planner — self-hosted, single-user. UK state secondary school context.
+An electronic teacher planner. Self-hosted, single-user, UK state secondary school. Package manager: bun.
 
 ## Favour the simple implementation
 
-This planner has one user and one school year. Build the simplest thing that meets the stated
-need, and no more.
+This planner has one user and one school year. Build the simplest thing that meets the stated need.
 
-- Solve the case in front of you. Do not add generality for a second user, a second year, or a
-  caller nobody has asked for.
-- Prefer no code to code. A rule that costs a query, a lookup or an ordering constraint must earn
-  it. Drop the rule if the cost is larger than the mistake it catches.
-- Do not guard against a wrong shape the app itself never sends. Read the fields you need and
-  ignore the rest.
-- Do not enforce a rule at one door that you cannot enforce at the others. Enforce it everywhere,
-  or drop it.
-- Reuse what is already there before you write a new module or a new abstraction.
+- Build for one user, one year, and the callers that exist.
+- Prefer no code to code. A rule that costs a query, a lookup or an ordering constraint must earn it.
+- Validate only what the app's own forms can send wrong. Read the fields you need; ignore the rest.
+- Enforce a rule at every entry point, or at none.
 
 When you find a simpler approach than the one agreed, say so before you build it.
 
-## Branches and pull requests
+## Branches, pull requests and commits
 
-The `main` branch on GitHub is protected. Do not commit to it and do not push to it.
+- Start every change on a new branch from `main`. Open a pull request into `main`.
+- One pull request does one thing.
+- The pull request is squash-merged. Write its title as the commit message: a conventional-commit type, then a short summary.
+- Commit with `omp commit`.
+- Merge only after the `Lint` and `Test Suite` checks pass.
 
-- Put each change on its own branch. Open a pull request into `main`.
-- Keep each pull request atomic. One pull request does one thing.
-- A pull request is squash-merged, so its title becomes the one commit message on `main`. Write
-  the title as that commit message: a conventional-commit type, then a short summary.
-- Wait for the `Lint` and `Test Suite` checks to pass before you merge.
+## Tests
 
-## Agent skills
-
-### Issue tracker
-
-GitHub Issues on `edrobertsrayne/planner`, via the `gh` CLI. See `docs/agents/issue-tracker.md`.
-
-### Triage labels
-
-The five canonical roles, each label string equal to its name. See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-Single-context — `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
-
-### Database migrations
-
-What this project's SQLite and `drizzle-kit` can actually do. Read before writing a migration. See `docs/agents/migrations.md`.
-
-### Backlog
-
-Out-of-scope ideas for later. See `docs/backlog.md`.
-
-## End-to-end tests
-
-Run the whole suite with `bun run test`. Do not run one e2e file on its own.
-
-The suite keeps one database and one user, so every file depends on the state the files before it
-left. A single file starts against an empty database and stops at the first-run wizard, not the
-login page. The error names a duplicate "Password" field, which looks like a selector fault and is
-not one.
+Run e2e tests only as the whole suite: `bun run test`. The suite shares one database and one user,
+so each file depends on the files before it. One file alone starts on an empty database and stops at
+the first-run wizard, with an error about a duplicate "Password" field. That error is not a selector fault.
+You can run a unit test file alone: `bun run test:unit -- --run <file>`.
 
 ## Browser preview
 
@@ -74,15 +34,18 @@ When Claude in Chrome is not available, drive the browser with `Bun.WebView` —
 
 ## Prototyping
 
-Disable the auth guard for a prototype, unless the prototype is testing the authentication
-pages themselves. This keeps the prototype easy for a non-developer to open and use.
+Disable the auth guard in a prototype, unless the prototype tests the authentication pages.
 
-## Commits
+## Agent skills
 
-Commits follow the same conventional-commit type/scope rules and changelog updates as `omp commit` — run `omp commit` itself rather than hand-writing messages.
+- Issues: GitHub Issues on `edrobertsrayne/planner` via `gh`. See `docs/agents/issue-tracker.md`.
+- Triage labels: each label string equals its role name. See `docs/agents/triage-labels.md`.
+- Domain: single context, `CONTEXT.md` and `docs/adr/`. See `docs/agents/domain.md`.
+- Before you write a migration, read `docs/agents/migrations.md`.
+- Backlog: add ideas you put out of scope to `docs/backlog.md`. Read it before you propose a feature.
 
 ## Communication style
 
-- Give brief context before the main point. Do not jump straight to the answer with no lead-in.
-- Write in ASD-STE100 Simplified Technical English: short sentences, one instruction per sentence, active voice, approved words only, no jargon beyond the approved technical vocabulary.
-- Use the ubiquitous language defined in `CONTEXT.md`. If `CONTEXT-MAP.md` exists, follow it to the `CONTEXT.md` for the relevant context. Do not drift to synonyms the glossary avoids.
+- Give brief context before the main point.
+- Write in ASD-STE100 Simplified Technical English: short sentences, one instruction per sentence, active voice, approved words only.
+- Use the terms in `CONTEXT.md`. Do not use the synonyms that it lists to avoid.
