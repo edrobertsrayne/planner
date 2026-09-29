@@ -4,7 +4,23 @@ import { building } from '$app/environment';
 import { auth } from '$lib/server/auth';
 import { hasUser } from '$lib/server/setup';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
-import { guardRedirect } from '$lib/server/guard';
+import { crossSiteFormRefused, guardRedirect } from '$lib/server/guard';
+
+const handleCsrf: Handle = async ({ event, resolve }) => {
+	const refused = crossSiteFormRefused({
+		method: event.request.method,
+		pathname: event.url.pathname,
+		contentType: event.request.headers.get('content-type'),
+		origin: event.request.headers.get('origin'),
+		siteOrigin: event.url.origin
+	});
+	if (refused) {
+		return new Response(`Cross-site ${event.request.method} form submissions are forbidden`, {
+			status: 403
+		});
+	}
+	return resolve(event);
+};
 
 const handleAuth: Handle = async ({ event, resolve }) => {
 	const session = await auth.api.getSession({ headers: event.request.headers });
@@ -30,4 +46,4 @@ const handleGuard: Handle = async ({ event, resolve }) => {
 	return resolve(event);
 };
 
-export const handle: Handle = sequence(handleAuth, handleGuard);
+export const handle: Handle = sequence(handleCsrf, handleAuth, handleGuard);

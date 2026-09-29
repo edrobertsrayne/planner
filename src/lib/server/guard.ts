@@ -30,6 +30,29 @@ export function guardRedirect(request: {
 	return isPublicRoute(request.pathname) ? '/' : null;
 }
 
+/**
+ * SvelteKit's own CSRF check refuses any form-typed write without a matching `Origin` header,
+ * which a script uploading a file with a Bearer key never sends. It cannot be scoped to a path, so
+ * `vite.config.ts` turns it off and this applies the same rule everywhere except `/api/*` — which
+ * carries no ambient credential a forged browser form could ride on (each route needs the Bearer
+ * key, and `/api/auth/*` runs Better Auth's own origin check).
+ */
+export function crossSiteFormRefused(request: {
+	method: string;
+	pathname: string;
+	contentType: string | null;
+	origin: string | null;
+	siteOrigin: string;
+}): boolean {
+	if (matches(request.pathname, '/api')) return false;
+	if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) return false;
+	const isForm =
+		/^\s*(application\/x-www-form-urlencoded|multipart\/form-data|text\/plain)\s*(;|$)/i.test(
+			request.contentType ?? ''
+		);
+	return isForm && request.origin !== request.siteOrigin;
+}
+
 const PUBLIC_ROUTES = ['/login'];
 
 function matches(pathname: string, route: string) {

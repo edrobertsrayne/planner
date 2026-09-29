@@ -464,9 +464,8 @@ export function detachTag(db: Db, { lessonId, tagId }: { lessonId: string; tagId
 		.run();
 }
 
-// The Lesson editor's full-detail read: the Lesson plus its Links, in position order. Attachments
-// are composed onto this by the page loads — the bearer-key API shares this read, and the
-// planning API stays as it is (spec #237, Out of Scope).
+// The Lesson editor's full-detail read: the Lesson plus its Links, in position order. The page
+// loads compose Attachments onto this, and the bearer-key API does the same in its GET route.
 export function lessonDetail(db: Db, id: string) {
 	const [row] = db.select().from(schema.lesson).where(eq(schema.lesson.id, id)).all();
 	if (!row) return null;
