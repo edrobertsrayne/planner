@@ -247,6 +247,15 @@ derived ever disturbs it. Separate from Draft and Planned, which describe the sh
 than one Class's preparation to teach it.
 _Avoid_: Checklist, handout list, preparation
 
+### The planner's data
+
+**Backup**:
+One file that holds all of the planner's data — every record and every Attachment's file — taken
+on demand so the planner can be moved to another instance. To **Back up** is to make one; to
+**Restore** is to rebuild an empty instance from one, all-or-nothing. Distinct from Import, which
+creates one Topic inside a planner that already exists.
+_Avoid_: Export, dump, snapshot, Import
+
 ## Views
 
 Names for the screens, not for anything in the domain. Recorded so that issues, tests and code
