@@ -48,3 +48,9 @@ aspect module, and whose absence would silently discard the database on the next
 > decided by [ADR-0018](0018-docker-over-nix.md): the artifact is the container image, and the flake
 > has been removed. Everything else in this ADR stands, including the choice of SQLite over
 > Postgres; the runtime pins its own Bun inside the image instead of beside a flake.
+
+> **Amended 2026-09-29.** [ADR-0024](0024-the-planner-backs-itself-up-on-demand.md) adds an
+> on-demand Backup, made in Settings and restored into an empty instance, so the planner can move
+> between instances from the browser. "The application ships no backup feature" no longer holds.
+> Durability still belongs to the deployer: scheduled copies and a persistent state directory stay
+> outside the application.
