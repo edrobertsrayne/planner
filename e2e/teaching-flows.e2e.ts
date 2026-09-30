@@ -581,4 +581,49 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		await expect(tagControl).toHaveText('Nowhere');
 		await expect(page.getByText('No Lessons with the Tag “Nowhere”')).toBeVisible();
 	});
+
+	test('the Agenda shows the past seven days above today, read-only and fixed', async () => {
+		// The only past Session so far is ten days old, outside the look-back.
+		await page.goto('/');
+		const lookBack = page.getByRole('region', { name: 'Past seven days' });
+		await expect(page.getByRole('heading', { name: 'Agenda' })).toBeVisible();
+		await expect(lookBack).toHaveCount(0);
+
+		// Written last in the file: a past Session exists only through the fixture (see beforeAll).
+		const speedLessonId = runFixture('find-lesson-id', 'Speed');
+		const note = `Ran out of time — ${Date.now()}`;
+		runFixture('mark-taught', classBId, isoDate(-1), '5', speedLessonId);
+		runFixture('mark-taught', classAId, isoDate(-3), '6', speedLessonId, note);
+
+		await page.goto('/');
+		const pastRows = lookBack.locator('li');
+		// Oldest first: three days ago, then yesterday.
+		await expect(pastRows).toHaveCount(2);
+		await expect(pastRows.nth(0)).toContainText('9B/Sc1');
+		await expect(pastRows.nth(1)).toContainText('9C/Sc1');
+		await expect(lookBack.getByRole('heading')).toHaveCount(2);
+
+		// A past row carries no Ready tick; a future row still does.
+		await expect(lookBack.getByRole('checkbox')).toHaveCount(0);
+		await expect(
+			page.getByRole('checkbox', { name: 'Ready to teach Motion to 9B/Sc1' }).first()
+		).toBeVisible();
+
+		// The horizon moves only the forward window.
+		await page.getByRole('radio', { name: 'Four Weeks' }).click();
+		await expect(page).toHaveURL(/horizon=28/);
+		await expect(pastRows).toHaveCount(2);
+
+		// A past row opens the Session panel on that occasion, with its note.
+		await pastRows.nth(0).getByRole('button').first().click();
+		await openSessionAndExpect(page);
+		await expect(page.locator('[data-session-panel]')).toContainText('9B/Sc1');
+		await expect(page.getByLabel('How it went')).toHaveText(note);
+		await page.keyboard.press('Escape');
+		await expectSessionClosed(page);
+
+		// A noted past Session left behind would show in the Term save report of the-calendar-setup.
+		runFixture('unmark-taught', classBId, isoDate(-1), '5');
+		runFixture('unmark-taught', classAId, isoDate(-3), '6');
+	});
 });

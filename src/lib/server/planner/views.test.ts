@@ -199,6 +199,77 @@ describe('the Agenda look-back', () => {
 	});
 });
 
+describe('the Agenda look-back', () => {
+	// classA's first Sessions: Thu 2026-09-03 P5 and P6 (Week A), Tue 2026-09-08 P2 and
+	// Fri 2026-09-11 P4 (Week B), then Mon 2026-09-14 P3 (Week A).
+	test('covers the seven days before today, carries the Calendar week letter, and skips a Class with no history', () => {
+		const { db, course, classA, classB } = setUp();
+		const forces = makeTopic(db, course.id, 'Forces');
+		const [l1, l2, l3] = makeLessons(db, forces.id, 10);
+		assignTopic(db, { classId: classA.id, topicId: forces.id, today: '2026-09-03' });
+		setReadiness(db, l1.id, classA.id, true);
+
+		// today - 7 is 2026-09-03: its two different Lessons in consecutive Periods are two rows.
+		const fromThursday = agendaLookBack(db, { today: '2026-09-10' });
+		expect(fromThursday).toEqual([
+			expect.objectContaining({ date: '2026-09-03', week: 'A', periodFrom: 5, periodTo: 5 }),
+			expect.objectContaining({ date: '2026-09-03', week: 'A', periodFrom: 6, periodTo: 6 }),
+			expect.objectContaining({ date: '2026-09-08', week: 'B', periodFrom: 2, periodTo: 2 })
+		]);
+		expect(fromThursday.map((r) => r.lesson?.id)).toEqual([l1.id, l2.id, l3.id]);
+		expect(fromThursday.every((r) => r.classId === classA.id && r.lesson?.ready === false)).toBe(
+			true
+		);
+		expect(calendarWeek(db, { weekCommencing: '2026-09-07', today: '2026-09-10' })?.letter).toBe(
+			'B'
+		);
+
+		// One day later, 2026-09-03 is eight days back and 2026-09-11 is today: neither is shown.
+		expect(agendaLookBack(db, { today: '2026-09-11' }).map((r) => r.date)).toEqual(['2026-09-08']);
+		expect(agendaLookBack(db, { today: '2026-09-11' }).some((r) => r.classId === classB.id)).toBe(
+			false
+		);
+	});
+
+	test('a Length-2 Lesson and a Continuation are each one row across both Periods', () => {
+		const { db, course, classA } = setUp();
+		const forces = makeTopic(db, course.id, 'Forces');
+		const [wide] = makeLessons(db, forces.id, 1, 2);
+		assignTopic(db, { classId: classA.id, topicId: forces.id, today: '2026-09-03' });
+		const optics = makeTopic(db, course.id, 'Optics');
+		makeLessons(db, optics.id, 3);
+		assignTopic(db, { classId: classA.id, topicId: optics.id, today: '2026-09-03' });
+		const waves = makeTopic(db, course.id, 'Waves');
+		const [continued] = makeLessons(db, waves.id, 1, 2);
+		assignTopic(db, { classId: classA.id, topicId: waves.id, today: '2026-09-03' });
+
+		// The Length-2 Lesson fills the 2026-09-03 double. Optics runs 2026-09-08, 09-11 and
+		// 09-14. The Waves Lesson starts on 2026-09-16 P1. Its Continuation adds a third part, so
+		// the two parts left fill the 2026-09-17 double.
+		recordContinuation(db, {
+			classId: classA.id,
+			date: '2026-09-16',
+			period: 1,
+			today: '2026-09-17'
+		});
+
+		expect(agendaLookBack(db, { today: '2026-09-04' })).toEqual([
+			expect.objectContaining({
+				date: '2026-09-03',
+				periodFrom: 5,
+				periodTo: 6,
+				lesson: expect.objectContaining({ id: wide.id, title: wide.title, topicName: 'Forces' })
+			})
+		]);
+		expect(agendaLookBack(db, { today: '2026-09-18' }).at(-1)).toMatchObject({
+			date: '2026-09-17',
+			periodFrom: 5,
+			periodTo: 6,
+			lesson: { id: continued.id }
+		});
+	});
+});
+
 describe('the Calendar', () => {
 	// The first Teaching Week (issue #28's fixture) has weekCommencing 2026-08-31, a Monday two
 	// days before Term 1 opens Thursday 3 Sep — so Mon/Tue/Wed that week fall outside every Term
