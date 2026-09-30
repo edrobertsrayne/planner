@@ -76,5 +76,8 @@
 		"reset:credentials": "bun scripts/reset-credentials.ts",
 		"implement": "scripts/implement.sh"
 	},
-	"type": "module"
+	"type": "module",
+	"patchedDependencies": {
+		"svelte-adapter-bun@1.0.1": "patches/svelte-adapter-bun@1.0.1.patch"
+	}
 }

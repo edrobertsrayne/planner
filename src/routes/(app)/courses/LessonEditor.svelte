@@ -69,7 +69,7 @@
 	let fileInput: HTMLInputElement | null = $state(null);
 
 	// Mirrors attachments.ts's MAX_BYTES (spec #219): a file over this never reaches the form
-	// action, since a body over the server's own request-size cap (Dockerfile's BODY_SIZE_LIMIT)
+	// action, since a body over the server's own request-size cap (src/lib/server/body-limit.ts)
 	// fails before the action runs, turning what should be this same readable refusal into a
 	// SvelteKit error page instead.
 	const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;

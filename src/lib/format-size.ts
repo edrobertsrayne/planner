@@ -1,6 +1,6 @@
 // The human-sized form of an Attachment's byte count — "512 kB", not 524288 — for the row that
 // shows a file's size beside its name.
-const UNITS = ['B', 'kB', 'MB'] as const;
+const UNITS = ['B', 'kB', 'MB', 'GB'] as const;
 
 export function formatSize(bytes: number): string {
 	let value = bytes;

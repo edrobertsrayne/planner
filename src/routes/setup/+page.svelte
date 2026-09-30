@@ -10,6 +10,45 @@
 
 	let { form }: { form: ActionData } = $props();
 
+	let restoring = $state(false);
+	let restoreError = $state('');
+
+	// The file itself is the request body, so the browser streams it from disk and the server
+	// streams it to disk: a Backup with a great many Attachments is never held in memory.
+	async function restore(event: SubmitEvent) {
+		event.preventDefault();
+		const file = new FormData(event.currentTarget as HTMLFormElement).get('backup');
+		if (!(file instanceof File) || file.size === 0) {
+			restoreError = 'Choose a Backup file.';
+			return;
+		}
+
+		restoring = true;
+		restoreError = '';
+		try {
+			const response = await fetch('/setup/restore', { method: 'POST', body: file });
+			if (response.ok) {
+				window.location.assign('/login');
+				return;
+			}
+			restoreError = await failureMessage(response);
+		} catch {
+			restoreError = 'The upload did not reach the server. Check your connection and try again.';
+		}
+		restoring = false;
+	}
+
+	async function failureMessage(response: Response) {
+		if (response.status === 413) {
+			return 'A proxy in front of the planner refused a file this large. Reach the planner directly, or raise the proxy limit.';
+		}
+		try {
+			return (await response.json()).error ?? 'The Restore failed.';
+		} catch {
+			return 'The Restore failed.';
+		}
+	}
+
 	const isNameInvalid = $derived(
 		Boolean(form?.error === 'Name and email are required.' && !form.name)
 	);
@@ -105,6 +144,36 @@
 						</Field.Field>
 
 						<Button type="submit" class="w-full">Create account</Button>
+					</Field.FieldGroup>
+				</form>
+			</Card.Content>
+		</Card.Root>
+
+		<Card.Root>
+			<Card.Header class="text-center">
+				<Card.Title class="text-xl">Restore from a Backup</Card.Title>
+				<Card.Description>
+					Moving from another planner? Choose the file that Back up saved there. You sign in with
+					the password from that planner.
+				</Card.Description>
+			</Card.Header>
+			<Card.Content class="flex flex-col gap-6">
+				{#if restoreError}
+					<Alert.Root variant="destructive">
+						<Alert.Description>{restoreError}</Alert.Description>
+					</Alert.Root>
+				{/if}
+
+				<form onsubmit={restore}>
+					<Field.FieldGroup>
+						<Field.Field>
+							<Field.FieldLabel for="backup">Backup file</Field.FieldLabel>
+							<Input id="backup" type="file" name="backup" accept=".tar" required />
+						</Field.Field>
+
+						<Button type="submit" variant="outline" class="w-full" disabled={restoring}>
+							{restoring ? 'Restoring…' : 'Restore'}
+						</Button>
 					</Field.FieldGroup>
 				</form>
 			</Card.Content>
