@@ -21,6 +21,12 @@ describe('formatSize', () => {
 		expect(formatSize(1_048_100)).toBe('1.0 MB');
 	});
 
+	test('sizes in gigabytes keep the same rules', () => {
+		expect(formatSize(5 * 1024 ** 3)).toBe('5.0 GB');
+		expect(formatSize(1023.5 * 1024 * 1024)).toBe('1.0 GB');
+		expect(formatSize(10 * 1024 ** 3)).toBe('10 GB');
+	});
+
 	test('from ten units up the size is a whole figure', () => {
 		expect(formatSize(512 * 1024)).toBe('512 kB');
 		expect(formatSize(10 * 1024 * 1024)).toBe('10 MB');

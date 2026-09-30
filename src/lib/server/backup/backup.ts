@@ -16,7 +16,8 @@ export function expectedBackupSize(client: Database): number {
 		'SELECT page_count * page_size AS bytes FROM pragma_page_count(), pragma_page_size()'
 	);
 	const files = client.query<{ bytes: number }, []>(
-		'SELECT COALESCE(SUM(size), 0) AS bytes FROM attachment'
+		// Each tar entry adds a 512-byte header and up to 511 bytes of padding.
+		'SELECT COALESCE(SUM(size) + 1024 * COUNT(*), 0) AS bytes FROM attachment'
 	);
 	return pages.get()!.bytes + files.get()!.bytes;
 }

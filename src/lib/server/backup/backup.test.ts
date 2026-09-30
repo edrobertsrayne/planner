@@ -63,11 +63,7 @@ function streamOf(bytes: Uint8Array) {
 	return new Response(bytes as Uint8Array<ArrayBuffer>).body!;
 }
 
-function restoreInto(
-	target: ReturnType<typeof instance>,
-	archive: Uint8Array,
-	overrides: { assertNoUser?: () => Promise<void> } = {}
-) {
+function restoreInto(target: ReturnType<typeof instance>, archive: Uint8Array) {
 	let current = target;
 	const live: LiveDatabase = {
 		client: target.client,
@@ -83,7 +79,6 @@ function restoreInto(
 		contentLength: archive.length,
 		databaseUrl: target.databaseUrl,
 		live,
-		assertNoUser: overrides.assertNoUser ?? (async () => {}),
 		migrationsFolder: 'drizzle'
 	});
 	return { done, reopened: () => current };
@@ -199,18 +194,15 @@ describe('Restore refuses before it writes anything', () => {
 		expect(target.db.select().from(schema.course).all()).toHaveLength(1);
 	});
 
-	test('a user who appears before the swap', async () => {
+	test('an instance that already has a user', async () => {
 		const source = instance();
 		populate(source);
 		const archive = await collect(createBackup(source.client, source.databaseUrl).body);
 
 		const target = instance();
-		const restore = restoreInto(target, archive, {
-			assertNoUser: async () => {
-				throw new RestoreRefused('A user exists.');
-			}
-		});
-		await expect(restore.done).rejects.toThrow('A user exists.');
+		target.client.run("INSERT INTO user (id, name, email) VALUES ('u1', 'Ed', 'ed@example.com')");
+		await expect(restoreInto(target, archive).done).rejects.toThrow(/already has an account/);
 		expect(target.db.select().from(schema.course).all()).toEqual([]);
+		expect(scratch(target)).toEqual([]);
 	});
 });

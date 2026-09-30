@@ -40,13 +40,17 @@ async function startB() {
 		},
 		stdio: 'ignore'
 	});
+	let exited = false;
+	instanceB.on('exit', () => (exited = true));
 	await expect
 		.poll(
 			() =>
-				fetch(`${B}/setup`).then(
-					(r) => r.ok,
-					() => false
-				),
+				exited
+					? Promise.reject(new Error('Instance B exited; is port 4174 already in use?'))
+					: fetch(`${B}/setup`).then(
+							(r) => r.ok,
+							() => false
+						),
 			{ timeout: 30_000 }
 		)
 		.toBe(true);
@@ -58,14 +62,15 @@ test.describe.serial('Back up and Restore', () => {
 	let apiKey: string;
 
 	test.beforeAll(async ({ browser }) => {
+		test.setTimeout(60_000);
 		page = await browser.newPage();
 		await startB();
 	});
 
 	test.afterAll(async () => {
 		instanceB?.kill();
-		rmSync(folder, { recursive: true, force: true });
-		await page.close();
+		if (folder) rmSync(folder, { recursive: true, force: true });
+		await page?.close();
 	});
 
 	test('Settings warns that the Backup is secret and shows its expected size', async () => {
@@ -102,6 +107,15 @@ test.describe.serial('Back up and Restore', () => {
 			await page.goto(`${B}/setup`);
 			await expect(page.getByText('Set up Planner', { exact: true })).toBeVisible();
 		}
+	});
+
+	test('a Restore body over 12 MB reaches the route, which refuses it as not a Backup', async () => {
+		const attempt = await page.request.post(`${B}/setup/restore`, {
+			data: Buffer.alloc(13 * MB),
+			headers: { 'Content-Type': 'application/octet-stream' },
+			maxRedirects: 0
+		});
+		expect(attempt.status()).toBe(400);
 	});
 
 	test('Restoring into B recreates A: the same records, Attachments and API key', async () => {

@@ -54,8 +54,6 @@ export async function restoreBackup(options: {
 	contentLength: number | null;
 	databaseUrl: string;
 	live: LiveDatabase;
-	/** Awaited immediately before the swap: throws `RestoreRefused` if a user now exists. */
-	assertNoUser: () => Promise<void>;
 	migrationsFolder?: string;
 }): Promise<void> {
 	const { databaseUrl, live } = options;
@@ -85,7 +83,6 @@ export async function restoreBackup(options: {
 		if (hasPlannerData(live.client)) {
 			throw new RestoreRefused('This planner already holds data, so it cannot be restored over.');
 		}
-		await options.assertNoUser();
 
 		swap(databaseUrl, stagedDatabase, stagedAttachments, live);
 	} finally {
@@ -189,15 +186,19 @@ function hasPlannerData(client: Database): boolean {
 	return tables.some((name) => client.query(`SELECT 1 FROM "${name}" LIMIT 1`).get() !== null);
 }
 
-/** The only step that touches live files. Synchronous, so nothing else runs between the checks
- * before it and the moves in it. The database is reopened whatever happens: a failed swap leaves
- * no database file, so the reopened one is empty and the wizard is still open. */
+/** The only step that touches live files. It checks for a user and then moves the files in one
+ * synchronous block, so a wizard sign-up cannot slip in between. The database is reopened whatever
+ * happens: a failed swap leaves no database file, so the reopened one is empty and the wizard is
+ * still open. */
 function swap(
 	databaseUrl: string,
 	stagedDatabase: string,
 	stagedAttachments: string,
 	live: LiveDatabase
 ) {
+	if (live.client.query('SELECT 1 FROM "user" LIMIT 1').get() !== null) {
+		throw new RestoreRefused('This planner already has an account.');
+	}
 	live.close();
 	try {
 		const liveAttachments = attachmentsDir(databaseUrl);

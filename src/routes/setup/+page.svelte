@@ -17,6 +17,7 @@
 	// streams it to disk: a Backup with a great many Attachments is never held in memory.
 	async function restore(event: SubmitEvent) {
 		event.preventDefault();
+		if (restoring) return;
 		const file = new FormData(event.currentTarget as HTMLFormElement).get('backup');
 		if (!(file instanceof File) || file.size === 0) {
 			restoreError = 'Choose a Backup file.';
@@ -26,12 +27,21 @@
 		restoring = true;
 		restoreError = '';
 		try {
-			const response = await fetch('/setup/restore', { method: 'POST', body: file });
-			if (response.ok) {
+			// Manual: once an account exists the guard redirects this request, and following the
+			// redirect would show the login page's 200 as if the Restore had worked.
+			const response = await fetch('/setup/restore', {
+				method: 'POST',
+				body: file,
+				redirect: 'manual'
+			});
+			if (response.type === 'opaqueredirect') {
+				restoreError = 'This planner already has an account, so nothing was restored.';
+			} else if (response.ok) {
 				window.location.assign('/login');
 				return;
+			} else {
+				restoreError = await failureMessage(response);
 			}
-			restoreError = await failureMessage(response);
 		} catch {
 			restoreError = 'The upload did not reach the server. Check your connection and try again.';
 		}
