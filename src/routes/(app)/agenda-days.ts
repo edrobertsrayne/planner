@@ -34,6 +34,6 @@ export function tagsIn(rows: readonly TaggedRow[]): string[] {
 
 // The last day a horizon of `horizonDays` covers, today counting as the first — the same
 // arithmetic the load's `agenda` call applies when it filters, so prose about the window names
-// the day it actually reaches.
-export const horizonEndsOn = (today: string, horizonDays: number) =>
-	addDays(today, horizonDays - 1);
+// the day it actually reaches. The All horizon reaches the last day of the last Term.
+export const horizonEndsOn = (today: string, horizon: number | 'all', lastTermCloses: string) =>
+	horizon === 'all' ? lastTermCloses : addDays(today, horizon - 1);

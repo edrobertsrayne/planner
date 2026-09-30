@@ -275,6 +275,20 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		await expect(page.getByRole('radio', { name: 'Two Weeks' })).toBeChecked();
 	});
 
+	test("the Agenda's All horizon reaches past Four Weeks and survives a reload (issue #281)", async () => {
+		const days = page.locator('main section');
+		await page.goto('/?horizon=28');
+		await expect(days.first()).toBeVisible();
+		const fourWeeks = await days.count();
+
+		await page.getByRole('radio', { name: 'All' }).click();
+		await expect(page).toHaveURL(/horizon=all/);
+		await expect.poll(() => days.count()).toBeGreaterThan(fourWeeks);
+
+		await page.reload();
+		await expect(page.getByRole('radio', { name: 'All' })).toBeChecked();
+	});
+
 	test('the theme toggle persists across a reload', async () => {
 		await page.goto('/');
 		const isDark = () => page.evaluate(() => document.documentElement.classList.contains('dark'));

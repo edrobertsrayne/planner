@@ -16,8 +16,8 @@
 	let { data }: PageProps = $props();
 
 	// The horizon and the Tag share the query string, so a change to one keeps the other.
-	const setQuery = (horizonDays: number, tag: string | null) =>
-		replaceQuery(`?horizon=${horizonDays}${tag ? `&tag=${encodeURIComponent(tag)}` : ''}`);
+	const setQuery = (horizon: string | number, tag: string | null) =>
+		replaceQuery(`?horizon=${horizon}${tag ? `&tag=${encodeURIComponent(tag)}` : ''}`);
 
 	function openOccasion(row: (typeof data.rows)[number]) {
 		openSession({ classId: row.classId, date: row.date, period: row.periodFrom });
@@ -34,7 +34,7 @@
 			<Select.Root
 				type="single"
 				value={data.tag ?? ''}
-				onValueChange={(v) => setQuery(data.horizonDays, v || null)}
+				onValueChange={(v) => setQuery(data.horizon, v || null)}
 			>
 				<Select.Trigger size="sm" aria-label="Tag" class="w-40">
 					{data.tag ?? 'All tags'}
@@ -50,9 +50,9 @@
 				type="single"
 				variant="outline"
 				size="sm"
-				value={String(data.horizonDays)}
+				value={String(data.horizon)}
 				onValueChange={(v) => {
-					if (v) setQuery(Number(v), data.tag);
+					if (v) setQuery(v, data.tag);
 				}}
 			>
 				{#each AGENDA_HORIZONS as [n, label] (n)}
@@ -67,7 +67,7 @@
 			<p class="text-sm font-medium">Nothing in this window</p>
 			<p class="mt-1 text-sm text-muted-foreground">
 				{data.tag ? `No Lessons with the Tag “${data.tag}”` : 'No Class is timetabled'} between now and
-				{formatWeekday(horizonEndsOn(data.today, data.horizonDays))}.
+				{formatWeekday(horizonEndsOn(data.today, data.horizon, data.lastTermCloses))}.
 			</p>
 		</div>
 	{/if}
