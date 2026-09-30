@@ -113,16 +113,19 @@ function toEntries(
 // The chronological stream of upcoming Sessions across every Class, grouped by day (issue #34).
 // Windowed to a horizon of calendar days from `today` — so a weekend or a Blocked Day inside it
 // honestly produces no row, rather than being padded out to look like a full week of teaching.
+// A `null` horizon keeps every row to the close of the last Term (issue #281). `lastTermCloses`
+// is that day, for the prose about the window.
 export function agenda(
 	db: Db,
-	{ today, horizonDays }: { today: string; horizonDays: number }
-): AgendaEntry[] {
-	const horizonEnd = addDays(today, horizonDays);
+	{ today, horizonDays }: { today: string; horizonDays: number | null }
+): { rows: AgendaEntry[]; lastTermCloses: string } {
+	const horizonEnd = horizonDays === null ? null : addDays(today, horizonDays);
+	const cal = loadCalendar(db);
 	const batches = derivedRows(db, {
 		classes: listClasses(db),
-		cal: loadCalendar(db),
+		cal,
 		today,
-		keep: (r) => r.date < horizonEnd
+		keep: (r) => horizonEnd === null || r.date < horizonEnd
 	});
 	const readinessSet = new Set(
 		db
@@ -135,13 +138,17 @@ export function agenda(
 			.map((r) => `${r.lessonId}|${r.classId}`)
 	);
 
-	return toEntries(
-		db,
-		batches.flatMap(({ cls, rows }) =>
-			rows.map((r) => ({ cls, ...r, lessonId: r.lesson?.lessonId ?? null }))
+	return {
+		rows: toEntries(
+			db,
+			batches.flatMap(({ cls, rows }) =>
+				rows.map((r) => ({ cls, ...r, lessonId: r.lesson?.lessonId ?? null }))
+			),
+			(lessonId, classId) => readinessSet.has(`${lessonId}|${classId}`)
 		),
-		(lessonId, classId) => readinessSet.has(`${lessonId}|${classId}`)
-	);
+		// With no Terms, the window ends today.
+		lastTermCloses: cal.terms.reduce((last, t) => (t.closes > last ? t.closes : last), today)
+	};
 }
 
 const LOOK_BACK_DAYS = 7;
