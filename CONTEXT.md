@@ -263,13 +263,17 @@ agree on what to call them.
 
 **Agenda**:
 The chronological stream of upcoming Sessions across every Class, grouped by day, reaching a
-horizon the teacher chooses. Where the planner opens. An Open Slot appears as an ordinary row
+horizon the teacher chooses. Where the planner opens. Above today, the Agenda also shows the
+Sessions of the past seven days, grouped by day, oldest first. This look-back is read-only and
+fixed: the horizon changes only the days ahead. A past row carries no Ready tick. It opens the
+Session panel on its occasion, where the teacher reads the note. The past days are told apart
+from the days ahead by a step in shade, never a hue. An Open Slot appears as an ordinary row
 in its own position, marked as carrying no Lesson, because the teacher is teaching that Period and
 an Agenda that omitted it would report a free one — it carries no Ready tick, since there is no
-(Lesson, Class) pairing to key one on. Every other row carries the Ready tick for its Class, and
-this is the only screen on which Readiness is written; a row can be ticked only while it is on
-screen, with no reach beyond the chosen horizon and no ticking a past day. A Continuation's two
-rows share one Readiness record, so ticking either moves both.
+(Lesson, Class) pairing to key one on. Every other upcoming row carries the Ready tick for its
+Class, and this is the only screen on which Readiness is written; a row can be ticked only while
+it is on screen, with no reach beyond the chosen horizon and no ticking a past day. A
+Continuation's two rows share one Readiness record, so ticking either moves both.
 
 **Calendar**:
 One Teaching Week as a grid of Periods against days, showing which Class is taught when and what

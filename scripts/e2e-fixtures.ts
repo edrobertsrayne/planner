@@ -5,7 +5,8 @@
  * into the database instead, against the suite's own scratch database:
  *
  *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts find-lesson-id <title>
- *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts mark-taught <classId> <date> <period> <lessonId>
+ *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts mark-taught <classId> <date> <period> <lessonId> [note]
+ *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts unmark-taught <classId> <date> <period>
  *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts set-terms '<terms JSON>'
  *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts assign-topic <classLabel> <topicId>
  *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts create-class <label> <courseId>
@@ -13,7 +14,7 @@
  */
 import { DatabaseSync } from 'node:sqlite';
 import { drizzle } from 'drizzle-orm/node-sqlite';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import * as schema from '../src/lib/server/db/schema.ts';
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -41,12 +42,29 @@ switch (command) {
 		break;
 	}
 	case 'mark-taught': {
-		const [classId, date, periodRaw, lessonId] = args;
+		const [classId, date, periodRaw, lessonId, note] = args;
 		if (!classId || !date || !periodRaw || !lessonId) {
-			throw new Error('Usage: mark-taught <classId> <date> <period> <lessonId>');
+			throw new Error('Usage: mark-taught <classId> <date> <period> <lessonId> [note]');
 		}
 		db.insert(schema.session)
-			.values({ classId, date, period: Number(periodRaw), lessonId })
+			.values({ classId, date, period: Number(periodRaw), lessonId, note })
+			.run();
+		break;
+	}
+	// Takes a past Session back out, so a later file's Term save has no noted Session to report.
+	case 'unmark-taught': {
+		const [classId, date, periodRaw] = args;
+		if (!classId || !date || !periodRaw) {
+			throw new Error('Usage: unmark-taught <classId> <date> <period>');
+		}
+		db.delete(schema.session)
+			.where(
+				and(
+					eq(schema.session.classId, classId),
+					eq(schema.session.date, date),
+					eq(schema.session.period, Number(periodRaw))
+				)
+			)
 			.run();
 		break;
 	}

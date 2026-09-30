@@ -2,7 +2,7 @@ import { fail } from '@sveltejs/kit';
 import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
 import { trimmed } from '$lib/server/form';
-import { agenda, setReadiness } from '$lib/server/planner';
+import { agenda, agendaLookBack, setReadiness } from '$lib/server/planner';
 import { AGENDA_HORIZONS, type AgendaHorizonDays } from './agenda-horizons';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -16,7 +16,8 @@ export const load: PageServerLoad = ({ url }) => {
 	return {
 		today: today(),
 		horizonDays,
-		rows: agenda(db, { today: today(), horizonDays })
+		rows: agenda(db, { today: today(), horizonDays }),
+		lookBack: agendaLookBack(db, { today: today() })
 	};
 };
 
