@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { groupByDay, horizonEndsOn } from './agenda-days';
+import { filterByTag, groupByDay, horizonEndsOn, tagsIn } from './agenda-days';
 
 describe('groupByDay', () => {
 	test('groups a sorted stream into one day per date, in order (issue #87)', () => {
@@ -26,6 +26,45 @@ describe('groupByDay', () => {
 
 	test('an empty horizon groups to nothing', () => {
 		expect(groupByDay([])).toEqual([]);
+	});
+});
+
+const practical = { date: '2026-09-03', lesson: { tags: ['Practical'] } };
+const both = { date: '2026-09-03', lesson: { tags: ['Practical', 'Assessment'] } };
+const untagged = { date: '2026-09-04', lesson: { tags: [] } };
+const openSlot = { date: '2026-09-04', lesson: null };
+const rows = [practical, both, untagged, openSlot];
+
+describe('filterByTag (issue #280)', () => {
+	test('keeps only the Lessons with the Tag, and drops Open Slots', () => {
+		expect(filterByTag(rows, 'Practical')).toEqual([practical, both]);
+	});
+
+	test('a Lesson with two Tags is kept under either filter', () => {
+		expect(filterByTag(rows, 'Assessment')).toEqual([both]);
+	});
+
+	test('the match is exact', () => {
+		expect(filterByTag(rows, 'practical')).toEqual([]);
+	});
+
+	test('no Tag keeps every row, Open Slots included', () => {
+		expect(filterByTag(rows, null)).toEqual(rows);
+	});
+});
+
+describe('tagsIn (issue #280)', () => {
+	test('lists each distinct Tag once, in alphabetical order, and Open Slots add none', () => {
+		expect(tagsIn(rows)).toEqual(['Assessment', 'Practical']);
+	});
+
+	test('alphabetical order ignores case', () => {
+		const tagged = (tags: string[]) => ({ date: '2026-09-03', lesson: { tags } });
+		expect(tagsIn([tagged(['Practical']), tagged(['biology'])])).toEqual(['biology', 'Practical']);
+	});
+
+	test('an empty window has no Tags', () => {
+		expect(tagsIn([])).toEqual([]);
 	});
 });
 
