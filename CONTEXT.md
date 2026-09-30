@@ -324,6 +324,8 @@ The stream of upcoming Lessons by planning status — which are still Draft, whi
 ordered by soonest next Scheduled occurrence, Lessons with no scheduled occurrence last. Keyed by
 Lesson rather than by Class, so it shows the shared plan and never shows Readiness: what the
 teacher has not yet written is one question, and whether one Class is set to be taught is another.
+The screen can be narrowed to one Class; it then lists only that Class's upcoming Lessons, ordered
+by that Class's Sessions.
 Note that this names a _screen_; "planning" unqualified means the activity, and the Planning half
 of the Language above names its parts.
 

@@ -391,8 +391,9 @@ export interface PlanningEntry {
 
 // The Planning stream: one row per Lesson across every Course and Topic, ordered by soonest next
 // Scheduled occurrence on or after `today` across all Classes (ADR-0007). Lessons with no scheduled
-// occurrence sit at the bottom.
-export function planningStream(db: Db, today: string): PlanningEntry[] {
+// occurrence sit at the bottom. Given a `classId`, the occurrence comes from that Class's schedule
+// only, and Lessons it does not teach from `today` on are left out.
+export function planningStream(db: Db, today: string, classId?: string): PlanningEntry[] {
 	const lessons = db
 		.select({
 			id: schema.lesson.id,
@@ -410,7 +411,7 @@ export function planningStream(db: Db, today: string): PlanningEntry[] {
 		.all();
 
 	const cal = loadCalendar(db);
-	const classes = listClasses(db);
+	const classes = listClasses(db).filter((c) => !classId || c.id === classId);
 
 	const soonestByLesson = new Map<string, PlanningOccurrence>();
 
@@ -440,16 +441,18 @@ export function planningStream(db: Db, today: string): PlanningEntry[] {
 		lessons.map((l) => l.id)
 	);
 
-	const entries: EntryWithPosition[] = lessons.map((l) => ({
-		id: l.id,
-		title: l.title,
-		topicName: l.topicName,
-		courseName: l.courseName,
-		status: l.status,
-		position: l.position,
-		occurrence: soonestByLesson.get(l.id) ?? null,
-		tags: tags.get(l.id) ?? []
-	}));
+	const entries: EntryWithPosition[] = lessons
+		.filter((l) => !classId || soonestByLesson.has(l.id))
+		.map((l) => ({
+			id: l.id,
+			title: l.title,
+			topicName: l.topicName,
+			courseName: l.courseName,
+			status: l.status,
+			position: l.position,
+			occurrence: soonestByLesson.get(l.id) ?? null,
+			tags: tags.get(l.id) ?? []
+		}));
 
 	const compareSecondary = (a: EntryWithPosition, b: EntryWithPosition) => {
 		const ca = a.courseName ?? '';
