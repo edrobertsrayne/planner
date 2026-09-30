@@ -1,0 +1,3 @@
+# Type check and unit tests, once per push. The e2e suite runs in CI.
+bun run check
+bun run test:unit -- --run
