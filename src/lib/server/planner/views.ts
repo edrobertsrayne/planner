@@ -1,11 +1,19 @@
-// The two derived views over every Class at once: the Agenda's chronological stream and the
-// Calendar's one-week grid. Both run the same `scheduleFor` every write and every other read
-// runs, so a cell, an Agenda row and the Session panel can never disagree about one occasion.
-import { eq } from 'drizzle-orm';
-import { addDays } from '$lib/date';
+// The derived views over every Class at once: the Agenda's chronological stream, its look-back
+// over the past week, and the Calendar's one-week grid. The forward views run the same
+// `scheduleFor` every write and every other read runs, so a cell, an Agenda row and the Session
+// panel can never disagree about one occasion. The look-back reads the recorded Sessions.
+import { and, eq, gte, isNotNull, lt } from 'drizzle-orm';
+import { addDays, weekday } from '$lib/date';
 import * as schema from '../db/schema';
 import { tagsByLesson, type LessonStatus } from './authoring';
-import { lessonNames, loadCalendar, scheduleFor, type Db, type LessonName } from './derive';
+import {
+	lessonNames,
+	loadCalendar,
+	scheduleFor,
+	teachingWeeks,
+	type Db,
+	type LessonName
+} from './derive';
 import { agendaRows, inAnyTerm, slotHolds, type AgendaRow, type Calendar } from './engine';
 import { listClasses } from './classes';
 
@@ -39,9 +47,6 @@ const namesFor = (db: Db, batches: Batch[]) =>
 		)
 	]);
 
-const sortKey = (r: { date: string; periodFrom: number }) =>
-	r.date + String(r.periodFrom).padStart(2, '0');
-
 export interface AgendaEntry {
 	classId: string;
 	classLabel: string;
@@ -59,6 +64,52 @@ export interface AgendaEntry {
 	} | null;
 }
 
+// One Agenda row before its Lesson is looked up: the part `agenda` and `agendaLookBack` differ on.
+type Occasion = {
+	cls: ClassRow;
+	date: string;
+	week: 'A' | 'B';
+	periodFrom: number;
+	periodTo: number;
+	lessonId: string | null;
+};
+
+// Title, Topic and Tags for every Lesson in one query each, then sorted by date and Period.
+function toEntries(
+	db: Db,
+	occasions: Occasion[],
+	ready: (lessonId: string, classId: string) => boolean
+): AgendaEntry[] {
+	const lessonIds = [...new Set(occasions.flatMap((o) => (o.lessonId ? [o.lessonId] : [])))];
+	const names = lessonNames(db, lessonIds);
+	const tags = tagsByLesson(db, lessonIds);
+
+	return occasions
+		.map(({ cls, lessonId, ...o }) => {
+			const lessonInfo = lessonId ? names.get(lessonId) : undefined;
+			return {
+				classId: cls.id,
+				classLabel: cls.label,
+				tone: cls.tone,
+				date: o.date,
+				week: o.week,
+				periodFrom: o.periodFrom,
+				periodTo: o.periodTo,
+				lesson:
+					lessonId && lessonInfo
+						? {
+								id: lessonId,
+								title: lessonInfo.title,
+								topicName: lessonInfo.topicName,
+								ready: ready(lessonId, cls.id),
+								tags: tags.get(lessonId) ?? []
+							}
+						: null
+			};
+		})
+		.sort((a, b) => a.date.localeCompare(b.date) || a.periodFrom - b.periodFrom);
+}
+
 // The chronological stream of upcoming Sessions across every Class, grouped by day (issue #34).
 // Windowed to a horizon of calendar days from `today` — so a weekend or a Blocked Day inside it
 // honestly produces no row, rather than being padded out to look like a full week of teaching.
@@ -73,12 +124,6 @@ export function agenda(
 		today,
 		keep: (r) => r.date < horizonEnd
 	});
-	const names = namesFor(db, batches);
-	const tags = tagsByLesson(db, [
-		...new Set(
-			batches.flatMap(({ rows }) => rows.flatMap((r) => (r.lesson ? [r.lesson.lessonId] : [])))
-		)
-	]);
 	const readinessSet = new Set(
 		db
 			.select({
@@ -90,33 +135,69 @@ export function agenda(
 			.map((r) => `${r.lessonId}|${r.classId}`)
 	);
 
-	return batches
-		.flatMap(({ cls, rows }) =>
-			rows.map((r) => {
-				const lessonId = r.lesson?.lessonId;
-				const lessonInfo = lessonId ? names.get(lessonId) : undefined;
-				return {
-					classId: cls.id,
-					classLabel: cls.label,
-					tone: cls.tone,
-					date: r.date,
-					week: r.week,
-					periodFrom: r.periodFrom,
-					periodTo: r.periodTo,
-					lesson:
-						lessonId && lessonInfo
-							? {
-									id: lessonId,
-									title: lessonInfo.title,
-									topicName: lessonInfo.topicName,
-									ready: readinessSet.has(`${lessonId}|${cls.id}`),
-									tags: tags.get(lessonId) ?? []
-								}
-							: null
-				};
-			})
+	return toEntries(
+		db,
+		batches.flatMap(({ cls, rows }) =>
+			rows.map((r) => ({ cls, ...r, lessonId: r.lesson?.lessonId ?? null }))
+		),
+		(lessonId, classId) => readinessSet.has(`${lessonId}|${classId}`)
+	);
+}
+
+const LOOK_BACK_DAYS = 7;
+
+// The Sessions of the seven calendar days before `today`, across every Class (issue #273). Read
+// straight from the record: a Session dated before `today` is history, and nothing re-derives it.
+// A weekend, a Blocked Day or a holiday inside the window has no Session, so it gives no row. An
+// Open Slot has no Session either. Readiness is never read for a past day, so every row is not ready.
+export function agendaLookBack(db: Db, { today }: { today: string }): AgendaEntry[] {
+	const classes = new Map(listClasses(db).map((c) => [c.id, c]));
+	const letters = new Map(teachingWeeks(db).map((w) => [w.weekCommencing, w.letter]));
+	const sessions = db
+		.select({
+			classId: schema.session.classId,
+			date: schema.session.date,
+			period: schema.session.period,
+			lessonId: schema.session.lessonId
+		})
+		.from(schema.session)
+		.where(
+			and(
+				gte(schema.session.date, addDays(today, -LOOK_BACK_DAYS)),
+				lt(schema.session.date, today),
+				isNotNull(schema.session.lessonId)
+			)
 		)
-		.sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
+		.orderBy(schema.session.classId, schema.session.date, schema.session.period)
+		.all();
+
+	// A Lesson with Length above one, or a Continuation, is one row across its consecutive Periods.
+	const occasions: Occasion[] = [];
+	for (const s of sessions) {
+		const prev = occasions[occasions.length - 1];
+		if (
+			prev?.cls.id === s.classId &&
+			prev.date === s.date &&
+			prev.periodTo + 1 === s.period &&
+			prev.lessonId === s.lessonId
+		) {
+			prev.periodTo = s.period;
+			continue;
+		}
+		const cls = classes.get(s.classId);
+		const week = letters.get(addDays(s.date, 1 - weekday(s.date)));
+		if (!cls || !week) continue;
+		occasions.push({
+			cls,
+			date: s.date,
+			week,
+			periodFrom: s.period,
+			periodTo: s.period,
+			lessonId: s.lessonId
+		});
+	}
+
+	return toEntries(db, occasions, () => false);
 }
 
 export interface CalendarCell {
