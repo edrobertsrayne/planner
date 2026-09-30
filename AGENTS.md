@@ -15,11 +15,11 @@ When you find a simpler approach than the one agreed, say so before you build it
 
 ## Branches, pull requests and commits
 
-- Start every change on a new branch from `main`. Open a pull request into `main`.
+- `main` accepts changes only through a pull request. Start each change on a new branch from `main`.
 - One pull request does one thing.
-- The pull request is squash-merged. Write its title as the commit message: a conventional-commit type, then a short summary.
+- Write the pull request title as a conventional commit message. The squash merge uses it as the commit message.
 - Commit with `omp commit`.
-- Merge with `gh pr merge --squash --auto`. GitHub merges the pull request when the required checks pass.
+- Stop when the pull request is open. The user merges it.
 
 ## Tests
 
@@ -28,13 +28,6 @@ so each file depends on the files before it. One file alone starts on an empty d
 the first-run wizard, with an error about a duplicate "Password" field. That error is not a selector fault.
 You can run a unit test file alone: `bun run test:unit -- --run <file>`.
 Install the test browser once per machine: `bunx playwright install chromium`.
-
-The pre-commit hook formats and lints the staged files. The pre-push hook runs `bun run check` and
-the unit tests. CI runs lint, type check and the whole suite, and these checks block the merge.
-
-## Browser preview
-
-When Claude in Chrome is not available, drive the browser with `Bun.WebView` — the headless browser built into the Bun runtime. It navigates, clicks, types, and takes screenshots. See <https://bun.com/docs/runtime/webview.md>.
 
 ## Prototyping
 
