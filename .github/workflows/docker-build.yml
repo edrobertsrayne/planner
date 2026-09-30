@@ -4,6 +4,13 @@ on:
   pull_request:
     branches:
       - main
+    # Only files that change the image. The e2e job already runs `vite build` on every PR.
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - package.json
+      - bun.lock
+      - vite.config.ts
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
