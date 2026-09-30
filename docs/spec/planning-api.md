@@ -11,7 +11,7 @@ agent. Move it to `.claude/skills/planner-api/SKILL.md` when the API is built, n
 ## 1. Purpose and scope
 
 The API gives an outside agent write access to the **Planning** half of the domain: Course, Topic,
-Lesson and Link. It does two things.
+Lesson, Link and Attachment. It does two things.
 
 1. **CRUD.** Create, read, edit and remove one record at a time.
 2. **Import.** Create one Topic, with its Lessons and their Links, in a single all-or-nothing
@@ -387,7 +387,7 @@ two Lessons called "Revision".
 
 ### 5.3 Lesson
 
-**`GET /api/lessons/:id`** → 200, a Lesson **with its Links**:
+**`GET /api/lessons/:id`** → 200, a Lesson **with its Links and Attachments**:
 
 ```json
 {
@@ -404,6 +404,16 @@ two Lessons called "Revision".
 			"lessonId": "b204...",
 			"url": "https://...",
 			"label": "Simulation",
+			"position": 0
+		}
+	],
+	"attachments": [
+		{
+			"id": "e1f0...",
+			"lessonId": "b204...",
+			"filename": "worksheet.pdf",
+			"mimeType": "application/pdf",
+			"size": 48213,
 			"position": 0
 		}
 	]
@@ -499,6 +509,23 @@ Both optional. → 200, `Link`. → 404.
 
 There is no `GET /api/links/:id`. A Link is read through its Lesson, which is the only place it
 means anything.
+
+### 5.5.1 Attachment
+
+**`POST /api/lessons/:id/attachments`**
+
+`multipart/form-data` with one `file` field. It applies the same allow-list (PDF, .md, .txt, .docx,
+.pptx, .xlsx), the same 10 MiB ceiling and the same extension/MIME mismatch refusal as the Lesson
+editor, because both call `createAttachment`. → 201, the Attachment row (`id`, `lessonId`,
+`filename`, `mimeType`, `size`, `position`), appended at the end. → 404 if the Lesson does not
+exist. → 400 `{ "error" }` if there is no `file` field, the file has no name, or the file is
+refused; the message is the refusal's own. A refused upload writes no row and no file.
+
+**`DELETE /api/attachments/:id`** → 204. It removes the row and the file on disk. → 404.
+
+An Attachment is read through its Lesson (`attachments` on `GET /api/lessons/:id`, in `position`
+order). There is no list or download endpoint: downloads stay browser-only at `/attachments/:id`.
+Import does not take Attachments. An Attachment write never changes the schedule or `atRisk`.
 
 ### 5.6 Import
 
@@ -691,6 +718,8 @@ src/routes/api/topics/[id]/lessons/+server.ts        GET, POST
 src/routes/api/lessons/[id]/+server.ts               GET, PATCH, DELETE
 src/routes/api/lessons/[id]/links/+server.ts         GET, POST
 src/routes/api/links/[id]/+server.ts                 PATCH, DELETE
+src/routes/api/lessons/[id]/attachments/+server.ts   POST
+src/routes/api/attachments/[id]/+server.ts           DELETE
 src/routes/api/import/+server.ts                     POST
 ```
 

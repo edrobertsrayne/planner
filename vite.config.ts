@@ -53,6 +53,10 @@ export default defineConfig({
 
 			adapter: adapter(),
 
+			// Kit's origin check cannot be scoped to a path; `handleCsrf` in hooks.server.ts applies
+			// it to everything but `/api/*`, so a Bearer-key file upload is not refused.
+			csrf: { trustedOrigins: ['*'] },
+
 			typescript: {
 				config: (config) => {
 					config.include.push('../drizzle.config.ts', '../scripts/**/*.ts');

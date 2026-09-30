@@ -9,7 +9,13 @@ import {
 	validateLength,
 	getDateToday
 } from '$lib/server/api-helpers';
-import { attachmentsDir, lessonDetail, deleteLesson, patchLesson } from '$lib/server/planner';
+import {
+	attachmentsDir,
+	attachmentsOf,
+	lessonDetail,
+	deleteLesson,
+	patchLesson
+} from '$lib/server/planner';
 import type { RequestHandler } from './$types';
 
 const LESSON_FIELDS = new Set(['title', 'body', 'length', 'status', 'topicId']);
@@ -21,7 +27,7 @@ export const GET: RequestHandler = async (event) => {
 	const detail = lessonDetail(db, event.params.id);
 	if (!detail) return json({ error: 'Lesson not found.' }, { status: 404 });
 
-	return json(detail);
+	return json({ ...detail, attachments: attachmentsOf(db, event.params.id) });
 };
 
 export const PATCH: RequestHandler = async (event) => {
