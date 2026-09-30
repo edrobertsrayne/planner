@@ -16,6 +16,7 @@ export const load: PageServerLoad = ({ url }) => {
 	return {
 		today: today(),
 		horizonDays,
+		tag: url.searchParams.get('tag') || null,
 		rows: agenda(db, { today: today(), horizonDays })
 	};
 };

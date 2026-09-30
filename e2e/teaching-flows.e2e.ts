@@ -480,4 +480,52 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		const finalCheckbox = finalRow.getByRole('checkbox', { name: /Ready to teach/ });
 		await expect(finalCheckbox).not.toBeChecked();
 	});
+
+	test('the Agenda filters to one Tag, kept in the URL with the horizon (issue #280)', async () => {
+		const rows = page.locator('main li');
+		const tagControl = page.getByRole('button', { name: 'Tag', exact: true });
+		const openSlots = rows.filter({ hasText: 'Open Slot' });
+
+		await page.goto('/?horizon=28');
+		await expect(openSlots.first()).toBeVisible();
+
+		await tagControl.click();
+		await page.getByRole('option', { name: 'Practical' }).click();
+		await expect(page).toHaveURL(/horizon=28/);
+		await expect(page).toHaveURL(/tag=Practical/);
+		await expect(rows.filter({ hasText: '9B/Sc1' }).first()).toBeVisible();
+		await expect(openSlots).toHaveCount(0);
+		await expect(rows.filter({ hasNotText: 'Practical' })).toHaveCount(0);
+
+		// A filtered row keeps its Ready tick. Each tick waits for its write and a reload, because
+		// the write ends by reloading the page data, and that would cancel a navigation started first.
+		const checkbox = rows.first().getByRole('checkbox', { name: /Ready to teach/ });
+		const tick = () =>
+			Promise.all([
+				page.waitForResponse((r) => r.url().includes('setReadiness')),
+				checkbox.click()
+			]);
+		await tick();
+		await page.reload();
+		await expect(tagControl).toHaveText('Practical');
+		await expect(checkbox).toBeChecked();
+		await tick();
+		await page.reload();
+		await expect(checkbox).not.toBeChecked();
+
+		await page.getByRole('radio', { name: 'Two Weeks' }).click();
+		await expect(page).toHaveURL(/horizon=14/);
+		await expect(page).toHaveURL(/tag=Practical/);
+
+		await tagControl.click();
+		await page.getByRole('option', { name: 'All tags' }).click();
+		await expect(page).not.toHaveURL(/tag=/);
+		await expect(page).toHaveURL(/horizon=14/);
+		await expect(tagControl).toHaveText('All tags');
+
+		// A Tag with no Lesson in the window stays selected so it can be cleared.
+		await page.goto('/?horizon=7&tag=Nowhere');
+		await expect(tagControl).toHaveText('Nowhere');
+		await expect(page.getByText('No Lessons with the Tag “Nowhere”')).toBeVisible();
+	});
 });
