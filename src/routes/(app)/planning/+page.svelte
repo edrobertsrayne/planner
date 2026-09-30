@@ -9,6 +9,7 @@
 	import PageHeader from '$lib/components/page-header.svelte';
 	import PlacementsMovedAlert from '$lib/components/placements-moved-alert.svelte';
 	import TagChips from '$lib/components/tag-chips.svelte';
+	import * as Select from '$lib/components/ui/select/index.js';
 	import LessonEditor from '../courses/LessonEditor.svelte';
 	import type { PageProps } from './$types';
 
@@ -49,6 +50,20 @@
 	);
 
 	const visible = $derived(size === 'all' ? filtered : filtered.slice(0, size));
+
+	const ALL_CLASSES = 'all';
+
+	// The one place the page's URL is built. The Class filter lives in it, so opening and closing
+	// a Lesson keeps the filter.
+	function href(classId: string | undefined, lessonId: string | null) {
+		const query = [classId && `class=${classId}`, lessonId && `lesson=${lessonId}`].filter(Boolean);
+		return query.length > 0 ? `?${query.join('&')}` : '/planning';
+	}
+
+	const hrefFor = (lessonId: string | null) => href(data.classId, lessonId);
+
+	const setClass = (classId: string) =>
+		replaceQuery(href(classId === ALL_CLASSES ? undefined : classId, null));
 </script>
 
 <svelte:head><title>Planning</title></svelte:head>
@@ -63,7 +78,7 @@
 		<PlacementsMovedAlert placementsMoved={form.placementsMoved} />
 	{/if}
 
-	{#if data.stream.length === 0}
+	{#if data.stream.length === 0 && !data.classId}
 		<div class="mt-6 rounded-xl border border-dashed px-6 py-12 text-center">
 			<p class="text-sm font-medium">No Lessons yet</p>
 			<p class="mt-1 text-sm text-muted-foreground">
@@ -72,23 +87,37 @@
 		</div>
 	{:else}
 		<div class="mt-6 flex flex-wrap items-center justify-between gap-2">
-			<div class="flex items-center gap-1" role="group" aria-label="Filter by planning status">
-				{#each FILTERS as f (f.key)}
-					{@const on = filter === f.key}
-					{@const tone = f.key === 'all' ? null : statusTone(f.key)}
-					<button
-						type="button"
-						aria-pressed={on}
-						class="rounded-full border px-3 py-1 text-xs font-medium transition-colors {on
-							? 'border-transparent'
-							: 'hover:bg-muted'} {on && !tone ? 'bg-primary text-primary-foreground' : ''}"
-						style:background-color={on && tone ? tone.bg : undefined}
-						style:color={on && tone ? tone.fg : undefined}
-						onclick={() => (filter = f.key)}
-					>
-						{f.name} <span class="tabular-nums opacity-60">{tally[f.key]}</span>
-					</button>
-				{/each}
+			<div class="flex flex-wrap items-center gap-2">
+				<Select.Root type="single" value={data.classId ?? ALL_CLASSES} onValueChange={setClass}>
+					<Select.Trigger size="sm" class="h-7 w-40 text-xs" aria-label="Filter by Class">
+						{data.classes.find((c) => c.id === data.classId)?.label ?? 'All classes'}
+					</Select.Trigger>
+					<Select.Content>
+						<Select.Item value={ALL_CLASSES} label="All classes" />
+						{#each data.classes as c (c.id)}
+							<Select.Item value={c.id} label={c.label} />
+						{/each}
+					</Select.Content>
+				</Select.Root>
+
+				<div class="flex items-center gap-1" role="group" aria-label="Filter by planning status">
+					{#each FILTERS as f (f.key)}
+						{@const on = filter === f.key}
+						{@const tone = f.key === 'all' ? null : statusTone(f.key)}
+						<button
+							type="button"
+							aria-pressed={on}
+							class="rounded-full border px-3 py-1 text-xs font-medium transition-colors {on
+								? 'border-transparent'
+								: 'hover:bg-muted'} {on && !tone ? 'bg-primary text-primary-foreground' : ''}"
+							style:background-color={on && tone ? tone.bg : undefined}
+							style:color={on && tone ? tone.fg : undefined}
+							onclick={() => (filter = f.key)}
+						>
+							{f.name} <span class="tabular-nums opacity-60">{tally[f.key]}</span>
+						</button>
+					{/each}
+				</div>
 			</div>
 
 			<div
@@ -149,7 +178,7 @@
 									onclick={() =>
 										placed && s
 											? openSession({ classId: s.classId, date: s.date, period: s.period })
-											: replaceQuery(`?lesson=${lesson.id}`)}
+											: replaceQuery(hrefFor(lesson.id))}
 								>
 									{lesson.title}
 								</button>
@@ -197,6 +226,8 @@
 					No Draft Lessons
 				{:else if filter === 'planned'}
 					No Planned Lessons
+				{:else if data.classId}
+					No upcoming Lessons for this Class
 				{:else}
 					No Lessons to show
 				{/if}
@@ -227,6 +258,6 @@
 		topicId={data.topic.id}
 		topics={data.topics}
 		taughtBy={data.taughtBy}
-		hrefFor={(lessonId) => (lessonId ? `?lesson=${lessonId}` : '/planning')}
+		{hrefFor}
 	/>
 {/if}

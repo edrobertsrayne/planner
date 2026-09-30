@@ -275,6 +275,20 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		await expect(page.getByRole('radio', { name: 'Two Weeks' })).toBeChecked();
 	});
 
+	test("the Agenda's All horizon reaches past Four Weeks and survives a reload (issue #281)", async () => {
+		const days = page.locator('main section');
+		await page.goto('/?horizon=28');
+		await expect(days.first()).toBeVisible();
+		const fourWeeks = await days.count();
+
+		await page.getByRole('radio', { name: 'All' }).click();
+		await expect(page).toHaveURL(/horizon=all/);
+		await expect.poll(() => days.count()).toBeGreaterThan(fourWeeks);
+
+		await page.reload();
+		await expect(page.getByRole('radio', { name: 'All' })).toBeChecked();
+	});
+
 	test('the theme toggle persists across a reload', async () => {
 		await page.goto('/');
 		const isDark = () => page.evaluate(() => document.documentElement.classList.contains('dark'));
@@ -407,6 +421,45 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		await expect(motionRow.getByText('Practical', { exact: true })).toBeVisible();
 	});
 
+	test('the Planning tab narrows to one Class, kept in the URL across a reload', async () => {
+		await page.goto('/planning');
+		const allFilter = page.getByRole('button', { name: /^All\s+\d+$/ });
+		const plannedFilter = page.getByRole('button', { name: /^Planned\s+\d+$/ });
+		await expect(allFilter).toContainText('11');
+
+		await page.getByRole('button', { name: 'Filter by Class' }).click();
+		await page.getByRole('option', { name: '9B/Sc1' }).click();
+		await page.waitForURL(`/planning?class=${classAId}`);
+
+		// Only 9B/Sc1's upcoming Lessons, each dated by 9B/Sc1, with no unscheduled tail.
+		const rows = page
+			.locator('li')
+			.filter({ has: page.getByRole('button', { name: 'Draft', exact: true }) });
+		await page.getByRole('button', { name: 'Show all' }).click();
+		await expect(rows.first()).toContainText('9B/Sc1');
+		await expect(rows.filter({ hasText: '9C/Sc1' })).toHaveCount(0);
+		await expect(rows.filter({ hasText: 'unscheduled' })).toHaveCount(0);
+		await expect(allFilter).not.toContainText('11');
+
+		await page.reload();
+		await expect(page.getByRole('button', { name: 'Filter by Class' })).toHaveText('9B/Sc1');
+		await expect(rows.filter({ hasText: 'unscheduled' })).toHaveCount(0);
+
+		// The status filter narrows the Class's list further: Motion is the one Planned Lesson.
+		await plannedFilter.click();
+		await expect(rows).toHaveCount(1);
+		await expect(rows.first()).toContainText('Motion');
+
+		await page.getByRole('button', { name: 'Filter by Class' }).click();
+		await page.getByRole('option', { name: 'All classes' }).click();
+		await page.waitForURL('/planning');
+		await expect(allFilter).toContainText('11');
+
+		await page.goto('/planning?class=no-such-class');
+		await expect(allFilter).toContainText('11');
+		await expect(page.getByRole('button', { name: 'Filter by Class' })).toHaveText('All classes');
+	});
+
 	test('a tagged Lesson shows its chip on the Agenda and Session panel, and click-through from the Calendar', async () => {
 		// Motion (9B/Sc1's next scheduled Lesson, carrying the Practical Tag attached above) is
 		// this Class's row both on the Agenda and on the current week's Calendar grid.
@@ -479,6 +532,54 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		const finalRow = page.locator('li').filter({ hasText: '9B/Sc1' }).first();
 		const finalCheckbox = finalRow.getByRole('checkbox', { name: /Ready to teach/ });
 		await expect(finalCheckbox).not.toBeChecked();
+	});
+
+	test('the Agenda filters to one Tag, kept in the URL with the horizon (issue #280)', async () => {
+		const rows = page.locator('main li');
+		const tagControl = page.getByRole('button', { name: 'Tag', exact: true });
+		const openSlots = rows.filter({ hasText: 'Open Slot' });
+
+		await page.goto('/?horizon=28');
+		await expect(openSlots.first()).toBeVisible();
+
+		await tagControl.click();
+		await page.getByRole('option', { name: 'Practical' }).click();
+		await expect(page).toHaveURL(/horizon=28/);
+		await expect(page).toHaveURL(/tag=Practical/);
+		await expect(rows.filter({ hasText: '9B/Sc1' }).first()).toBeVisible();
+		await expect(openSlots).toHaveCount(0);
+		await expect(rows.filter({ hasNotText: 'Practical' })).toHaveCount(0);
+
+		// A filtered row keeps its Ready tick. Each tick waits for its write and a reload, because
+		// the write ends by reloading the page data, and that would cancel a navigation started first.
+		const checkbox = rows.first().getByRole('checkbox', { name: /Ready to teach/ });
+		const tick = () =>
+			Promise.all([
+				page.waitForResponse((r) => r.url().includes('setReadiness')),
+				checkbox.click()
+			]);
+		await tick();
+		await page.reload();
+		await expect(tagControl).toHaveText('Practical');
+		await expect(checkbox).toBeChecked();
+		await tick();
+		await page.reload();
+		await expect(checkbox).not.toBeChecked();
+
+		await page.getByRole('radio', { name: 'Two Weeks' }).click();
+		await expect(page).toHaveURL(/horizon=14/);
+		await expect(page).toHaveURL(/tag=Practical/);
+
+		await tagControl.click();
+		await page.getByRole('option', { name: 'All tags' }).click();
+		await expect(page).not.toHaveURL(/tag=/);
+		await expect(page).toHaveURL(/horizon=14/);
+		await expect(tagControl).toHaveText('All tags');
+
+		// A Tag with no Lesson in the window stays selected so it can be cleared.
+		await page.goto('/?horizon=7&tag=Nowhere');
+		await expect(tagControl).toHaveText('Nowhere');
+		await expect(page.getByText('No Lessons with the Tag “Nowhere”')).toBeVisible();
 	});
 
 	test('the Agenda shows the past seven days above today, read-only and fixed', async () => {

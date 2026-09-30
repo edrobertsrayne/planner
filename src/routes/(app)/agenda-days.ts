@@ -18,8 +18,22 @@ export function groupByDay<Row extends { date: string }>(rows: readonly Row[]): 
 	return days;
 }
 
+// The Agenda's Tag filter (issue #280), applied to the rows the page already has. A Tag keeps only
+// the Lessons that carry it, by exact name, so Open Slots drop out; no Tag keeps every row.
+type TaggedRow = { lesson: { tags: readonly string[] } | null };
+
+export function filterByTag<Row extends TaggedRow>(rows: readonly Row[], tag: string | null) {
+	return tag === null ? rows : rows.filter((row) => row.lesson?.tags.includes(tag));
+}
+
+// The distinct Tag names on the Lessons in the window, in alphabetical order, for the filter control.
+export function tagsIn(rows: readonly TaggedRow[]): string[] {
+	const tags = new Set(rows.flatMap((row) => row.lesson?.tags ?? []));
+	return [...tags].sort((a, b) => a.localeCompare(b));
+}
+
 // The last day a horizon of `horizonDays` covers, today counting as the first — the same
 // arithmetic the load's `agenda` call applies when it filters, so prose about the window names
-// the day it actually reaches.
-export const horizonEndsOn = (today: string, horizonDays: number) =>
-	addDays(today, horizonDays - 1);
+// the day it actually reaches. The All horizon reaches the last day of the last Term.
+export const horizonEndsOn = (today: string, horizon: number | 'all', lastTermCloses: string) =>
+	horizon === 'all' ? lastTermCloses : addDays(today, horizon - 1);

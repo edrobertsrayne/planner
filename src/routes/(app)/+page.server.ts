@@ -3,20 +3,22 @@ import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
 import { trimmed } from '$lib/server/form';
 import { agenda, agendaLookBack, setReadiness } from '$lib/server/planner';
-import { AGENDA_HORIZONS, type AgendaHorizonDays } from './agenda-horizons';
+import { parseHorizon } from './agenda-horizons';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ url }) => {
-	const requested = Number(url.searchParams.get('horizon'));
-	const validDays = AGENDA_HORIZONS.map(([days]) => days);
-	const horizonDays: AgendaHorizonDays = validDays.includes(requested as AgendaHorizonDays)
-		? (requested as AgendaHorizonDays)
-		: 7;
+	const horizon = parseHorizon(url.searchParams.get('horizon'));
+	const { rows, lastTermCloses } = agenda(db, {
+		today: today(),
+		horizonDays: horizon === 'all' ? null : horizon
+	});
 
 	return {
 		today: today(),
-		horizonDays,
-		rows: agenda(db, { today: today(), horizonDays }),
+		horizon,
+		tag: url.searchParams.get('tag') || null,
+		rows,
+		lastTermCloses,
 		lookBack: agendaLookBack(db, { today: today() })
 	};
 };

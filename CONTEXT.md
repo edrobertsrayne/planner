@@ -263,17 +263,19 @@ agree on what to call them.
 
 **Agenda**:
 The chronological stream of upcoming Sessions across every Class, grouped by day, reaching a
-horizon the teacher chooses. Where the planner opens. Above today, the Agenda also shows the
-Sessions of the past seven days, grouped by day, oldest first. This look-back is read-only and
-fixed: the horizon changes only the days ahead. A past row carries no Ready tick. It opens the
-Session panel on its occasion, where the teacher reads the note. The past days are told apart
-from the days ahead by a step in shade, never a hue. An Open Slot appears as an ordinary row
-in its own position, marked as carrying no Lesson, because the teacher is teaching that Period and
-an Agenda that omitted it would report a free one — it carries no Ready tick, since there is no
-(Lesson, Class) pairing to key one on. Every other upcoming row carries the Ready tick for its
-Class, and this is the only screen on which Readiness is written; a row can be ticked only while
-it is on screen, with no reach beyond the chosen horizon and no ticking a past day. A
-Continuation's two rows share one Readiness record, so ticking either moves both.
+horizon the teacher chooses: a number of days, or **All**, to the end of the last Term. Where the
+planner opens. Above today, the Agenda also shows the Sessions of the past seven days, grouped by
+day, oldest first. This look-back is read-only and fixed: the horizon changes only the days ahead.
+A past row carries no Ready tick. It opens the Session panel on its occasion, where the teacher
+reads the note. The past days are told apart from the days ahead by a step in shade, never a hue.
+An Open Slot appears as an ordinary row in its own position, marked as carrying no Lesson, because
+the teacher is teaching that Period and an Agenda that omitted it would report a free one — it
+carries no Ready tick, since there is no (Lesson, Class) pairing to key one on. Every other
+upcoming row carries the Ready tick for its Class, and this is the only screen on which Readiness
+is written; a row can be ticked only while it is on screen, so the ticks reach only as far as the
+chosen horizon, and no past day can be ticked. A Continuation's two rows share one Readiness
+record, so ticking either moves both. The Agenda can be narrowed to one Tag: while a Tag filter is
+on, it shows only the Lessons with that Tag and hides Open Slots.
 
 **Calendar**:
 One Teaching Week as a grid of Periods against days, showing which Class is taught when and what
@@ -328,6 +330,8 @@ The stream of upcoming Lessons by planning status — which are still Draft, whi
 ordered by soonest next Scheduled occurrence, Lessons with no scheduled occurrence last. Keyed by
 Lesson rather than by Class, so it shows the shared plan and never shows Readiness: what the
 teacher has not yet written is one question, and whether one Class is set to be taught is another.
+The screen can be narrowed to one Class; it then lists only that Class's upcoming Lessons, ordered
+by that Class's Sessions.
 Note that this names a _screen_; "planning" unqualified means the activity, and the Planning half
 of the Language above names its parts.
 

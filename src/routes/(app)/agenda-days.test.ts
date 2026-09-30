@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { groupByDay, horizonEndsOn } from './agenda-days';
+import { filterByTag, groupByDay, horizonEndsOn, tagsIn } from './agenda-days';
 
 describe('groupByDay', () => {
 	test('groups a sorted stream into one day per date, in order (issue #87)', () => {
@@ -29,12 +29,55 @@ describe('groupByDay', () => {
 	});
 });
 
+const practical = { date: '2026-09-03', lesson: { tags: ['Practical'] } };
+const both = { date: '2026-09-03', lesson: { tags: ['Practical', 'Assessment'] } };
+const untagged = { date: '2026-09-04', lesson: { tags: [] } };
+const openSlot = { date: '2026-09-04', lesson: null };
+const rows = [practical, both, untagged, openSlot];
+
+describe('filterByTag (issue #280)', () => {
+	test('keeps only the Lessons with the Tag, and drops Open Slots', () => {
+		expect(filterByTag(rows, 'Practical')).toEqual([practical, both]);
+	});
+
+	test('a Lesson with two Tags is kept under either filter', () => {
+		expect(filterByTag(rows, 'Assessment')).toEqual([both]);
+	});
+
+	test('the match is exact', () => {
+		expect(filterByTag(rows, 'practical')).toEqual([]);
+	});
+
+	test('no Tag keeps every row, Open Slots included', () => {
+		expect(filterByTag(rows, null)).toEqual(rows);
+	});
+});
+
+describe('tagsIn (issue #280)', () => {
+	test('lists each distinct Tag once, in alphabetical order, and Open Slots add none', () => {
+		expect(tagsIn(rows)).toEqual(['Assessment', 'Practical']);
+	});
+
+	test('alphabetical order ignores case', () => {
+		const tagged = (tags: string[]) => ({ date: '2026-09-03', lesson: { tags } });
+		expect(tagsIn([tagged(['Practical']), tagged(['biology'])])).toEqual(['biology', 'Practical']);
+	});
+
+	test('an empty window has no Tags', () => {
+		expect(tagsIn([])).toEqual([]);
+	});
+});
+
 describe('horizonEndsOn', () => {
 	// The window is calendar days from today, today counting as the first — the same arithmetic
 	// `agenda` applies when it filters, so the prose names the day the horizon actually reaches.
-	test('the last day of a horizon is horizonDays − 1 after today', () => {
-		expect(horizonEndsOn('2026-09-03', 1)).toBe('2026-09-03');
-		expect(horizonEndsOn('2026-09-03', 7)).toBe('2026-09-09');
-		expect(horizonEndsOn('2026-09-28', 28)).toBe('2026-10-25');
+	test('the last day of a numeric horizon is horizon − 1 days after today', () => {
+		expect(horizonEndsOn('2026-09-03', 1, '2027-07-19')).toBe('2026-09-03');
+		expect(horizonEndsOn('2026-09-03', 7, '2027-07-19')).toBe('2026-09-09');
+		expect(horizonEndsOn('2026-09-28', 28, '2027-07-19')).toBe('2026-10-25');
+	});
+
+	test('the All horizon ends on the last day of the last Term (issue #281)', () => {
+		expect(horizonEndsOn('2026-09-03', 'all', '2027-07-19')).toBe('2027-07-19');
 	});
 });

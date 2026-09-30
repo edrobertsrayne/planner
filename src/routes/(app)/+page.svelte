@@ -6,21 +6,24 @@
 	import PageHeader from '$lib/components/page-header.svelte';
 	import TagChips from '$lib/components/tag-chips.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import * as Select from '$lib/components/ui/select/index.js';
 	import { ToggleGroup, ToggleGroupItem } from '$lib/components/ui/toggle-group';
 	import { AGENDA_HORIZONS } from './agenda-horizons';
-	import { groupByDay, horizonEndsOn } from './agenda-days';
+	import { filterByTag, groupByDay, horizonEndsOn, tagsIn } from './agenda-days';
 	import ReadyTick from './ready-tick.svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 
-	const setHorizon = (horizonDays: number) => replaceQuery(`?horizon=${horizonDays}`);
+	// The horizon and the Tag share the query string, so a change to one keeps the other.
+	const setQuery = (horizon: string | number, tag: string | null) =>
+		replaceQuery(`?horizon=${horizon}${tag ? `&tag=${encodeURIComponent(tag)}` : ''}`);
 
 	function openOccasion(row: (typeof data.rows)[number]) {
 		openSession({ classId: row.classId, date: row.date, period: row.periodFrom });
 	}
 
-	const days = $derived(groupByDay(data.rows));
+	const days = $derived(groupByDay(filterByTag(data.rows, data.tag)));
 	const pastDays = $derived(groupByDay(data.lookBack));
 </script>
 
@@ -29,13 +32,28 @@
 <div class="mx-auto max-w-3xl px-6 py-6">
 	<PageHeader title="Agenda" description="What is coming up, in order.">
 		{#snippet actions()}
+			<Select.Root
+				type="single"
+				value={data.tag ?? ''}
+				onValueChange={(v) => setQuery(data.horizon, v || null)}
+			>
+				<Select.Trigger size="sm" aria-label="Tag" class="w-40">
+					{data.tag ?? 'All tags'}
+				</Select.Trigger>
+				<Select.Content>
+					<Select.Item value="" label="All tags" />
+					{#each tagsIn(data.rows) as tag (tag)}
+						<Select.Item value={tag} label={tag} />
+					{/each}
+				</Select.Content>
+			</Select.Root>
 			<ToggleGroup
 				type="single"
 				variant="outline"
 				size="sm"
-				value={String(data.horizonDays)}
+				value={String(data.horizon)}
 				onValueChange={(v) => {
-					if (v) setHorizon(Number(v));
+					if (v) setQuery(v, data.tag);
 				}}
 			>
 				{#each AGENDA_HORIZONS as [n, label] (n)}
@@ -130,9 +148,8 @@
 		<div class="mt-6 rounded-xl border border-dashed px-6 py-12 text-center">
 			<p class="text-sm font-medium">Nothing in this window</p>
 			<p class="mt-1 text-sm text-muted-foreground">
-				No Class is timetabled between now and {formatWeekday(
-					horizonEndsOn(data.today, data.horizonDays)
-				)}.
+				{data.tag ? `No Lessons with the Tag “${data.tag}”` : 'No Class is timetabled'} between now and
+				{formatWeekday(horizonEndsOn(data.today, data.horizon, data.lastTermCloses))}.
 			</p>
 		</div>
 	{/if}

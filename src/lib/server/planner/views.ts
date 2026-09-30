@@ -113,16 +113,19 @@ function toEntries(
 // The chronological stream of upcoming Sessions across every Class, grouped by day (issue #34).
 // Windowed to a horizon of calendar days from `today` — so a weekend or a Blocked Day inside it
 // honestly produces no row, rather than being padded out to look like a full week of teaching.
+// A `null` horizon keeps every row to the close of the last Term (issue #281). `lastTermCloses`
+// is that day, for the prose about the window.
 export function agenda(
 	db: Db,
-	{ today, horizonDays }: { today: string; horizonDays: number }
-): AgendaEntry[] {
-	const horizonEnd = addDays(today, horizonDays);
+	{ today, horizonDays }: { today: string; horizonDays: number | null }
+): { rows: AgendaEntry[]; lastTermCloses: string } {
+	const horizonEnd = horizonDays === null ? null : addDays(today, horizonDays);
+	const cal = loadCalendar(db);
 	const batches = derivedRows(db, {
 		classes: listClasses(db),
-		cal: loadCalendar(db),
+		cal,
 		today,
-		keep: (r) => r.date < horizonEnd
+		keep: (r) => horizonEnd === null || r.date < horizonEnd
 	});
 	const readinessSet = new Set(
 		db
@@ -135,13 +138,17 @@ export function agenda(
 			.map((r) => `${r.lessonId}|${r.classId}`)
 	);
 
-	return toEntries(
-		db,
-		batches.flatMap(({ cls, rows }) =>
-			rows.map((r) => ({ cls, ...r, lessonId: r.lesson?.lessonId ?? null }))
+	return {
+		rows: toEntries(
+			db,
+			batches.flatMap(({ cls, rows }) =>
+				rows.map((r) => ({ cls, ...r, lessonId: r.lesson?.lessonId ?? null }))
+			),
+			(lessonId, classId) => readinessSet.has(`${lessonId}|${classId}`)
 		),
-		(lessonId, classId) => readinessSet.has(`${lessonId}|${classId}`)
-	);
+		// With no Terms, the window ends today.
+		lastTermCloses: cal.terms.reduce((last, t) => (t.closes > last ? t.closes : last), today)
+	};
 }
 
 const LOOK_BACK_DAYS = 7;
@@ -391,8 +398,9 @@ export interface PlanningEntry {
 
 // The Planning stream: one row per Lesson across every Course and Topic, ordered by soonest next
 // Scheduled occurrence on or after `today` across all Classes (ADR-0007). Lessons with no scheduled
-// occurrence sit at the bottom.
-export function planningStream(db: Db, today: string): PlanningEntry[] {
+// occurrence sit at the bottom. Given a `classId`, the occurrence comes from that Class's schedule
+// only, and Lessons it does not teach from `today` on are left out.
+export function planningStream(db: Db, today: string, classId?: string): PlanningEntry[] {
 	const lessons = db
 		.select({
 			id: schema.lesson.id,
@@ -410,7 +418,7 @@ export function planningStream(db: Db, today: string): PlanningEntry[] {
 		.all();
 
 	const cal = loadCalendar(db);
-	const classes = listClasses(db);
+	const classes = listClasses(db).filter((c) => !classId || c.id === classId);
 
 	const soonestByLesson = new Map<string, PlanningOccurrence>();
 
@@ -440,16 +448,18 @@ export function planningStream(db: Db, today: string): PlanningEntry[] {
 		lessons.map((l) => l.id)
 	);
 
-	const entries: EntryWithPosition[] = lessons.map((l) => ({
-		id: l.id,
-		title: l.title,
-		topicName: l.topicName,
-		courseName: l.courseName,
-		status: l.status,
-		position: l.position,
-		occurrence: soonestByLesson.get(l.id) ?? null,
-		tags: tags.get(l.id) ?? []
-	}));
+	const entries: EntryWithPosition[] = lessons
+		.filter((l) => !classId || soonestByLesson.has(l.id))
+		.map((l) => ({
+			id: l.id,
+			title: l.title,
+			topicName: l.topicName,
+			courseName: l.courseName,
+			status: l.status,
+			position: l.position,
+			occurrence: soonestByLesson.get(l.id) ?? null,
+			tags: tags.get(l.id) ?? []
+		}));
 
 	const compareSecondary = (a: EntryWithPosition, b: EntryWithPosition) => {
 		const ca = a.courseName ?? '';
