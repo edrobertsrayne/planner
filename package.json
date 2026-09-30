@@ -67,7 +67,7 @@
 		"format": "prettier --write .",
 		"test:unit": "bunx --bun vitest",
 		"test": "bun run test:unit -- --run && bun run test:e2e",
-		"test:e2e": "playwright install && playwright test",
+		"test:e2e": "playwright test",
 		"db:push": "drizzle-kit push",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",
