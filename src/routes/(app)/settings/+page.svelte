@@ -8,6 +8,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
+	import { formatSize } from '$lib/format-size';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import CheckIcon from '@lucide/svelte/icons/check';
@@ -192,6 +193,27 @@
 				{/if}
 			</p>
 		</Card.Content>
+	</Card.Root>
+
+	<Card.Root class="mt-8">
+		<Card.Header>
+			<Card.Title>Backup</Card.Title>
+			<Card.Description>
+				Saves everything in the planner to one file: every record and every Attachment. Restore it
+				into a new planner from the setup screen.
+			</Card.Description>
+		</Card.Header>
+
+		<Card.Content>
+			<p class="text-xs text-muted-foreground">
+				Expected size: up to {formatSize(data.backupSize)}. The file holds your login and API key.
+				Keep it secret.
+			</p>
+		</Card.Content>
+
+		<Card.Footer class="justify-end">
+			<Button href="/backup" download data-sveltekit-reload size="sm" class="h-7">Back up</Button>
+		</Card.Footer>
 	</Card.Root>
 
 	<Dialog.Root bind:open={confirmOpen}>

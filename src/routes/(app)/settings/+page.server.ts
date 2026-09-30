@@ -1,7 +1,8 @@
 import { fail } from '@sveltejs/kit';
 import { APIError } from 'better-auth/api';
 import { auth } from '$lib/server/auth';
-import { db } from '$lib/server/db/client';
+import { expectedBackupSize } from '$lib/server/backup/backup';
+import { client, db } from '$lib/server/db/client';
 import { apiKey } from '$lib/server/db/schema';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -21,11 +22,12 @@ export const load: PageServerLoad = async () => {
 		lastUsedAt: apiKey.lastUsedAt
 	};
 
+	const backupSize = expectedBackupSize(client);
 	const [key] = await db.select(columns).from(apiKey).limit(1);
-	if (key) return { key };
+	if (key) return { key, backupSize };
 
 	const [minted] = await db.insert(apiKey).values({ token: mintToken() }).returning(columns);
-	return { key: minted };
+	return { key: minted, backupSize };
 };
 
 export const actions: Actions = {

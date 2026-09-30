@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { readFile, rm } from 'node:fs/promises';
+import { readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 // Runs after teaching-flows.e2e.ts — the one user and the KS3 Science course already exist —
@@ -159,6 +159,9 @@ test.describe.serial('Attachments on Lessons', () => {
 		const response = await page.request.get(href!);
 		expect(response.status()).toBe(500);
 		expect(await response.text()).not.toContain('ENOENT');
+
+		// Put the file back: a Backup refuses a row with no file, and later specs back up this data.
+		await writeFile(join('attachments', id), Buffer.alloc(5, 0x67));
 	});
 
 	test('deleting an Attachment removes its row, and its link 404s afterward', async () => {

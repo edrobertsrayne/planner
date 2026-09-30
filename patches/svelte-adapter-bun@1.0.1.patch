@@ -1,0 +1,19 @@
+diff --git a/dist/files/handler.js b/dist/files/handler.js
+index 601766aaac9d28439ce054fd6aa1197e859a48e3..caccfb804225e8f5303793d8bef46b68b4bc2900 100644
+--- a/dist/files/handler.js
++++ b/dist/files/handler.js
+@@ -687,7 +687,13 @@ function serve_prerendered() {
+ var ssr = async (request, bunServer) => {
+   const baseOrigin = origin || get_origin(request.headers);
+   const url = request.url.slice(request.url.split("/", 3).join("/").length);
+-  const newRequest = new Request(baseOrigin + url, request);
++  const newRequest = new Request(baseOrigin + url, {
++    method: request.method,
++    headers: request.headers,
++    body: request.body,
++    signal: request.signal,
++    duplex: "half"
++  });
+   return server.respond(newRequest, {
+     platform: { server: bunServer, request },
+     getClientAddress() {

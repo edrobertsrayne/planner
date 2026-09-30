@@ -6,6 +6,7 @@
 FROM oven/bun:alpine AS deps
 WORKDIR /app
 COPY package.json bun.lock ./
+COPY patches patches
 RUN bun install --frozen-lockfile --production
 
 
@@ -23,6 +24,7 @@ ENV BETTER_AUTH_SECRET="build-time-placeholder-not-used-at-runtime"
 # install dependencies into temp directory
 # this will cache them and speed up future builds
 COPY package.json bun.lock ./
+COPY patches patches
 RUN bun install --frozen-lockfile
 COPY . .
 # .git is dockerignored, so CI passes the commit SHA in as a build arg (see the workflows).
@@ -45,7 +47,8 @@ ENV NODE_ENV=production
 ENV ORIGIN="http://localhost:3000"
 ENV BETTER_AUTH_URL="http://localhost:3000"
 ENV DATABASE_URL=local.db
-# Above the 10 MiB attachment ceiling plus multipart overhead: the adapter's Bun.serve would
-# otherwise reject a legal upload at its 512K default before the app's own validation runs.
-ENV BODY_SIZE_LIMIT=12M
+# Bun.serve has one body limit for the whole app, and Restore (ADR-0024) uploads a whole Backup, so
+# it is set far above any Backup. The limit for every other route, 12 MiB, is enforced in
+# src/hooks.server.ts instead — do not lower this without moving Restore's exemption.
+ENV BODY_SIZE_LIMIT=100G
 CMD [ "bun", "--bun", "run", "build/index.js" ]

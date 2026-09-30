@@ -1,10 +1,18 @@
-import { redirect, type Handle } from '@sveltejs/kit';
+import { error, redirect, type Handle } from '@sveltejs/kit';
 import { sequence } from '@sveltejs/kit/hooks';
 import { building } from '$app/environment';
 import { auth } from '$lib/server/auth';
 import { hasUser } from '$lib/server/setup';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import { crossSiteFormRefused, guardRedirect } from '$lib/server/guard';
+import { bodyTooLarge } from '$lib/server/body-limit';
+
+const handleBodyLimit: Handle = ({ event, resolve }) => {
+	if (bodyTooLarge({ pathname: event.url.pathname, headers: event.request.headers })) {
+		error(413, 'The request body is too large.');
+	}
+	return resolve(event);
+};
 
 const handleCsrf: Handle = async ({ event, resolve }) => {
 	const refused = crossSiteFormRefused({
@@ -46,4 +54,4 @@ const handleGuard: Handle = async ({ event, resolve }) => {
 	return resolve(event);
 };
 
-export const handle: Handle = sequence(handleCsrf, handleAuth, handleGuard);
+export const handle: Handle = sequence(handleBodyLimit, handleCsrf, handleAuth, handleGuard);
