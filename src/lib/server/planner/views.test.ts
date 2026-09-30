@@ -439,6 +439,43 @@ describe('the Planning stream', () => {
 			period: anchor.period
 		});
 	});
+
+	test("narrowed to one Class, a shared Lesson takes that Class's own occurrence", () => {
+		const { db, course, classA, classB } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [l1] = makeLessons(db, topic.id, 1);
+		// classA teaches l1 first, on Thu 2026-09-03 P5; classB on Wed 2026-09-09 P4.
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+		assignTopic(db, { classId: classB.id, topicId: topic.id, today: '2026-09-03' });
+
+		const stream = planningStream(db, '2026-09-03', classB.id);
+		expect(stream.map((s) => s.id)).toEqual([l1.id]);
+		expect(stream[0].occurrence).toEqual({
+			classId: classB.id,
+			label: '10C/Ph2',
+			tone: classB.tone,
+			date: '2026-09-09',
+			period: 4
+		});
+	});
+
+	test("narrowed to one Class, only that Class's upcoming Lessons are listed, in its own order", () => {
+		const { db, course, classA, classB } = setUp();
+		const shared = makeTopic(db, course.id, 'Forces');
+		const onlyA = makeTopic(db, course.id, 'Chemistry');
+		makeTopic(db, course.id, 'Waves'); // assigned to nobody
+		const [s1, s2] = makeLessons(db, shared.id, 2);
+		const [a1] = makeLessons(db, onlyA.id, 1);
+		// classB's slots: Wed 2026-09-09 P4, then Mon 2026-09-14 P1.
+		assignTopic(db, { classId: classA.id, topicId: onlyA.id, today: '2026-09-03' });
+		assignTopic(db, { classId: classA.id, topicId: shared.id, today: '2026-09-03' });
+		assignTopic(db, { classId: classB.id, topicId: shared.id, today: '2026-09-03' });
+
+		const stream = planningStream(db, '2026-09-03', classB.id);
+		expect(stream.map((s) => s.id)).toEqual([s1.id, s2.id]);
+		expect(stream.map((s) => s.occurrence?.date)).toEqual(['2026-09-09', '2026-09-14']);
+		expect(stream.some((s) => s.id === a1.id)).toBe(false);
+	});
 });
 
 describe('Readiness', () => {

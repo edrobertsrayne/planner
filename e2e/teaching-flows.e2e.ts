@@ -407,6 +407,45 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		await expect(motionRow.getByText('Practical', { exact: true })).toBeVisible();
 	});
 
+	test('the Planning tab narrows to one Class, kept in the URL across a reload', async () => {
+		await page.goto('/planning');
+		const allFilter = page.getByRole('button', { name: /^All\s+\d+$/ });
+		const plannedFilter = page.getByRole('button', { name: /^Planned\s+\d+$/ });
+		await expect(allFilter).toContainText('11');
+
+		await page.getByRole('button', { name: 'Filter by Class' }).click();
+		await page.getByRole('option', { name: '9B/Sc1' }).click();
+		await page.waitForURL(`/planning?class=${classAId}`);
+
+		// Only 9B/Sc1's upcoming Lessons, each dated by 9B/Sc1, with no unscheduled tail.
+		const rows = page
+			.locator('li')
+			.filter({ has: page.getByRole('button', { name: 'Draft', exact: true }) });
+		await page.getByRole('button', { name: 'Show all' }).click();
+		await expect(rows.first()).toContainText('9B/Sc1');
+		await expect(rows.filter({ hasText: '9C/Sc1' })).toHaveCount(0);
+		await expect(rows.filter({ hasText: 'unscheduled' })).toHaveCount(0);
+		await expect(allFilter).not.toContainText('11');
+
+		await page.reload();
+		await expect(page.getByRole('button', { name: 'Filter by Class' })).toHaveText('9B/Sc1');
+		await expect(rows.filter({ hasText: 'unscheduled' })).toHaveCount(0);
+
+		// The status filter narrows the Class's list further: Motion is the one Planned Lesson.
+		await plannedFilter.click();
+		await expect(rows).toHaveCount(1);
+		await expect(rows.first()).toContainText('Motion');
+
+		await page.getByRole('button', { name: 'Filter by Class' }).click();
+		await page.getByRole('option', { name: 'All classes' }).click();
+		await page.waitForURL('/planning');
+		await expect(allFilter).toContainText('11');
+
+		await page.goto('/planning?class=no-such-class');
+		await expect(allFilter).toContainText('11');
+		await expect(page.getByRole('button', { name: 'Filter by Class' })).toHaveText('All classes');
+	});
+
 	test('a tagged Lesson shows its chip on the Agenda and Session panel, and click-through from the Calendar', async () => {
 		// Motion (9B/Sc1's next scheduled Lesson, carrying the Practical Tag attached above) is
 		// this Class's row both on the Agenda and on the current week's Calendar grid.

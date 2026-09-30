@@ -9,6 +9,7 @@ import {
 	classesTaughtLesson,
 	lessonDetail,
 	lessonsOf,
+	listClasses,
 	listTagNames,
 	planningStream,
 	topicsOf
@@ -16,7 +17,11 @@ import {
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ url }) => {
-	const stream = planningStream(db, today());
+	// An unknown `class` id falls back to every Class rather than an error.
+	const classes = listClasses(db);
+	const classParam = url.searchParams.get('class');
+	const classId = classes.find((c) => c.id === classParam)?.id;
+	const stream = planningStream(db, today(), classId);
 
 	const lessonId = url.searchParams.get('lesson');
 	const detail = lessonId ? lessonDetail(db, lessonId) : null;
@@ -44,6 +49,8 @@ export const load: PageServerLoad = ({ url }) => {
 
 	return {
 		stream,
+		classes,
+		classId,
 		lesson: detail,
 		course,
 		topic,
