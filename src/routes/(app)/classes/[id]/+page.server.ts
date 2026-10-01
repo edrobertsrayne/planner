@@ -52,11 +52,14 @@ export const actions: Actions = {
 	renameClass: async ({ request }) => {
 		const data = await request.formData();
 		const id = trimmed(data, 'id');
-		const label = trimmed(data, 'label');
-		if (!label) return fail(400, { error: 'A Class needs a label.' });
-		const cls = renameClass(db, { id, label });
-		if (!cls) return fail(404, { error: 'No such Class.' });
-		return { class: cls };
+		const label = String(data.get('label') ?? '');
+		try {
+			const cls = renameClass(db, { id, label });
+			if (!cls) return fail(404, { error: 'No such Class.' });
+			return { class: cls };
+		} catch (error) {
+			return refusal(error);
+		}
 	},
 
 	toggleSlot: async ({ request }) => {

@@ -68,11 +68,11 @@ export const actions: Actions = {
 	blockDay: async ({ request }) => {
 		const data = await request.formData();
 		const date = String(data.get('date') ?? '');
-		const note = String(data.get('note') ?? '').trim();
+		const note = String(data.get('note') ?? '');
 		if (!date) return fail(400, { error: 'No date given.' });
 
 		try {
-			const report = blockDay(db, { date, note: note || undefined, today: today() });
+			const report = blockDay(db, { date, note, today: today() });
 			return { atRisk: report.atRisk, placementsMoved: report.placementsMoved };
 		} catch (error) {
 			return refusal(error);
@@ -93,12 +93,15 @@ export const actions: Actions = {
 		const classId = String(data.get('classId') ?? '');
 		const date = String(data.get('date') ?? '');
 		const slotId = String(data.get('slotId') ?? '');
-		const note = String(data.get('note') ?? '').trim();
+		const note = String(data.get('note') ?? '');
 		if (!classId || !date || !slotId) return fail(400, { error: 'Missing Slot to block.' });
-		if (!note) return fail(400, { error: 'A Blocked Slot needs a note.' });
 
-		const report = blockSlot(db, { classId, date, slotId, note, today: today() });
-		return { atRisk: report.atRisk, placementsMoved: report.placementsMoved };
+		try {
+			const report = blockSlot(db, { classId, date, slotId, note, today: today() });
+			return { atRisk: report.atRisk, placementsMoved: report.placementsMoved };
+		} catch (error) {
+			return refusal(error);
+		}
 	},
 
 	unblockSlot: async ({ request }) => {

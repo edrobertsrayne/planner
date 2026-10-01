@@ -316,31 +316,166 @@ describe('importing a Topic with its Lessons and Links', () => {
 		expect(lessonsOf(db, topicsOf(db, course.id)[0].id)).toHaveLength(0);
 	});
 
-	test('a failure partway through leaves no Course, Topic, Lesson or Link behind', () => {
+	test('a refused field partway through leaves no Course, Topic, Lesson or Link behind', () => {
 		const { db, client } = setUpAuthoring();
 
-		// A Link missing its NOT NULL label reaches the database and throws mid-transaction —
-		// the route validates this away in practice, but importTopic must still roll back cleanly
-		// if anything downstream of the Topic insert fails. The throw leaves the transaction, so
-		// nothing committed.
-		expect(() =>
-			importTopic(
-				db,
-				client,
-				{
-					courseName: 'Year 9 Physics',
-					topicName: 'Forces',
-					lessons: [
-						{
-							title: 'Newton I',
-							links: [{ url: 'https://example.com/a', label: undefined as unknown as string }]
-						}
-					]
-				},
-				'2026-09-03'
-			)
-		).toThrow();
+		// The second Lesson's Link is a `javascript:` url — refused inside the transaction, after
+		// the Course, the Topic and the first Lesson were already written, so all of it rolls back.
+		refused(
+			() =>
+				importTopic(
+					db,
+					client,
+					{
+						courseName: 'Year 9 Physics',
+						topicName: 'Forces',
+						lessons: [
+							{ title: 'Newton I', links: [{ url: 'https://example.com/a', label: 'Sheet' }] },
+							{ title: 'Newton II', links: [{ url: 'javascript:alert(1)', label: 'Trap' }] }
+						]
+					},
+					'2026-09-03'
+				),
+			'invalid',
+			'A Link must be an http(s) URL.'
+		);
 		expect(listCourses(db)).toHaveLength(0);
+	});
+
+	test.each([
+		[{ title: 'Newton I', length: 0 }, 'A Length must be a whole number of Periods from 1 to 20.'],
+		[{ title: 'Newton I', length: 21 }, 'A Length must be a whole number of Periods from 1 to 20.'],
+		[
+			{ title: 'Newton I', length: 1.5 },
+			'A Length must be a whole number of Periods from 1 to 20.'
+		],
+		[{ title: 'Newton I', status: 'archived' }, 'A Lesson must be Draft or Planned.'],
+		[{ title: '   ' }, 'A Lesson needs a title.']
+	])('refuses a Lesson the one-at-a-time writers refuse: %o', (lesson, message) => {
+		const { db, client } = setUpAuthoring();
+		refused(
+			() =>
+				importTopic(
+					db,
+					client,
+					{ courseName: 'Year 9 Physics', topicName: 'Forces', lessons: [lesson] },
+					'2026-09-03'
+				),
+			'invalid',
+			message
+		);
+		expect(listCourses(db)).toHaveLength(0);
+	});
+});
+
+// The value rules live in the seam (ADR-0025), so every door — form, API, Session panel — refuses
+// the same input with the same message.
+describe('field rules', () => {
+	test('a name, title or label that is empty after trimming is refused', () => {
+		const { db } = setUpAuthoring();
+		const course = createCourse(db, { name: 'Year 9 Physics' });
+		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
+		const lesson = createLesson(db, { topicId: topic.id, title: 'Newton I', today: '2026-09-03' });
+
+		refused(() => createCourse(db, { name: '  ' }), 'invalid', 'A Course needs a name.');
+		refused(() => renameTopic(db, { id: topic.id, name: '' }), 'invalid', 'A Topic needs a name.');
+		refused(
+			() => renameLesson(db, { id: lesson.id, title: ' \n ' }),
+			'invalid',
+			'A Lesson needs a title.'
+		);
+		refused(
+			() => createLink(db, { lessonId: lesson.id, url: 'https://example.com', label: ' ' }),
+			'invalid',
+			'A Link needs a label.'
+		);
+		refused(
+			() => createLink(db, { lessonId: lesson.id, url: '', label: 'Sheet' }),
+			'invalid',
+			'A Link needs a url.'
+		);
+	});
+
+	test("a Link's url must be http(s), so no other scheme ever reaches an href", () => {
+		const { db } = setUpAuthoring();
+		const course = createCourse(db, { name: 'Year 9 Physics' });
+		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
+		const lesson = createLesson(db, { topicId: topic.id, title: 'Newton I', today: '2026-09-03' });
+		const link = createLink(db, { lessonId: lesson.id, url: 'https://example.com', label: 'A' });
+
+		for (const url of ['javascript:alert(1)', 'ftp://example.com/file', 'not a url']) {
+			refused(
+				() => updateLink(db, { id: link.id, url, label: 'A' }),
+				'invalid',
+				'A Link must be an http(s) URL.'
+			);
+		}
+		expect(linksOf(db, lesson.id)[0].url).toBe('https://example.com');
+	});
+
+	test('names, titles, labels and urls are stored trimmed; a plan is stored as typed unless blank', () => {
+		const { db } = setUpAuthoring();
+		const course = createCourse(db, { name: '  Year 9 Physics ' });
+		const topic = createTopic(db, { courseId: course.id, name: ' Forces ' });
+		const lesson = createLesson(db, {
+			topicId: topic.id,
+			title: ' Newton I ',
+			body: '  - indented list\n',
+			today: '2026-09-03'
+		});
+		const link = createLink(db, {
+			lessonId: lesson.id,
+			url: ' https://example.com ',
+			label: ' Sheet '
+		});
+
+		expect([course.name, topic.name, lesson.title, link.label, link.url]).toEqual([
+			'Year 9 Physics',
+			'Forces',
+			'Newton I',
+			'Sheet',
+			'https://example.com'
+		]);
+		expect(lesson.body).toBe('  - indented list\n');
+
+		const blanked = patchLesson(db, {
+			id: lesson.id,
+			fields: { body: ' \n ' },
+			today: '2026-09-03'
+		});
+		expect(blanked?.body).toBeNull();
+	});
+
+	test('a Length outside 1 to 20 Periods and an unknown status are refused at every writer', () => {
+		const { db } = setUpAuthoring();
+		const course = createCourse(db, { name: 'Year 9 Physics' });
+		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
+		const lesson = createLesson(db, { topicId: topic.id, title: 'Newton I', today: '2026-09-03' });
+		const lengthRule = 'A Length must be a whole number of Periods from 1 to 20.';
+
+		refused(
+			() =>
+				updateLesson(db, {
+					id: lesson.id,
+					title: 'Newton I',
+					body: null,
+					length: Number.NaN,
+					today: '2026-09-03'
+				}),
+			'invalid',
+			lengthRule
+		);
+		refused(
+			() => patchLesson(db, { id: lesson.id, fields: { length: 21 }, today: '2026-09-03' }),
+			'invalid',
+			lengthRule
+		);
+		refused(
+			() => setLessonStatus(db, lesson.id, 'archived'),
+			'invalid',
+			'A Lesson must be Draft or Planned.'
+		);
+		expect(lessonDetail(db, lesson.id)).toMatchObject({ length: 1, status: 'draft' });
 	});
 });
 

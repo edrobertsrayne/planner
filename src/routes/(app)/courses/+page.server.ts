@@ -69,8 +69,7 @@ export const actions: Actions = {
 	...lessonActions,
 
 	createCourse: async ({ request }) => {
-		const name = trimmed(await request.formData(), 'name');
-		if (!name) return fail(400, { error: 'A Course needs a name.' });
+		const name = String((await request.formData()).get('name') ?? '');
 		try {
 			return { course: createCourse(db, { name }) };
 		} catch (error) {
@@ -81,8 +80,7 @@ export const actions: Actions = {
 	renameCourse: async ({ request }) => {
 		const data = await request.formData();
 		const id = trimmed(data, 'id');
-		const name = trimmed(data, 'name');
-		if (!name) return fail(400, { error: 'A Course needs a name.' });
+		const name = String(data.get('name') ?? '');
 		try {
 			const course = renameCourse(db, { id, name });
 			if (!course) return fail(404, { error: 'No such Course.' });
@@ -95,8 +93,7 @@ export const actions: Actions = {
 	createTopic: async ({ request }) => {
 		const data = await request.formData();
 		const courseId = trimmed(data, 'courseId');
-		const name = trimmed(data, 'name');
-		if (!name) return fail(400, { error: 'A Topic needs a name.' });
+		const name = String(data.get('name') ?? '');
 		try {
 			return { topic: createTopic(db, { courseId, name }) };
 		} catch (error) {
@@ -107,8 +104,7 @@ export const actions: Actions = {
 	renameTopic: async ({ request }) => {
 		const data = await request.formData();
 		const id = trimmed(data, 'id');
-		const name = trimmed(data, 'name');
-		if (!name) return fail(400, { error: 'A Topic needs a name.' });
+		const name = String(data.get('name') ?? '');
 		try {
 			const topic = renameTopic(db, { id, name });
 			if (!topic) return fail(404, { error: 'No such Topic.' });
@@ -121,19 +117,25 @@ export const actions: Actions = {
 	createLesson: async ({ request }) => {
 		const data = await request.formData();
 		const topicId = trimmed(data, 'topicId');
-		const title = trimmed(data, 'title');
-		if (!title) return fail(400, { error: 'A Lesson needs a title.' });
-		return { lesson: createLesson(db, { topicId, title, today: today() }) };
+		const title = String(data.get('title') ?? '');
+		try {
+			return { lesson: createLesson(db, { topicId, title, today: today() }) };
+		} catch (error) {
+			return refusal(error);
+		}
 	},
 
 	renameLesson: async ({ request }) => {
 		const data = await request.formData();
 		const id = trimmed(data, 'id');
-		const title = trimmed(data, 'title');
-		if (!title) return fail(400, { error: 'A Lesson needs a title.' });
-		const lesson = renameLesson(db, { id, title });
-		if (!lesson) return fail(404, { error: 'No such Lesson.' });
-		return { lesson };
+		const title = String(data.get('title') ?? '');
+		try {
+			const lesson = renameLesson(db, { id, title });
+			if (!lesson) return fail(404, { error: 'No such Lesson.' });
+			return { lesson };
+		} catch (error) {
+			return refusal(error);
+		}
 	},
 
 	// The seam now writes the reason: a Lesson a Class has already been taught refuses with the

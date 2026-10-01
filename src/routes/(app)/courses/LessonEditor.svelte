@@ -200,6 +200,7 @@
 							type="number"
 							name="length"
 							min="1"
+							max="20"
 							value={lesson.length}
 							class="h-7 w-16"
 							onchange={(e) => e.currentTarget.form?.requestSubmit()}

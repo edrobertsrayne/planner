@@ -85,7 +85,7 @@ test.describe.serial('the Topic endpoints', () => {
 		expect(missingCourse.status()).toBe(404);
 	});
 
-	test('a Topic reads back, lists sorted by name, renames, and rejects courseId', async ({
+	test('a Topic reads back, lists sorted by name, renames, and ignores courseId', async ({
 		request
 	}) => {
 		const created = await request.post(`/api/courses/${courseId}/topics`, {
@@ -133,14 +133,13 @@ test.describe.serial('the Topic endpoints', () => {
 			error: 'This Course already has a Topic called "API Topic One".'
 		});
 
-		// Moving a Topic between Courses is a scheduling act, so courseId is not a field.
+		// Moving a Topic between Courses is a scheduling act, so courseId is not a field: it is
+		// read and ignored, like any other field the API does not name.
 		const courseIdField = await request.patch(`/api/topics/${topicTwoId}`, {
 			headers: BEARER(token),
 			data: { courseId: emptyCourseId }
 		});
-		expect(courseIdField.status()).toBe(400);
-		expect(await courseIdField.json()).toEqual({
-			error: 'The field "courseId" is not recognised.'
-		});
+		expect(courseIdField.status()).toBe(200);
+		expect((await courseIdField.json()).courseId).not.toBe(emptyCourseId);
 	});
 });

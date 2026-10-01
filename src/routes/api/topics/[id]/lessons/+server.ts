@@ -3,18 +3,9 @@ import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
 import { topic } from '$lib/server/db/schema';
 import { requireApiKey } from '$lib/server/api-key';
-import {
-	MAX_NAME_LENGTH,
-	rejectUnknownFields,
-	requireExisting,
-	validateString,
-	validateStatus,
-	validateLength
-} from '$lib/server/api-helpers';
+import { refusalJson, requireExisting, stringField } from '$lib/server/api-helpers';
 import { lessonsOf, createLesson } from '$lib/server/planner/authoring';
 import type { RequestHandler } from './$types';
-
-const LESSON_FIELDS = new Set(['title', 'body', 'length', 'status']);
 
 export const GET: RequestHandler = async (event) => {
 	const auth = await requireApiKey(event);
@@ -36,34 +27,29 @@ export const POST: RequestHandler = async (event) => {
 
 	const data = await event.request.json();
 
-	const unknown = rejectUnknownFields(data, LESSON_FIELDS);
-	if (unknown) return unknown;
-
-	const title = validateString(data.title ?? '', 'title', MAX_NAME_LENGTH);
+	const title = stringField(data.title, 'title');
 	if (title instanceof Response) return title;
 
-	let lessonLength: number | undefined;
-	if (data.length !== undefined) {
-		const result = validateLength(data.length);
-		if (result instanceof Response) return result;
-		lessonLength = result;
+	if (data.body !== undefined && data.body !== null && typeof data.body !== 'string') {
+		return json({ error: 'The "body" field must be a string or null.' }, { status: 400 });
 	}
-
-	let lessonStatus: 'draft' | 'planned' | undefined;
-	if (data.status !== undefined) {
-		const result = validateStatus(data.status);
-		if (result instanceof Response) return result;
-		lessonStatus = result;
+	if (data.length !== undefined && typeof data.length !== 'number') {
+		return json({ error: 'The "length" field must be a number.' }, { status: 400 });
 	}
+	const status = data.status === undefined ? undefined : stringField(data.status, 'status');
+	if (status instanceof Response) return status;
 
-	const created = createLesson(db, {
-		topicId: event.params.id,
-		title,
-		body: data.body,
-		length: lessonLength,
-		status: lessonStatus,
-		today: today()
-	});
-
-	return json({ ...created, links: [] }, { status: 201 });
+	try {
+		const created = createLesson(db, {
+			topicId: event.params.id,
+			title,
+			body: data.body,
+			length: data.length,
+			status,
+			today: today()
+		});
+		return json({ ...created, links: [] }, { status: 201 });
+	} catch (error) {
+		return refusalJson(error);
+	}
 };

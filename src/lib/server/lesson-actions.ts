@@ -17,45 +17,39 @@ import {
 	updateLink
 } from '$lib/server/planner';
 
-// A Link's url is rendered as a real href — restricting it to http(s) keeps a javascript: URL
-// from ever reaching an anchor, since the editor's own href-taking rows would otherwise execute it.
-function isHttpUrl(url: string) {
-	try {
-		return ['http:', 'https:'].includes(new URL(url).protocol);
-	} catch {
-		return false;
-	}
-}
-
 // The lesson-editing actions the Courses view and the Planning board share — the Lesson editor
 // posts to the same eleven actions whichever screen opens it over.
 export const lessonActions = {
 	updateLesson: async ({ request }) => {
 		const data = await request.formData();
 		const id = trimmed(data, 'id');
-		const title = trimmed(data, 'title');
-		if (!title) return fail(400, { error: 'A Lesson needs a title.' });
-		const body = String(data.get('body') ?? '').trim() || null;
-		const length = Math.max(1, Math.round(Number(data.get('length'))) || 1);
-		const result = updateLesson(db, { id, title, body, length, today: today() });
-		if (!result) return fail(404, { error: 'No such Lesson.' });
-		return {
-			lesson: result.lesson,
-			atRisk: result.atRisk,
-			placementsMoved: result.placementsMoved
-		};
+		const title = String(data.get('title') ?? '');
+		const body = String(data.get('body') ?? '');
+		const length = Number(data.get('length'));
+		try {
+			const result = updateLesson(db, { id, title, body, length, today: today() });
+			if (!result) return fail(404, { error: 'No such Lesson.' });
+			return {
+				lesson: result.lesson,
+				atRisk: result.atRisk,
+				placementsMoved: result.placementsMoved
+			};
+		} catch (error) {
+			return refusal(error);
+		}
 	},
 
 	setLessonStatus: async ({ request }) => {
 		const data = await request.formData();
 		const id = trimmed(data, 'id');
-		const status = trimmed(data, 'status');
-		if (status !== 'draft' && status !== 'planned') {
-			return fail(400, { error: 'Bad status.' });
+		const status = String(data.get('status') ?? '');
+		try {
+			const lesson = setLessonStatus(db, id, status);
+			if (!lesson) return fail(404, { error: 'No such Lesson.' });
+			return { lesson };
+		} catch (error) {
+			return refusal(error);
 		}
-		const lesson = setLessonStatus(db, id, status);
-		if (!lesson) return fail(404, { error: 'No such Lesson.' });
-		return { lesson };
 	},
 
 	moveLessonToTopic: async ({ request }) => {
@@ -71,25 +65,27 @@ export const lessonActions = {
 	createLink: async ({ request }) => {
 		const data = await request.formData();
 		const lessonId = trimmed(data, 'lessonId');
-		const label = trimmed(data, 'label');
-		const url = trimmed(data, 'url');
-		if (!label) return fail(400, { error: 'A Link needs a label.' });
-		if (!url) return fail(400, { error: 'A Link needs a url.' });
-		if (!isHttpUrl(url)) return fail(400, { error: 'A Link must be an http(s) URL.' });
-		return { link: createLink(db, { lessonId, label, url }) };
+		const label = String(data.get('label') ?? '');
+		const url = String(data.get('url') ?? '');
+		try {
+			return { link: createLink(db, { lessonId, label, url }) };
+		} catch (error) {
+			return refusal(error);
+		}
 	},
 
 	updateLink: async ({ request }) => {
 		const data = await request.formData();
 		const id = trimmed(data, 'id');
-		const label = trimmed(data, 'label');
-		const url = trimmed(data, 'url');
-		if (!label) return fail(400, { error: 'A Link needs a label.' });
-		if (!url) return fail(400, { error: 'A Link needs a url.' });
-		if (!isHttpUrl(url)) return fail(400, { error: 'A Link must be an http(s) URL.' });
-		const link = updateLink(db, { id, label, url });
-		if (!link) return fail(404, { error: 'No such Link.' });
-		return { link };
+		const label = String(data.get('label') ?? '');
+		const url = String(data.get('url') ?? '');
+		try {
+			const link = updateLink(db, { id, label, url });
+			if (!link) return fail(404, { error: 'No such Link.' });
+			return { link };
+		} catch (error) {
+			return refusal(error);
+		}
 	},
 
 	deleteLink: async ({ request }) => {

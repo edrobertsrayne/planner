@@ -4,14 +4,6 @@ import type { SQLiteTable, SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { Refused, refusalStatus } from './planner/refused';
 import type { Db } from './planner/derive';
 
-const ALLOWED_STATUSES = new Set(['draft', 'planned']);
-
-// The name/title/label ceiling every API route enforces (issue #129, §6 of the planning API spec).
-export const MAX_NAME_LENGTH = 200;
-
-// The note ceiling a Blocked Day's note is measured against — its own limit, not the name's.
-export const MAX_NOTE_LENGTH = 200;
-
 // The API door's one mapping of the seam's refusal: `{ error: message }` with the status the
 // refusal's kind carries. Anything else was not thrown deliberately — it rethrows, so an
 // unexpected fault is the 500 the framework serves, never a 4xx dressed as a bad request.
@@ -32,69 +24,12 @@ export function requireExisting<T extends SQLiteTable & { id: SQLiteColumn }>(
 	return existing ? null : json({ error: notFoundMessage }, { status: 404 });
 }
 
-export function validateString(value: unknown, name: string, maxLength: number): string | Response {
+// The API door's one type check. The seam takes names, titles, labels, urls and statuses as
+// strings and runs every value rule itself (ADR-0025); a body that sends something else is
+// refused here, before the seam is called.
+export function stringField(value: unknown, name: string): string | Response {
 	if (typeof value !== 'string') {
 		return json({ error: `The "${name}" field must be a string.` }, { status: 400 });
 	}
-	const trimmed = value.trim();
-	if (trimmed.length === 0) {
-		return json({ error: `The "${name}" field must not be empty.` }, { status: 400 });
-	}
-	if (trimmed.length > maxLength) {
-		return json(
-			{ error: `The "${name}" field must be at most ${maxLength} characters.` },
-			{ status: 400 }
-		);
-	}
-	return trimmed;
-}
-
-export function validateStatus(value: unknown): 'draft' | 'planned' | Response {
-	if (value === undefined) return 'draft';
-	if (typeof value !== 'string' || !ALLOWED_STATUSES.has(value)) {
-		return json({ error: 'The "status" field must be "draft" or "planned".' }, { status: 400 });
-	}
-	return value as 'draft' | 'planned';
-}
-
-export function validateLength(value: unknown): number | Response {
-	if (value === undefined) return 1;
-	if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 20) {
-		return json(
-			{ error: 'The "length" field must be an integer between 1 and 20.' },
-			{ status: 400 }
-		);
-	}
 	return value;
-}
-
-export function rejectUnknownFields(
-	body: Record<string, unknown>,
-	allowed: Set<string>
-): Response | null {
-	for (const key of Object.keys(body)) {
-		if (!allowed.has(key)) {
-			return json({ error: `The field "${key}" is not recognised.` }, { status: 400 });
-		}
-	}
-	return null;
-}
-
-export function validateUrl(value: unknown): string | Response {
-	if (typeof value !== 'string') {
-		return json({ error: 'The "url" field must be a string.' }, { status: 400 });
-	}
-	const trimmed = value.trim();
-	if (trimmed.length === 0 || trimmed.length > 2000) {
-		return json({ error: 'The "url" field must be 1 to 2000 characters.' }, { status: 400 });
-	}
-	try {
-		const url = new URL(trimmed);
-		if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-			return json({ error: 'The "url" field must be an http: or https: URL.' }, { status: 400 });
-		}
-	} catch {
-		return json({ error: 'The "url" field must be a valid URL.' }, { status: 400 });
-	}
-	return trimmed;
 }

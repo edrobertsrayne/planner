@@ -194,30 +194,35 @@ two differ for an explicit null in some code paths, and this distinction is load
 
 A PATCH with an empty body is a no-op and returns **200** with the unchanged record.
 
-### 3.5 Unknown fields are rejected
+### 3.5 Unknown fields are ignored
 
-Any field not named in this document is **400**:
-
-```json
-{ "error": "The field \"titel\" is not recognised." }
-```
-
-The client is an agent. A silently ignored typo produces a Lesson that is wrong in a way nobody
-sees. A loud failure is better.
+A field not named in this document is read and ignored. The API checks only the fields it reads.
+There is no allow-list to keep in step with the seam (ADR-0025).
 
 ### 3.6 Validation
 
-| field                       | rule                                                               |
-| --------------------------- | ------------------------------------------------------------------ |
-| `name`, `title`, `label`    | string, trimmed, 1 to 200 characters after trimming                |
-| `body`                      | string or null, at most 100 000 characters                         |
-| `length`                    | integer, 1 to 20                                                   |
-| `status`                    | `"draft"` or `"planned"`                                           |
-| `url`                       | string, 1 to 2000 characters, parses as an `http:` or `https:` URL |
-| `courseId`, `topicId`, `id` | string, matching an existing record                                |
+The door checks only types. The planner seam owns every value rule, and the forms, the Session
+panel and this API share it. A refused value is **400** with the message the teacher sees in the
+app.
 
-Trim every string on the way in and store the trimmed value. `"  Forces  "` and `"Forces"` are the
-same Topic name and must collide.
+| field                       | type           | value rule (in the seam)               | refusal                                                    |
+| --------------------------- | -------------- | -------------------------------------- | ---------------------------------------------------------- |
+| Course `name`               | string         | not empty after trimming               | `A Course needs a name.`                                   |
+| Topic `name`                | string         | not empty after trimming               | `A Topic needs a name.`                                    |
+| Lesson `title`              | string         | not empty after trimming               | `A Lesson needs a title.`                                  |
+| Link `label`                | string         | not empty after trimming               | `A Link needs a label.`                                    |
+| Link `url`                  | string         | not empty; an `http:` or `https:` URL  | `A Link needs a url.` / `A Link must be an http(s) URL.`   |
+| `body`                      | string or null | none; a blank body is stored as `null` | —                                                          |
+| `length`                    | number         | a whole number from 1 to 20            | `A Length must be a whole number of Periods from 1 to 20.` |
+| `status`                    | string         | `"draft"` or `"planned"`               | `A Lesson must be Draft or Planned.`                       |
+| `courseId`, `topicId`, `id` | string         | matching an existing record            | 404                                                        |
+
+A wrong type is **400** `The "<field>" field must be a string.` (or `a number`, or `a string or
+null`). There are no size limits: the request body limit bounds every request.
+
+The seam trims every name, title, label and url, and stores the trimmed value. It never trims a
+`body`: Markdown gives whitespace meaning. `"  Forces  "` and `"Forces"` are the same Topic name
+and must collide.
 
 ### 3.7 The current date
 
@@ -605,9 +610,6 @@ Failures:
 **Nothing is committed on a failure.** A collision found on the ninth Lesson leaves no Course, no
 Topic, and no Lesson behind. Wrap the whole thing in one `db.transaction`. `bun:sqlite` is
 synchronous, so this is a plain synchronous transaction with no partial-await hazard.
-
-Size limits, to keep one request bounded: at most **200** Lessons per Import, and at most **20**
-Links per Lesson. Over either is 400.
 
 There is no `PUT` and no merge. Import is create-only. Re-importing a changed Topic means deleting
 the Topic and importing again, or hand-editing in the Courses view.

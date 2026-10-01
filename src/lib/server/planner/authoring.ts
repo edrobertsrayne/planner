@@ -11,6 +11,7 @@ import { rederivePlacementLesson, rederiveTopic, type Db, type WriteReport } fro
 import { nextPosition, swapTargets, type Direction } from './ordering';
 import { deleteAttachmentsOfLesson } from './attachments';
 import { Refused } from './refused';
+import { lessonBody, lessonLength, lessonStatus, linkUrl, required } from './fields';
 
 // Course and Topic names carry an explicit uniqueness rule (issue #131, §6 of the planning API
 // spec). The database indexes are the guard of last resort — so the seam refuses the write first
@@ -104,14 +105,14 @@ export function lessonsOf(db: Db, topicId: string) {
 }
 
 export function createCourse(db: Db, { name }: { name: string }) {
-	const trimmed = name.trim();
+	const trimmed = required(name, 'A Course needs a name.');
 	assertCourseNameAvailable(db, { name: trimmed });
 	const [row] = db.insert(schema.course).values({ name: trimmed }).returning().all();
 	return row;
 }
 
 export function renameCourse(db: Db, { id, name }: { id: string; name: string }) {
-	const trimmed = name.trim();
+	const trimmed = required(name, 'A Course needs a name.');
 	assertCourseNameAvailable(db, { name: trimmed, exceptId: id });
 	const [row] = db
 		.update(schema.course)
@@ -200,7 +201,7 @@ export function deleteCourse(
 }
 
 export function createTopic(db: Db, { courseId, name }: { courseId: string; name: string }) {
-	const trimmed = name.trim();
+	const trimmed = required(name, 'A Topic needs a name.');
 	assertTopicNameAvailable(db, { courseId, name: trimmed });
 	const [row] = db.insert(schema.topic).values({ courseId, name: trimmed }).returning().all();
 	return row;
@@ -209,7 +210,7 @@ export function createTopic(db: Db, { courseId, name }: { courseId: string; name
 export function renameTopic(db: Db, { id, name }: { id: string; name: string }) {
 	const [existing] = db.select().from(schema.topic).where(eq(schema.topic.id, id)).all();
 	if (!existing) return undefined;
-	const trimmed = name.trim();
+	const trimmed = required(name, 'A Topic needs a name.');
 	assertTopicNameAvailable(db, {
 		courseId: existing.courseId,
 		name: trimmed,
@@ -294,7 +295,7 @@ export function createLesson(
 		title: string;
 		body?: string | null;
 		length?: number;
-		status?: 'draft' | 'planned';
+		status?: string;
 		today: string;
 	}
 ) {
@@ -302,11 +303,11 @@ export function createLesson(
 		.insert(schema.lesson)
 		.values({
 			topicId,
-			title,
+			title: required(title, 'A Lesson needs a title.'),
 			position: endOfTopic(db, topicId),
-			...(body !== undefined ? { body } : {}),
-			...(length !== undefined ? { length } : {}),
-			...(status !== undefined ? { status } : {})
+			...(body !== undefined ? { body: lessonBody(body) } : {}),
+			...(length !== undefined ? { length: lessonLength(length) } : {}),
+			...(status !== undefined ? { status: lessonStatus(status) } : {})
 		})
 		.returning()
 		.all();
@@ -319,7 +320,7 @@ export type LessonStatus = 'draft' | 'planned';
 export function renameLesson(db: Db, { id, title }: { id: string; title: string }) {
 	const [row] = db
 		.update(schema.lesson)
-		.set({ title })
+		.set({ title: required(title, 'A Lesson needs a title.') })
 		.where(eq(schema.lesson.id, id))
 		.returning()
 		.all();
@@ -331,11 +332,11 @@ export function renameLesson(db: Db, { id, title }: { id: string; title: string 
 export function setLessonStatus(
 	db: Db,
 	lessonId: string,
-	status: LessonStatus
+	status: string
 ): typeof schema.lesson.$inferSelect | undefined {
 	const [row] = db
 		.update(schema.lesson)
-		.set({ status })
+		.set({ status: lessonStatus(status) })
 		.where(eq(schema.lesson.id, lessonId))
 		.returning()
 		.all();
@@ -477,7 +478,11 @@ export function updateLesson(
 ): ({ lesson: typeof schema.lesson.$inferSelect } & WriteReport) | undefined {
 	const [row] = db
 		.update(schema.lesson)
-		.set({ title, body, length })
+		.set({
+			title: required(title, 'A Lesson needs a title.'),
+			body: lessonBody(body),
+			length: lessonLength(length)
+		})
 		.where(eq(schema.lesson.id, id))
 		.returning()
 		.all();
@@ -566,7 +571,7 @@ export function patchLesson(
 			title?: string;
 			body?: string | null;
 			length?: number;
-			status?: 'draft' | 'planned';
+			status?: string;
 			topicId?: string | null;
 		};
 		today: string;
@@ -577,10 +582,10 @@ export function patchLesson(
 
 	const update: Record<string, unknown> = {};
 
-	if (fields.title !== undefined) update.title = fields.title;
-	if (fields.body !== undefined) update.body = fields.body;
-	if (fields.length !== undefined) update.length = fields.length;
-	if (fields.status !== undefined) update.status = fields.status;
+	if (fields.title !== undefined) update.title = required(fields.title, 'A Lesson needs a title.');
+	if (fields.body !== undefined) update.body = lessonBody(fields.body);
+	if (fields.length !== undefined) update.length = lessonLength(fields.length);
+	if (fields.status !== undefined) update.status = lessonStatus(fields.status);
 
 	const oldTopicId = row.topicId;
 	const newTopicId = fields.topicId;
@@ -694,6 +699,8 @@ export function createLink(
 	db: Db,
 	{ lessonId, url, label }: { lessonId: string; url: string; label: string }
 ) {
+	label = required(label, 'A Link needs a label.');
+	url = linkUrl(url);
 	const position = nextPosition(
 		db
 			.select({ position: schema.link.position })
@@ -709,7 +716,7 @@ export function createLink(
 export function updateLink(db: Db, { id, url, label }: { id: string; url: string; label: string }) {
 	const [row] = db
 		.update(schema.link)
-		.set({ url, label })
+		.set({ label: required(label, 'A Link needs a label.'), url: linkUrl(url) })
 		.where(eq(schema.link.id, id))
 		.returning()
 		.all();
@@ -740,9 +747,10 @@ export function moveLink(
 // `inTransaction` to roll the write back on the way out; every other throw rolls back too and
 // propagates, so an unexpected fault reaches the door as the 500 it is, with nothing committed.
 //
-// The refusals keep their existing messages: exactly one of course id/name and the two size
-// caps are `invalid`, a course id the body names that is not there is `missing`, and a Topic
-// name that collides is `conflict`.
+// Every field runs the same rules as the one-at-a-time writers, inside the transaction, so a
+// refused field on the ninth Lesson leaves nothing behind. Exactly one of course id/name is
+// `invalid`, a course id the body names that is not there is `missing`, and a Topic name that
+// collides is `conflict`.
 export function importTopic(
 	db: Db,
 	client: Database,
@@ -759,7 +767,7 @@ export function importTopic(
 			title: string;
 			body?: string | null;
 			length?: number;
-			status?: 'draft' | 'planned';
+			status?: string;
 			links?: Array<{ url: string; label: string }>;
 		}>;
 	},
@@ -782,20 +790,12 @@ export function importTopic(
 		throw new Refused('invalid', 'The "course" field must carry exactly one of "id" or "name".');
 	}
 
-	if (lessons.length > 200) throw new Refused('invalid', 'At most 200 Lessons per Import.');
-
-	for (const lesson of lessons) {
-		if (lesson.links && lesson.links.length > 20) {
-			throw new Refused('invalid', 'At most 20 Links per Lesson.');
-		}
-	}
-
 	return inTransaction(client, () => {
 		let resolvedCourseId = courseId;
 		let courseCreated = false;
 
 		if (courseName) {
-			const trimmed = courseName.trim();
+			const trimmed = required(courseName, 'A Course needs a name.');
 			const [existing] = db
 				.select({ id: schema.course.id, name: schema.course.name })
 				.from(schema.course)
@@ -819,10 +819,10 @@ export function importTopic(
 			.all()[0];
 		if (!courseRecord) throw new Refused('missing', 'Course not found.');
 
-		const trimmedTopicName = topicName.trim();
+		const trimmedTopicName = required(topicName, 'A Topic needs a name.');
 		const topicCollision = findTopicNameCollision(db, {
 			courseId: resolvedCourseId,
-			name: topicName
+			name: trimmedTopicName
 		});
 		if (topicCollision) {
 			throw new Refused(
@@ -850,11 +850,11 @@ export function importTopic(
 				.insert(schema.lesson)
 				.values({
 					topicId: topicRow.id,
-					title: lesson.title.trim(),
+					title: required(lesson.title, 'A Lesson needs a title.'),
 					position: i,
-					...(lesson.body !== undefined ? { body: lesson.body } : {}),
-					...(lesson.length !== undefined ? { length: lesson.length } : {}),
-					...(lesson.status !== undefined ? { status: lesson.status } : {})
+					...(lesson.body !== undefined ? { body: lessonBody(lesson.body) } : {}),
+					...(lesson.length !== undefined ? { length: lessonLength(lesson.length) } : {}),
+					...(lesson.status !== undefined ? { status: lessonStatus(lesson.status) } : {})
 				})
 				.returning()
 				.all();
@@ -872,8 +872,8 @@ export function importTopic(
 						.insert(schema.link)
 						.values({
 							lessonId: lessonRow.id,
-							url: link.url.trim(),
-							label: link.label.trim(),
+							url: linkUrl(link.url),
+							label: required(link.label, 'A Link needs a label.'),
 							position: j
 						})
 						.returning()

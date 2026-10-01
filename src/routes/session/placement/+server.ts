@@ -23,8 +23,7 @@ import type { RequestHandler } from './$types';
 export const POST: RequestHandler = async ({ request }) => {
 	const body = await request.json();
 	const occasion = occasionOf(body);
-	const title = typeof body.title === 'string' ? body.title.trim() : '';
-	if (!title) error(400, 'A title is required.');
+	const title = typeof body.title === 'string' ? body.title : '';
 
 	const now = today();
 	const { scheduled, openSlots } = classSchedule(db, { classId: occasion.classId, today: now });
@@ -83,33 +82,27 @@ export const PATCH: RequestHandler = async ({ request }) => {
 
 	let report: WriteReport = { atRisk: [], placementsMoved: [] };
 
-	if ('title' in body || 'body' in body || 'length' in body) {
-		const title =
-			'title' in body
-				? typeof body.title === 'string'
-					? body.title.trim()
-					: ''
-				: before.lesson.title;
-		if (!title) error(400, 'A title is required.');
-		const lessonBody =
-			'body' in body ? (typeof body.body === 'string' ? body.body : null) : before.lesson.body;
-		const length = 'length' in body ? Number(body.length) : before.lesson.length;
-		if (!Number.isInteger(length) || length < 1) error(400, 'Length must be one Period or more.');
+	try {
+		if ('title' in body || 'body' in body || 'length' in body) {
+			const result = updateLesson(db, {
+				id: before.lesson.id,
+				title:
+					'title' in body
+						? typeof body.title === 'string'
+							? body.title
+							: ''
+						: before.lesson.title,
+				body:
+					'body' in body ? (typeof body.body === 'string' ? body.body : null) : before.lesson.body,
+				length: 'length' in body ? Number(body.length) : before.lesson.length,
+				today: now
+			});
+			if (result) report = { atRisk: result.atRisk, placementsMoved: result.placementsMoved };
+		}
 
-		const result = updateLesson(db, {
-			id: before.lesson.id,
-			title,
-			body: lessonBody,
-			length,
-			today: now
-		});
-		if (result) report = { atRisk: result.atRisk, placementsMoved: result.placementsMoved };
-	}
-
-	if ('status' in body) {
-		if (body.status !== 'draft' && body.status !== 'planned')
-			error(400, 'status must be draft or planned.');
-		setLessonStatus(db, before.lesson.id, body.status);
+		if ('status' in body) setLessonStatus(db, before.lesson.id, String(body.status));
+	} catch (e) {
+		refusal(e);
 	}
 
 	return json({ ...sessionDetail(db, { ...occasion, today: now }), report });
