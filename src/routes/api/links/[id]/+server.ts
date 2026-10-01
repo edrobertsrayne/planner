@@ -2,18 +2,10 @@ import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db/client';
 import { link } from '$lib/server/db/schema';
 import { requireApiKey } from '$lib/server/api-key';
-import {
-	MAX_NAME_LENGTH,
-	rejectUnknownFields,
-	requireExisting,
-	validateUrl,
-	validateString
-} from '$lib/server/api-helpers';
-import { deleteLink } from '$lib/server/planner/authoring';
+import { refusalJson, stringField } from '$lib/server/api-helpers';
+import { deleteLink, updateLink } from '$lib/server/planner/authoring';
 import { eq } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
-
-const LINK_FIELDS = new Set(['url', 'label']);
 
 export const PATCH: RequestHandler = async (event) => {
 	const auth = await requireApiKey(event);
@@ -21,30 +13,22 @@ export const PATCH: RequestHandler = async (event) => {
 
 	const data = await event.request.json();
 
-	const unknown = rejectUnknownFields(data, LINK_FIELDS);
-	if (unknown) return unknown;
+	const [existing] = db.select().from(link).where(eq(link.id, event.params.id)).all();
+	if (!existing) return json({ error: 'Link not found.' }, { status: 404 });
 
-	const update: Record<string, string> = {};
+	// PATCH is partial: an absent field keeps its stored value, and the seam's rules run over
+	// the merged pair, the same as the Lesson editor's full update.
+	const url = data.url === undefined ? existing.url : stringField(data.url, 'url');
+	if (url instanceof Response) return url;
 
-	if (data.url !== undefined) {
-		const url = validateUrl(data.url);
-		if (url instanceof Response) return url;
-		update.url = url;
+	const label = data.label === undefined ? existing.label : stringField(data.label, 'label');
+	if (label instanceof Response) return label;
+
+	try {
+		return json(updateLink(db, { id: event.params.id, url, label }));
+	} catch (error) {
+		return refusalJson(error);
 	}
-
-	if (data.label !== undefined) {
-		const label = validateString(data.label, 'label', MAX_NAME_LENGTH);
-		if (label instanceof Response) return label;
-		update.label = label;
-	}
-
-	const missing = requireExisting(db, link, event.params.id, 'Link not found.');
-	if (missing) return missing;
-
-	db.update(link).set(update).where(eq(link.id, event.params.id)).run();
-
-	const [updated] = db.select().from(link).where(eq(link.id, event.params.id)).all();
-	return json(updated);
 };
 
 export const DELETE: RequestHandler = async (event) => {

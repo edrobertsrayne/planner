@@ -20,11 +20,14 @@ export const load: PageServerLoad = () => {
 export const actions: Actions = {
 	createClass: async ({ request }) => {
 		const data = await request.formData();
-		const label = trimmed(data, 'label');
+		const label = String(data.get('label') ?? '');
 		const courseId = trimmed(data, 'courseId');
-		if (!label) return fail(400, { error: 'A Class needs a label.' });
 		if (!courseId) return fail(400, { error: 'A Class needs a Course.' });
-		return { class: createClass(db, { label, courseId }) };
+		try {
+			return { class: createClass(db, { label, courseId }) };
+		} catch (error) {
+			return refusal(error);
+		}
 	},
 
 	assignTopic: async ({ request }) => {

@@ -77,19 +77,11 @@ test.describe.serial('the Blocked Day endpoints', () => {
 			error: `"${inset}" is already a Blocked Day.`
 		});
 
-		// The note is capped at its own ceiling, not the name's.
+		// Extra fields in a body are read and ignored, and the note is stored trimmed.
 		const bankHoliday = nextWeekday(plusDays(today, 100));
-		const capped = await request.post('/api/blocked-days', {
-			headers: BEARER(token),
-			data: { date: bankHoliday, note: 'x'.repeat(201) }
-		});
-		expect(capped.status()).toBe(400);
-		expect((await capped.json()).error).toContain('at most 200');
-
-		// Extra fields in a body are read and ignored.
 		const withExtra = await request.post('/api/blocked-days', {
 			headers: BEARER(token),
-			data: { date: bankHoliday, note: 'Bank holiday', titel: 'extra' }
+			data: { date: bankHoliday, note: '  Bank holiday ', titel: 'extra' }
 		});
 		expect(withExtra.status()).toBe(201);
 		expect((await withExtra.json()).blockedDay).toEqual({

@@ -7,6 +7,7 @@ import { lessonNames, rederive, scheduleFor, type Db, type WriteReport } from '.
 import { runway as deriveRunway, type Runway } from './engine';
 import { nextPosition, swapTargets, type Direction } from './ordering';
 import { Refused } from './refused';
+import { required } from './fields';
 
 // The Tone is assigned once here, at creation — the next unused position of the fixed walk
 // (ADR-0013) — and never touched again by any other write.
@@ -18,7 +19,11 @@ export function createClass(db: Db, { label, courseId }: { label: string; course
 		.map((row) => row.tone);
 	const [row] = db
 		.insert(schema.classes)
-		.values({ label, courseId, tone: nextTone(tonesInUse) })
+		.values({
+			label: required(label, 'A Class needs a label.'),
+			courseId,
+			tone: nextTone(tonesInUse)
+		})
 		.returning()
 		.all();
 	return row;
@@ -26,7 +31,7 @@ export function createClass(db: Db, { label, courseId }: { label: string; course
 
 // Changes a Class's label only — its Course and Tone are fixed at creation and untouched here.
 export function renameClass(db: Db, { id, label }: { id: string; label: string }) {
-	const trimmed = label.trim();
+	const trimmed = required(label, 'A Class needs a label.');
 	const [row] = db
 		.update(schema.classes)
 		.set({ label: trimmed })

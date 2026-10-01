@@ -6,6 +6,7 @@ import * as schema from '../db/schema';
 import { rederive, rederiveAllClasses, rewindBoundary, type Db, type WriteReport } from './derive';
 import { isRealDate, weekday } from '$lib/date';
 import { Refused } from './refused';
+import { required } from './fields';
 
 // A Blocked Day removes every Slot on that date for every Class. Any Session that carried a note
 // and was relabelled by the re-derivation is reported back as `atRisk`, rather than silently
@@ -39,7 +40,9 @@ export function blockDay(
 		throw new Refused('conflict', `"${date}" is already a Blocked Day.`);
 	}
 
-	db.insert(schema.blockedDay).values({ date, note }).run();
+	db.insert(schema.blockedDay)
+		.values({ date, note: note?.trim() || undefined })
+		.run();
 	return rederiveAllClasses(db, rewindBoundary(date, today));
 }
 
@@ -54,7 +57,9 @@ export function blockSlot(
 		today
 	}: { classId: string; date: string; slotId: string; note: string; today: string }
 ): WriteReport {
-	db.insert(schema.blockedSlot).values({ classId, date, slotId, note }).run();
+	db.insert(schema.blockedSlot)
+		.values({ classId, date, slotId, note: required(note, 'A Blocked Slot needs a note.') })
+		.run();
 	return rederive(db, classId, rewindBoundary(date, today));
 }
 

@@ -3,18 +3,10 @@ import { today } from '$lib/date';
 import { DATABASE_URL, db } from '$lib/server/db/client';
 import { course } from '$lib/server/db/schema';
 import { requireApiKey } from '$lib/server/api-key';
-import {
-	MAX_NAME_LENGTH,
-	refusalJson,
-	rejectUnknownFields,
-	requireExisting,
-	validateString
-} from '$lib/server/api-helpers';
+import { refusalJson, requireExisting, stringField } from '$lib/server/api-helpers';
 import { renameCourse, deleteCourse, attachmentsDir } from '$lib/server/planner';
 import { eq } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
-
-const COURSE_FIELDS = new Set(['name']);
 
 export const GET: RequestHandler = async (event) => {
 	const auth = await requireApiKey(event);
@@ -42,9 +34,6 @@ export const PATCH: RequestHandler = async (event) => {
 
 	const body = await event.request.json();
 
-	const unknown = rejectUnknownFields(body, COURSE_FIELDS);
-	if (unknown) return unknown;
-
 	if (body.name === undefined) {
 		const [record] = db
 			.select({ id: course.id, name: course.name })
@@ -54,7 +43,7 @@ export const PATCH: RequestHandler = async (event) => {
 		return json(record);
 	}
 
-	const name = validateString(body.name, 'name', MAX_NAME_LENGTH);
+	const name = stringField(body.name, 'name');
 	if (name instanceof Response) return name;
 
 	try {

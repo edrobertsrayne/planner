@@ -121,50 +121,21 @@ test.describe.serial('the Topic import', () => {
 		});
 	});
 
-	test('a rejected Import leaves nothing behind, and the caps are refused', async ({ request }) => {
-		// The second Lesson has no title, so the whole Import is refused — no Course, no Topic,
-		// and no Lesson may survive a rejected Import.
+	test('a rejected Import leaves nothing behind', async ({ request }) => {
+		// The second Lesson's title is blank, so the seam refuses it inside the transaction — no
+		// Course, no Topic, and no Lesson may survive a rejected Import.
 		const rejected = await request.post('/api/import', {
 			headers: BEARER(token),
 			data: {
 				course: { name: 'API Never Course' },
-				topic: { name: 'API Never Topic', lessons: [{ title: 'Good' }, {}] }
+				topic: { name: 'API Never Topic', lessons: [{ title: 'Good' }, { title: '  ' }] }
 			}
 		});
 		expect(rejected.status()).toBe(400);
-		expect(await rejected.json()).toEqual({ error: 'Every Lesson needs a title.' });
+		expect(await rejected.json()).toEqual({ error: 'A Lesson needs a title.' });
 
 		const list = await request.get('/api/courses', { headers: BEARER(token) });
 		const names = (await list.json()).map((c: { name: string }) => c.name);
 		expect(names).not.toContain('API Never Course');
-
-		const tooManyLessons = await request.post('/api/import', {
-			headers: BEARER(token),
-			data: {
-				course: { name: 'API Import Course' },
-				topic: { name: 'Too Much', lessons: Array.from({ length: 201 }, () => ({ title: 'x' })) }
-			}
-		});
-		expect(tooManyLessons.status()).toBe(400);
-
-		const tooManyLinks = await request.post('/api/import', {
-			headers: BEARER(token),
-			data: {
-				course: { name: 'API Import Course' },
-				topic: {
-					name: 'Too Linked',
-					lessons: [
-						{
-							title: 'Overlinked',
-							links: Array.from({ length: 21 }, (_, i) => ({
-								url: `https://example.com/${i}`,
-								label: `Link ${i}`
-							}))
-						}
-					]
-				}
-			}
-		});
-		expect(tooManyLinks.status()).toBe(400);
 	});
 });

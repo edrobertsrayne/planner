@@ -71,9 +71,10 @@ test.describe.serial('the Link endpoints', () => {
 
 		const wrongScheme = await request.post(`/api/lessons/${lessonAId}/links`, {
 			headers: BEARER(token),
-			data: { url: 'ftp://example.com/file', label: 'FTP' }
+			data: { url: 'javascript:alert(1)', label: 'Trap' }
 		});
 		expect(wrongScheme.status()).toBe(400);
+		expect(await wrongScheme.json()).toEqual({ error: 'A Link must be an http(s) URL.' });
 
 		const missingLesson = await request.post('/api/lessons/does-not-exist/links', {
 			headers: BEARER(token),

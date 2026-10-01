@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { client, db } from '$lib/server/db/client';
 import { requireApiKey } from '$lib/server/api-key';
 import { today } from '$lib/date';
-import { MAX_NAME_LENGTH, refusalJson, validateString } from '$lib/server/api-helpers';
+import { refusalJson, stringField } from '$lib/server/api-helpers';
 import { importTopic } from '$lib/server/planner/authoring';
 import type { RequestHandler } from './$types';
 
@@ -20,34 +20,35 @@ export const POST: RequestHandler = async (event) => {
 		return json({ error: 'The "topic" field is required.' }, { status: 400 });
 	}
 
-	const topicName = validateString(data.topic.name, 'name', MAX_NAME_LENGTH);
+	const topicName = stringField(data.topic.name, 'name');
 	if (topicName instanceof Response) return topicName;
 
 	const lessons = Array.isArray(data.topic.lessons) ? data.topic.lessons : [];
 
+	// Types only: every value rule — a title, a Length, a status, a Link's url — runs in the seam,
+	// inside the one transaction.
 	for (const lesson of lessons) {
-		if (!lesson.title || typeof lesson.title !== 'string' || lesson.title.trim().length === 0) {
-			return json({ error: 'Every Lesson needs a title.' }, { status: 400 });
+		const title = stringField(lesson?.title, 'title');
+		if (title instanceof Response) return title;
+		if (lesson.body !== undefined && lesson.body !== null && typeof lesson.body !== 'string') {
+			return json({ error: 'The "body" field must be a string or null.' }, { status: 400 });
 		}
-		const trimmed = lesson.title.trim();
-		if (trimmed.length > MAX_NAME_LENGTH) {
-			return json(
-				{ error: `The "title" field must be at most ${MAX_NAME_LENGTH} characters.` },
-				{ status: 400 }
-			);
+		if (lesson.length !== undefined && typeof lesson.length !== 'number') {
+			return json({ error: 'The "length" field must be a number.' }, { status: 400 });
 		}
-		if (lesson.links) {
-			if (!Array.isArray(lesson.links)) {
-				return json({ error: 'The "links" field must be an array.' }, { status: 400 });
-			}
-			for (const link of lesson.links) {
-				if (!link.url || typeof link.url !== 'string' || link.url.trim().length === 0) {
-					return json({ error: 'Every Link needs a url.' }, { status: 400 });
-				}
-				if (!link.label || typeof link.label !== 'string' || link.label.trim().length === 0) {
-					return json({ error: 'Every Link needs a label.' }, { status: 400 });
-				}
-			}
+		if (lesson.status !== undefined) {
+			const status = stringField(lesson.status, 'status');
+			if (status instanceof Response) return status;
+		}
+		if (!lesson.links) continue;
+		if (!Array.isArray(lesson.links)) {
+			return json({ error: 'The "links" field must be an array.' }, { status: 400 });
+		}
+		for (const link of lesson.links) {
+			const url = stringField(link?.url, 'url');
+			if (url instanceof Response) return url;
+			const label = stringField(link?.label, 'label');
+			if (label instanceof Response) return label;
 		}
 	}
 

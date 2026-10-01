@@ -64,13 +64,7 @@ test.describe.serial('the Course endpoints', () => {
 			data: { name: '   ' }
 		});
 		expect(empty.status()).toBe(400);
-
-		const unknown = await request.post('/api/courses', {
-			headers: BEARER(token),
-			data: { titel: 'A typo the API must not swallow' }
-		});
-		expect(unknown.status()).toBe(400);
-		expect(await unknown.json()).toEqual({ error: 'The field "titel" is not recognised.' });
+		expect(await empty.json()).toEqual({ error: 'A Course needs a name.' });
 	});
 
 	test('a Course reads back, lists ordered by name, renames, and 404s on an unknown id', async ({

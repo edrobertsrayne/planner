@@ -11,6 +11,7 @@ import { inTransaction } from '../db';
 import { rederive, rewindBoundary, type Db, type WriteReport } from './derive';
 import { isRealDate } from '$lib/date';
 import { Refused } from './refused';
+import { required } from './fields';
 
 // Creates a fresh Standalone Lesson (`topicId: null`, `position: 0`, since it belongs to no
 // Topic's order) and a Placement anchoring it to one Class, one date and one Slot, then
@@ -46,7 +47,7 @@ export function placeLesson(
 	const lesson = inTransaction(client, () => {
 		const [lesson] = db
 			.insert(schema.lesson)
-			.values({ topicId: null, title, position: 0 })
+			.values({ topicId: null, title: required(title, 'A Lesson needs a title.'), position: 0 })
 			.returning()
 			.all();
 		db.insert(schema.placement).values({ classId, date, slotId, lessonId: lesson.id }).run();

@@ -2,17 +2,9 @@ import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db/client';
 import { course } from '$lib/server/db/schema';
 import { requireApiKey } from '$lib/server/api-key';
-import {
-	MAX_NAME_LENGTH,
-	refusalJson,
-	rejectUnknownFields,
-	requireExisting,
-	validateString
-} from '$lib/server/api-helpers';
+import { refusalJson, requireExisting, stringField } from '$lib/server/api-helpers';
 import { topicsOf, createTopic } from '$lib/server/planner/authoring';
 import type { RequestHandler } from './$types';
-
-const TOPIC_FIELDS = new Set(['name']);
 
 export const GET: RequestHandler = async (event) => {
 	const auth = await requireApiKey(event);
@@ -36,10 +28,7 @@ export const POST: RequestHandler = async (event) => {
 
 	const body = await event.request.json();
 
-	const unknown = rejectUnknownFields(body, TOPIC_FIELDS);
-	if (unknown) return unknown;
-
-	const name = validateString(body.name, 'name', MAX_NAME_LENGTH);
+	const name = stringField(body.name, 'name');
 	if (name instanceof Response) return name;
 
 	try {

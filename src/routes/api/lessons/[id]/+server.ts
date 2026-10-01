@@ -2,14 +2,7 @@ import { json } from '@sveltejs/kit';
 import { today } from '$lib/date';
 import { DATABASE_URL, db } from '$lib/server/db/client';
 import { requireApiKey } from '$lib/server/api-key';
-import {
-	MAX_NAME_LENGTH,
-	refusalJson,
-	rejectUnknownFields,
-	validateString,
-	validateStatus,
-	validateLength
-} from '$lib/server/api-helpers';
+import { refusalJson, stringField } from '$lib/server/api-helpers';
 import {
 	attachmentsDir,
 	attachmentsOf,
@@ -18,8 +11,6 @@ import {
 	patchLesson
 } from '$lib/server/planner';
 import type { RequestHandler } from './$types';
-
-const LESSON_FIELDS = new Set(['title', 'body', 'length', 'status', 'topicId']);
 
 export const GET: RequestHandler = async (event) => {
 	const auth = await requireApiKey(event);
@@ -37,19 +28,16 @@ export const PATCH: RequestHandler = async (event) => {
 
 	const data = await event.request.json();
 
-	const unknown = rejectUnknownFields(data, LESSON_FIELDS);
-	if (unknown) return unknown;
-
 	const fields: {
 		title?: string;
 		body?: string | null;
 		length?: number;
-		status?: 'draft' | 'planned';
+		status?: string;
 		topicId?: string;
 	} = {};
 
 	if (data.title !== undefined) {
-		const title = validateString(data.title, 'title', MAX_NAME_LENGTH);
+		const title = stringField(data.title, 'title');
 		if (title instanceof Response) return title;
 		fields.title = title;
 	}
@@ -58,23 +46,18 @@ export const PATCH: RequestHandler = async (event) => {
 		if (data.body !== null && typeof data.body !== 'string') {
 			return json({ error: 'The "body" field must be a string or null.' }, { status: 400 });
 		}
-		if (typeof data.body === 'string' && data.body.length > 100000) {
-			return json(
-				{ error: 'The "body" field must be at most 100000 characters.' },
-				{ status: 400 }
-			);
-		}
 		fields.body = data.body;
 	}
 
 	if (data.length !== undefined) {
-		const length = validateLength(data.length);
-		if (length instanceof Response) return length;
-		fields.length = length;
+		if (typeof data.length !== 'number') {
+			return json({ error: 'The "length" field must be a number.' }, { status: 400 });
+		}
+		fields.length = data.length;
 	}
 
 	if (data.status !== undefined) {
-		const status = validateStatus(data.status);
+		const status = stringField(data.status, 'status');
 		if (status instanceof Response) return status;
 		fields.status = status;
 	}

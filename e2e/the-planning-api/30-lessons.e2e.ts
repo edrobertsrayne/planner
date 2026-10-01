@@ -90,6 +90,7 @@ test.describe.serial('the Lesson endpoints', () => {
 			data: { title: 'Mislabeled', status: 'archived' }
 		});
 		expect(badStatus.status()).toBe(400);
+		expect(await badStatus.json()).toEqual({ error: 'A Lesson must be Draft or Planned.' });
 
 		const missingTopic = await request.post('/api/topics/does-not-exist/lessons', {
 			headers: BEARER(token),
@@ -197,12 +198,12 @@ test.describe.serial('the Lesson endpoints', () => {
 		expect(noop.status()).toBe(200);
 		expect(await noop.json()).toMatchObject({ body: 'Rewritten', length: 2, status: 'planned' });
 
-		const unknownField = await request.patch(`/api/lessons/${lessonBId}`, {
+		const blankTitle = await request.patch(`/api/lessons/${lessonBId}`, {
 			headers: BEARER(token),
-			data: { titel: 'A typo' }
+			data: { title: '   ' }
 		});
-		expect(unknownField.status()).toBe(400);
-		expect(await unknownField.json()).toEqual({ error: 'The field "titel" is not recognised.' });
+		expect(blankTitle.status()).toBe(400);
+		expect(await blankTitle.json()).toEqual({ error: 'A Lesson needs a title.' });
 
 		const missingLesson = await request.patch('/api/lessons/does-not-exist', {
 			headers: BEARER(token),
