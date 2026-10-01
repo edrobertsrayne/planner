@@ -264,8 +264,10 @@ agree on what to call them.
 **Agenda**:
 The chronological stream of upcoming Sessions across every Class, grouped by day, reaching a
 horizon the teacher chooses: a number of days, or **All**, to the end of the last Term. Where the
-planner opens. Above today, the Agenda also shows the Sessions of the past seven days, grouped by
-day, oldest first. This look-back is read-only and fixed: the horizon changes only the days ahead.
+planner opens. The teacher can also turn on the look-back: the Sessions of the past seven days,
+shown above today, grouped by day, oldest first. The look-back is off by default and read-only. Its
+span is fixed: the horizon changes only the days ahead. The look-back obeys the Tag filter the same
+way the days ahead do.
 A past row carries no Ready tick. It opens the Session panel on its occasion, where the teacher
 reads the note. The past days are told apart from the days ahead by a step in shade, never a hue.
 An Open Slot appears as an ordinary row in its own position, marked as carrying no Lesson, because
@@ -275,7 +277,8 @@ upcoming row carries the Ready tick for its Class, and this is the only screen o
 is written; a row can be ticked only while it is on screen, so the ticks reach only as far as the
 chosen horizon, and no past day can be ticked. A Continuation's two rows share one Readiness
 record, so ticking either moves both. The Agenda can be narrowed to one Tag: while a Tag filter is
-on, it shows only the Lessons with that Tag and hides Open Slots.
+on, it shows only the Lessons with that Tag and hides Open Slots, in the look-back and in the days
+ahead.
 
 **Calendar**:
 One Teaching Week as a grid of Periods against days, showing which Class is taught when and what
