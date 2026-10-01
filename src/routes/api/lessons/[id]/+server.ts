@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { today } from '$lib/date';
 import { DATABASE_URL, db } from '$lib/server/db/client';
 import { requireApiKey } from '$lib/server/api-key';
 import {
@@ -7,8 +8,7 @@ import {
 	rejectUnknownFields,
 	validateString,
 	validateStatus,
-	validateLength,
-	getDateToday
+	validateLength
 } from '$lib/server/api-helpers';
 import {
 	attachmentsDir,
@@ -86,10 +86,8 @@ export const PATCH: RequestHandler = async (event) => {
 		fields.topicId = data.topicId;
 	}
 
-	const today = getDateToday();
-
 	try {
-		const lesson = patchLesson(db, { id: event.params.id, fields, today });
+		const lesson = patchLesson(db, { id: event.params.id, fields, today: today() });
 
 		// An unknown lesson id is a URL miss — the route's own 404, not the seam's.
 		if (!lesson) return json({ error: 'Lesson not found.' }, { status: 404 });
@@ -106,7 +104,7 @@ export const DELETE: RequestHandler = async (event) => {
 	try {
 		const lesson = deleteLesson(db, {
 			id: event.params.id,
-			today: getDateToday(),
+			today: today(),
 			dir: attachmentsDir(DATABASE_URL)
 		});
 

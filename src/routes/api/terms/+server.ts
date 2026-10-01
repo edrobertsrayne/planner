@@ -2,7 +2,8 @@ import { json } from '@sveltejs/kit';
 import { db, client } from '$lib/server/db/client';
 import { term } from '$lib/server/db/schema';
 import { requireApiKey } from '$lib/server/api-key';
-import { getDateToday, refusalJson } from '$lib/server/api-helpers';
+import { today } from '$lib/date';
+import { refusalJson } from '$lib/server/api-helpers';
 import { replaceTerms } from '$lib/server/planner';
 import { TERM_NAMES } from '$lib/calendar/generate-teaching-weeks';
 import { asc } from 'drizzle-orm';
@@ -36,7 +37,7 @@ export const PUT: RequestHandler = async (event) => {
 	const terms = Array.isArray(data.terms) ? data.terms : [];
 
 	try {
-		const report = replaceTerms(db, client, { terms, today: getDateToday() });
+		const report = replaceTerms(db, client, { terms, today: today() });
 		return json({
 			terms: termsInYearOrder(),
 			atRisk: report.atRisk,
