@@ -4,11 +4,12 @@ import { course } from '$lib/server/db/schema';
 import { requireApiKey } from '$lib/server/api-key';
 import {
 	MAX_NAME_LENGTH,
+	refusalJson,
 	rejectUnknownFields,
 	requireExisting,
 	validateString
 } from '$lib/server/api-helpers';
-import { topicsOf, createTopic, NameCollision } from '$lib/server/planner/authoring';
+import { topicsOf, createTopic } from '$lib/server/planner/authoring';
 import type { RequestHandler } from './$types';
 
 const TOPIC_FIELDS = new Set(['name']);
@@ -48,9 +49,6 @@ export const POST: RequestHandler = async (event) => {
 			{ status: 201 }
 		);
 	} catch (error) {
-		if (error instanceof NameCollision) {
-			return json({ error: error.message }, { status: 409 });
-		}
-		throw error;
+		return refusalJson(error);
 	}
 };

@@ -1,10 +1,24 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach } from 'vitest';
+import { afterEach, expect } from 'vitest';
 import { openDatabase, runMigrations } from '../db';
 import * as schema from '../db/schema';
-import { addSlot, attachmentsDir, createClass } from './index';
+import { addSlot, attachmentsDir, createClass, Refused, type RefusalKind } from './index';
+
+// Asserts the call is refused the one way the seam refuses: a `Refused` throw carrying the
+// expected kind and the expected teacher-readable message. Throws through anything else.
+export function refused(call: () => unknown, kind: RefusalKind, message: string) {
+	try {
+		call();
+	} catch (error) {
+		expect(error).toBeInstanceOf(Refused);
+		expect((error as Refused).kind).toBe(kind);
+		expect((error as Error).message).toBe(message);
+		return;
+	}
+	throw new Error('expected the call to refuse');
+}
 
 // The real 2026/27 calendar: six Terms opening Thursday 3 September 2026, INSET on Thu 26 +
 // Fri 27 Nov 2026, 40 Teaching Weeks, 20 A, 20 B, 187 teaching days. Monday 14 September 2026 is

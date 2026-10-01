@@ -4,6 +4,7 @@ import { DATABASE_URL, db } from '$lib/server/db/client';
 import { requireApiKey } from '$lib/server/api-key';
 import {
 	MAX_NAME_LENGTH,
+	refusalJson,
 	rejectUnknownFields,
 	validateString,
 	validateStatus,
@@ -85,47 +86,31 @@ export const PATCH: RequestHandler = async (event) => {
 		fields.topicId = data.topicId;
 	}
 
-	const result = patchLesson(db, { id: event.params.id, fields, today: today() });
+	try {
+		const lesson = patchLesson(db, { id: event.params.id, fields, today: today() });
 
-	if (!result.ok) {
-		if (result.reason === 'not found') return json({ error: 'Lesson not found.' }, { status: 404 });
-		if (result.reason === 'standalone')
-			return json({ error: 'A Standalone Lesson cannot rejoin a Topic.' }, { status: 409 });
-		return json({ error: 'Topic not found.' }, { status: 404 });
+		// An unknown lesson id is a URL miss — the route's own 404, not the seam's.
+		if (!lesson) return json({ error: 'Lesson not found.' }, { status: 404 });
+		return json(lesson);
+	} catch (error) {
+		return refusalJson(error);
 	}
-
-	return json(result.lesson);
 };
 
 export const DELETE: RequestHandler = async (event) => {
 	const auth = await requireApiKey(event);
 	if (auth) return auth;
 
-	const result = deleteLesson(db, {
-		id: event.params.id,
-		today: today(),
-		dir: attachmentsDir(DATABASE_URL)
-	});
+	try {
+		const lesson = deleteLesson(db, {
+			id: event.params.id,
+			today: today(),
+			dir: attachmentsDir(DATABASE_URL)
+		});
 
-	if (!result.ok) {
-		if (result.reason === 'not found') return json({ error: 'Lesson not found.' }, { status: 404 });
-		if (result.reason === 'placed')
-			return json(
-				{
-					error:
-						'A Placement names this Lesson, so it cannot be removed. Remove the Placement first.'
-				},
-				{ status: 409 }
-			);
-		return json(
-			{
-				error: result.hasTopic
-					? 'A Class has already been taught this Lesson, so it cannot be removed. Detach it instead with PATCH /api/lessons/:id and "topicId": null.'
-					: 'A Class has already been taught this Lesson, so it cannot be removed.'
-			},
-			{ status: 409 }
-		);
+		if (!lesson) return json({ error: 'Lesson not found.' }, { status: 404 });
+		return new Response(null, { status: 204 });
+	} catch (error) {
+		return refusalJson(error);
 	}
-
-	return new Response(null, { status: 204 });
 };

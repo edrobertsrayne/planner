@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import * as schema from '../db/schema';
 import { rederive, rederiveAllClasses, rewindBoundary, type Db, type WriteReport } from './derive';
 import { isRealDate, weekday } from '$lib/date';
+import { Refused } from './refused';
 
 // A Blocked Day removes every Slot on that date for every Class. Any Session that carried a note
 // and was relabelled by the re-derivation is reported back as `atRisk`, rather than silently
@@ -13,22 +14,21 @@ import { isRealDate, weekday } from '$lib/date';
 // alone cannot cover it (ADR-0022).
 //
 // The same rules every door on the seam applies — the setup-mode list, the grid popover and the
-// API: a malformed date, a weekend date, and a date already blocked are refused, and nothing
-// else. A Blocked Day outside every Term is allowed, because a closure does not need a Term to
-// be real. The status travels with the refusal so a door that distinguishes 400 from 409 can.
+// API: a malformed date and a weekend date are `invalid`, a date already blocked is a `conflict`,
+// and nothing else is refused. A Blocked Day outside every Term is allowed, because a closure
+// does not need a Term to be real.
 export function blockDay(
 	db: Db,
 	{ date, note, today }: { date: string; note?: string; today: string }
-): ({ ok: true } & WriteReport) | { ok: false; status: 400 | 409; reason: string } {
+): WriteReport {
 	if (!isRealDate(date)) {
-		return { ok: false, status: 400, reason: `"${date}" is not a real date.` };
+		throw new Refused('invalid', `"${date}" is not a real date.`);
 	}
 	if (weekday(date) === 0 || weekday(date) === 6) {
-		return {
-			ok: false,
-			status: 400,
-			reason: `"${date}" falls on a weekend. A Blocked Day must be a Monday to Friday.`
-		};
+		throw new Refused(
+			'invalid',
+			`"${date}" falls on a weekend. A Blocked Day must be a Monday to Friday.`
+		);
 	}
 	const [existing] = db
 		.select({ id: schema.blockedDay.id })
@@ -36,11 +36,11 @@ export function blockDay(
 		.where(eq(schema.blockedDay.date, date))
 		.all();
 	if (existing) {
-		return { ok: false, status: 409, reason: `"${date}" is already a Blocked Day.` };
+		throw new Refused('conflict', `"${date}" is already a Blocked Day.`);
 	}
 
 	db.insert(schema.blockedDay).values({ date, note }).run();
-	return { ok: true, ...rederiveAllClasses(db, rewindBoundary(date, today)) };
+	return rederiveAllClasses(db, rewindBoundary(date, today));
 }
 
 // A Blocked Slot removes one Slot on one date for one Class, leaving every other Class untouched.

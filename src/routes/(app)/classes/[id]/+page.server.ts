@@ -1,7 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
-import { badRequest, trimmed } from '$lib/server/form';
+import { refusal, trimmed } from '$lib/server/form';
 import {
 	academicYearStart,
 	activeSlots,
@@ -54,13 +54,9 @@ export const actions: Actions = {
 		const id = trimmed(data, 'id');
 		const label = trimmed(data, 'label');
 		if (!label) return fail(400, { error: 'A Class needs a label.' });
-		try {
-			const cls = renameClass(db, { id, label });
-			if (!cls) return fail(404, { error: 'No such Class.' });
-			return { class: cls };
-		} catch (error) {
-			return badRequest(error, 'Could not rename the Class.');
-		}
+		const cls = renameClass(db, { id, label });
+		if (!cls) return fail(404, { error: 'No such Class.' });
+		return { class: cls };
 	},
 
 	toggleSlot: async ({ request }) => {
@@ -85,7 +81,7 @@ export const actions: Actions = {
 			// is only reached by a stale click racing an edit made elsewhere.
 			return { atRisk: [], placementsMoved: [] };
 		} catch (error) {
-			return badRequest(error, 'Could not change the Timetable.');
+			return refusal(error);
 		}
 	},
 
@@ -98,7 +94,7 @@ export const actions: Actions = {
 			const report = assignTopic(db, { classId, topicId, today: today() });
 			return { atRisk: report.atRisk, placementsMoved: report.placementsMoved };
 		} catch (error) {
-			return badRequest(error, 'Could not assign the Topic.');
+			return refusal(error);
 		}
 	},
 
@@ -110,7 +106,7 @@ export const actions: Actions = {
 			const report = unassignTopic(db, { classId, id, today: today() });
 			return { atRisk: report?.atRisk ?? [], placementsMoved: report?.placementsMoved ?? [] };
 		} catch (error) {
-			return badRequest(error, 'Could not unassign the Topic.');
+			return refusal(error);
 		}
 	},
 

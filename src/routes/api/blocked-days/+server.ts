@@ -3,7 +3,7 @@ import { db } from '$lib/server/db/client';
 import { blockedDay } from '$lib/server/db/schema';
 import { requireApiKey } from '$lib/server/api-key';
 import { today } from '$lib/date';
-import { MAX_NOTE_LENGTH } from '$lib/server/api-helpers';
+import { MAX_NOTE_LENGTH, refusalJson } from '$lib/server/api-helpers';
 import { blockDay } from '$lib/server/planner';
 import { asc } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
@@ -23,8 +23,8 @@ export const GET: RequestHandler = async (event) => {
 };
 
 // Extra fields in a body are read and ignored: the body carries what it carries. The date rules
-// — malformed, weekend, already blocked — live in the seam, which answers 400 or 409 with the
-// reason the teacher reads.
+// — malformed, weekend, already blocked — live in the seam, which throws `Refused` and this door
+// answers 400 or 409 with the reason the teacher reads.
 export const POST: RequestHandler = async (event) => {
 	const auth = await requireApiKey(event);
 	if (auth) return auth;
@@ -50,15 +50,17 @@ export const POST: RequestHandler = async (event) => {
 		note = trimmed || undefined;
 	}
 
-	const report = blockDay(db, { date: data.date, note, today: today() });
-	if (!report.ok) return json({ error: report.reason }, { status: report.status });
-
-	return json(
-		{
-			blockedDay: { date: data.date, note: note ?? null },
-			atRisk: report.atRisk,
-			placementsMoved: report.placementsMoved
-		},
-		{ status: 201 }
-	);
+	try {
+		const report = blockDay(db, { date: data.date, note, today: today() });
+		return json(
+			{
+				blockedDay: { date: data.date, note: note ?? null },
+				atRisk: report.atRisk,
+				placementsMoved: report.placementsMoved
+			},
+			{ status: 201 }
+		);
+	} catch (error) {
+		return refusalJson(error);
+	}
 };

@@ -10,7 +10,7 @@ import {
 	updateLesson,
 	type WriteReport
 } from '$lib/server/planner';
-import { occasionOf } from '../occasion';
+import { occasionOf, refusal } from '../occasion';
 import type { RequestHandler } from './$types';
 
 // The Session panel's Place-a-Lesson card and the Calendar day menu's Place-a-Lesson group both
@@ -35,20 +35,22 @@ export const POST: RequestHandler = async ({ request }) => {
 	if ('placementId' in slot && slot.placementId)
 		error(400, `${occasion.date} P${occasion.period} already holds a placed Lesson.`);
 
-	const result = placeLesson(db, client, {
-		classId: occasion.classId,
-		date: occasion.date,
-		slotId: slot.slotId,
-		title,
-		today: now
-	});
-	if (!result.ok) error(400, result.reason);
-	const { atRisk, placementsMoved } = result;
+	try {
+		const { atRisk, placementsMoved } = placeLesson(db, client, {
+			classId: occasion.classId,
+			date: occasion.date,
+			slotId: slot.slotId,
+			title,
+			today: now
+		});
 
-	return json({
-		...sessionDetail(db, { ...occasion, today: now }),
-		report: { atRisk, placementsMoved }
-	});
+		return json({
+			...sessionDetail(db, { ...occasion, today: now }),
+			report: { atRisk, placementsMoved }
+		});
+	} catch (e) {
+		refusal(e);
+	}
 };
 
 // Removes the Placement named by `SessionDetail.placement.id` and returns the refreshed detail —

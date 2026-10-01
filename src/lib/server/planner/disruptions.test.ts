@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { describe, expect, test } from 'vitest';
-import { makeLessons, makeTopic, setUp } from './fixtures';
+import { makeLessons, makeTopic, refused, setUp } from './fixtures';
 import {
 	assignTopic,
 	blockDay,
@@ -230,30 +230,33 @@ describe('blocking a day: the refusals every door shares', () => {
 	test('refuses a malformed date, a weekend date, and a date already blocked', () => {
 		const { db } = setUp();
 
-		expect(blockDay(db, { date: '2026-02-30', today: '2026-09-01' })).toEqual({
-			ok: false,
-			status: 400,
-			reason: '"2026-02-30" is not a real date.'
-		});
+		refused(
+			() => blockDay(db, { date: '2026-02-30', today: '2026-09-01' }),
+			'invalid',
+			'"2026-02-30" is not a real date.'
+		);
 		// 12 September 2026 is a Saturday.
-		expect(blockDay(db, { date: '2026-09-12', today: '2026-09-01' })).toEqual({
-			ok: false,
-			status: 400,
-			reason: '"2026-09-12" falls on a weekend. A Blocked Day must be a Monday to Friday.'
-		});
-		expect(blockDay(db, { date: '2026-09-03', today: '2026-09-01' })).toMatchObject({ ok: true });
+		refused(
+			() => blockDay(db, { date: '2026-09-12', today: '2026-09-01' }),
+			'invalid',
+			'"2026-09-12" falls on a weekend. A Blocked Day must be a Monday to Friday.'
+		);
 		expect(blockDay(db, { date: '2026-09-03', today: '2026-09-01' })).toEqual({
-			ok: false,
-			status: 409,
-			reason: '"2026-09-03" is already a Blocked Day.'
+			atRisk: [],
+			placementsMoved: []
 		});
+		refused(
+			() => blockDay(db, { date: '2026-09-03', today: '2026-09-01' }),
+			'conflict',
+			'"2026-09-03" is already a Blocked Day.'
+		);
 	});
 
 	test('allows a date outside every Term, because a closure does not need a Term to be real', () => {
 		const { db } = setUp();
 		// 27 August 2026, a Thursday, before the first Term opens.
 		const report = blockDay(db, { date: '2026-08-27', today: '2026-09-01' });
-		expect(report).toMatchObject({ ok: true, atRisk: [] });
+		expect(report).toEqual({ atRisk: [], placementsMoved: [] });
 	});
 });
 

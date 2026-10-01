@@ -12,6 +12,7 @@ import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import { rederiveAllClasses, rewindBoundary, type Db, type WriteReport } from './derive';
 import { isRealDate } from '$lib/date';
+import { Refused } from './refused';
 import type { TermInput } from '$lib/calendar/generate-teaching-weeks';
 
 // Deletes the six Terms, inserts the new six, and re-derives every Class — in one transaction,
@@ -19,26 +20,31 @@ import type { TermInput } from '$lib/calendar/generate-teaching-weeks';
 // the Rewind boundary of the earliest Term opening across the old and the new sets: a Term
 // change can flip every letter, so a minimal boundary is nearly always the whole year, and
 // computing it precisely would be complexity for nothing.
+//
+// Every rule the seam owns — the count, the two dates of each, and the sorted overlap check —
+// is an `invalid`: bad input, refused before the transaction opens. Anything unexpected throws
+// out of `inTransaction` (which rolls the old six back on the way out) and reaches the door as
+// the 500 it is.
 export function replaceTerms(
 	db: Db,
 	client: Database,
 	{ terms, today }: { terms: TermInput[]; today: string }
-): ({ ok: true } & WriteReport) | { ok: false; reason: string; cause?: unknown } {
+): WriteReport {
 	if (terms.length !== 6) {
-		return { ok: false, reason: `A year needs exactly six Terms, and ${terms.length} were given.` };
+		throw new Refused('invalid', `A year needs exactly six Terms, and ${terms.length} were given.`);
 	}
 
 	for (const term of terms) {
 		if (!isRealDate(term.opens))
-			return { ok: false, reason: `"${term.opens}" is not a real date.` };
+			throw new Refused('invalid', `"${term.opens}" is not a real date.`);
 		if (!isRealDate(term.closes)) {
-			return { ok: false, reason: `"${term.closes}" is not a real date.` };
+			throw new Refused('invalid', `"${term.closes}" is not a real date.`);
 		}
 		if (term.opens > term.closes) {
-			return {
-				ok: false,
-				reason: `A Term cannot open after it closes: opens ${term.opens}, closes ${term.closes}.`
-			};
+			throw new Refused(
+				'invalid',
+				`A Term cannot open after it closes: opens ${term.opens}, closes ${term.closes}.`
+			);
 		}
 	}
 
@@ -46,10 +52,10 @@ export function replaceTerms(
 	const sorted = [...terms].sort((a, b) => (a.opens < b.opens ? -1 : a.opens > b.opens ? 1 : 0));
 	for (let i = 1; i < sorted.length; i++) {
 		if (sorted[i - 1].closes >= sorted[i].opens) {
-			return {
-				ok: false,
-				reason: `Terms cannot overlap or touch: one closes ${sorted[i - 1].closes}, the next opens ${sorted[i].opens}.`
-			};
+			throw new Refused(
+				'invalid',
+				`Terms cannot overlap or touch: one closes ${sorted[i - 1].closes}, the next opens ${sorted[i].opens}.`
+			);
 		}
 	}
 
@@ -63,16 +69,11 @@ export function replaceTerms(
 		today
 	);
 
-	try {
-		const report = inTransaction(client, () => {
-			db.delete(schema.term).run();
-			for (const term of sorted) {
-				db.insert(schema.term).values({ opens: term.opens, closes: term.closes }).run();
-			}
-			return rederiveAllClasses(db, boundary);
-		});
-		return { ok: true, ...report };
-	} catch (cause) {
-		return { ok: false, reason: 'Replacing the Terms failed.', cause };
-	}
+	return inTransaction(client, () => {
+		db.delete(schema.term).run();
+		for (const term of sorted) {
+			db.insert(schema.term).values({ opens: term.opens, closes: term.closes }).run();
+		}
+		return rederiveAllClasses(db, boundary);
+	});
 }

@@ -5,11 +5,12 @@ import { course } from '$lib/server/db/schema';
 import { requireApiKey } from '$lib/server/api-key';
 import {
 	MAX_NAME_LENGTH,
+	refusalJson,
 	rejectUnknownFields,
 	requireExisting,
 	validateString
 } from '$lib/server/api-helpers';
-import { renameCourse, deleteCourse, NameCollision, attachmentsDir } from '$lib/server/planner';
+import { renameCourse, deleteCourse, attachmentsDir } from '$lib/server/planner';
 import { eq } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
@@ -63,10 +64,7 @@ export const PATCH: RequestHandler = async (event) => {
 		}
 		return json({ id: updated.id, name: updated.name });
 	} catch (error) {
-		if (error instanceof NameCollision) {
-			return json({ error: error.message }, { status: 409 });
-		}
-		throw error;
+		return refusalJson(error);
 	}
 };
 
@@ -74,17 +72,19 @@ export const DELETE: RequestHandler = async (event) => {
 	const auth = await requireApiKey(event);
 	if (auth) return auth;
 
-	const result = deleteCourse(db, event.params.id, {
-		today: today(),
-		dir: attachmentsDir(DATABASE_URL)
-	});
+	try {
+		const result = deleteCourse(db, event.params.id, {
+			today: today(),
+			dir: attachmentsDir(DATABASE_URL)
+		});
 
-	if (!result.ok) {
-		if (result.reason === 'not found') {
-			return json({ error: 'Course not found.' }, { status: 404 });
-		}
-		return json({ error: result.reason }, { status: 409 });
+		// An unknown id is a URL miss — the route's own 404, not the seam's. The confirm question
+		// is the one failure that is not a refusal; the API never confirms, so it stays a 409.
+		if (!result) return json({ error: 'Course not found.' }, { status: 404 });
+		if ('needsConfirm' in result) return json({ error: result.reason }, { status: 409 });
+
+		return new Response(null, { status: 204 });
+	} catch (error) {
+		return refusalJson(error);
 	}
-
-	return new Response(null, { status: 204 });
 };

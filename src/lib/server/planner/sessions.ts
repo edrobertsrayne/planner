@@ -6,6 +6,7 @@ import { classDetail } from './classes';
 import { rederive, type Db, type WriteReport } from './derive';
 import { linksOf, tagsOf, type LessonStatus } from './authoring';
 import { attachmentsOf } from './attachments';
+import { Refused } from './refused';
 
 // A Session is identified by its occasion (ADR-0002), never by row id, so every function here
 // takes the triple rather than an id.
@@ -147,7 +148,9 @@ export function writeSessionNote(
 
 // A Session marked as needing more time: its Lesson widens to occupy the next Available Slot too.
 // The Session must already be taught (dated before today), since a Continuation is a reaction to
-// how teaching actually went, not a plan.
+// how teaching actually went, not a plan. Both refusals are `invalid`: an occasion with no
+// Session to continue, and an occasion that has not happened yet, are each bad input to this
+// write — the occasion comes from the request body, not the URL.
 export function recordContinuation(
 	db: Db,
 	{ today, ...occasion }: Occasion & { today: string }
@@ -158,9 +161,15 @@ export function recordContinuation(
 		.where(atOccasion(occasion))
 		.all();
 	if (!existing)
-		throw new Error(`No Session on ${occasion.date} P${occasion.period} for this Class.`);
+		throw new Refused(
+			'invalid',
+			`No Session on ${occasion.date} P${occasion.period} for this Class.`
+		);
 	if (occasion.date >= today) {
-		throw new Error(`The ${occasion.date} P${occasion.period} Session has not been taught yet.`);
+		throw new Refused(
+			'invalid',
+			`The ${occasion.date} P${occasion.period} Session has not been taught yet.`
+		);
 	}
 
 	db.insert(schema.continuation).values({ sessionId: existing.id }).run();

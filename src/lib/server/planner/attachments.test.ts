@@ -12,7 +12,7 @@ import {
 } from './authoring';
 import {
 	assignTopic,
-	AttachmentRejected,
+	Refused,
 	attachmentById,
 	attachmentsDir,
 	attachmentsOf,
@@ -20,7 +20,7 @@ import {
 	createAttachment,
 	deleteAttachment
 } from './index';
-import { makeLessons, makeTopic, setUp, setUpAuthoring } from './fixtures';
+import { makeLessons, makeTopic, refused, setUp, setUpAuthoring } from './fixtures';
 import * as schema from '../db/schema';
 
 const MB = 1024 * 1024;
@@ -90,7 +90,7 @@ describe('attachment storage', () => {
 				},
 				atDir
 			)
-		).toThrow(AttachmentRejected);
+		).toThrow(Refused);
 		expect(existsSync(join(atDir, 'over-the-limit.pdf'))).toBe(false);
 	});
 
@@ -108,7 +108,7 @@ describe('attachment storage', () => {
 				},
 				atDir
 			)
-		).toThrow(AttachmentRejected);
+		).toThrow(Refused);
 		expect(() =>
 			createAttachment(
 				db,
@@ -120,7 +120,7 @@ describe('attachment storage', () => {
 				},
 				atDir
 			)
-		).toThrow(AttachmentRejected);
+		).toThrow(Refused);
 
 		expect(existsSync(atDir)).toBe(false);
 	});
@@ -135,7 +135,7 @@ describe('attachment storage', () => {
 					{ lessonId: lesson.id, filename, mimeType: 'text/plain', bytes: new Uint8Array(4) },
 					atDir
 				)
-			).toThrow(AttachmentRejected);
+			).toThrow(Refused);
 		}
 		expect(existsSync(atDir)).toBe(false);
 	});
@@ -154,7 +154,7 @@ describe('attachment storage', () => {
 				},
 				atDir
 			)
-		).toThrow(AttachmentRejected);
+		).toThrow(Refused);
 		expect(() =>
 			createAttachment(
 				db,
@@ -166,7 +166,7 @@ describe('attachment storage', () => {
 				},
 				atDir
 			)
-		).toThrow(AttachmentRejected);
+		).toThrow(Refused);
 
 		expect(existsSync(atDir)).toBe(false);
 	});
@@ -382,7 +382,7 @@ describe("an Attachment's lifecycle follows its Lesson", () => {
 
 		const result = deleteLesson(db, { id: lesson.id, today: '2026-09-03', dir: atDir });
 
-		expect(result.ok).toBe(true);
+		expect(result).toMatchObject({ id: lesson.id });
 		expect(existsSync(join(atDir, first.id))).toBe(false);
 		expect(existsSync(join(atDir, second.id))).toBe(false);
 	});
@@ -430,9 +430,11 @@ describe("an Attachment's lifecycle follows its Lesson", () => {
 
 		// Far enough past the assignment date that 9B/Sc1's schedule has already reached and
 		// taught this Lesson, so the delete is refused rather than confirmed.
-		const result = deleteLesson(db, { id: lesson.id, today: '2026-09-10', dir: atDir });
-
-		expect(result).toEqual({ ok: false, reason: 'taught', hasTopic: true });
+		refused(
+			() => deleteLesson(db, { id: lesson.id, today: '2026-09-10', dir: atDir }),
+			'conflict',
+			'A Class has already been taught this Lesson, so it cannot be removed. Detach it from its Topic instead.'
+		);
 		expect(attachmentsOf(db, lesson.id).map((a) => a.id)).toEqual([attachment.id]);
 		expect(existsSync(join(atDir, attachment.id))).toBe(true);
 	});

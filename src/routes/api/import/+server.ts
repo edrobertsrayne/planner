@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { client, db } from '$lib/server/db/client';
 import { requireApiKey } from '$lib/server/api-key';
 import { today } from '$lib/date';
-import { MAX_NAME_LENGTH, validateString } from '$lib/server/api-helpers';
+import { MAX_NAME_LENGTH, refusalJson, validateString } from '$lib/server/api-helpers';
 import { importTopic } from '$lib/server/planner/authoring';
 import type { RequestHandler } from './$types';
 
@@ -54,29 +54,29 @@ export const POST: RequestHandler = async (event) => {
 	const courseId = typeof data.course.id === 'string' ? data.course.id : undefined;
 	const courseName = typeof data.course.name === 'string' ? data.course.name : undefined;
 
-	const result = importTopic(
-		db,
-		client,
-		{
-			courseId,
-			courseName,
-			topicName,
-			lessons
-		},
-		today()
-	);
+	try {
+		const created = importTopic(
+			db,
+			client,
+			{
+				courseId,
+				courseName,
+				topicName,
+				lessons
+			},
+			today()
+		);
 
-	if (!result.ok) {
-		return json({ error: result.error }, { status: result.status });
+		return json(
+			{
+				course: created.course,
+				courseCreated: created.courseCreated,
+				topic: created.topic,
+				lessons: created.lessons
+			},
+			{ status: 201 }
+		);
+	} catch (error) {
+		return refusalJson(error);
 	}
-
-	return json(
-		{
-			course: result.course,
-			courseCreated: result.courseCreated,
-			topic: result.topic,
-			lessons: result.lessons
-		},
-		{ status: 201 }
-	);
 };

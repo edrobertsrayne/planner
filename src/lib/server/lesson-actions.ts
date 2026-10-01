@@ -1,10 +1,9 @@
 import { fail, type Actions } from '@sveltejs/kit';
 import { today } from '$lib/date';
 import { DATABASE_URL, db } from '$lib/server/db/client';
-import { badRequest, trimmed } from '$lib/server/form';
+import { refusal, trimmed } from '$lib/server/form';
 import {
 	attachTag,
-	AttachmentRejected,
 	attachmentsDir,
 	createAttachment,
 	createLink,
@@ -115,9 +114,12 @@ export const lessonActions = {
 		const data = await request.formData();
 		const lessonId = trimmed(data, 'lessonId');
 		const name = trimmed(data, 'name');
-		const result = attachTag(db, { lessonId, name });
-		if (!result.ok) return fail(400, { error: 'A Tag needs a name.' });
-		return {};
+		try {
+			attachTag(db, { lessonId, name });
+			return {};
+		} catch (error) {
+			return refusal(error);
+		}
 	},
 
 	detachTag: async ({ request }) => {
@@ -128,9 +130,10 @@ export const lessonActions = {
 		return {};
 	},
 
-	// Thin over the seam's create: read the multipart form, call create, and let a validation
-	// refusal ride the standard failure payload — its message is already written for Ed, and the
-	// client's toast convention shows it as-is.
+	// Thin over the seam's create: read the multipart form, call create, and let a refusal ride
+	// the standard failure payload — its message is already written for Ed, and the client's
+	// toast convention shows it as-is. Anything else (a disk fault, a foreign-key violation) is a
+	// server fault, not a bad request, and `refusal` rethrows it to reach the error page.
 	createAttachment: async ({ request }) => {
 		const data = await request.formData();
 		const lessonId = trimmed(data, 'lessonId');
@@ -152,12 +155,7 @@ export const lessonActions = {
 				)
 			};
 		} catch (error) {
-			// Only a validation refusal the seam has already written for Ed rides the standard
-			// failure payload — anything else (a disk fault, a foreign-key violation) is a server
-			// fault, not a bad request, and should reach the error page and the log like any other.
-			if (error instanceof AttachmentRejected)
-				return badRequest(error, 'Could not attach the file.');
-			throw error;
+			return refusal(error);
 		}
 	},
 

@@ -112,7 +112,7 @@ describe('Continuation', () => {
 		expect(() => {
 			report = blockDay(db, { date: '2026-09-03', note: 'Snow day', today: '2026-09-10' });
 		}).not.toThrow();
-		expect(report).toMatchObject({ ok: true, atRisk: [] });
+		expect(report).toEqual({ atRisk: [], placementsMoved: [] });
 
 		const after = classSchedule(db, { classId: classA.id, today: '2026-09-10' });
 		const sessionsForLesson = [...after.history, ...after.scheduled].filter(
@@ -282,7 +282,6 @@ describe('the Session panel', () => {
 			title: 'Assembly',
 			today: '2026-09-03'
 		});
-		if (!result.ok) throw new Error('unreachable');
 
 		const placed = sessionDetail(db, {
 			classId: classA.id,

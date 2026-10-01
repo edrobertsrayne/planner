@@ -1,21 +1,19 @@
 // The two things every form action does before it can call the seam: read a field, and turn a
-// refusal from the seam into a 400 the page can show.
+// refusal from the seam into a failure the page can show.
 import { fail } from '@sveltejs/kit';
+import { Refused, refusalStatus } from './planner/refused';
 
 export function trimmed(data: FormData, field: string): string {
 	return String(data.get(field) ?? '').trim();
 }
 
-// The seam refuses a write by throwing with the reason already written for Ed — "This Topic has
-// already been taught and cannot be unassigned." — so the message is passed straight through.
-// `fallback` covers anything that was not thrown deliberately.
-export function badRequest(error: unknown, fallback: string) {
-	return fail(400, { error: error instanceof Error ? error.message : fallback });
-}
-
-// A name collision is a 409, not a 400 — the request was well-formed and answered with its real
-// outcome. Same message-passes-through shape as `badRequest`, kept as a separate function so the
-// status code carries meaning on the wire.
-export function conflict(error: unknown, fallback: string) {
-	return fail(409, { error: error instanceof Error ? error.message : fallback });
+// The seam refuses a write by throwing `Refused` with a message already written for Ed — "This
+// Topic has already been taught and cannot be unassigned." — and a kind that says which class of
+// refusal it is. The form door answers every refusal with the same failure shape, `{ error }`,
+// and takes its status from the kind. Anything else was not thrown deliberately: it rethrows, so
+// an unexpected fault reaches the error page as the 500 it is, never a 400 dressed as a bad
+// request.
+export function refusal(error: unknown) {
+	if (!(error instanceof Refused)) throw error;
+	return fail(refusalStatus(error.kind), { error: error.message });
 }

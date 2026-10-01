@@ -10,6 +10,7 @@ import { dirname, join } from 'node:path';
 import { asc, eq } from 'drizzle-orm';
 import type { Db } from './derive';
 import { nextPosition } from './ordering';
+import { Refused } from './refused';
 import * as schema from '../db/schema';
 
 // One flat ceiling for every type (spec #219), enforced here before anything is written.
@@ -44,14 +45,8 @@ const MIME_BY_EXTENSION: Record<string, readonly string[]> = {
 };
 
 // A refusal the create has already decided on — a type the allow-list refuses, or a file over
-// the ceiling. Thrown with the message already written for Ed to read; the form action maps it
-// to a 4xx with no further work, the way NameCollision does for names.
-export class AttachmentRejected extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = 'AttachmentRejected';
-	}
-}
+// the ceiling — throws `Refused('invalid', …)` with the message already written for Ed to read;
+// the door maps it to its 400 with no further work.
 
 // The flat attachments directory beside the database file (spec #217) — `/app/data/attachments`
 // in deployment, derived rather than hardcoded, so development, the e2e scratch database and the
@@ -148,7 +143,7 @@ export function createAttachment(
 	// sends an empty or decorated Content-Type.
 	const normalized = mimeType.split(';')[0].trim().toLowerCase() || 'application/octet-stream';
 	const reason = rejectionReason(filename, normalized, bytes.length);
-	if (reason) throw new AttachmentRejected(reason);
+	if (reason) throw new Refused('invalid', reason);
 
 	const id = crypto.randomUUID();
 	const position = nextPosition(

@@ -2,8 +2,8 @@ import { json } from '@sveltejs/kit';
 import { DATABASE_URL, db } from '$lib/server/db/client';
 import { lesson } from '$lib/server/db/schema';
 import { requireApiKey } from '$lib/server/api-key';
-import { requireExisting } from '$lib/server/api-helpers';
-import { AttachmentRejected, attachmentsDir, createAttachment } from '$lib/server/planner';
+import { refusalJson, requireExisting } from '$lib/server/api-helpers';
+import { attachmentsDir, createAttachment } from '$lib/server/planner';
 import type { RequestHandler } from './$types';
 
 // Thin over the seam's create, like the Lesson editor's form action: the allow-list, the size
@@ -35,7 +35,6 @@ export const POST: RequestHandler = async (event) => {
 		);
 		return json(created, { status: 201 });
 	} catch (error) {
-		if (error instanceof AttachmentRejected) return json({ error: error.message }, { status: 400 });
-		throw error;
+		return refusalJson(error);
 	}
 };
