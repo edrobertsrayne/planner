@@ -13,14 +13,6 @@ This planner has one user and one school year. Build the simplest thing that mee
 
 When you find a simpler approach than the one agreed, say so before you build it.
 
-## Branches, pull requests and commits
-
-- `main` accepts changes only through a pull request. Start each change on a new branch from `main`.
-- One pull request does one thing.
-- Write the pull request title as a conventional commit message. The squash merge uses it as the commit message.
-- Commit with `omp commit`.
-- Stop when the pull request is open. The user merges it.
-
 ## Tests
 
 Run e2e tests only as the whole suite: `bun run test`. The suite shares one database and one user,
