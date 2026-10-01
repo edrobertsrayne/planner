@@ -443,13 +443,15 @@ one-way (ADR-0022), so a Standalone Lesson may never re-attach:
 
 ```json
 {
-	"error": "A Class has already been taught this Lesson, so it cannot be removed. Detach it instead with PATCH /api/lessons/:id and \"topicId\": null."
+	"error": "A Class has already been taught this Lesson, so it cannot be removed. Detach it from its Topic instead."
 }
 ```
 
-This is today's rule, unchanged. The message names the way out, because an agent that gets a bare
-refusal will try again rather than detach — except when the Lesson is already Standalone (its
-`topicId` is already `null`), where there is no Topic to detach it from:
+This is today's rule, unchanged. The message names the way out in the teacher's own terms —
+Detach — usable at the Courses form and this API alike; the form action shows the same message,
+and an agent that gets a bare refusal will try again rather than detach, except when the Lesson
+is already Standalone (its `topicId` is already `null`), where there is no Topic to detach it
+from:
 
 ```json
 { "error": "A Class has already been taught this Lesson, so it cannot be removed." }
@@ -686,10 +688,9 @@ are used as they are:
 
 - **`moveLessonToTopic`** must accept `topicId: string | null`. It currently types it `string`.
   With a null target it sets the column and re-derives the old Topic only.
-- **`deleteLesson`** throws `new Error('This Lesson has already been taught…')`. A route handler
-  cannot tell that apart from a real fault. Return a discriminated result instead — for example
-  `{ ok: false, reason: 'taught' }` — and let the existing Lesson editor map it to the message it
-  shows today.
+- **`deleteLesson`** refuses a taught or placed Lesson by throwing `Refused('conflict', …)` — the
+  message written at the seam, the status mapped by the door (`src/lib/server/planner/refused.ts`).
+  An id the URL names but the database does not returns `undefined`, and the route answers its own 404.
 
 ### 7.3 The three joins from ADR-0015
 

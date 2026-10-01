@@ -10,17 +10,12 @@ import { inTransaction } from '../db';
 import { rederivePlacementLesson, rederiveTopic, type Db, type WriteReport } from './derive';
 import { nextPosition, swapTargets, type Direction } from './ordering';
 import { deleteAttachmentsOfLesson } from './attachments';
+import { Refused } from './refused';
 
 // Course and Topic names carry an explicit uniqueness rule (issue #131, §6 of the planning API
-// spec). The database indexes are the guard of last resort — every route handler maps a collision
-// here into a readable 4xx — so the seam refuses the write first and never lets a raw
-// SQLITE_CONSTRAINT reach the user.
-export class NameCollision extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = 'NameCollision';
-	}
-}
+// spec). The database indexes are the guard of last resort — so the seam refuses the write first
+// and never lets a raw SQLITE_CONSTRAINT reach the user. A collision is a `conflict`: the request
+// was well-formed and answered with its real outcome.
 
 // "Forces" and "forces" collide; "  Forces  " and "Forces" collide too. Stored values are trimmed
 // at write time, but a row that pre-dates this ticket may still hold surrounding whitespace, so
@@ -49,13 +44,13 @@ function assertCourseNameAvailable(
 		.all();
 	const collision = rows.find((row) => nameMatchesIgnoringCaseAndWhitespace(row.name, name));
 	if (collision) {
-		throw new NameCollision(`A Course called "${collision.name.trim()}" already exists.`);
+		throw new Refused('conflict', `A Course called "${collision.name.trim()}" already exists.`);
 	}
 }
 
-// The Topic-name-collision query, shared by the refusing form (assertTopicNameAvailable, used by
-// create/rename) and the reporting form (importTopic, which turns a collision into a 409 instead
-// of a throw). Two Courses may each hold a "Forces", so the check is scoped to course_id.
+// The Topic-name-collision query, shared by the refusing writes (assertTopicNameAvailable, used
+// by create/rename) and importTopic. Two Courses may each hold a "Forces", so the check is
+// scoped to course_id.
 function findTopicNameCollision(
 	db: Db,
 	{ courseId, name, exceptId }: { courseId: string; name: string; exceptId?: string }
@@ -83,7 +78,10 @@ function assertTopicNameAvailable(
 ) {
 	const collision = findTopicNameCollision(db, { courseId, name, exceptId });
 	if (collision) {
-		throw new NameCollision(`This Course already has a Topic called "${collision.name.trim()}".`);
+		throw new Refused(
+			'conflict',
+			`This Course already has a Topic called "${collision.name.trim()}".`
+		);
 	}
 }
 
@@ -149,13 +147,17 @@ function topicCascadeBlocker(db: Db, topicId: string, today: string): 'assigned'
 // then every Topic, and every Lesson each holds, goes with it. A Class following the Course, or
 // a Topic anywhere underneath that is assigned to a Class or holds an already-taught Lesson,
 // refuses unconditionally: confirming never overrides those.
+//
+// The confirm question is a return, not a throw — it is a question the form answers with
+// `confirmed=true`, not a refusal. An unknown id returns undefined, the door's 404; every other
+// refusal throws `Refused`.
 export function deleteCourse(
 	db: Db,
 	id: string,
 	{ today, confirmed = false, dir }: { today: string; confirmed?: boolean; dir: string }
-): { ok: false; reason: string; needsConfirm: boolean } | { ok: true } {
+): typeof schema.course.$inferSelect | { needsConfirm: true; reason: string } | undefined {
 	const [course] = db.select().from(schema.course).where(eq(schema.course.id, id)).all();
-	if (!course) return { ok: false, reason: 'not found', needsConfirm: false };
+	if (!course) return undefined;
 
 	const classes = db
 		.select({ id: schema.classes.id })
@@ -163,49 +165,38 @@ export function deleteCourse(
 		.where(eq(schema.classes.courseId, id))
 		.all();
 	if (classes.length > 0) {
-		return {
-			ok: false,
-			reason: 'A Class follows this Course, so it cannot be removed.',
-			needsConfirm: false
-		};
+		throw new Refused('conflict', 'A Class follows this Course, so it cannot be removed.');
 	}
 
 	const topics = topicsOf(db, id);
 	for (const topic of topics) {
 		const blocker = topicCascadeBlocker(db, topic.id, today);
 		if (blocker === 'assigned') {
-			return {
-				ok: false,
-				reason: 'A Topic in this Course is assigned to a Class, so it cannot be removed.',
-				needsConfirm: false
-			};
+			throw new Refused(
+				'conflict',
+				'A Topic in this Course is assigned to a Class, so it cannot be removed.'
+			);
 		}
 		if (blocker === 'taught') {
-			return {
-				ok: false,
-				reason:
-					'A Topic in this Course holds a Lesson that has already been taught, so it cannot be removed.',
-				needsConfirm: false
-			};
+			throw new Refused(
+				'conflict',
+				'A Topic in this Course holds a Lesson that has already been taught, so it cannot be removed.'
+			);
 		}
 	}
 
 	if (topics.length > 0) {
 		if (!confirmed) {
 			return {
-				ok: false,
-				reason: 'This Course still holds Topics. Remove them first.',
-				needsConfirm: true
+				needsConfirm: true,
+				reason: 'This Course still holds Topics. Remove them first.'
 			};
 		}
-		for (const topic of topics) {
-			const result = deleteTopic(db, topic.id, { today, confirmed: true, dir });
-			if (!result.ok) return result;
-		}
+		for (const topic of topics) deleteTopic(db, topic.id, { today, confirmed: true, dir });
 	}
 
-	db.delete(schema.course).where(eq(schema.course.id, id)).run();
-	return { ok: true };
+	const [deleted] = db.delete(schema.course).where(eq(schema.course.id, id)).returning().all();
+	return deleted;
 }
 
 export function createTopic(db: Db, { courseId, name }: { courseId: string; name: string }) {
@@ -237,44 +228,42 @@ export function renameTopic(db: Db, { id, name }: { id: string; name: string }) 
 // refused until the caller confirms — then every Lesson it holds goes with it, the same way
 // deleteLesson would remove each on its own. Assigned to a Class, or holding an already-taught
 // Lesson, refuses unconditionally: confirming never overrides those.
+//
+// The confirm question is a return, not a throw — it is a question the form answers with
+// `confirmed=true`, not a refusal. An unknown id returns undefined, the door's 404; every other
+// refusal throws `Refused`.
 export function deleteTopic(
 	db: Db,
 	id: string,
 	{ today, confirmed = false, dir }: { today: string; confirmed?: boolean; dir: string }
-): { ok: false; reason: string; needsConfirm: boolean } | { ok: true } {
+): typeof schema.topic.$inferSelect | { needsConfirm: true; reason: string } | undefined {
 	const [topic] = db.select().from(schema.topic).where(eq(schema.topic.id, id)).all();
-	if (!topic) return { ok: false, reason: 'not found', needsConfirm: false };
+	if (!topic) return undefined;
 
 	const blocker = topicCascadeBlocker(db, id, today);
 	if (blocker === 'assigned') {
-		return {
-			ok: false,
-			reason: 'This Topic is assigned to a Class, so it cannot be removed.',
-			needsConfirm: false
-		};
+		throw new Refused('conflict', 'This Topic is assigned to a Class, so it cannot be removed.');
 	}
 	if (blocker === 'taught') {
-		return {
-			ok: false,
-			reason: 'This Topic holds a Lesson that has already been taught, so it cannot be removed.',
-			needsConfirm: false
-		};
+		throw new Refused(
+			'conflict',
+			'This Topic holds a Lesson that has already been taught, so it cannot be removed.'
+		);
 	}
 
 	const lessons = lessonsOf(db, id);
 	if (lessons.length > 0) {
 		if (!confirmed) {
 			return {
-				ok: false,
-				reason: 'This Topic still holds Lessons. Remove or detach them first.',
-				needsConfirm: true
+				needsConfirm: true,
+				reason: 'This Topic still holds Lessons. Remove or detach them first.'
 			};
 		}
 		for (const lesson of lessons) deleteLesson(db, { id: lesson.id, today, dir });
 	}
 
-	db.delete(schema.topic).where(eq(schema.topic.id, id)).run();
-	return { ok: true };
+	const [deleted] = db.delete(schema.topic).where(eq(schema.topic.id, id)).returning().all();
+	return deleted;
 }
 
 // Where a new Lesson lands in its Topic's order (ADR-0010: Lessons, unlike Topics, are explicitly
@@ -435,14 +424,15 @@ export function listTagNames(db: Db): string[] {
 // that matches an existing Tag reuses it — attach, never create-or-refuse, is Tag's whole point.
 // Finds a Tag matching trimmed + case-insensitive, reusing it, or creates one. Then inserts
 // lesson_tag (idempotent on the composite key — INSERT OR IGNORE). Refuses an empty/whitespace-only
-// name the same way updateLesson refuses an empty title. No re-derive: a Tag is descriptive
-// metadata, exactly like Readiness, and never changes a date.
+// name the same way updateLesson refuses an empty title — an `invalid`, the one input the seam
+// itself refuses. No re-derive: a Tag is descriptive metadata, exactly like Readiness, and never
+// changes a date.
 export function attachTag(
 	db: Db,
 	{ lessonId, name }: { lessonId: string; name: string }
-): { ok: true; tags: string[] } | { ok: false; reason: 'empty name' } {
+): string[] {
 	const trimmed = name.trim();
-	if (!trimmed) return { ok: false, reason: 'empty name' };
+	if (!trimmed) throw new Refused('invalid', 'A Tag needs a name.');
 
 	const [existing] = db
 		.select()
@@ -453,7 +443,7 @@ export function attachTag(
 
 	db.insert(schema.lessonTag).values({ lessonId, tagId: tagRow.id }).onConflictDoNothing().run();
 
-	return { ok: true, tags: tagsOf(db, lessonId) };
+	return tagsOf(db, lessonId);
 }
 
 // Deletes the one lesson_tag row. Idempotent: detaching a Tag the Lesson doesn't carry is a
@@ -502,22 +492,26 @@ export function updateLesson(
 // Topic. Refuses when a Class has already been taught this Lesson: the historical Session rows
 // reference it (ADR-0002), so deleting it would erase part of the record of what happened —
 // the taught-by block in the Lesson editor is what warns Ed before he tries this and it fails.
+// The refusal carries the way out in teacher terms — Detach — usable at the form and the API
+// alike; the API spec names the PATCH route separately.
 // Refuses too while any Placement names the Lesson (ADR-0022): the "no mark" answer to whether a
 // Standalone Lesson is schedulable depends entirely on a `placement` row naming it, so deleting
 // one out from under a live Placement would leave that row naming a Lesson that no longer exists.
+// An unknown id returns undefined, the door's 404; every other refusal throws `Refused`.
 export function deleteLesson(
 	db: Db,
 	{ id, today, dir }: { id: string; today: string; dir: string }
-):
-	| { ok: false; reason: 'not found' }
-	| { ok: false; reason: 'taught'; hasTopic: boolean }
-	| { ok: false; reason: 'placed' }
-	| { ok: true; lesson: typeof schema.lesson.$inferSelect } {
+): typeof schema.lesson.$inferSelect | undefined {
 	const [row] = db.select().from(schema.lesson).where(eq(schema.lesson.id, id)).all();
-	if (!row) return { ok: false, reason: 'not found' };
+	if (!row) return undefined;
 
 	if (classesTaughtLesson(db, { lessonId: id, today }).length > 0) {
-		return { ok: false, reason: 'taught', hasTopic: row.topicId !== null };
+		throw new Refused(
+			'conflict',
+			row.topicId !== null
+				? 'A Class has already been taught this Lesson, so it cannot be removed. Detach it from its Topic instead.'
+				: 'A Class has already been taught this Lesson, so it cannot be removed.'
+		);
 	}
 
 	const [placedBy] = db
@@ -526,7 +520,10 @@ export function deleteLesson(
 		.where(eq(schema.placement.lessonId, id))
 		.all();
 	if (placedBy) {
-		return { ok: false, reason: 'placed' };
+		throw new Refused(
+			'conflict',
+			'A Placement names this Lesson, so it cannot be removed. Remove the Placement first.'
+		);
 	}
 
 	// Not-yet-taught Sessions carrying this Lesson are about to be replaced by `rederiveTopic`
@@ -547,12 +544,16 @@ export function deleteLesson(
 	db.delete(schema.lesson).where(eq(schema.lesson.id, id)).run();
 
 	if (row.topicId) rederiveTopic(db, row.topicId, today);
-	return { ok: true, lesson: row };
+	return row;
 }
 
 // Partial PATCH for the API. Only the fields present in `fields` change; absent fields leave
 // their values alone. Re-derives every Class assigned the Topic if anything scheduling-relevant
 // changed, or if the Lesson moved to a different Topic.
+//
+// A `topicId` the body names but the database does not is a `missing` — the one 404 the body can
+// cause. A Standalone Lesson's re-attach is a `conflict`, Detach being one-way. An unknown
+// lesson id returns undefined, the door's 404 for the URL `:id`.
 export function patchLesson(
 	db: Db,
 	{
@@ -570,11 +571,9 @@ export function patchLesson(
 		};
 		today: string;
 	}
-):
-	| { ok: true; lesson: typeof schema.lesson.$inferSelect }
-	| { ok: false; reason: 'not found' | 'topic not found' | 'standalone' } {
+): typeof schema.lesson.$inferSelect | undefined {
 	const [row] = db.select().from(schema.lesson).where(eq(schema.lesson.id, id)).all();
-	if (!row) return { ok: false, reason: 'not found' };
+	if (!row) return undefined;
 
 	const update: Record<string, unknown> = {};
 
@@ -588,13 +587,14 @@ export function patchLesson(
 
 	if (newTopicId !== undefined && newTopicId !== null && newTopicId !== oldTopicId) {
 		const [existing] = db.select().from(schema.topic).where(eq(schema.topic.id, newTopicId)).all();
-		if (!existing) return { ok: false, reason: 'topic not found' };
+		if (!existing) throw new Refused('missing', 'Topic not found.');
 		// ADR-0022: a Standalone Lesson reaches a Class only through a Placement, never a Topic —
 		// re-filing it into one would let a Lesson a Placement names silently regain a Topic
 		// mid-Placement. Detach is one-way. Moving a Lesson between two Topics is untouched.
 		// Checked only once the named Topic is confirmed to exist, so an unknown `topicId` still
 		// answers 404 regardless of whether this Lesson currently has one (spec §3.4).
-		if (oldTopicId === null) return { ok: false, reason: 'standalone' };
+		if (oldTopicId === null)
+			throw new Refused('conflict', 'A Standalone Lesson cannot rejoin a Topic.');
 		update.topicId = newTopicId;
 		// A re-attach or move lands at the end of the target Topic's order, as moveLessonToTopic
 		// does — a Lesson carries no position of its own into a Topic it has never been in.
@@ -603,8 +603,7 @@ export function patchLesson(
 		update.topicId = null;
 	}
 
-	if (Object.keys(update).length === 0 && newTopicId === undefined)
-		return { ok: true, lesson: row };
+	if (Object.keys(update).length === 0 && newTopicId === undefined) return row;
 
 	db.update(schema.lesson)
 		.set(update as Partial<typeof schema.lesson.$inferInsert>)
@@ -612,7 +611,7 @@ export function patchLesson(
 		.run();
 
 	const [updated] = db.select().from(schema.lesson).where(eq(schema.lesson.id, id)).all();
-	if (!updated) return { ok: false, reason: 'not found' };
+	if (!updated) return undefined;
 
 	if (newTopicId !== undefined && newTopicId !== oldTopicId) {
 		if (oldTopicId) rederiveTopic(db, oldTopicId, today);
@@ -624,7 +623,7 @@ export function patchLesson(
 		rederiveTopic(db, updated.topicId, today);
 	}
 
-	return { ok: true, lesson: updated };
+	return updated;
 }
 
 // Swaps position with the previous or next Lesson in the same Topic, and re-derives every Class
@@ -736,19 +735,14 @@ export function moveLink(
 	db.update(schema.link).set({ position: a.position }).where(eq(schema.link.id, b.id)).run();
 }
 
-// A refusal the Import has already decided on — a Course that is not there, a Topic name that
-// collides. Thrown rather than returned so the transaction helper rolls the write back on the
-// way out; importTopic catches it and answers with the status it carries.
-class Refused extends Error {
-	constructor(
-		readonly status: number,
-		message: string
-	) {
-		super(message);
-		this.name = 'Refused';
-	}
-}
-
+// Creates one Topic, with its Lessons and their Links, in a single all-or-nothing transaction —
+// optionally creating its Course inline if it does not yet exist. Throwing `Refused` leaves
+// `inTransaction` to roll the write back on the way out; every other throw rolls back too and
+// propagates, so an unexpected fault reaches the door as the 500 it is, with nothing committed.
+//
+// The refusals keep their existing messages: exactly one of course id/name and the two size
+// caps are `invalid`, a course id the body names that is not there is `missing`, and a Topic
+// name that collides is `conflict`.
 export function importTopic(
 	db: Db,
 	client: Database,
@@ -770,162 +764,144 @@ export function importTopic(
 		}>;
 	},
 	today: string
-):
-	| {
-			ok: true;
-			course: { id: string; name: string };
-			courseCreated: boolean;
-			topic: { id: string; name: string; courseId: string };
-			lessons: Array<{
-				id: string;
-				title: string;
-				position: number;
-				links: Array<{ id: string; url: string; label: string; position: number }>;
-			}>;
-	  }
-	| { ok: false; status: number; error: string; cause?: unknown } {
-	if (courseId && courseName)
-		return {
-			ok: false,
-			status: 400,
-			error: 'The "course" field must carry exactly one of "id" or "name".'
-		};
-	if (!courseId && !courseName)
-		return {
-			ok: false,
-			status: 400,
-			error: 'The "course" field must carry exactly one of "id" or "name".'
-		};
+): {
+	course: { id: string; name: string };
+	courseCreated: boolean;
+	topic: { id: string; name: string; courseId: string };
+	lessons: Array<{
+		id: string;
+		title: string;
+		position: number;
+		links: Array<{ id: string; url: string; label: string; position: number }>;
+	}>;
+} {
+	if (courseId && courseName) {
+		throw new Refused('invalid', 'The "course" field must carry exactly one of "id" or "name".');
+	}
+	if (!courseId && !courseName) {
+		throw new Refused('invalid', 'The "course" field must carry exactly one of "id" or "name".');
+	}
 
-	if (lessons.length > 200)
-		return { ok: false, status: 400, error: 'At most 200 Lessons per Import.' };
+	if (lessons.length > 200) throw new Refused('invalid', 'At most 200 Lessons per Import.');
 
 	for (const lesson of lessons) {
 		if (lesson.links && lesson.links.length > 20) {
-			return { ok: false, status: 400, error: 'At most 20 Links per Lesson.' };
+			throw new Refused('invalid', 'At most 20 Links per Lesson.');
 		}
 	}
 
-	try {
-		return inTransaction(client, () => {
-			let resolvedCourseId = courseId;
-			let courseCreated = false;
+	return inTransaction(client, () => {
+		let resolvedCourseId = courseId;
+		let courseCreated = false;
 
-			if (courseName) {
-				const trimmed = courseName.trim();
-				const [existing] = db
-					.select({ id: schema.course.id, name: schema.course.name })
-					.from(schema.course)
-					.where(sql`lower(${schema.course.name}) = lower(${trimmed})`)
-					.all();
-				if (existing) {
-					resolvedCourseId = existing.id;
-				} else {
-					const [created] = db.insert(schema.course).values({ name: trimmed }).returning().all();
-					resolvedCourseId = created.id;
-					courseCreated = true;
-				}
-			}
-
-			if (!resolvedCourseId) throw new Refused(404, 'Course not found.');
-
-			const courseRecord = db
+		if (courseName) {
+			const trimmed = courseName.trim();
+			const [existing] = db
 				.select({ id: schema.course.id, name: schema.course.name })
 				.from(schema.course)
-				.where(eq(schema.course.id, resolvedCourseId))
-				.all()[0];
-			if (!courseRecord) throw new Refused(404, 'Course not found.');
-
-			const trimmedTopicName = topicName.trim();
-			const topicCollision = findTopicNameCollision(db, {
-				courseId: resolvedCourseId,
-				name: topicName
-			});
-			if (topicCollision) {
-				throw new Refused(
-					409,
-					`The Course "${courseRecord.name}" already holds a Topic called "${topicCollision.name.trim()}".`
-				);
+				.where(sql`lower(${schema.course.name}) = lower(${trimmed})`)
+				.all();
+			if (existing) {
+				resolvedCourseId = existing.id;
+			} else {
+				const [created] = db.insert(schema.course).values({ name: trimmed }).returning().all();
+				resolvedCourseId = created.id;
+				courseCreated = true;
 			}
+		}
 
-			const [topicRow] = db
-				.insert(schema.topic)
-				.values({ name: trimmedTopicName, courseId: resolvedCourseId })
+		if (!resolvedCourseId) throw new Refused('missing', 'Course not found.');
+
+		const courseRecord = db
+			.select({ id: schema.course.id, name: schema.course.name })
+			.from(schema.course)
+			.where(eq(schema.course.id, resolvedCourseId))
+			.all()[0];
+		if (!courseRecord) throw new Refused('missing', 'Course not found.');
+
+		const trimmedTopicName = topicName.trim();
+		const topicCollision = findTopicNameCollision(db, {
+			courseId: resolvedCourseId,
+			name: topicName
+		});
+		if (topicCollision) {
+			throw new Refused(
+				'conflict',
+				`The Course "${courseRecord.name}" already holds a Topic called "${topicCollision.name.trim()}".`
+			);
+		}
+
+		const [topicRow] = db
+			.insert(schema.topic)
+			.values({ name: trimmedTopicName, courseId: resolvedCourseId })
+			.returning()
+			.all();
+
+		const lessonResults: Array<{
+			id: string;
+			title: string;
+			position: number;
+			links: Array<{ id: string; url: string; label: string; position: number }>;
+		}> = [];
+
+		for (let i = 0; i < lessons.length; i++) {
+			const lesson = lessons[i];
+			const [lessonRow] = db
+				.insert(schema.lesson)
+				.values({
+					topicId: topicRow.id,
+					title: lesson.title.trim(),
+					position: i,
+					...(lesson.body !== undefined ? { body: lesson.body } : {}),
+					...(lesson.length !== undefined ? { length: lesson.length } : {}),
+					...(lesson.status !== undefined ? { status: lesson.status } : {})
+				})
 				.returning()
 				.all();
 
-			const lessonResults: Array<{
+			const linkResults: Array<{
 				id: string;
-				title: string;
+				url: string;
+				label: string;
 				position: number;
-				links: Array<{ id: string; url: string; label: string; position: number }>;
 			}> = [];
-
-			for (let i = 0; i < lessons.length; i++) {
-				const lesson = lessons[i];
-				const [lessonRow] = db
-					.insert(schema.lesson)
-					.values({
-						topicId: topicRow.id,
-						title: lesson.title.trim(),
-						position: i,
-						...(lesson.body !== undefined ? { body: lesson.body } : {}),
-						...(lesson.length !== undefined ? { length: lesson.length } : {}),
-						...(lesson.status !== undefined ? { status: lesson.status } : {})
-					})
-					.returning()
-					.all();
-
-				const linkResults: Array<{
-					id: string;
-					url: string;
-					label: string;
-					position: number;
-				}> = [];
-				if (lesson.links) {
-					for (let j = 0; j < lesson.links.length; j++) {
-						const link = lesson.links[j];
-						const [linkRow] = db
-							.insert(schema.link)
-							.values({
-								lessonId: lessonRow.id,
-								url: link.url.trim(),
-								label: link.label.trim(),
-								position: j
-							})
-							.returning()
-							.all();
-						linkResults.push({
-							id: linkRow.id,
-							url: linkRow.url,
-							label: linkRow.label,
-							position: linkRow.position
-						});
-					}
+			if (lesson.links) {
+				for (let j = 0; j < lesson.links.length; j++) {
+					const link = lesson.links[j];
+					const [linkRow] = db
+						.insert(schema.link)
+						.values({
+							lessonId: lessonRow.id,
+							url: link.url.trim(),
+							label: link.label.trim(),
+							position: j
+						})
+						.returning()
+						.all();
+					linkResults.push({
+						id: linkRow.id,
+						url: linkRow.url,
+						label: linkRow.label,
+						position: linkRow.position
+					});
 				}
-
-				lessonResults.push({
-					id: lessonRow.id,
-					title: lessonRow.title,
-					position: lessonRow.position,
-					links: linkResults
-				});
 			}
 
-			rederiveTopic(db, topicRow.id, today);
-
-			return {
-				ok: true,
-				course: { id: courseRecord.id, name: courseRecord.name },
-				courseCreated,
-				topic: { id: topicRow.id, name: topicRow.name, courseId: topicRow.courseId },
-				lessons: lessonResults
-			};
-		});
-	} catch (cause) {
-		if (cause instanceof Refused) {
-			return { ok: false, status: cause.status, error: cause.message };
+			lessonResults.push({
+				id: lessonRow.id,
+				title: lessonRow.title,
+				position: lessonRow.position,
+				links: linkResults
+			});
 		}
-		return { ok: false, status: 500, error: 'Import failed.', cause };
-	}
+
+		rederiveTopic(db, topicRow.id, today);
+
+		return {
+			course: { id: courseRecord.id, name: courseRecord.name },
+			courseCreated,
+			topic: { id: topicRow.id, name: topicRow.name, courseId: topicRow.courseId },
+			lessons: lessonResults
+		};
+	});
 }

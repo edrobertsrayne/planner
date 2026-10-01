@@ -1,7 +1,6 @@
-import type { Database } from 'bun:sqlite';
 import { eq, sql } from 'drizzle-orm';
 import { describe, expect, test } from 'vitest';
-import { makeLessons, makeTopic, setUp, setUpAuthoring } from './fixtures';
+import { makeLessons, makeTopic, refused, setUp, setUpAuthoring } from './fixtures';
 import {
 	assignTopic,
 	attachTag,
@@ -25,7 +24,6 @@ import {
 	moveLesson,
 	moveLessonToTopic,
 	moveLink,
-	NameCollision,
 	patchLesson,
 	placeLesson,
 	renameCourse,
@@ -92,33 +90,53 @@ describe('authoring Courses, Topics and Lessons', () => {
 // resort, not the user-facing one. Matching is case-insensitive, and stored values are trimmed at
 // write time, so "Forces" and "forces" and "  Forces  " all collide.
 describe('name collisions', () => {
-	test('creating a Course whose name duplicates another throws NameCollision', () => {
+	test('creating a Course whose name duplicates another refuses as a conflict', () => {
 		const { db } = setUpAuthoring();
 		createCourse(db, { name: 'Year 9 Physics' });
 
 		expect(() => createCourse(db, { name: 'Year 10 Physics' })).not.toThrow();
-		expect(() => createCourse(db, { name: 'Year 9 Physics' })).toThrow(NameCollision);
-		expect(() => createCourse(db, { name: 'YEAR 9 PHYSICS' })).toThrow(NameCollision);
-		expect(() => createCourse(db, { name: '  Year 9 Physics  ' })).toThrow(NameCollision);
+		refused(
+			() => createCourse(db, { name: 'Year 9 Physics' }),
+			'conflict',
+			'A Course called "Year 9 Physics" already exists.'
+		);
+		refused(
+			() => createCourse(db, { name: 'YEAR 9 PHYSICS' }),
+			'conflict',
+			'A Course called "Year 9 Physics" already exists.'
+		);
+		refused(
+			() => createCourse(db, { name: '  Year 9 Physics  ' }),
+			'conflict',
+			'A Course called "Year 9 Physics" already exists.'
+		);
 
 		// No row landed from any of the refused attempts.
 		expect(listCourses(db)).toHaveLength(2);
 	});
 
-	test('renaming a Course to a name in use throws NameCollision', () => {
+	test('renaming a Course to a name in use refuses as a conflict', () => {
 		const { db } = setUpAuthoring();
 		const a = createCourse(db, { name: 'Year 9 Physics' });
 		const b = createCourse(db, { name: 'Year 10 Physics' });
 
-		expect(() => renameCourse(db, { id: b.id, name: 'Year 9 Physics' })).toThrow(NameCollision);
-		expect(() => renameCourse(db, { id: b.id, name: 'year 9 physics' })).toThrow(NameCollision);
+		refused(
+			() => renameCourse(db, { id: b.id, name: 'Year 9 Physics' }),
+			'conflict',
+			'A Course called "Year 9 Physics" already exists.'
+		);
+		refused(
+			() => renameCourse(db, { id: b.id, name: 'year 9 physics' }),
+			'conflict',
+			'A Course called "Year 9 Physics" already exists.'
+		);
 
 		// A rename to its own name is not a collision — the seam excludes the row being renamed.
 		expect(() => renameCourse(db, { id: a.id, name: 'Year 9 Physics' })).not.toThrow();
 		expect(() => renameCourse(db, { id: a.id, name: 'YEAR 9 PHYSICS' })).not.toThrow();
 	});
 
-	test('creating a Topic whose name duplicates one in the same Course throws NameCollision', () => {
+	test('creating a Topic whose name duplicates one in the same Course refuses as a conflict', () => {
 		const { db } = setUpAuthoring();
 		const course = createCourse(db, { name: 'Year 9 Physics' });
 		const other = createCourse(db, { name: 'Year 10 Physics' });
@@ -126,8 +144,16 @@ describe('name collisions', () => {
 		createTopic(db, { courseId: course.id, name: 'Forces' });
 
 		// Same Course, same name (any case): refused.
-		expect(() => createTopic(db, { courseId: course.id, name: 'Forces' })).toThrow(NameCollision);
-		expect(() => createTopic(db, { courseId: course.id, name: 'forces' })).toThrow(NameCollision);
+		refused(
+			() => createTopic(db, { courseId: course.id, name: 'Forces' }),
+			'conflict',
+			'This Course already has a Topic called "Forces".'
+		);
+		refused(
+			() => createTopic(db, { courseId: course.id, name: 'forces' }),
+			'conflict',
+			'This Course already has a Topic called "Forces".'
+		);
 
 		// Different Course, same name: accepted.
 		expect(() => createTopic(db, { courseId: other.id, name: 'Forces' })).not.toThrow();
@@ -135,14 +161,22 @@ describe('name collisions', () => {
 		expect(topicsOf(db, course.id)).toHaveLength(1);
 	});
 
-	test('renaming a Topic to a name used in the same Course throws NameCollision', () => {
+	test('renaming a Topic to a name used in the same Course refuses as a conflict', () => {
 		const { db } = setUpAuthoring();
 		const course = createCourse(db, { name: 'Year 9 Physics' });
 		const forces = createTopic(db, { courseId: course.id, name: 'Forces' });
 		const waves = createTopic(db, { courseId: course.id, name: 'Waves' });
 
-		expect(() => renameTopic(db, { id: waves.id, name: 'Forces' })).toThrow(NameCollision);
-		expect(() => renameTopic(db, { id: waves.id, name: 'FORCES' })).toThrow(NameCollision);
+		refused(
+			() => renameTopic(db, { id: waves.id, name: 'Forces' }),
+			'conflict',
+			'This Course already has a Topic called "Forces".'
+		);
+		refused(
+			() => renameTopic(db, { id: waves.id, name: 'FORCES' }),
+			'conflict',
+			'This Course already has a Topic called "Forces".'
+		);
 
 		// A rename to its own name is not a collision — the seam excludes the row being renamed.
 		expect(() => renameTopic(db, { id: forces.id, name: 'Forces' })).not.toThrow();
@@ -205,7 +239,6 @@ describe('importing a Topic with its Lessons and Links', () => {
 			'2026-09-03'
 		);
 
-		if (!result.ok) throw new Error(`expected ok, got ${result.error}`);
 		expect(result.courseCreated).toBe(true);
 		expect(result.course.name).toBe('Year 9 Physics');
 		expect(result.topic.name).toBe('Forces');
@@ -228,7 +261,6 @@ describe('importing a Topic with its Lessons and Links', () => {
 			'2026-09-03'
 		);
 
-		if (!result.ok) throw new Error(`expected ok, got ${result.error}`);
 		expect(result.courseCreated).toBe(false);
 		expect(result.course.id).toBe(course.id);
 		expect(listCourses(db)).toHaveLength(1);
@@ -238,21 +270,28 @@ describe('importing a Topic with its Lessons and Links', () => {
 		const { db, client } = setUpAuthoring();
 		const course = createCourse(db, { name: 'Year 9 Physics' });
 
-		const both = importTopic(
-			db,
-			client,
-			{
-				courseId: course.id,
-				courseName: 'Year 9 Physics',
-				topicName: 'Waves',
-				lessons: []
-			},
-			'2026-09-03'
+		refused(
+			() =>
+				importTopic(
+					db,
+					client,
+					{
+						courseId: course.id,
+						courseName: 'Year 9 Physics',
+						topicName: 'Waves',
+						lessons: []
+					},
+					'2026-09-03'
+				),
+			'invalid',
+			'The "course" field must carry exactly one of "id" or "name".'
 		);
-		expect(both).toMatchObject({ ok: false, status: 400 });
 
-		const neither = importTopic(db, client, { topicName: 'Waves', lessons: [] }, '2026-09-03');
-		expect(neither).toMatchObject({ ok: false, status: 400 });
+		refused(
+			() => importTopic(db, client, { topicName: 'Waves', lessons: [] }, '2026-09-03'),
+			'invalid',
+			'The "course" field must carry exactly one of "id" or "name".'
+		);
 
 		expect(topicsOf(db, course.id)).toHaveLength(0);
 	});
@@ -262,14 +301,17 @@ describe('importing a Topic with its Lessons and Links', () => {
 		const course = createCourse(db, { name: 'Year 9 Physics' });
 		createTopic(db, { courseId: course.id, name: 'Forces' });
 
-		const result = importTopic(
-			db,
-			client,
-			{ courseId: course.id, topicName: 'forces', lessons: [{ title: 'Newton I' }] },
-			'2026-09-03'
+		refused(
+			() =>
+				importTopic(
+					db,
+					client,
+					{ courseId: course.id, topicName: 'forces', lessons: [{ title: 'Newton I' }] },
+					'2026-09-03'
+				),
+			'conflict',
+			'The Course "Year 9 Physics" already holds a Topic called "Forces".'
 		);
-
-		expect(result).toMatchObject({ ok: false, status: 409 });
 		expect(topicsOf(db, course.id)).toHaveLength(1);
 		expect(lessonsOf(db, topicsOf(db, course.id)[0].id)).toHaveLength(0);
 	});
@@ -279,48 +321,26 @@ describe('importing a Topic with its Lessons and Links', () => {
 
 		// A Link missing its NOT NULL label reaches the database and throws mid-transaction —
 		// the route validates this away in practice, but importTopic must still roll back cleanly
-		// if anything downstream of the Topic insert fails.
-		const result = importTopic(
-			db,
-			client,
-			{
-				courseName: 'Year 9 Physics',
-				topicName: 'Forces',
-				lessons: [
-					{
-						title: 'Newton I',
-						links: [{ url: 'https://example.com/a', label: undefined as unknown as string }]
-					}
-				]
-			},
-			'2026-09-03'
-		);
-
-		expect(result).toMatchObject({ ok: false, status: 500 });
+		// if anything downstream of the Topic insert fails. The throw leaves the transaction, so
+		// nothing committed.
+		expect(() =>
+			importTopic(
+				db,
+				client,
+				{
+					courseName: 'Year 9 Physics',
+					topicName: 'Forces',
+					lessons: [
+						{
+							title: 'Newton I',
+							links: [{ url: 'https://example.com/a', label: undefined as unknown as string }]
+						}
+					]
+				},
+				'2026-09-03'
+			)
+		).toThrow();
 		expect(listCourses(db)).toHaveLength(0);
-	});
-
-	test('a failure answers with the fixed reason and carries the cause', () => {
-		const { db, client } = setUpAuthoring();
-
-		// A COMMIT that never lands — the answer must say why, not throw the cause away.
-		const failing = {
-			run: (sql: string) => {
-				if (sql === 'COMMIT') throw new Error('COMMIT failed');
-				client.run(sql);
-			}
-		};
-
-		const result = importTopic(
-			db,
-			failing as unknown as Database,
-			{ courseName: 'Year 9 Physics', topicName: 'Forces', lessons: [{ title: 'Newton I' }] },
-			'2026-09-03'
-		);
-
-		if (result.ok) throw new Error('expected failure');
-		expect(result.error).toBe('Import failed.');
-		expect((result.cause as Error).message).toBe('COMMIT failed');
 	});
 });
 
@@ -446,10 +466,7 @@ describe('reordering and moving Lessons', () => {
 
 		const result = deleteLesson(db, { id: lesson.id, today: '2026-09-03', dir });
 
-		expect(result).toMatchObject({
-			ok: true,
-			lesson: { id: lesson.id }
-		});
+		expect(result).toMatchObject({ id: lesson.id });
 		expect(lessonsOf(db, topic.id)).toEqual([]);
 		expect(lessonDetail(db, lesson.id)).toBeNull();
 		expect(() =>
@@ -457,18 +474,37 @@ describe('reordering and moving Lessons', () => {
 		).not.toThrow();
 	});
 
-	test('refuses to delete a Lesson that a Class has already been taught', () => {
+	test('refuses to delete a Lesson that a Class has already been taught, pointing at Detach', () => {
 		const { db, course, classA, atDir: dir } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		const lessons = makeLessons(db, topic.id, 1);
 
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 
-		const result = deleteLesson(db, { id: lessons[0].id, today: '2026-09-10', dir });
-		expect(result).toEqual({ ok: false, reason: 'taught', hasTopic: true });
+		refused(
+			() => deleteLesson(db, { id: lessons[0].id, today: '2026-09-10', dir }),
+			'conflict',
+			'A Class has already been taught this Lesson, so it cannot be removed. Detach it from its Topic instead.'
+		);
 	});
 
-	test('refuses to delete a Lesson that a Placement names', () => {
+	test('refuses to delete a taught Standalone Lesson, which has no Topic to detach from', () => {
+		const { db, course, classA, atDir: dir } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const lessons = makeLessons(db, topic.id, 1);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+
+		// Detach the taught Lesson, then try again: no Topic now, so no detach hint.
+		patchLesson(db, { id: lessons[0].id, fields: { topicId: null }, today: '2026-09-10' });
+
+		refused(
+			() => deleteLesson(db, { id: lessons[0].id, today: '2026-09-10', dir }),
+			'conflict',
+			'A Class has already been taught this Lesson, so it cannot be removed.'
+		);
+	});
+
+	test('refuses to delete a Lesson that a Placement names, naming the way out', () => {
 		const { db, client, classA, atDir: dir } = setUp();
 		const mondaySlot = db
 			.select()
@@ -483,11 +519,12 @@ describe('reordering and moving Lessons', () => {
 			title: 'Assembly',
 			today: '2026-09-03'
 		});
-		expect(placed.ok).toBe(true);
-		if (!placed.ok) throw new Error('unreachable');
 
-		const result = deleteLesson(db, { id: placed.lesson.id, today: '2026-09-03', dir });
-		expect(result).toEqual({ ok: false, reason: 'placed' });
+		refused(
+			() => deleteLesson(db, { id: placed.lesson.id, today: '2026-09-03', dir }),
+			'conflict',
+			'A Placement names this Lesson, so it cannot be removed. Remove the Placement first.'
+		);
 	});
 });
 
@@ -511,17 +548,19 @@ describe('the Standalone-to-Topic PATCH path', () => {
 			title: 'Assembly',
 			today: '2026-09-03'
 		});
-		expect(placed.ok).toBe(true);
-		if (!placed.ok) throw new Error('unreachable');
 
 		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
 
-		const result = patchLesson(db, {
-			id: placed.lesson.id,
-			fields: { topicId: topic.id },
-			today: '2026-09-03'
-		});
-		expect(result).toEqual({ ok: false, reason: 'standalone' });
+		refused(
+			() =>
+				patchLesson(db, {
+					id: placed.lesson.id,
+					fields: { topicId: topic.id },
+					today: '2026-09-03'
+				}),
+			'conflict',
+			'A Standalone Lesson cannot rejoin a Topic.'
+		);
 
 		const [row] = db
 			.select()
@@ -531,7 +570,7 @@ describe('the Standalone-to-Topic PATCH path', () => {
 		expect(row.topicId).toBeNull();
 	});
 
-	test('an unknown topicId answers 404 ahead of the standalone 409, even for a Standalone Lesson', () => {
+	test('a topicId the body names but the database does not hold refuses as missing, ahead of the standalone conflict', () => {
 		const { db, client, classA } = setUp();
 		const mondaySlot = db
 			.select()
@@ -546,15 +585,17 @@ describe('the Standalone-to-Topic PATCH path', () => {
 			title: 'Assembly',
 			today: '2026-09-03'
 		});
-		expect(placed.ok).toBe(true);
-		if (!placed.ok) throw new Error('unreachable');
 
-		const result = patchLesson(db, {
-			id: placed.lesson.id,
-			fields: { topicId: 'does-not-exist' },
-			today: '2026-09-03'
-		});
-		expect(result).toEqual({ ok: false, reason: 'topic not found' });
+		refused(
+			() =>
+				patchLesson(db, {
+					id: placed.lesson.id,
+					fields: { topicId: 'does-not-exist' },
+					today: '2026-09-03'
+				}),
+			'missing',
+			'Topic not found.'
+		);
 	});
 });
 
@@ -672,8 +713,6 @@ describe('content edits re-derive the schedule from today', () => {
 			title: 'Assembly',
 			today
 		});
-		expect(placed.ok).toBe(true);
-		if (!placed.ok) throw new Error('unreachable');
 		const lessonId = placed.lesson.id;
 
 		// A second Placement of the same Standalone Lesson, on a different Class — the shortcut
@@ -850,18 +889,14 @@ describe('Tags on a Lesson', () => {
 	test('attaching a name that matches an existing Tag reuses it, trimmed and case-insensitive', () => {
 		const { db, lesson } = setUpLesson();
 
-		const first = attachTag(db, { lessonId: lesson.id, name: 'Practical' });
-		if (!first.ok) throw new Error('expected ok');
-		expect(first.tags).toEqual(['Practical']);
+		expect(attachTag(db, { lessonId: lesson.id, name: 'Practical' })).toEqual(['Practical']);
 
 		const other = createLesson(db, {
 			topicId: lesson.topicId!,
 			title: 'Newton II',
 			today: '2026-09-03'
 		});
-		const second = attachTag(db, { lessonId: other.id, name: '  practical  ' });
-		if (!second.ok) throw new Error('expected ok');
-		expect(second.tags).toEqual(['Practical']);
+		expect(attachTag(db, { lessonId: other.id, name: '  practical  ' })).toEqual(['Practical']);
 
 		// One Tag row, attached to both Lessons.
 		expect(db.select().from(schema.tag).all()).toHaveLength(1);
@@ -896,13 +931,14 @@ describe('Tags on a Lesson', () => {
 		expect(tagsOf(db, lesson.id)).toEqual(['Practical']);
 	});
 
-	test('an empty or whitespace-only name is refused', () => {
+	test('an empty or whitespace-only name is refused as invalid', () => {
 		const { db, lesson } = setUpLesson();
 
-		expect(attachTag(db, { lessonId: lesson.id, name: '   ' })).toEqual({
-			ok: false,
-			reason: 'empty name'
-		});
+		refused(
+			() => attachTag(db, { lessonId: lesson.id, name: '   ' }),
+			'invalid',
+			'A Tag needs a name.'
+		);
 		expect(tagsOf(db, lesson.id)).toEqual([]);
 	});
 
@@ -988,8 +1024,12 @@ describe('deleting a Course or a Topic', () => {
 		const course = createCourse(db, { name: 'Year 9 Physics' });
 		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
 
-		expect(deleteTopic(db, topic.id, { today: '2026-09-03', dir })).toEqual({ ok: true });
-		expect(deleteCourse(db, course.id, { today: '2026-09-03', dir })).toEqual({ ok: true });
+		expect(deleteTopic(db, topic.id, { today: '2026-09-03', dir })).toMatchObject({
+			id: topic.id
+		});
+		expect(deleteCourse(db, course.id, { today: '2026-09-03', dir })).toMatchObject({
+			id: course.id
+		});
 		expect(listCourses(db)).toEqual([]);
 	});
 
@@ -1000,14 +1040,13 @@ describe('deleting a Course or a Topic', () => {
 		const lesson = createLesson(db, { topicId: topic.id, title: 'Newton I', today: '2026-09-03' });
 
 		expect(deleteTopic(db, topic.id, { today: '2026-09-03', dir })).toEqual({
-			ok: false,
-			reason: 'This Topic still holds Lessons. Remove or detach them first.',
-			needsConfirm: true
+			needsConfirm: true,
+			reason: 'This Topic still holds Lessons. Remove or detach them first.'
 		});
 		expect(lessonsOf(db, topic.id)).toEqual([lesson]);
 
-		expect(deleteTopic(db, topic.id, { today: '2026-09-03', confirmed: true, dir })).toEqual({
-			ok: true
+		expect(deleteTopic(db, topic.id, { today: '2026-09-03', confirmed: true, dir })).toMatchObject({
+			id: topic.id
 		});
 		expect(topicsOf(db, course.id)).toEqual([]);
 		expect(lessonDetail(db, lesson.id)).toBeNull();
@@ -1020,26 +1059,34 @@ describe('deleting a Course or a Topic', () => {
 		const lesson = createLesson(db, { topicId: topic.id, title: 'Newton I', today: '2026-09-03' });
 
 		expect(deleteCourse(db, course.id, { today: '2026-09-03', dir })).toEqual({
-			ok: false,
-			reason: 'This Course still holds Topics. Remove them first.',
-			needsConfirm: true
+			needsConfirm: true,
+			reason: 'This Course still holds Topics. Remove them first.'
 		});
 
-		expect(deleteCourse(db, course.id, { today: '2026-09-03', confirmed: true, dir })).toEqual({
-			ok: true
+		expect(
+			deleteCourse(db, course.id, { today: '2026-09-03', confirmed: true, dir })
+		).toMatchObject({
+			id: course.id
 		});
 		expect(listCourses(db)).toEqual([]);
 		expect(lessonDetail(db, lesson.id)).toBeNull();
 	});
 
+	test('an unknown id returns undefined, the door answering its own 404', () => {
+		const { db, atDir: dir } = setUpAuthoring();
+
+		expect(deleteTopic(db, 'does-not-exist', { today: '2026-09-03', dir })).toBeUndefined();
+		expect(deleteCourse(db, 'does-not-exist', { today: '2026-09-03', dir })).toBeUndefined();
+	});
+
 	test('refuses a Course a Class follows, even confirmed', () => {
 		const { db, course, atDir: dir } = setUp();
 
-		expect(deleteCourse(db, course.id, { today: '2026-09-03', confirmed: true, dir })).toEqual({
-			ok: false,
-			reason: 'A Class follows this Course, so it cannot be removed.',
-			needsConfirm: false
-		});
+		refused(
+			() => deleteCourse(db, course.id, { today: '2026-09-03', confirmed: true, dir }),
+			'conflict',
+			'A Class follows this Course, so it cannot be removed.'
+		);
 	});
 
 	test('refuses a Topic assigned to a Class, even confirmed', () => {
@@ -1048,11 +1095,11 @@ describe('deleting a Course or a Topic', () => {
 		makeLessons(db, topic.id, 1);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 
-		expect(deleteTopic(db, topic.id, { today: '2026-09-03', confirmed: true, dir })).toEqual({
-			ok: false,
-			reason: 'This Topic is assigned to a Class, so it cannot be removed.',
-			needsConfirm: false
-		});
+		refused(
+			() => deleteTopic(db, topic.id, { today: '2026-09-03', confirmed: true, dir }),
+			'conflict',
+			'This Topic is assigned to a Class, so it cannot be removed.'
+		);
 	});
 
 	test('refuses a Topic holding a Lesson taught elsewhere and later moved in, even confirmed', () => {
@@ -1068,19 +1115,16 @@ describe('deleting a Course or a Topic', () => {
 		const targetTopic = createTopic(db, { courseId: otherCourse.id, name: 'Waves' });
 		moveLessonToTopic(db, { id: lessons[0].id, topicId: targetTopic.id, today: '2026-09-10' });
 
-		expect(deleteTopic(db, targetTopic.id, { today: '2026-09-10', confirmed: true, dir })).toEqual({
-			ok: false,
-			reason: 'This Topic holds a Lesson that has already been taught, so it cannot be removed.',
-			needsConfirm: false
-		});
+		refused(
+			() => deleteTopic(db, targetTopic.id, { today: '2026-09-10', confirmed: true, dir }),
+			'conflict',
+			'This Topic holds a Lesson that has already been taught, so it cannot be removed.'
+		);
 
-		expect(deleteCourse(db, otherCourse.id, { today: '2026-09-10', confirmed: true, dir })).toEqual(
-			{
-				ok: false,
-				reason:
-					'A Topic in this Course holds a Lesson that has already been taught, so it cannot be removed.',
-				needsConfirm: false
-			}
+		refused(
+			() => deleteCourse(db, otherCourse.id, { today: '2026-09-10', confirmed: true, dir }),
+			'conflict',
+			'A Topic in this Course holds a Lesson that has already been taught, so it cannot be removed.'
 		);
 	});
 });

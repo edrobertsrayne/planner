@@ -1,7 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import { today } from '$lib/date';
 import { DATABASE_URL, db } from '$lib/server/db/client';
-import { badRequest, conflict, trimmed } from '$lib/server/form';
+import { refusal, trimmed } from '$lib/server/form';
 import { lessonActions } from '$lib/server/lesson-actions';
 import {
 	attachedTags,
@@ -19,7 +19,6 @@ import {
 	listCourses,
 	listTagNames,
 	moveLesson,
-	NameCollision,
 	renameCourse,
 	renameLesson,
 	renameTopic,
@@ -27,15 +26,6 @@ import {
 	topicsOf
 } from '$lib/server/planner';
 import type { Actions, PageServerLoad } from './$types';
-
-// A name collision is the seam's only expected throw from the four authoring actions below; it
-// carries a status the spec assigns meaning to (409 — issue #131 / §6.3 of planning-api.md). Any
-// other throw is a 400 — the same shape the existing Lesson writes use, so the page renders it
-// the same way.
-function mapAuthoringError(error: unknown, fallback: string) {
-	if (error instanceof NameCollision) return conflict(error, fallback);
-	return badRequest(error, fallback);
-}
 
 export const load: PageServerLoad = ({ url }) => {
 	const courses = listCourses(db);
@@ -84,7 +74,7 @@ export const actions: Actions = {
 		try {
 			return { course: createCourse(db, { name }) };
 		} catch (error) {
-			return mapAuthoringError(error, 'Could not create the Course.');
+			return refusal(error);
 		}
 	},
 
@@ -98,7 +88,7 @@ export const actions: Actions = {
 			if (!course) return fail(404, { error: 'No such Course.' });
 			return { course };
 		} catch (error) {
-			return mapAuthoringError(error, 'Could not rename the Course.');
+			return refusal(error);
 		}
 	},
 
@@ -110,7 +100,7 @@ export const actions: Actions = {
 		try {
 			return { topic: createTopic(db, { courseId, name }) };
 		} catch (error) {
-			return mapAuthoringError(error, 'Could not create the Topic.');
+			return refusal(error);
 		}
 	},
 
@@ -124,7 +114,7 @@ export const actions: Actions = {
 			if (!topic) return fail(404, { error: 'No such Topic.' });
 			return { topic };
 		} catch (error) {
-			return mapAuthoringError(error, 'Could not rename the Topic.');
+			return refusal(error);
 		}
 	},
 
@@ -146,47 +136,58 @@ export const actions: Actions = {
 		return { lesson };
 	},
 
+	// The seam now writes the reason: a Lesson a Class has already been taught refuses with the
+	// Detach hint, and one a Placement names with the Placement way out — so the action shows the
+	// real reason instead of one fixed "already been taught" line for both (issue: the courses
+	// form's deleteLesson mislabeled a placed Lesson as taught).
 	deleteLesson: async ({ request }) => {
 		const data = await request.formData();
 		const id = trimmed(data, 'id');
-		const result = deleteLesson(db, { id, today: today(), dir: attachmentsDir(DATABASE_URL) });
-		if (!result.ok) {
-			if (result.reason === 'not found') return fail(404, { error: 'No such Lesson.' });
-			return fail(409, { error: 'This Lesson has already been taught and cannot be deleted.' });
+		try {
+			const lesson = deleteLesson(db, { id, today: today(), dir: attachmentsDir(DATABASE_URL) });
+			if (!lesson) return fail(404, { error: 'No such Lesson.' });
+			return {};
+		} catch (error) {
+			return refusal(error);
 		}
-		return {};
 	},
 
 	deleteCourse: async ({ request }) => {
 		const data = await request.formData();
 		const id = trimmed(data, 'id');
 		const confirmed = trimmed(data, 'confirmed') === 'true';
-		const result = deleteCourse(db, id, {
-			today: today(),
-			confirmed,
-			dir: attachmentsDir(DATABASE_URL)
-		});
-		if (!result.ok) {
-			if (result.reason === 'not found') return fail(404, { error: 'No such Course.' });
-			return fail(409, { error: result.reason, needsConfirm: result.needsConfirm });
+		try {
+			const result = deleteCourse(db, id, {
+				today: today(),
+				confirmed,
+				dir: attachmentsDir(DATABASE_URL)
+			});
+			if (!result) return fail(404, { error: 'No such Course.' });
+			// The confirm question is the one failure that is not a refusal: the form answers it
+			// with `confirmed=true`, and the dialog opens on this flag.
+			if ('needsConfirm' in result) return fail(409, { error: result.reason, needsConfirm: true });
+			return {};
+		} catch (error) {
+			return refusal(error);
 		}
-		return {};
 	},
 
 	deleteTopic: async ({ request }) => {
 		const data = await request.formData();
 		const id = trimmed(data, 'id');
 		const confirmed = trimmed(data, 'confirmed') === 'true';
-		const result = deleteTopic(db, id, {
-			today: today(),
-			confirmed,
-			dir: attachmentsDir(DATABASE_URL)
-		});
-		if (!result.ok) {
-			if (result.reason === 'not found') return fail(404, { error: 'No such Topic.' });
-			return fail(409, { error: result.reason, needsConfirm: result.needsConfirm });
+		try {
+			const result = deleteTopic(db, id, {
+				today: today(),
+				confirmed,
+				dir: attachmentsDir(DATABASE_URL)
+			});
+			if (!result) return fail(404, { error: 'No such Topic.' });
+			if ('needsConfirm' in result) return fail(409, { error: result.reason, needsConfirm: true });
+			return {};
+		} catch (error) {
+			return refusal(error);
 		}
-		return {};
 	},
 
 	moveLesson: async ({ request }) => {

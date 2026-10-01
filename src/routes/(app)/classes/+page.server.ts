@@ -1,7 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
-import { badRequest, trimmed } from '$lib/server/form';
+import { refusal, trimmed } from '$lib/server/form';
 import { assignTopic, classLanes, createClass, listCourses, topicsOf } from '$lib/server/planner';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -36,7 +36,7 @@ export const actions: Actions = {
 			const report = assignTopic(db, { classId, topicId, today: today() });
 			return { atRisk: report.atRisk, placementsMoved: report.placementsMoved };
 		} catch (error) {
-			return badRequest(error, 'Could not assign the Topic.');
+			return refusal(error);
 		}
 	}
 };

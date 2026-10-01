@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import type { SQLiteTable, SQLiteColumn } from 'drizzle-orm/sqlite-core';
+import { Refused, refusalStatus } from './planner/refused';
 import type { Db } from './planner/derive';
 
 const ALLOWED_STATUSES = new Set(['draft', 'planned']);
@@ -10,6 +11,14 @@ export const MAX_NAME_LENGTH = 200;
 
 // The note ceiling a Blocked Day's note is measured against — its own limit, not the name's.
 export const MAX_NOTE_LENGTH = 200;
+
+// The API door's one mapping of the seam's refusal: `{ error: message }` with the status the
+// refusal's kind carries. Anything else was not thrown deliberately — it rethrows, so an
+// unexpected fault is the 500 the framework serves, never a 4xx dressed as a bad request.
+export function refusalJson(error: unknown): Response {
+	if (!(error instanceof Refused)) throw error;
+	return json({ error: error.message }, { status: refusalStatus(error.kind) });
+}
 
 // Every route needs its target row to exist before it reads or writes further. Returns the 404
 // Response to return as-is, or null once the row is confirmed present.

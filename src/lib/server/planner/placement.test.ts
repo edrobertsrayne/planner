@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { describe, expect, test } from 'vitest';
-import { makeLessons, makeTopic, setUp } from './fixtures';
+import { makeLessons, makeTopic, refused, setUp } from './fixtures';
 import { assignTopic, classSchedule, placeLesson, removePlacement, setReadiness } from './index';
 import * as schema from '../db/schema';
 
@@ -20,8 +20,6 @@ describe('placing a Lesson', () => {
 			title: 'Assembly',
 			today: '2026-09-03'
 		});
-		expect(result.ok).toBe(true);
-		if (!result.ok) throw new Error('unreachable');
 		expect(result.lesson).toMatchObject({ topicId: null, position: 0, title: 'Assembly' });
 
 		const [placement] = db
@@ -50,14 +48,13 @@ describe('placing a Lesson', () => {
 			.all()
 			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3)!;
 
-		const first = placeLesson(db, client, {
+		placeLesson(db, client, {
 			classId: classA.id,
 			date: '2026-09-14',
 			slotId: mondaySlot.id,
 			title: 'Assembly',
 			today: '2026-09-03'
 		});
-		expect(first.ok).toBe(true);
 
 		expect(() =>
 			placeLesson(db, client, {
@@ -82,20 +79,18 @@ describe('placing a Lesson', () => {
 			.all()
 			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3)!;
 
-		const result = placeLesson(db, client, {
-			classId: classA.id,
-			date: '2026-09-01',
-			slotId: mondaySlot.id,
-			title: 'Assembly',
-			today: '2026-09-03'
-		});
-
-		expect(result).toEqual({
-			ok: false,
-			status: 400,
-			reason:
-				'"2026-09-01" is in the past. A Placement is made for today or a later date, never a past one.'
-		});
+		refused(
+			() =>
+				placeLesson(db, client, {
+					classId: classA.id,
+					date: '2026-09-01',
+					slotId: mondaySlot.id,
+					title: 'Assembly',
+					today: '2026-09-03'
+				}),
+			'invalid',
+			'"2026-09-01" is in the past. A Placement is made for today or a later date, never a past one.'
+		);
 		expect(db.select().from(schema.lesson).all()).toHaveLength(0);
 		expect(db.select().from(schema.placement).all()).toHaveLength(0);
 	});
@@ -122,7 +117,6 @@ describe('placing a Lesson', () => {
 			title: 'Assembly',
 			today: '2026-09-03'
 		});
-		if (!result.ok) throw new Error('unreachable');
 
 		const after = classSchedule(db, { classId: classA.id, today: '2026-09-03' }).scheduled;
 		expect(after.slice(0, 4).map((s) => s.lessonId)).toEqual([
@@ -151,8 +145,6 @@ describe('removing a Placement', () => {
 			title: 'Assembly',
 			today: '2026-09-03'
 		});
-		expect(placed.ok).toBe(true);
-		if (!placed.ok) throw new Error('unreachable');
 
 		const [placement] = db.select().from(schema.placement).all();
 
@@ -181,15 +173,13 @@ describe('removing a Placement', () => {
 			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3)!;
 
 		const today = '2026-09-01';
-		const placed = placeLesson(db, client, {
+		placeLesson(db, client, {
 			classId: classA.id,
 			date: '2026-09-14',
 			slotId: mondaySlot.id,
 			title: 'Assembly',
 			today
 		});
-		expect(placed.ok).toBe(true);
-		if (!placed.ok) throw new Error('unreachable');
 
 		const [placement] = db.select().from(schema.placement).all();
 
@@ -219,8 +209,6 @@ describe('Readiness and a removed Placement', () => {
 			title: 'Assembly',
 			today
 		});
-		expect(placed.ok).toBe(true);
-		if (!placed.ok) throw new Error('unreachable');
 		const lessonId = placed.lesson.id;
 
 		// A second Placement of the same Lesson on the same Class, a different date and Slot.

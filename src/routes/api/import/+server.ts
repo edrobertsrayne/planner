@@ -1,7 +1,12 @@
 import { json } from '@sveltejs/kit';
 import { client, db } from '$lib/server/db/client';
 import { requireApiKey } from '$lib/server/api-key';
-import { MAX_NAME_LENGTH, validateString, getDateToday } from '$lib/server/api-helpers';
+import {
+	MAX_NAME_LENGTH,
+	refusalJson,
+	validateString,
+	getDateToday
+} from '$lib/server/api-helpers';
 import { importTopic } from '$lib/server/planner/authoring';
 import type { RequestHandler } from './$types';
 
@@ -55,29 +60,29 @@ export const POST: RequestHandler = async (event) => {
 
 	const today = getDateToday();
 
-	const result = importTopic(
-		db,
-		client,
-		{
-			courseId,
-			courseName,
-			topicName,
-			lessons
-		},
-		today
-	);
+	try {
+		const created = importTopic(
+			db,
+			client,
+			{
+				courseId,
+				courseName,
+				topicName,
+				lessons
+			},
+			today
+		);
 
-	if (!result.ok) {
-		return json({ error: result.error }, { status: result.status });
+		return json(
+			{
+				course: created.course,
+				courseCreated: created.courseCreated,
+				topic: created.topic,
+				lessons: created.lessons
+			},
+			{ status: 201 }
+		);
+	} catch (error) {
+		return refusalJson(error);
 	}
-
-	return json(
-		{
-			course: result.course,
-			courseCreated: result.courseCreated,
-			topic: result.topic,
-			lessons: result.lessons
-		},
-		{ status: 201 }
-	);
 };

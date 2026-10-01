@@ -19,10 +19,13 @@
 //   views.ts        the Agenda stream and the Calendar grid, across every Class
 //   authoring.ts    Courses, Topics, Lessons and Links
 //   attachments.ts  files a Lesson holds: the directory, the allow-list, the create
+//   refused.ts      the one refusal every write leaves by, and the kind→status table
 
 export type { AtRiskSession, LessonName, PlacementMoved, WriteReport } from './derive';
 
 export { teachingWeeks } from './derive';
+
+export { Refused, refusalStatus, type RefusalKind } from './refused';
 
 export {
 	academicYearStart,
@@ -97,7 +100,6 @@ export {
 	moveLesson,
 	moveLessonToTopic,
 	moveLink,
-	NameCollision,
 	patchLesson,
 	importTopic,
 	renameCourse,
@@ -114,7 +116,6 @@ export {
 } from './authoring';
 
 export {
-	AttachmentRejected,
 	attachmentById,
 	attachmentsDir,
 	attachmentsOf,

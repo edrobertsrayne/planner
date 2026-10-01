@@ -6,6 +6,7 @@ import * as schema from '../db/schema';
 import { lessonNames, rederive, scheduleFor, type Db, type WriteReport } from './derive';
 import { runway as deriveRunway, type Runway } from './engine';
 import { nextPosition, swapTargets, type Direction } from './ordering';
+import { Refused } from './refused';
 
 // The Tone is assigned once here, at creation — the next unused position of the fixed walk
 // (ADR-0013) — and never touched again by any other write.
@@ -66,7 +67,9 @@ export function classDetail(db: Db, id: string) {
 
 // Gives a Class one more of its Course's Topics, at the next position in its order, then
 // re-derives that Class's schedule from today. Assigning October's Topic in October is an
-// ordinary re-run that must not disturb what is already taught (ADR-0007, amended).
+// ordinary re-run that must not disturb what is already taught (ADR-0007, amended). A Topic
+// outside the Class's Course is an `invalid` — the id the body names is real, but it is not
+// one this Class could ever take.
 export function assignTopic(
 	db: Db,
 	{ classId, topicId, today }: { classId: string; topicId: string; today: string }
@@ -82,7 +85,7 @@ export function assignTopic(
 		.where(eq(schema.topic.id, topicId))
 		.all();
 	if (!cls || !top || cls.courseId !== top.courseId) {
-		throw new Error("This Topic does not belong to the Class's Course.");
+		throw new Refused('invalid', "This Topic does not belong to the Class's Course.");
 	}
 
 	const position = nextPosition(
@@ -147,7 +150,7 @@ export function unassignTopic(
 	if (!row) return null;
 
 	if (topicReachedByClass(db, classId, row.topicId!, today)) {
-		throw new Error('This Topic has already been taught and cannot be unassigned.');
+		throw new Refused('conflict', 'This Topic has already been taught and cannot be unassigned.');
 	}
 
 	const topicLessons = db

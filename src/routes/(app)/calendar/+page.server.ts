@@ -2,6 +2,7 @@ import { fail } from '@sveltejs/kit';
 import { TERM_NAMES } from '$lib/calendar/generate-teaching-weeks';
 import { addDays, today } from '$lib/date';
 import { client, db } from '$lib/server/db/client';
+import { refusal } from '$lib/server/form';
 import { asc } from 'drizzle-orm';
 import * as schema from '$lib/server/db/schema';
 import {
@@ -70,9 +71,12 @@ export const actions: Actions = {
 		const note = String(data.get('note') ?? '').trim();
 		if (!date) return fail(400, { error: 'No date given.' });
 
-		const report = blockDay(db, { date, note: note || undefined, today: today() });
-		if (!report.ok) return fail(report.status, { error: report.reason });
-		return { atRisk: report.atRisk, placementsMoved: report.placementsMoved };
+		try {
+			const report = blockDay(db, { date, note: note || undefined, today: today() });
+			return { atRisk: report.atRisk, placementsMoved: report.placementsMoved };
+		} catch (error) {
+			return refusal(error);
+		}
 	},
 
 	unblockDay: async ({ request }) => {
@@ -118,8 +122,11 @@ export const actions: Actions = {
 			closes: String(data.get(`closes-${i}`) ?? '')
 		}));
 
-		const result = replaceTerms(db, client, { terms, today: today() });
-		if (!result.ok) return fail(400, { error: result.reason });
-		return { atRisk: result.atRisk, placementsMoved: result.placementsMoved, yearSaved: true };
+		try {
+			const report = replaceTerms(db, client, { terms, today: today() });
+			return { atRisk: report.atRisk, placementsMoved: report.placementsMoved, yearSaved: true };
+		} catch (error) {
+			return refusal(error);
+		}
 	}
 };

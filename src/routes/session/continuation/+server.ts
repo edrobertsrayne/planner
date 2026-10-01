@@ -1,8 +1,8 @@
-import { error, json } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
 import { recordContinuation, sessionDetail } from '$lib/server/planner';
-import { occasionOf } from '../occasion';
+import { occasionOf, refusal } from '../occasion';
 import type { RequestHandler } from './$types';
 
 // The Session panel's "needs more time" control (issue #38): marks the Session at this occasion
@@ -19,6 +19,6 @@ export const POST: RequestHandler = async ({ request }) => {
 			placementsMoved: report.placementsMoved
 		});
 	} catch (e) {
-		error(400, e instanceof Error ? e.message : 'Could not record the Continuation.');
+		refusal(e);
 	}
 };

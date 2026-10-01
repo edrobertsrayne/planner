@@ -6,6 +6,7 @@ import { addDays } from '$lib/date';
 import * as schema from '../db/schema';
 import { rederive, type Db } from './derive';
 import { slotHolds } from './engine';
+import { Refused } from './refused';
 
 // The date "Changes apply from" defaults to (ADR-0006): the earliest Term's opening date. A
 // concrete stand-in for a null holdsFrom, needed wherever the Class page reads the Timetable as
@@ -40,7 +41,8 @@ const positionName = (week: 'A' | 'B', day: number, period: number) =>
 	`Week ${week} ${DAY_NAMES[day - 1]} P${period}`;
 
 const takenError = (week: 'A' | 'B', day: number, period: number) =>
-	new Error(
+	new Refused(
+		'conflict',
 		`${positionName(week, day, period)} already belongs to another Class over these dates.`
 	);
 

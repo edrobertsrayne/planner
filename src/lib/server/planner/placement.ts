@@ -10,6 +10,7 @@ import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import { rederive, rewindBoundary, type Db, type WriteReport } from './derive';
 import { isRealDate } from '$lib/date';
+import { Refused } from './refused';
 
 // Creates a fresh Standalone Lesson (`topicId: null`, `position: 0`, since it belongs to no
 // Topic's order) and a Placement anchoring it to one Class, one date and one Slot, then
@@ -19,6 +20,8 @@ import { isRealDate } from '$lib/date';
 // created in one transaction, driven on the raw client exactly as the Topic import already is —
 // without it, a failed Placement insert (a taken anchor, a Class or Slot gone) would leave the
 // freshly created Standalone Lesson behind with no Placement naming it.
+//
+// A malformed date and a past date are `invalid`: bad input, bad before it reaches the calendar.
 export function placeLesson(
 	db: Db,
 	client: Database,
@@ -29,18 +32,15 @@ export function placeLesson(
 		title,
 		today
 	}: { classId: string; date: string; slotId: string; title: string; today: string }
-):
-	| { ok: false; status: 400; reason: string }
-	| ({ ok: true; lesson: typeof schema.lesson.$inferSelect } & WriteReport) {
+): { lesson: typeof schema.lesson.$inferSelect } & WriteReport {
 	if (!isRealDate(date)) {
-		return { ok: false, status: 400, reason: `"${date}" is not a real date.` };
+		throw new Refused('invalid', `"${date}" is not a real date.`);
 	}
 	if (date < today) {
-		return {
-			ok: false,
-			status: 400,
-			reason: `"${date}" is in the past. A Placement is made for today or a later date, never a past one.`
-		};
+		throw new Refused(
+			'invalid',
+			`"${date}" is in the past. A Placement is made for today or a later date, never a past one.`
+		);
 	}
 
 	const lesson = inTransaction(client, () => {
@@ -53,7 +53,7 @@ export function placeLesson(
 		return lesson;
 	});
 
-	return { ok: true, lesson, ...rederive(db, classId, rewindBoundary(date, today)) };
+	return { lesson, ...rederive(db, classId, rewindBoundary(date, today)) };
 }
 
 // Removes a Placement and re-derives its one Class, the mirror of unblockSlot — no past-date
