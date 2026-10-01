@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db/client';
 import { requireApiKey } from '$lib/server/api-key';
-import { getDateToday } from '$lib/server/api-helpers';
+import { today } from '$lib/date';
 import { unblockDay } from '$lib/server/planner';
 import type { RequestHandler } from './$types';
 
@@ -11,7 +11,7 @@ export const DELETE: RequestHandler = async (event) => {
 	const auth = await requireApiKey(event);
 	if (auth) return auth;
 
-	const report = unblockDay(db, { date: event.params.date, today: getDateToday() });
+	const report = unblockDay(db, { date: event.params.date, today: today() });
 	if (!report) return json({ error: 'No such Blocked Day.' }, { status: 404 });
 
 	return json({ atRisk: report.atRisk, placementsMoved: report.placementsMoved });

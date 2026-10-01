@@ -2,7 +2,8 @@ import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db/client';
 import { blockedDay } from '$lib/server/db/schema';
 import { requireApiKey } from '$lib/server/api-key';
-import { MAX_NOTE_LENGTH, getDateToday } from '$lib/server/api-helpers';
+import { today } from '$lib/date';
+import { MAX_NOTE_LENGTH } from '$lib/server/api-helpers';
 import { blockDay } from '$lib/server/planner';
 import { asc } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
@@ -49,7 +50,7 @@ export const POST: RequestHandler = async (event) => {
 		note = trimmed || undefined;
 	}
 
-	const report = blockDay(db, { date: data.date, note, today: getDateToday() });
+	const report = blockDay(db, { date: data.date, note, today: today() });
 	if (!report.ok) return json({ error: report.reason }, { status: report.status });
 
 	return json(

@@ -1,7 +1,8 @@
 import { json } from '@sveltejs/kit';
 import { client, db } from '$lib/server/db/client';
 import { requireApiKey } from '$lib/server/api-key';
-import { MAX_NAME_LENGTH, validateString, getDateToday } from '$lib/server/api-helpers';
+import { today } from '$lib/date';
+import { MAX_NAME_LENGTH, validateString } from '$lib/server/api-helpers';
 import { importTopic } from '$lib/server/planner/authoring';
 import type { RequestHandler } from './$types';
 
@@ -53,8 +54,6 @@ export const POST: RequestHandler = async (event) => {
 	const courseId = typeof data.course.id === 'string' ? data.course.id : undefined;
 	const courseName = typeof data.course.name === 'string' ? data.course.name : undefined;
 
-	const today = getDateToday();
-
 	const result = importTopic(
 		db,
 		client,
@@ -64,7 +63,7 @@ export const POST: RequestHandler = async (event) => {
 			topicName,
 			lessons
 		},
-		today
+		today()
 	);
 
 	if (!result.ok) {
