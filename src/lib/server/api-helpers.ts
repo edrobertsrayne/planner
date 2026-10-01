@@ -71,11 +71,6 @@ export function rejectUnknownFields(
 	return null;
 }
 
-export function getDateToday(): string {
-	const now = new Date();
-	return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
-
 export function validateUrl(value: unknown): string | Response {
 	if (typeof value !== 'string') {
 		return json({ error: 'The "url" field must be a string.' }, { status: 400 });

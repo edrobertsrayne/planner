@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
 import { topic } from '$lib/server/db/schema';
 import { requireApiKey } from '$lib/server/api-key';
@@ -8,8 +9,7 @@ import {
 	requireExisting,
 	validateString,
 	validateStatus,
-	validateLength,
-	getDateToday
+	validateLength
 } from '$lib/server/api-helpers';
 import { lessonsOf, createLesson } from '$lib/server/planner/authoring';
 import type { RequestHandler } from './$types';
@@ -56,15 +56,13 @@ export const POST: RequestHandler = async (event) => {
 		lessonStatus = result;
 	}
 
-	const today = getDateToday();
-
 	const created = createLesson(db, {
 		topicId: event.params.id,
 		title,
 		body: data.body,
 		length: lessonLength,
 		status: lessonStatus,
-		today
+		today: today()
 	});
 
 	return json({ ...created, links: [] }, { status: 201 });

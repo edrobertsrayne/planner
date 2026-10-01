@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { today } from '$lib/date';
 import { DATABASE_URL, db } from '$lib/server/db/client';
 import { requireApiKey } from '$lib/server/api-key';
 import {
@@ -6,8 +7,7 @@ import {
 	rejectUnknownFields,
 	validateString,
 	validateStatus,
-	validateLength,
-	getDateToday
+	validateLength
 } from '$lib/server/api-helpers';
 import {
 	attachmentsDir,
@@ -85,9 +85,7 @@ export const PATCH: RequestHandler = async (event) => {
 		fields.topicId = data.topicId;
 	}
 
-	const today = getDateToday();
-
-	const result = patchLesson(db, { id: event.params.id, fields, today });
+	const result = patchLesson(db, { id: event.params.id, fields, today: today() });
 
 	if (!result.ok) {
 		if (result.reason === 'not found') return json({ error: 'Lesson not found.' }, { status: 404 });
@@ -103,10 +101,9 @@ export const DELETE: RequestHandler = async (event) => {
 	const auth = await requireApiKey(event);
 	if (auth) return auth;
 
-	const today = getDateToday();
 	const result = deleteLesson(db, {
 		id: event.params.id,
-		today,
+		today: today(),
 		dir: attachmentsDir(DATABASE_URL)
 	});
 
