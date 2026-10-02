@@ -435,6 +435,67 @@ describe('the Calendar', () => {
 		expect(cell?.blockedDayId).toBeNull();
 	});
 
+	// classA's first Sessions are recorded on Thu 2026-09-03: the Length-2 Lesson over P5 and P6.
+	// A week later, that Thursday is history. classA's other Slots that week are outside every Term.
+	test('a past week shows its recorded Sessions as Lessons, not as blocked (issue #292)', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [wideLesson] = makeLessons(db, topic.id, 1, 2);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+
+		const week = calendarWeek(db, { weekCommencing: '2026-08-31', today: '2026-09-10' });
+
+		const thursday = week?.cells.filter((c) => c.classId === classA.id && c.date === '2026-09-03');
+		expect(thursday).toEqual([
+			expect.objectContaining({
+				periodFrom: 5,
+				periodTo: 6,
+				kind: 'lesson',
+				past: true,
+				lesson: { title: wideLesson.title, topicName: 'Forces' },
+				blockedNote: null
+			})
+		]);
+		expect(thursday?.[0].slotIds).toHaveLength(2);
+		// Monday is outside every Term: still blocked in the past.
+		expect(
+			week?.cells.find((c) => c.date === '2026-08-31' && c.classId === classA.id)
+		).toMatchObject({ kind: 'blocked' });
+	});
+
+	// Week B, 2026-09-07: classA holds Tue P2 and Fri P4; classB holds Wed P4. Nothing is left to
+	// teach after Thu 2026-09-03, so every one of them is an Open Slot. Today is the Friday.
+	test('a past Open Slot is open, a past Blocked Slot is blocked, and today is not past (issue #292)', () => {
+		const { db, course, classA, classB } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		makeLessons(db, topic.id, 1);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+		const wedP4 = db
+			.select()
+			.from(schema.slot)
+			.all()
+			.find((s) => s.classId === classB.id && s.week === 'B' && s.day === 3 && s.period === 4)!;
+		blockSlot(db, {
+			classId: classB.id,
+			date: '2026-09-09',
+			slotId: wedP4.id,
+			note: 'Trip',
+			today: '2026-09-11'
+		});
+
+		const week = calendarWeek(db, { weekCommencing: '2026-09-07', today: '2026-09-11' });
+		const at = (date: string) => week?.cells.find((c) => c.date === date);
+
+		expect(at('2026-09-08')).toMatchObject({ classId: classA.id, kind: 'open', past: true });
+		expect(at('2026-09-09')).toMatchObject({
+			classId: classB.id,
+			kind: 'blocked',
+			blockedNote: 'Trip',
+			past: true
+		});
+		expect(at('2026-09-11')).toMatchObject({ classId: classA.id, kind: 'open', past: false });
+	});
+
 	test('a Term change re-letters the year, and the schedule follows the computed letter', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');

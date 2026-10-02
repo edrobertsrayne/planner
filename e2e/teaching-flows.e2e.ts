@@ -188,10 +188,9 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 	});
 
 	test('opening a Session from the Calendar, and dismissing it by Escape', async () => {
-		// A Slot dated before today is on no stream — scheduled and openSlots both cut at today —
-		// so the Calendar offers an Open Slot only from its date onward. 9C/Sc1's Slot is
-		// Tuesday P3 in both letters, so load the week of the next Tuesday: this week's grid
-		// early in the week, next week's from Wednesday on.
+		// An upcoming Open Slot, not a past one. 9C/Sc1's Slot is Tuesday P3 in both letters, so
+		// load the week of the next Tuesday: this week's grid early in the week, next week's from
+		// Wednesday on.
 		const tuesday = (2 - new Date().getUTCDay() + 7) % 7;
 		await page.goto(`/calendar?week=${isoDate(tuesday - 1)}`);
 		await page.getByRole('button', { name: '9C/Sc1 Open Slot' }).click();
@@ -580,6 +579,33 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		await page.goto('/?horizon=7&tag=Nowhere');
 		await expect(tagControl).toHaveText('Nowhere');
 		await expect(page.getByText('No Lessons with the Tag “Nowhere”')).toBeVisible();
+	});
+
+	test('a past Lesson on the Calendar keeps its tile on a hatch, never Blocked (issue #292)', async () => {
+		// The Monday of the week seven days back: a weekday inside the second Term, before today.
+		const ago = new Date(`${isoDate(-7)}T00:00:00Z`);
+		const monday = isoDate(-7 - ((ago.getUTCDay() + 6) % 7));
+		const speedLessonId = runFixture('find-lesson-id', 'Speed');
+		runFixture('mark-taught', classAId, monday, '4', speedLessonId);
+
+		await page.goto(`/calendar?week=${monday}`);
+		// The beforeAll Session ten days back can fall in this week too: either tile is past.
+		const tile = page.locator('[data-session-trigger]').filter({ hasText: 'Speed' }).first();
+		await expect(tile).toBeVisible();
+		await expect(tile).toContainText('9B/Sc1');
+		await expect(tile).toContainText('Forces');
+		await expect(tile).not.toContainText('Blocked');
+		await expect(tile).toHaveClass(/hatched/);
+		await expect(tile).toHaveAttribute('data-past', 'true');
+
+		await tile.click();
+		await openSessionAndExpect(page);
+		await expect(page.locator('[data-session-panel]')).toContainText('9B/Sc1');
+		await expect(page.locator('[data-session-panel]')).toContainText('Speed');
+		await page.keyboard.press('Escape');
+		await expectSessionClosed(page);
+
+		runFixture('unmark-taught', classAId, monday, '4');
 	});
 
 	test('the Agenda shows the past seven days above today, read-only and fixed', async () => {

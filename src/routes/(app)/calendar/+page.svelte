@@ -375,10 +375,17 @@
 													</div>
 												</div>
 											{:else}
+												<!-- A past tile is the record of what happened, not a removal: it keeps
+											its Class Tone and text, and takes the hatch only to step back from the
+											upcoming tiles. Its Session panel opens like any other. -->
 												<button
 													type="button"
 													data-session-trigger
-													class="relative flex h-full min-h-16 w-full flex-col overflow-hidden rounded-lg border px-2 py-1.5 text-left"
+													data-past={cell.past || undefined}
+													class={cn(
+														'relative flex h-full min-h-16 w-full flex-col overflow-hidden rounded-lg border px-2 py-1.5 text-left',
+														cell.past && 'hatched'
+													)}
 													style:background-color={tone.bg}
 													style:border-color={tone.ring}
 													onclick={() =>
@@ -456,10 +463,11 @@
 
 <style>
 	/*
-		A Blocked Day and a Blocked Slot drain the colour instead of keeping it (CONTEXT.md,
-		Calendar): present-but-empty and removed must never read alike. The same texture derived
-		from --muted-foreground reads in both themes with no dark-mode branch, and replaces the
-		tone rather than sitting over it, so removed never reads like empty.
+		The hatch marks a position that is not an upcoming lesson. A Blocked Day and a Blocked
+		Slot drain the colour instead of keeping it (CONTEXT.md, Calendar): present-but-empty and
+		removed must never read alike. A past Lesson or Open Slot keeps its Class Tone and lays the
+		hatch over it, so it reads as done rather than removed. The texture is derived from
+		--muted-foreground, so it reads in both themes with no dark-mode branch.
 	*/
 	.hatched {
 		background-image: repeating-linear-gradient(
