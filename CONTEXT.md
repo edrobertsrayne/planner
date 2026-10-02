@@ -339,10 +339,11 @@ Note that this names a _screen_; "planning" unqualified means the activity, and 
 of the Language above names its parts.
 
 **Lesson editor**:
-The single surface for one Lesson — its title, its markdown body, its links, its attachments and
-its Length. Opens as a modal over the Courses view or the Planning view, and steps to the next or
-previous Lesson in the Topic without closing. Distinct from the Session panel: the Lesson editor
-writes the plan shared by every Class, the Session panel writes one Class's occasion.
+The single surface for one Lesson — its title, its markdown body, its links, its attachments, its
+Tags and its Length, and the Detach and delete controls. A page of its own, reached from the
+Courses view or the Planning view, that steps to the next or previous Lesson in the Topic. It is
+written on a laptop or desktop; on a phone it is a read view. Distinct from the Session panel: the
+Lesson editor writes the plan shared by every Class, the Session panel writes one Class's occasion.
 
 **Session panel**:
 The single surface for one Session — its Lesson's plan, links and attachments, the note on the
