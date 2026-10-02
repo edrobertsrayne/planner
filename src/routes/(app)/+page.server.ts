@@ -8,6 +8,8 @@ import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ url }) => {
 	const horizon = parseHorizon(url.searchParams.get('horizon'));
+	// The look-back is off unless `?past=1`; any other value is off.
+	const lookBackOn = url.searchParams.get('past') === '1';
 	const { rows, lastTermCloses } = agenda(db, {
 		today: today(),
 		horizonDays: horizon === 'all' ? null : horizon
@@ -17,9 +19,10 @@ export const load: PageServerLoad = ({ url }) => {
 		today: today(),
 		horizon,
 		tag: url.searchParams.get('tag') || null,
+		lookBackOn,
 		rows,
 		lastTermCloses,
-		lookBack: agendaLookBack(db, { today: today() })
+		lookBack: lookBackOn ? agendaLookBack(db, { today: today() }) : []
 	};
 };
 

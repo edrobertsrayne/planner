@@ -607,10 +607,14 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		runFixture('unmark-taught', classAId, monday, '4');
 	});
 
-	test('the Agenda shows the past seven days above today, read-only and fixed', async () => {
-		// The only past Session so far is ten days old, outside the look-back.
-		await page.goto('/');
+	test('the Agenda shows the past seven days above today when turned on, read-only and fixed', async () => {
 		const lookBack = page.getByRole('region', { name: 'Past seven days' });
+		const pastRows = lookBack.locator('li');
+		const pastToggle = page.getByRole('button', { name: 'Previous 7 days' });
+		const tagControl = page.getByRole('button', { name: 'Tag', exact: true });
+
+		// The only past Session so far is ten days old, outside the look-back.
+		await page.goto('/?past=1');
 		await expect(page.getByRole('heading', { name: 'Agenda' })).toBeVisible();
 		await expect(lookBack).toHaveCount(0);
 
@@ -620,8 +624,26 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		runFixture('mark-taught', classBId, isoDate(-1), '5', speedLessonId);
 		runFixture('mark-taught', classAId, isoDate(-3), '6', speedLessonId, note);
 
+		// Speed is taught only in the past, so its Tag appears only in the look-back.
+		await page.goto('/courses');
+		await page.getByRole('link', { name: 'KS3 Science' }).click();
+		await page.getByRole('link', { name: 'Forces' }).click();
+		await page.getByRole('link', { name: 'Speed', exact: true }).click();
+		await page.getByRole('button', { name: '+ Add Tag' }).click();
+		await page.getByPlaceholder('Tag name').fill('Recap');
+		await page.getByPlaceholder('Tag name').press('Enter');
+		await expect(page.getByRole('dialog').getByText('Recap', { exact: true })).toBeVisible();
+		await page.keyboard.press('Escape');
+		await expect(page.getByRole('dialog')).toBeHidden();
+
+		// The look-back is off by default.
 		await page.goto('/');
-		const pastRows = lookBack.locator('li');
+		await expect(page.getByRole('heading', { name: 'Agenda' })).toBeVisible();
+		await expect(pastToggle).toHaveAttribute('aria-pressed', 'false');
+		await expect(lookBack).toHaveCount(0);
+
+		await pastToggle.click();
+		await expect(page).toHaveURL(/past=1/);
 		// Oldest first: three days ago, then yesterday.
 		await expect(pastRows).toHaveCount(2);
 		await expect(pastRows.nth(0)).toContainText('9B/Sc1');
@@ -634,12 +656,41 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 			page.getByRole('checkbox', { name: 'Ready to teach Motion to 9B/Sc1' }).first()
 		).toBeVisible();
 
-		// The horizon moves only the forward window.
+		// The horizon moves only the forward window, and keeps the toggle on.
 		await page.getByRole('radio', { name: 'Four Weeks' }).click();
 		await expect(page).toHaveURL(/horizon=28/);
+		await expect(page).toHaveURL(/past=1/);
 		await expect(pastRows).toHaveCount(2);
 
+		// The look-back obeys the Tag filter: Speed does not carry Practical.
+		await tagControl.click();
+		await page.getByRole('option', { name: 'Practical' }).click();
+		await expect(page).toHaveURL(/tag=Practical/);
+		await expect(page).toHaveURL(/past=1/);
+		await expect(lookBack).toHaveCount(0);
+
+		// A Tag found only in the look-back can be chosen.
+		await tagControl.click();
+		await page.getByRole('option', { name: 'Recap' }).click();
+		await expect(page).toHaveURL(/tag=Recap/);
+		await expect(pastRows).toHaveCount(2);
+		await expect(page.getByRole('checkbox', { name: /Ready to teach/ })).toHaveCount(0);
+
+		// Turning the toggle off keeps the horizon and the Tag.
+		await pastToggle.click();
+		await expect(page).not.toHaveURL(/past=/);
+		await expect(page).toHaveURL(/horizon=28/);
+		await expect(page).toHaveURL(/tag=Recap/);
+		await expect(lookBack).toHaveCount(0);
+
+		// An unknown value is off.
+		await page.goto('/?past=yes');
+		await expect(page.getByRole('heading', { name: 'Agenda' })).toBeVisible();
+		await expect(pastToggle).toHaveAttribute('aria-pressed', 'false');
+		await expect(lookBack).toHaveCount(0);
+
 		// A past row opens the Session panel on that occasion, with its note.
+		await page.goto('/?past=1');
 		await pastRows.nth(0).getByRole('button').first().click();
 		await openSessionAndExpect(page);
 		await expect(page.locator('[data-session-panel]')).toContainText('9B/Sc1');
@@ -650,5 +701,11 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		// A noted past Session left behind would show in the Term save report of the-calendar-setup.
 		runFixture('unmark-taught', classBId, isoDate(-1), '5');
 		runFixture('unmark-taught', classAId, isoDate(-3), '6');
+		await page.goto('/courses');
+		await page.getByRole('link', { name: 'KS3 Science' }).click();
+		await page.getByRole('link', { name: 'Forces' }).click();
+		await page.getByRole('link', { name: 'Speed', exact: true }).click();
+		await page.getByRole('button', { name: 'Remove Recap' }).click();
+		await expect(page.getByRole('dialog').getByText('Recap', { exact: true })).toBeHidden();
 	});
 });
