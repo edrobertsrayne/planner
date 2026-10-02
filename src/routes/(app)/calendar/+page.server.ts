@@ -30,7 +30,8 @@ function defaultWeek(weeks: { weekCommencing: string }[], on: string): string | 
 	return weeks[weeks.length - 1].weekCommencing;
 }
 
-const RIBBON_RADIUS = 3;
+// The ribbon shows the selected week and two Teaching Weeks either side (issue #293).
+const RIBBON_RADIUS = 2;
 
 export const load: PageServerLoad = ({ url }) => {
 	const weeks = teachingWeeks(db);
