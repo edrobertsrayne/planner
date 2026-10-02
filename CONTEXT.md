@@ -286,7 +286,7 @@ each Session carries. Note that this names a _screen_. The Terms, Blocked Days a
 draws on are the calendar _model_. "The calendar" unqualified means the model. An Open Slot keeps
 its Class's colour and shows no Lesson. A Blocked Day and a Blocked Slot drain the colour instead.
 Present-but-empty and removed must never read alike. A position dated before today shows its
-recorded Session, or an Open Slot when no Lesson was recorded. It keeps its Class's colour and lays
+recorded Session, or an Open Slot when no Lesson was recorded. It keeps its Class's Tone and lays
 a hatch over it, so past and upcoming tiles never read alike. A past tile is never a removal: it
 opens the Session panel on its occasion. A day with no teaching — a Blocked Day or a
 School Holiday — drops its six Periods. The day reads as one panel spanning the column. The panel is

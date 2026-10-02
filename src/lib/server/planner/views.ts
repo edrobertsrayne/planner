@@ -267,12 +267,17 @@ function blockedDaysByDate(db: Db) {
 	);
 }
 
-// The positions the schedule and the record stayed silent on, but which a Class still holds on
-// the raw Timetable. A Blocked Day, a Blocked Slot, or a date outside every Term is shown as
-// removed, with whichever block explains it, so the grid says whose position it is rather than
-// leaving it looking like a Period nobody teaches. Any other such position is a past Open Slot:
-// the engine lays nothing before `today`, and an Open Slot records no Session. A position no
-// Class holds is left out entirely: genuinely free, not blocked.
+// The Slots that hold one position in a Teaching Week of the given letter, on that date.
+const slotsAt = (cal: Calendar, letter: 'A' | 'B', date: string, period: number) =>
+	cal.slots.filter(
+		(s) => s.week === letter && s.day === weekday(date) && s.period === period && slotHolds(s, date)
+	);
+
+// The positions that the schedule and the record leave out, but that a Class still holds on the
+// raw Timetable. A Blocked Day, a Blocked Slot or a date outside every Term makes a removed cell.
+// The cell carries the note of its block. The grid then shows whose position it is. Any other
+// such position is a past Open Slot: the engine lays nothing before `today`, and an Open Slot
+// records no Session. A position that no Class holds gets no cell: it is free, not blocked.
 function uncoveredCells(
 	db: Db,
 	{
@@ -307,14 +312,12 @@ function uncoveredCells(
 			.map((row) => [`${row.classId}|${row.date}|${row.slotId}`, row])
 	);
 
-	return dates.flatMap((date, i) => {
+	return dates.flatMap((date) => {
 		const cells: CalendarCell[] = [];
 		for (let period = 1; period <= PERIODS_PER_DAY; period++) {
 			if (covered.has(`${date}|${period}`)) continue;
 
-			const slot = cal.slots.find(
-				(s) => s.week === letter && s.day === i + 1 && s.period === period && slotHolds(s, date)
-			);
+			const [slot] = slotsAt(cal, letter, date, period);
 			const cls = slot && byId.get(slot.classId);
 			if (!slot || !cls) continue;
 
@@ -358,14 +361,7 @@ export function calendarWeek(
 
 	// Before `today` the engine lays nothing: those positions come from its `history`, the record.
 	const slotAt = (classId: string, date: string, period: number) =>
-		cal.slots.find(
-			(s) =>
-				s.classId === classId &&
-				s.week === week.letter &&
-				s.day === weekday(date) &&
-				s.period === period &&
-				slotHolds(s, date)
-		);
+		slotsAt(cal, week.letter, date, period).find((s) => s.classId === classId);
 	const occupied = batches.map(({ cls, rows, history }) => ({
 		cls,
 		rows: [

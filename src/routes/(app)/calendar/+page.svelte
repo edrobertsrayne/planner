@@ -381,7 +381,6 @@
 												<button
 													type="button"
 													data-session-trigger
-													data-past={cell.past || undefined}
 													class={cn(
 														'relative flex h-full min-h-16 w-full flex-col overflow-hidden rounded-lg border px-2 py-1.5 text-left',
 														cell.past && 'hatched'
@@ -463,9 +462,9 @@
 
 <style>
 	/*
-		The hatch marks a position that is not an upcoming lesson. A Blocked Day and a Blocked
+		The hatch marks a position that is not an upcoming Session. A Blocked Day and a Blocked
 		Slot drain the colour instead of keeping it (CONTEXT.md, Calendar): present-but-empty and
-		removed must never read alike. A past Lesson or Open Slot keeps its Class Tone and lays the
+		removed must never read alike. A past Session or Open Slot keeps its Class Tone and lays the
 		hatch over it, so it reads as done rather than removed. The texture is derived from
 		--muted-foreground, so it reads in both themes with no dark-mode branch.
 	*/

@@ -581,7 +581,7 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		await expect(page.getByText('No Lessons with the Tag “Nowhere”')).toBeVisible();
 	});
 
-	test('a past Lesson on the Calendar keeps its tile on a hatch, never Blocked (issue #292)', async () => {
+	test('a past Session on the Calendar keeps its tile on a hatch, never Blocked (issue #292)', async () => {
 		// The Monday of the week seven days back: a weekday inside the second Term, before today.
 		const ago = new Date(`${isoDate(-7)}T00:00:00Z`);
 		const monday = isoDate(-7 - ((ago.getUTCDay() + 6) % 7));
@@ -596,7 +596,6 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		await expect(tile).toContainText('Forces');
 		await expect(tile).not.toContainText('Blocked');
 		await expect(tile).toHaveClass(/hatched/);
-		await expect(tile).toHaveAttribute('data-past', 'true');
 
 		await tile.click();
 		await openSessionAndExpect(page);
