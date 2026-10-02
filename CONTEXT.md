@@ -340,9 +340,9 @@ of the Language above names its parts.
 
 **Lesson editor**:
 The single surface for one Lesson — its title, its markdown body, its links, its attachments and
-its Length. Opens as a modal over the Courses view, and steps to the next or previous Lesson in the
-Topic without closing. Distinct from the Session panel: the Lesson editor writes the plan shared
-by every Class, the Session panel writes one Class's occasion.
+its Length. Opens as a modal over the Courses view or the Planning view, and steps to the next or
+previous Lesson in the Topic without closing. Distinct from the Session panel: the Lesson editor
+writes the plan shared by every Class, the Session panel writes one Class's occasion.
 
 **Session panel**:
 The single surface for one Session — its Lesson's plan, links and attachments, the note on the
