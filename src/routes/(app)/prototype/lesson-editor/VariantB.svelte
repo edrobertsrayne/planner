@@ -2,8 +2,8 @@
 	// Variant B — "Page with a property rail". The Lesson editor is its own page, split in two:
 	// the plan takes the wide left column and grows with its content (the page scrolls), while a
 	// right-hand rail holds every short field — Draft/Planned, Length, Topic, Tags, Links,
-	// Attachments, Detach and delete — and sticks in view as the plan scrolls. Below `lg` the
-	// rail drops under the title as a compact block.
+	// Attachments, Detach and delete. Nothing is pinned: the rail scrolls with the page. Below
+	// `lg` the status card sits under the title and the rest of the rail follows the plan.
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import MarkdownEditor from '$lib/components/markdown-editor.svelte';
@@ -83,12 +83,10 @@
 			</div>
 		</div>
 
-		<!-- rail: on laptop the properties and Tags stay pinned below the app header while Links,
-		     Attachments, Detach and delete scroll with the page; below `lg` it follows the plan -->
-		<aside class="min-w-0 space-y-5 max-lg:contents max-lg:space-y-0">
-			<div
-				class="space-y-5 max-lg:contents max-lg:space-y-0 lg:sticky lg:top-[65px] lg:z-[4] lg:bg-background lg:pb-3"
-			>
+		<!-- rail: scrolls with the page on laptop; below `lg` it dissolves into the stack — status
+		     card under the title, the rest after the plan -->
+		<aside class="min-w-0 space-y-5 max-lg:contents max-lg:space-y-0 lg:self-start">
+			<div class="space-y-5 max-lg:contents max-lg:space-y-0">
 				<div
 					class="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-3 rounded-lg border p-3 text-sm max-lg:order-2"
 				>
