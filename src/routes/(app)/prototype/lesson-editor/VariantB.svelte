@@ -81,30 +81,32 @@
 			</div>
 		</div>
 
-		<!-- rail: sticks below the app header on laptop; sits above the plan's end on tablet -->
-		<aside
-			class="order-first space-y-5 lg:sticky lg:top-[65px] lg:order-none lg:max-h-[calc(100vh-81px)] lg:self-start lg:overflow-y-auto lg:pr-1"
-		>
-			<div
-				class="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-3 rounded-lg border p-3 text-sm"
-			>
-				<span class="text-muted-foreground">Status</span>
-				<StatusToggle {lesson} />
-				<span class="text-muted-foreground">Length</span>
-				<LengthField {lesson} />
-				<span class="text-muted-foreground">Topic</span>
-				<TopicSelect {lesson} />
-				{#if taughtBy.length}
-					<span class="text-muted-foreground">Taught by</span>
-					<span class="text-xs">{taughtBy.join(', ')}</span>
-				{/if}
-			</div>
+		<!-- rail: on laptop the properties and Tags stay pinned below the app header while Links,
+		     Attachments, Detach and delete scroll with the page; below `lg` it follows the plan -->
+		<aside class="min-w-0 space-y-5">
+			<div class="space-y-5 lg:sticky lg:top-[65px] lg:z-[4] lg:bg-background lg:pb-3">
+				<div
+					class="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-3 rounded-lg border p-3 text-sm"
+				>
+					<span class="text-muted-foreground">Status</span>
+					<StatusToggle {lesson} />
+					<span class="text-muted-foreground">Length</span>
+					<LengthField {lesson} />
+					<span class="text-muted-foreground">Topic</span>
+					<TopicSelect {lesson} />
+					{#if taughtBy.length}
+						<span class="text-muted-foreground">Taught by</span>
+						<span class="text-xs">{taughtBy.join(', ')}</span>
+					{/if}
+				</div>
 
-			<div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-1">
 				<section>
 					{@render heading('Tags')}
 					<TagsEditor {lesson} />
 				</section>
+			</div>
+
+			<div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-1">
 				<section>
 					{@render heading('Links')}
 					<LinksList {lesson} />
