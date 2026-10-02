@@ -75,7 +75,7 @@
 						value={lesson.body}
 						label="Plan"
 						placeholder="Objectives, what to set up, what went wrong last time…"
-						toolbarClass="sticky top-[49px] z-[5] bg-muted"
+						toolbarClass="sticky top-[61px] z-[5] bg-muted before:absolute before:-inset-x-px before:-top-3 before:h-3 before:bg-background before:content-['']"
 						class="[&>div:last-of-type]:min-h-[28rem] [&>div:last-of-type]:overflow-visible"
 						onchange={(md) => (lesson.body = md)}
 					/>
