@@ -7,6 +7,7 @@
 	import TagChips from '$lib/components/tag-chips.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Select from '$lib/components/ui/select/index.js';
+	import { Toggle } from '$lib/components/ui/toggle';
 	import { ToggleGroup, ToggleGroupItem } from '$lib/components/ui/toggle-group';
 	import { AGENDA_HORIZONS } from './agenda-horizons';
 	import { filterByTag, groupByDay, horizonEndsOn, tagsIn } from './agenda-days';
@@ -15,16 +16,27 @@
 
 	let { data }: PageProps = $props();
 
-	// The horizon and the Tag share the query string, so a change to one keeps the other.
-	const setQuery = (horizon: string | number, tag: string | null) =>
-		replaceQuery(`?horizon=${horizon}${tag ? `&tag=${encodeURIComponent(tag)}` : ''}`);
+	// The horizon, the Tag and the look-back share the query string, so a change to one keeps the others.
+	function setQuery({
+		horizon = data.horizon,
+		tag = data.tag,
+		lookBackOn = data.lookBackOn
+	}: {
+		horizon?: string | number;
+		tag?: string | null;
+		lookBackOn?: boolean;
+	}) {
+		const tagPart = tag ? `&tag=${encodeURIComponent(tag)}` : '';
+		return replaceQuery(`?horizon=${horizon}${tagPart}${lookBackOn ? '&past=1' : ''}`);
+	}
 
 	function openOccasion(row: (typeof data.rows)[number]) {
 		openSession({ classId: row.classId, date: row.date, period: row.periodFrom });
 	}
 
 	const days = $derived(groupByDay(filterByTag(data.rows, data.tag)));
-	const pastDays = $derived(groupByDay(data.lookBack));
+	const pastDays = $derived(groupByDay(filterByTag(data.lookBack, data.tag)));
+	const tags = $derived(tagsIn([...data.lookBack, ...data.rows]));
 </script>
 
 <svelte:head><title>Agenda</title></svelte:head>
@@ -35,14 +47,14 @@
 			<Select.Root
 				type="single"
 				value={data.tag ?? ''}
-				onValueChange={(v) => setQuery(data.horizon, v || null)}
+				onValueChange={(v) => setQuery({ tag: v || null })}
 			>
 				<Select.Trigger size="sm" aria-label="Tag" class="w-40">
 					{data.tag ?? 'All tags'}
 				</Select.Trigger>
 				<Select.Content>
 					<Select.Item value="" label="All tags" />
-					{#each tagsIn(data.rows) as tag (tag)}
+					{#each tags as tag (tag)}
 						<Select.Item value={tag} label={tag} />
 					{/each}
 				</Select.Content>
@@ -53,13 +65,21 @@
 				size="sm"
 				value={String(data.horizon)}
 				onValueChange={(v) => {
-					if (v) setQuery(v, data.tag);
+					if (v) setQuery({ horizon: v });
 				}}
 			>
 				{#each AGENDA_HORIZONS as [n, label] (n)}
 					<ToggleGroupItem value={String(n)}>{label}</ToggleGroupItem>
 				{/each}
 			</ToggleGroup>
+			<Toggle
+				variant="outline"
+				size="sm"
+				pressed={data.lookBackOn}
+				onPressedChange={(lookBackOn) => setQuery({ lookBackOn })}
+			>
+				Previous 7 days
+			</Toggle>
 		{/snippet}
 	</PageHeader>
 
@@ -125,8 +145,9 @@
 		</li>
 	{/snippet}
 
-	<!-- The look-back: the past seven days, fixed whatever the horizon. Told apart from the days
-	     ahead by a step in shade, never a hue, as the Calendar marks a day with no teaching. -->
+	<!-- The look-back: the past seven days, shown when the teacher turns it on, fixed whatever the
+	     horizon. Told apart from the days ahead by a step in shade, never a hue, as the Calendar marks
+	     a day with no teaching. -->
 	{#if pastDays.length > 0}
 		<div aria-label="Past seven days" role="region">
 			{#each pastDays as day (day.date)}
