@@ -19,6 +19,7 @@
 		placeholder = '',
 		name,
 		class: className,
+		toolbarClass,
 		onchange,
 		onblur
 	}: {
@@ -27,6 +28,7 @@
 		placeholder?: string;
 		name?: string;
 		class?: string;
+		toolbarClass?: string;
 		onchange?: (markdown: string) => void;
 		onblur?: () => void;
 	} = $props();
@@ -138,7 +140,12 @@
 {/snippet}
 
 <div class={cn('flex min-h-0 flex-col', className)}>
-	<div class="flex flex-wrap items-center gap-0.5 rounded-t-2xl bg-input/50 px-1.5 py-1">
+	<div
+		class={cn(
+			'flex flex-wrap items-center gap-0.5 rounded-t-2xl bg-input/50 px-1.5 py-1',
+			toolbarClass
+		)}
+	>
 		{@render tool('bold', 'Bold', BoldIcon, () => editor?.chain().focus().toggleBold().run())}
 		{@render tool('italic', 'Italic', ItalicIcon, () =>
 			editor?.chain().focus().toggleItalic().run()

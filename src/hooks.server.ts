@@ -42,6 +42,8 @@ const handleAuth: Handle = async ({ event, resolve }) => {
 };
 
 const handleGuard: Handle = async ({ event, resolve }) => {
+	// PROTOTYPE ONLY (issue #304): the throwaway /prototype routes run with the auth guard off.
+	if (event.url.pathname.startsWith('/prototype')) return resolve(event);
 	const target = guardRedirect({
 		pathname: event.url.pathname,
 		search: event.url.search,
