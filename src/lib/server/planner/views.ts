@@ -1,8 +1,9 @@
 // The derived views over every Class at once: the Agenda's chronological stream, its look-back
 // over the past week, and the Calendar's one-week grid. The forward views run the same
 // `scheduleFor` every write and every other read runs, so a cell, an Agenda row and the Session
-// panel can never disagree about one occasion. The look-back reads the recorded Sessions.
-import { and, eq, gte, isNotNull, lt } from 'drizzle-orm';
+// panel can never disagree about one occasion. The look-back, and the Calendar before today, read
+// the recorded Sessions.
+import { and, eq, gte, lt } from 'drizzle-orm';
 import { addDays, weekday } from '$lib/date';
 import * as schema from '../db/schema';
 import { tagsByLesson, type LessonStatus } from './authoring';
@@ -14,11 +15,18 @@ import {
 	type Db,
 	type LessonName
 } from './derive';
-import { agendaRows, inAnyTerm, slotHolds, type AgendaRow, type Calendar } from './engine';
+import {
+	agendaRows,
+	inAnyTerm,
+	slotHolds,
+	type AgendaRow,
+	type Calendar,
+	type SessionRecord
+} from './engine';
 import { listClasses } from './classes';
 
 type ClassRow = ReturnType<typeof listClasses>[number];
-type Batch = { cls: ClassRow; rows: AgendaRow[] };
+type Batch = { cls: ClassRow; rows: AgendaRow[]; history: SessionRecord[] };
 
 // Every Class's rows for one derived view. The Calendar and the Class list are loaded once for
 // the whole batch rather than re-read per Class.
@@ -31,21 +39,46 @@ function derivedRows(
 		keep
 	}: { classes: ClassRow[]; cal: Calendar; today: string; keep: (row: AgendaRow) => boolean }
 ): Batch[] {
-	return classes.map((cls) => ({
-		cls,
-		rows: agendaRows(cls.id, scheduleFor(db, { classId: cls.id, boundary: today, cal })).filter(
-			keep
-		)
-	}));
+	return classes.map((cls) => {
+		const result = scheduleFor(db, { classId: cls.id, boundary: today, cal });
+		return { cls, rows: agendaRows(cls.id, result).filter(keep), history: result.history };
+	});
 }
 
-// One query for every Lesson the batch is about to render.
-const namesFor = (db: Db, batches: Batch[]) =>
-	lessonNames(db, [
-		...new Set(
-			batches.flatMap(({ rows }) => rows.flatMap((r) => (r.lesson ? [r.lesson.lessonId] : [])))
-		)
-	]);
+// One recorded occasion: a Lesson with Length above one, or a Continuation, is one run across its
+// consecutive Periods on one date. The rule the forward view's `agendaRows` applies to `scheduled`,
+// applied to the record. `sessions` must be sorted by Class, date and Period.
+type SessionRun = {
+	classId: string;
+	date: string;
+	periodFrom: number;
+	periodTo: number;
+	lessonId: string;
+};
+
+function sessionRuns(sessions: readonly SessionRecord[]): SessionRun[] {
+	const runs: SessionRun[] = [];
+	for (const s of sessions) {
+		const prev = runs[runs.length - 1];
+		if (
+			prev?.classId === s.classId &&
+			prev.date === s.date &&
+			prev.periodTo + 1 === s.period &&
+			prev.lessonId === s.lessonId
+		) {
+			prev.periodTo = s.period;
+			continue;
+		}
+		runs.push({
+			classId: s.classId,
+			date: s.date,
+			periodFrom: s.period,
+			periodTo: s.period,
+			lessonId: s.lessonId
+		});
+	}
+	return runs;
+}
 
 export interface AgendaEntry {
 	classId: string;
@@ -169,46 +202,25 @@ export function agendaLookBack(db: Db, { today }: { today: string }): AgendaEntr
 		})
 		.from(schema.session)
 		.where(
-			and(
-				gte(schema.session.date, addDays(today, -LOOK_BACK_DAYS)),
-				lt(schema.session.date, today),
-				isNotNull(schema.session.lessonId)
-			)
+			and(gte(schema.session.date, addDays(today, -LOOK_BACK_DAYS)), lt(schema.session.date, today))
 		)
 		.orderBy(schema.session.classId, schema.session.date, schema.session.period)
-		.all();
+		.all()
+		.filter((s): s is SessionRecord => s.lessonId !== null);
 
-	// A Lesson with Length above one, or a Continuation, is one row across its consecutive Periods.
-	const occasions: Occasion[] = [];
-	for (const s of sessions) {
-		const prev = occasions[occasions.length - 1];
-		if (
-			prev?.cls.id === s.classId &&
-			prev.date === s.date &&
-			prev.periodTo + 1 === s.period &&
-			prev.lessonId === s.lessonId
-		) {
-			prev.periodTo = s.period;
-			continue;
-		}
-		const cls = classes.get(s.classId);
-		const week = letters.get(addDays(s.date, 1 - weekday(s.date)));
-		if (!cls || !week) continue;
-		occasions.push({
-			cls,
-			date: s.date,
-			week,
-			periodFrom: s.period,
-			periodTo: s.period,
-			lessonId: s.lessonId
-		});
-	}
+	const occasions = sessionRuns(sessions).flatMap(({ classId, ...run }): Occasion[] => {
+		const cls = classes.get(classId);
+		const week = letters.get(addDays(run.date, 1 - weekday(run.date)));
+		return cls && week ? [{ cls, week, ...run }] : [];
+	});
 
 	return toEntries(db, occasions, () => false);
 }
 
 export interface CalendarCell {
 	date: string;
+	// Dated before `today`: the record, not the plan. A past cell is never blocked for being past.
+	past: boolean;
 	periodFrom: number;
 	periodTo: number;
 	classId: string;
@@ -218,7 +230,8 @@ export interface CalendarCell {
 	lesson: LessonName | null;
 	blockedNote: string | null;
 	// One id per Period the cell covers, in order: slotIds[i] belongs to periodFrom + i. The
-	// rule is the engine's AgendaRow's — the cell only passes its list through.
+	// rule is the engine's AgendaRow's — the cell only passes its list through. A recorded
+	// Session on a position no Slot holds any more has none: there is no Slot left to block.
 	slotIds: string[];
 	blockedDayId: string | null;
 	blockedSlotId: string | null;
@@ -254,21 +267,29 @@ function blockedDaysByDate(db: Db) {
 	);
 }
 
-// The positions the schedule stayed silent on — a Blocked Day, a Blocked Slot, or a date outside
-// every Term, none of which ever reach availableSlots — but which a Class still holds on the raw
-// Timetable. Shown as removed, with whichever block explains them, so the grid says whose
-// position it is rather than leaving it looking like a Period nobody teaches. A position no
-// Class holds is left out entirely: genuinely free, not blocked.
-function blockedCells(
+// The Slots that hold one position in a Teaching Week of the given letter, on that date.
+const slotsAt = (cal: Calendar, letter: 'A' | 'B', date: string, period: number) =>
+	cal.slots.filter(
+		(s) => s.week === letter && s.day === weekday(date) && s.period === period && slotHolds(s, date)
+	);
+
+// The positions that the schedule and the record leave out, but that a Class still holds on the
+// raw Timetable. A Blocked Day, a Blocked Slot or a date outside every Term makes a removed cell.
+// The cell carries the note of its block. The grid then shows whose position it is. Any other
+// such position is a past Open Slot: the engine lays nothing before `today`, and an Open Slot
+// records no Session. A position that no Class holds gets no cell: it is free, not blocked.
+function uncoveredCells(
 	db: Db,
 	{
 		dates,
+		today,
 		letter,
 		cal,
 		classes,
 		covered
 	}: {
 		dates: string[];
+		today: string;
 		letter: 'A' | 'B';
 		cal: Calendar;
 		classes: ClassRow[];
@@ -291,27 +312,27 @@ function blockedCells(
 			.map((row) => [`${row.classId}|${row.date}|${row.slotId}`, row])
 	);
 
-	return dates.flatMap((date, i) => {
+	return dates.flatMap((date) => {
 		const cells: CalendarCell[] = [];
 		for (let period = 1; period <= PERIODS_PER_DAY; period++) {
 			if (covered.has(`${date}|${period}`)) continue;
 
-			const slot = cal.slots.find(
-				(s) => s.week === letter && s.day === i + 1 && s.period === period && slotHolds(s, date)
-			);
+			const [slot] = slotsAt(cal, letter, date, period);
 			const cls = slot && byId.get(slot.classId);
 			if (!slot || !cls) continue;
 
 			const dayBlock = dayBlocks.get(date);
 			const slotBlock = slotBlocks.get(`${cls.id}|${date}|${slot.id}`);
+			const blocked = dayBlock || slotBlock || !inAnyTerm(cal.terms, date);
 			cells.push({
 				date,
+				past: date < today,
 				periodFrom: period,
 				periodTo: period,
 				classId: cls.id,
 				classLabel: cls.label,
 				tone: cls.tone,
-				kind: 'blocked',
+				kind: blocked ? 'blocked' : 'open',
 				lesson: null,
 				blockedNote: dayBlock?.note ?? slotBlock?.note ?? null,
 				slotIds: [slot.id],
@@ -337,21 +358,43 @@ export function calendarWeek(
 	const classes = listClasses(db);
 
 	const batches = derivedRows(db, { classes, cal, today, keep: (r) => dateSet.has(r.date) });
-	const names = namesFor(db, batches);
+
+	// Before `today` the engine lays nothing: those positions come from its `history`, the record.
+	const slotAt = (classId: string, date: string, period: number) =>
+		slotsAt(cal, week.letter, date, period).find((s) => s.classId === classId);
+	const occupied = batches.map(({ cls, rows, history }) => ({
+		cls,
+		rows: [
+			...sessionRuns(history.filter((s) => dateSet.has(s.date))).map((run) => {
+				const slots = Array.from({ length: run.periodTo - run.periodFrom + 1 }, (_, i) =>
+					slotAt(cls.id, run.date, run.periodFrom + i)
+				);
+				return {
+					...run,
+					slotIds: slots.every((s) => s !== undefined) ? slots.map((s) => s.id) : []
+				};
+			}),
+			...rows.map((r) => ({ ...r, lessonId: r.lesson?.lessonId ?? null }))
+		]
+	}));
+	const names = lessonNames(db, [
+		...new Set(occupied.flatMap(({ rows }) => rows.flatMap((r) => r.lessonId ?? [])))
+	]);
 
 	const covered = new Set<string>();
-	const cells: CalendarCell[] = batches.flatMap(({ cls, rows }) =>
+	const cells: CalendarCell[] = occupied.flatMap(({ cls, rows }) =>
 		rows.map((r): CalendarCell => {
 			for (let p = r.periodFrom; p <= r.periodTo; p++) covered.add(`${r.date}|${p}`);
 			return {
 				date: r.date,
+				past: r.date < today,
 				periodFrom: r.periodFrom,
 				periodTo: r.periodTo,
 				classId: cls.id,
 				classLabel: cls.label,
 				tone: cls.tone,
-				kind: r.lesson ? 'lesson' : 'open',
-				lesson: r.lesson ? (names.get(r.lesson.lessonId) ?? null) : null,
+				kind: r.lessonId ? 'lesson' : 'open',
+				lesson: r.lessonId ? (names.get(r.lessonId) ?? null) : null,
 				blockedNote: null,
 				slotIds: r.slotIds,
 				blockedDayId: null,
@@ -360,7 +403,7 @@ export function calendarWeek(
 		})
 	);
 
-	cells.push(...blockedCells(db, { dates, letter: week.letter, cal, classes, covered }));
+	cells.push(...uncoveredCells(db, { dates, today, letter: week.letter, cal, classes, covered }));
 
 	const dayBlocks = blockedDaysByDate(db);
 	return {

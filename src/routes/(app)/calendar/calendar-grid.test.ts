@@ -5,6 +5,7 @@ import { availableSlotLines, blockedSlotLines, PERIODS, toGrid } from './calenda
 function cell(overrides: Partial<CalendarCell> = {}): CalendarCell {
 	return {
 		date: '2026-08-31',
+		past: false,
 		periodFrom: 1,
 		periodTo: 1,
 		classId: 'c1',
