@@ -58,16 +58,18 @@
 		<span class="ml-auto shrink-0"><Stepper {index} {count} {onstep} /></span>
 	</div>
 
-	<div class="mt-3 grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
+	<!-- Below `lg` the columns and the rail dissolve (`contents`) into one stack, so `order` can
+	     put the status card between the title and the plan, and the rest of the rail after it. -->
+	<div class="mt-3 grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-8">
 		<!-- main column: title and plan -->
-		<div class="min-w-0">
+		<div class="min-w-0 max-lg:contents">
 			<input
 				bind:value={lesson.title}
-				class="w-full bg-transparent text-2xl font-semibold tracking-tight outline-none placeholder:text-muted-foreground"
+				class="w-full bg-transparent text-2xl font-semibold tracking-tight outline-none placeholder:text-muted-foreground max-lg:order-1"
 				placeholder="Lesson title…"
 				aria-label="Title"
 			/>
-			<div class="mt-4">
+			<div class="mt-4 max-lg:order-3 max-lg:mt-0 max-lg:min-w-0">
 				{#key lesson.id}
 					<MarkdownEditor
 						value={lesson.body}
@@ -83,10 +85,12 @@
 
 		<!-- rail: on laptop the properties and Tags stay pinned below the app header while Links,
 		     Attachments, Detach and delete scroll with the page; below `lg` it follows the plan -->
-		<aside class="min-w-0 space-y-5">
-			<div class="space-y-5 lg:sticky lg:top-[65px] lg:z-[4] lg:bg-background lg:pb-3">
+		<aside class="min-w-0 space-y-5 max-lg:contents max-lg:space-y-0">
+			<div
+				class="space-y-5 max-lg:contents max-lg:space-y-0 lg:sticky lg:top-[65px] lg:z-[4] lg:bg-background lg:pb-3"
+			>
 				<div
-					class="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-3 rounded-lg border p-3 text-sm"
+					class="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-3 rounded-lg border p-3 text-sm max-lg:order-2"
 				>
 					<span class="text-muted-foreground">Status</span>
 					<StatusToggle {lesson} />
@@ -100,13 +104,13 @@
 					{/if}
 				</div>
 
-				<section>
+				<section class="max-lg:order-4">
 					{@render heading('Tags')}
 					<TagsEditor {lesson} />
 				</section>
 			</div>
 
-			<div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-1">
+			<div class="grid gap-5 max-lg:order-4 sm:grid-cols-2 lg:grid-cols-1">
 				<section>
 					{@render heading('Links')}
 					<LinksList {lesson} />
@@ -117,7 +121,7 @@
 				</section>
 			</div>
 
-			<div class="border-t pt-3">
+			<div class="border-t pt-3 max-lg:order-4">
 				<LessonActions />
 			</div>
 		</aside>
