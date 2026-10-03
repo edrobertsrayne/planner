@@ -1,6 +1,6 @@
 import { error, redirect, type Handle } from '@sveltejs/kit';
 import { sequence } from '@sveltejs/kit/hooks';
-import { building } from '$app/environment';
+import { building, dev } from '$app/environment';
 import { auth } from '$lib/server/auth';
 import { hasUser } from '$lib/server/setup';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
@@ -42,6 +42,8 @@ const handleAuth: Handle = async ({ event, resolve }) => {
 };
 
 const handleGuard: Handle = async ({ event, resolve }) => {
+	// PROTOTYPE ONLY (issue #305): the app-shell prototype runs every screen with the guard off.
+	if (dev) return resolve(event);
 	const target = guardRedirect({
 		pathname: event.url.pathname,
 		search: event.url.search,
