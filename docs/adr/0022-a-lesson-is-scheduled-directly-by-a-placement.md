@@ -136,6 +136,15 @@ gaps remain, both fixed in the spec: a `Standalone Lesson` label on the row in p
 name, and its title routing to the Session panel (`openSession(occurrence)`) instead of the Lesson
 editor, which requires a Course and Topic that a Standalone Lesson does not have.
 
+> **Amended 2026-10-04 ([Can a placed Standalone Lesson be written in the Lesson
+> editor?](https://github.com/edrobertsrayne/planner/issues/309)).** The reason above is gone: the
+> Lesson editor became a page addressed by the Lesson alone, needing no Course or Topic. Every
+> Standalone Lesson, placed or not, is now written in the Lesson editor like any other Lesson, and
+> its Planning title opens the editor rather than the Session panel. The Session panel stops
+> writing a placed Lesson's title, plan, Length and Draft/Planned mark; it shows them read-only and
+> links to the editor, as it does for a Topic Lesson. Placing a Lesson and removing a Placement stay
+> in the panel. The Placement mechanism itself is unchanged.
+
 **Readiness dies with a removed Placement**, mirroring the rule `unassignTopic` already enforces:
 Placement-removal severs the `(lessonId, classId)` pairing Readiness is keyed on. Guarded against
 the one case the map's Notes allow but do not design for — the same Lesson placed twice on one

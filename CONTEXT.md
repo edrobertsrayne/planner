@@ -358,28 +358,32 @@ of the Language above names its parts.
 
 **Lesson editor**:
 The single surface for one Lesson — its title, its markdown body, its links, its attachments, its
-Tags and its Length, and the Detach and delete controls. A page of its own, addressed by the
-Lesson alone, so the same page opens from the Courses view and the Planning view, and moving the
-Lesson to another Topic keeps the teacher on it. It steps to the next or previous Lesson in the
-Lesson's Topic, in the Topic's order, whichever view opened it; stepping stops at either end of the
-Topic and never crosses into another, because a Course holds its Topics in no order. Leaving it —
-by Back or by deleting the Lesson — returns the teacher to the view they came from, or to the
-Lesson's Topic on its Course page when there is none. Creating a Lesson does not open it. It is
-written on a laptop or desktop; on a phone it is a read view. Distinct from the Session panel: the
-Lesson editor writes the plan shared by every Class, the Session panel writes one Class's occasion.
+Tags and its Length, and the Detach and delete controls. Every Lesson is written here, a Standalone
+Lesson included, placed or not: to the teacher a Standalone Lesson differs from any other only in
+having no Topic, so its page simply lacks what needs one — the Topic, the stepping and Detach. A
+page of its own, addressed by the Lesson alone, so the same page opens from the Courses view, the
+Planning view and the Session panel, and moving the Lesson to another Topic, or Detaching it, keeps
+the teacher on it. It steps to the next or previous Lesson in the Lesson's Topic, in the Topic's
+order, whichever view opened it; stepping stops at either end of the Topic and never crosses into
+another, because a Course holds its Topics in no order. Leaving it — by Back or by deleting the
+Lesson — returns the teacher to the view they came from, or, when there is none, to the Lesson's
+Topic on its Course page, or to the Planning view for a Standalone Lesson. Creating a Lesson does
+not open it. It is written on a laptop or desktop; on a phone it is a read view. Distinct from the
+Session panel: the Lesson editor writes the plan shared by every Class, the Session panel writes
+one Class's occasion.
 
 **Session panel**:
 The single surface for one Session — its Lesson's plan, links and attachments, the note on the
 occasion, and the Continuation control. Attachments here are view-and-download only, like Links.
-For a Topic Lesson the panel never rewrites the shared plan; for a placed Standalone Lesson it
-does — the panel writes that Lesson's title, plan, Length and Draft/Planned mark directly, because
-a Standalone Lesson reaches no Lesson editor (ADR-0022). Opened from any of the three reading
-views; there is no other place a Session is read or written. It opens on an Open Slot too, showing
-no plan and offering the note — a Session is identified by its occasion, not by its Lesson, so a
-Slot carrying no Lesson is still an occasion the teacher may want to write about. Shows the Class's
-Readiness for this Lesson, read-only — the panel describes the exact (Lesson, Class) occasion the
-Agenda row already ticks, so it would otherwise hide a fact its own row displays. No other screen
-shows Readiness.
+The panel never rewrites the shared plan, for a Topic Lesson or a placed Standalone Lesson alike;
+it opens the Lesson's own page in the Lesson editor for that. It is where a Lesson is Placed and a
+Placement removed, because those are acts on the occasion, not on the plan. Opened from any of the
+three reading views; there is no other place a Session is read or written. It opens on an Open
+Slot too, showing no plan and offering the note — a Session is identified by its occasion, not by
+its Lesson, so a Slot carrying no Lesson is still an occasion the teacher may want to write about.
+Shows the Class's Readiness for this Lesson, read-only — the panel describes the exact (Lesson,
+Class) occasion the Agenda row already ticks, so it would otherwise hide a fact its own row
+displays. No other screen shows Readiness.
 
 **Settings**:
 The change-password form and the API key manager, side by side. Reached from a control at the foot
