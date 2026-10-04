@@ -81,8 +81,6 @@
 		{@render navList(true)}
 
 		<div class="mt-auto flex flex-col gap-0.5">
-			<NextSessionButton {next} look="icon" class="mx-auto lg:hidden" />
-			<NextSessionButton {next} look="pill" class="mb-2 hidden lg:flex" />
 			{@render item(resolve('/settings'), 'Settings', SettingsIcon, settingsActive, true)}
 			<button
 				type="button"
