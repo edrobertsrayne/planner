@@ -9,6 +9,7 @@ import {
 	attachmentsOf,
 	classesTaughtLesson,
 	lessonDetail,
+	lessonsOf,
 	listTagNames,
 	topicsOf
 } from '$lib/server/planner';
@@ -30,6 +31,8 @@ export const load: PageServerLoad = ({ params }) => {
 		lesson,
 		course: course ?? null,
 		topic: topic ?? null,
+		// The Topic's Lessons in order, for "Lesson n of N" and stepping. A Standalone Lesson steps nowhere.
+		siblingIds: topic ? lessonsOf(db, topic.id).map((l) => l.id) : [],
 		topics: course ? topicsOf(db, course.id) : [],
 		tags: attachedTags(db, lesson.id),
 		existingTagNames: listTagNames(db),

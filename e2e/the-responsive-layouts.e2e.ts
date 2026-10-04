@@ -237,6 +237,43 @@ test.describe('the Lesson editor on a laptop', () => {
 		await expect(page.getByRole('link', { name: 'Speed', exact: true })).toBeVisible();
 	});
 
+	test('the page bar steps through the Topic with the controls and [ ]', async ({ page }) => {
+		await openLessonFromCourses(page);
+		const previous = page.getByRole('button', { name: 'Previous Lesson' });
+		const next = page.getByRole('button', { name: 'Next Lesson' });
+		await expect(page.getByText(/^Lesson 1 of \d+$/)).toBeVisible();
+		await expect(previous).toBeDisabled();
+		await expect(next).toBeEnabled();
+
+		// Stepping replaces the history entry: two steps, one Back out.
+		await next.click();
+		await expect(page.getByText(/^Lesson 2 of \d+$/)).toBeVisible();
+		await expect(page.getByRole('textbox', { name: 'Lesson title' })).toHaveValue('Motion');
+		await page.keyboard.press('[');
+		await expect(page.getByText(/^Lesson 1 of \d+$/)).toBeVisible();
+		await page.keyboard.press(']');
+		await expect(page.getByText(/^Lesson 2 of \d+$/)).toBeVisible();
+
+		// The last Lesson has no next, and `]` there does nothing.
+		while (await next.isEnabled()) await page.keyboard.press(']');
+		const last = await page.getByText(/^Lesson \d+ of \d+$/).innerText();
+		expect(last).toMatch(/^Lesson (\d+) of \1$/);
+		await page.keyboard.press(']');
+		await expect(page.getByText(last)).toBeVisible();
+
+		// A field with focus keeps the keys.
+		const title = page.getByRole('textbox', { name: 'Lesson title' });
+		const typed = await title.inputValue();
+		await title.click();
+		await page.keyboard.press('[');
+		await expect(title).toHaveValue(`${typed}[`);
+		await title.fill(typed);
+		await title.blur();
+
+		await page.getByRole('button', { name: 'Back' }).click();
+		await expect(page).toHaveURL(/\/courses\?course=.*&topic=/);
+	});
+
 	test('a title edit followed at once by the breadcrumb is saved', async ({ page }) => {
 		await openLessonFromCourses(page);
 		const title = page.getByRole('textbox', { name: 'Lesson title' });
