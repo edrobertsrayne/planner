@@ -2,8 +2,12 @@
 	PROTOTYPE ONLY (issue #310). Variant A: today's Agenda, one column, with a row of Tag chips in
 	place of the dropdown — the same control as the Class chips on Planning. The horizon is tabs,
 	the look-back a button. On a phone the chips scroll sideways and every row target is 44 px.
+
+	Issue #311 adds `expand`: when given, a row opens its Session in place below itself (the
+	Session panel's variant B), and a second click closes it. Width and heading follow #316.
 -->
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import HistoryIcon from '@lucide/svelte/icons/history';
 	import { classTone } from '$lib/class-tone';
 	import { formatWeekday } from '$lib/date';
@@ -17,6 +21,7 @@
 		horizonParam,
 		openSession,
 		pastParam,
+		sessionParam,
 		set,
 		tagCount,
 		tagParam,
@@ -28,6 +33,10 @@
 	const tag = $derived(tagParam());
 	const past = $derived(pastParam());
 	const v = $derived(view(horizon, tag, past));
+
+	let { expand }: { expand?: Snippet<[Row]> } = $props();
+	const openKey = $derived(sessionParam());
+	const open = (r: Row) => (expand && openKey === r.key ? set({ session: null }) : openSession(r));
 </script>
 
 {#snippet row(r: Row, isPast: boolean)}
@@ -44,7 +53,7 @@
 		<button
 			type="button"
 			class="min-w-0 flex-1 py-3 text-left outline-none focus-visible:underline"
-			onclick={() => openSession(r)}
+			onclick={() => open(r)}
 		>
 			{#if r.lesson}
 				<span class="block text-sm font-medium">{r.lesson.title}</span>
@@ -60,20 +69,20 @@
 			<button
 				type="button"
 				class="h-11 rounded-md px-3 text-xs font-medium text-muted-foreground hover:bg-muted md:h-8"
-				onclick={() => openSession(r)}>Plan</button
+				onclick={() => open(r)}>Plan</button
 			>
 		{:else if !isPast}
 			<Tick row={r} />
 		{/if}
 	</li>
+	{#if expand && openKey === r.key}
+		<li>{@render expand(r)}</li>
+	{/if}
 {/snippet}
 
-<div class="mx-auto max-w-3xl px-4 py-6 md:px-6">
+<div class="mx-auto max-w-6xl px-4 py-6 md:px-6">
 	<div class="flex flex-wrap items-end justify-between gap-3">
-		<div>
-			<h1 class="hidden text-xl font-semibold md:block">Agenda</h1>
-			<p class="text-sm text-muted-foreground">What is coming up, in order.</p>
-		</div>
+		<h1 class="hidden text-xl font-semibold md:block">Agenda</h1>
 		<div class="flex w-full flex-wrap items-center gap-2 md:w-auto">
 			<div class="flex border-b text-sm" role="tablist" aria-label="How far ahead">
 				{#each HORIZONS as [key, name] (key)}

@@ -46,7 +46,7 @@
 <svelte:window {onkeydown} />
 
 <div
-	class="fixed bottom-20 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border-2 border-yellow-400 bg-black/90 px-3 py-1.5 text-white shadow-lg md:bottom-4"
+	class="fixed bottom-20 left-1/2 z-[60] flex -translate-x-1/2 items-center gap-2 rounded-full border-2 border-yellow-400 bg-black/90 px-3 py-1.5 text-white shadow-lg md:bottom-4"
 >
 	<button
 		type="button"
