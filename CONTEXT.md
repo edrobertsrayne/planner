@@ -309,6 +309,11 @@ Blocked Slot recorded on a School Holiday is still a removal. The column reads a
 Holiday's panel. The Blocked Slot's Unblock line sits in that day's menu, like every other act on
 the day. A Blocked Day entered on a School Holiday still reads as the School Holiday in the panel's
 headline. The day's menu still offers Unblock day. The Blocked Day is not hidden.
+The Calendar is the same grid at every size; on a narrower window the tiles give way, not the
+grid. On a phone a tile shows only its Class, and the Lesson title comes back where there is room.
+A tap on a tile opens the Session page. On a phone the week controls are the two arrows around the
+week's letter and date, with Today; the ribbon of weeks and Set up year show only from a tablet up.
+The day's menu shows from a tablet up and not on a phone, because the calendar is not written there.
 
 **Classes**:
 One tone-coloured tile per Class, keyed by Class rather than by time. Each tile carries the
