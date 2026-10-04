@@ -16,6 +16,7 @@
 	const VARIANTS = [
 		{ key: 'A', label: 'One list, grouped by week' },
 		{ key: 'B', label: 'Full-width table' },
+		{ key: 'B2', label: 'B + Class chips, whole stream' },
 		{ key: 'C', label: 'Draft and Planned lanes' },
 		{ key: 'D', label: 'Class rail, list, preview' }
 	];
@@ -33,7 +34,11 @@
 {#if lesson}
 	<LessonStub {lesson} />
 {:else}
-	<Variant />
+	{#if variant === 'B2'}
+		<PlanningB chips />
+	{:else}
+		<Variant />
+	{/if}
 {/if}
 
 <PrototypeSwitcher variants={VARIANTS} current={variant} />

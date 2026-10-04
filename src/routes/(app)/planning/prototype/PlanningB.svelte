@@ -1,11 +1,13 @@
 <!--
 	PROTOTYPE ONLY (issue #307). Variant B: a table that uses the full width. One column per fact:
-	next taught, Class, Lesson, Topic, Course, Tags, status. The Class filter stays a dropdown, in a
-	toolbar with the status tabs. "Show more" replaces the page-size buttons. Below `lg` Topic and
-	Course fold under the title; on a phone each row is a card. The whole row opens the Lesson editor.
+	next taught, Class, Lesson, Topic, Course, Tags, status. Below `lg` Topic and Course fold under
+	the title; on a phone each row is a card. The whole row opens the Lesson editor.
+	B: the Class filter stays a dropdown; "Show more" replaces the page-size buttons.
+	B2 (`chips`): the Class filter is a row of Class chips; the window scrolls the whole stream.
 -->
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { classTone } from '$lib/class-tone';
 	import { formatShortWeekday } from '$lib/date';
 	import TagChips from '$lib/components/tag-chips.svelte';
 	import * as Select from '$lib/components/ui/select/index.js';
@@ -13,12 +15,13 @@
 	import StatusToggle from './StatusToggle.svelte';
 	import { CLASSES, classParam, stream, to, type Entry, type Status } from './store.svelte';
 
+	let { chips = false }: { chips?: boolean } = $props();
 	let filter = $state<'all' | Status>('all');
 	let limit = $state(25);
 	const classId = $derived(classParam());
 	const rows = $derived(stream(classId));
 	const shown = $derived(filter === 'all' ? rows : rows.filter((r) => r.status === filter));
-	const visible = $derived(shown.slice(0, limit));
+	const visible = $derived(chips ? shown : shown.slice(0, limit));
 	const tally = $derived({
 		all: rows.length,
 		draft: rows.filter((r) => r.status === 'draft').length,
@@ -35,21 +38,23 @@
 			<p class="text-sm text-muted-foreground">Every Lesson, soonest taught first.</p>
 		</div>
 		<div class="flex flex-wrap items-center gap-2">
-			<Select.Root
-				type="single"
-				value={classId ?? 'all'}
-				onValueChange={(v) => goto(to({ class: v === 'all' ? null : v }), { replaceState: true })}
-			>
-				<Select.Trigger size="sm" class="w-40" aria-label="Filter by Class">
-					{CLASSES.find((c) => c.id === classId)?.label ?? 'All Classes'}
-				</Select.Trigger>
-				<Select.Content>
-					<Select.Item value="all" label="All Classes" />
-					{#each CLASSES as c (c.id)}
-						<Select.Item value={c.id} label={c.label} />
-					{/each}
-				</Select.Content>
-			</Select.Root>
+			{#if !chips}
+				<Select.Root
+					type="single"
+					value={classId ?? 'all'}
+					onValueChange={(v) => goto(to({ class: v === 'all' ? null : v }), { replaceState: true })}
+				>
+					<Select.Trigger size="sm" class="w-40" aria-label="Filter by Class">
+						{CLASSES.find((c) => c.id === classId)?.label ?? 'All Classes'}
+					</Select.Trigger>
+					<Select.Content>
+						<Select.Item value="all" label="All Classes" />
+						{#each CLASSES as c (c.id)}
+							<Select.Item value={c.id} label={c.label} />
+						{/each}
+					</Select.Content>
+				</Select.Root>
+			{/if}
 			<div class="flex border-b text-sm" role="tablist">
 				{#each [['all', 'All'], ['draft', 'Draft'], ['planned', 'Planned']] as [key, name] (key)}
 					<button
@@ -68,6 +73,34 @@
 			</div>
 		</div>
 	</div>
+
+	{#if chips}
+		<div
+			class="-mx-4 mt-4 flex gap-1.5 overflow-x-auto px-4 pb-1 md:mx-0 md:flex-wrap md:px-0"
+			role="group"
+			aria-label="Filter by Class"
+		>
+			<a
+				href={to({ class: null })}
+				class="rounded-2xl border px-2.5 py-0.5 text-xs font-medium whitespace-nowrap {classId
+					? 'text-muted-foreground hover:bg-muted'
+					: 'border-transparent bg-primary text-primary-foreground'}">All Classes</a
+			>
+			{#each CLASSES as c (c.id)}
+				{@const on = classId === c.id}
+				{@const t = classTone(c.tone)}
+				<a
+					href={to({ class: on ? null : c.id })}
+					class="rounded-2xl border px-2.5 py-0.5 text-xs font-medium whitespace-nowrap"
+					style:background-color={on ? t.bg : undefined}
+					style:color={on ? t.fg : undefined}
+					style:border-color={on ? 'transparent' : t.ring}
+				>
+					{c.label}
+				</a>
+			{/each}
+		</div>
+	{/if}
 
 	<!-- Tablet and up: a table. -->
 	<table class="mt-5 hidden w-full text-sm md:table">
