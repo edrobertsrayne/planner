@@ -17,7 +17,7 @@ The body of teaching material for a subject and year group, such as "Year 9 Phys
 Topics, which it holds in no particular order — a Course is what a Class _may_ be taught, not a
 sequence it works through. It outlives the Classes drawing on it, and a Class typically teaches
 only part of one in a year. Course names are unique across the planner, case-insensitive, so
-"Year 9 Physics" and "YEAR 9 PHYSICS" are the same name.
+"Year 9 Physics" and "YEAR 9 PHYSICS" are the same name. It has a Tone of its own.
 _Avoid_: Scheme of work, syllabus, curriculum, module, unit
 
 **Topic**:
@@ -104,12 +104,14 @@ pupils.
 _Avoid_: Group, set, form, cohort
 
 **Tone**:
-One of eight recurring colour identities that tell Classes apart. Every Class is given a Tone
-automatically when it is created — the next colour in a sequence that walks around the wheel rather
-than stepping through neighbouring hues — and keeps it for its whole life: no other Class's creation
-or deletion ever changes it. A deleted Class's Tone may be given to a later Class, and past eight
-live Classes Tones repeat; two Classes sharing one is accepted, not a fault. A Tone carries no
-meaning beyond recognition — it says nothing about year group, subject or Course.
+One of eight recurring colour identities that tell Classes apart, and tell Courses apart. Every
+Class and every Course is given a Tone automatically when it is created — the next colour in a
+sequence that walks around the wheel rather than stepping through neighbouring hues — and keeps it
+for its whole life: no other creation or deletion ever changes it. Classes and Courses walk the
+sequence separately, so a Course and a Class may share a Tone. A deleted Class's or Course's Tone
+may be given to a later one, and past eight Tones repeat; two sharing one is accepted, not a fault.
+A Tone carries no meaning beyond recognition — a Class's Tone says nothing about year group,
+subject or Course.
 _Avoid_: Colour, theme
 
 **Assigned Topic**:
@@ -332,11 +334,15 @@ history, so ending one Slot and starting another is ordinary editing rather than
 operation.
 
 **Courses**:
-Where Course content is written. Three panes — Courses, then that Course's Topics, then that
-Topic's Lessons in order — with a new Course, a new Topic and a new Lesson each created by typing
-a name into the foot of its own pane. The only screen that reads or writes Courses, Topics and
-Lessons. Unlike the other three screens it is a writing surface, and it is where the planner is used
-on a Sunday rather than during a teaching week.
+Where Course content is written. One tile per Course, marked by the Course's Tone as a dot and as
+the colour of its progress bar, with a New Course tile after them; each tile opens a page for that
+Course. The Course page holds the Course's Topics on the left and the chosen Topic's Lessons in
+order on the right. Below a wide laptop window it shows one at a time: the Topics, then the
+chosen Topic's Lessons. A new Topic and a new Lesson are each created by typing a name at the foot
+of its own list. Detach and delete a Lesson are in the Lesson editor only. Import has no control
+here. The only screen that reads or writes Courses, Topics and Lessons. On a phone it is read-only.
+Unlike the other three screens it is a writing surface, and it is where the planner is used on a
+Sunday rather than during a teaching week.
 
 **Planning**:
 The stream of upcoming Lessons by planning status — which are still Draft, which are Planned —
