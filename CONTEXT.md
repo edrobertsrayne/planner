@@ -358,8 +358,13 @@ of the Language above names its parts.
 
 **Lesson editor**:
 The single surface for one Lesson — its title, its markdown body, its links, its attachments, its
-Tags and its Length, and the Detach and delete controls. A page of its own, reached from the
-Courses view or the Planning view, that steps to the next or previous Lesson in the Topic. It is
+Tags and its Length, and the Detach and delete controls. A page of its own, addressed by the
+Lesson alone, so the same page opens from the Courses view and the Planning view, and moving the
+Lesson to another Topic keeps the teacher on it. It steps to the next or previous Lesson in the
+Lesson's Topic, in the Topic's order, whichever view opened it; stepping stops at either end of the
+Topic and never crosses into another, because a Course holds its Topics in no order. Leaving it —
+by Back or by deleting the Lesson — returns the teacher to the view they came from, or to the
+Lesson's Topic on its Course page when there is none. Creating a Lesson does not open it. It is
 written on a laptop or desktop; on a phone it is a read view. Distinct from the Session panel: the
 Lesson editor writes the plan shared by every Class, the Session panel writes one Class's occasion.
 
