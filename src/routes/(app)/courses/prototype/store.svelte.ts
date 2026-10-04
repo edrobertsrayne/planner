@@ -1,6 +1,7 @@
 // PROTOTYPE ONLY (issue #306): fake Courses, Topics and Lessons held in memory. Every write is
 // local and lost on reload. Leaves with the prototype.
 import { page } from '$app/state';
+import { nextTone } from '$lib/class-tone';
 
 export type Lesson = {
 	id: string;
@@ -10,7 +11,20 @@ export type Lesson = {
 	length: 1 | 2;
 };
 export type Topic = { id: string; name: string; lessons: Lesson[] };
-export type Course = { id: string; name: string; classes: string[]; topics: Topic[] };
+// `tone` is a Course Tone: the same eight colours and the same walk a Class gets (ADR-0013), held
+// apart from the Class Tones, so a Course and a Class may share a colour.
+export type Course = { id: string; name: string; tone: number; classes: string[]; topics: Topic[] };
+
+// Each fake Class's Tone, in the order the walk gives them when the Classes are made in this order.
+export const CLASS_TONES: Record<string, number> = {
+	'10X': 0,
+	'10Y': 4,
+	'11P': 6,
+	'9A': 7,
+	'9C': 1,
+	'12P': 2,
+	'13P': 5
+};
 
 let seq = 0;
 const id = (p: string) => `${p}${++seq}`;
@@ -68,6 +82,7 @@ export const store = $state<{ courses: Course[] }>({
 		{
 			id: id('c'),
 			name: 'GCSE Combined Science: Physics',
+			tone: 0,
 			classes: ['10X', '10Y', '11P'],
 			topics: [
 				topic(
@@ -88,6 +103,7 @@ export const store = $state<{ courses: Course[] }>({
 		{
 			id: id('c'),
 			name: 'Year 9 Science',
+			tone: 4,
 			classes: ['9A', '9C'],
 			topics: [
 				topic('Cells and organisation', SHORT(8, 'Cells')),
@@ -99,6 +115,7 @@ export const store = $state<{ courses: Course[] }>({
 		{
 			id: id('c'),
 			name: 'A-level Physics',
+			tone: 6,
 			classes: ['12P', '13P'],
 			topics: [
 				topic('Measurements and their errors', SHORT(6, 'Measurements')),
@@ -109,7 +126,7 @@ export const store = $state<{ courses: Course[] }>({
 				)
 			]
 		},
-		{ id: id('c'), name: 'Year 7 Science', classes: [], topics: [] }
+		{ id: id('c'), name: 'Year 7 Science', tone: 7, classes: [], topics: [] }
 	]
 });
 
@@ -144,7 +161,13 @@ export const plannedCount = (c: Course) =>
 
 // ── Writes (local only) ────────────────────────────────────────────────────
 export function addCourse(name: string) {
-	store.courses.push({ id: id('c'), name, classes: [], topics: [] });
+	store.courses.push({
+		id: id('c'),
+		name,
+		tone: nextTone(store.courses.map((c) => c.tone)),
+		classes: [],
+		topics: []
+	});
 	return store.courses[store.courses.length - 1];
 }
 export function addTopic(course: Course, name: string) {

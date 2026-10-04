@@ -1,12 +1,15 @@
 <!--
 	PROTOTYPE ONLY (issue #306). Variant A: Course tiles, then a page per Course with its Topics
 	beside the chosen Topic's Lessons. Below `lg` the Course page drills: Topics, then Lessons.
+	`colour` tries ways to tell Courses apart: none; a Course Tone shown as a band or as a dot; or
+	no Course colour, with each Class teaching the Course shown in its own Tone.
 -->
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import PlusIcon from '@lucide/svelte/icons/plus';
+	import { classTone } from '$lib/class-tone';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import CreateInput from './CreateInput.svelte';
@@ -15,6 +18,7 @@
 	import ItemMenu from './ItemMenu.svelte';
 	import LessonRows from './LessonRows.svelte';
 	import {
+		CLASS_TONES,
 		addCourse,
 		addTopic,
 		current,
@@ -22,8 +26,12 @@
 		plannedCount,
 		removeAt,
 		store,
-		to
+		to,
+		type Course
 	} from './store.svelte';
+
+	let { colour = 'none' }: { colour?: 'none' | 'band' | 'dot' | 'classes' } = $props();
+	const courseTone = $derived(colour === 'band' || colour === 'dot');
 
 	const course = $derived(current.course);
 	const chosen = $derived(current.topic);
@@ -31,6 +39,35 @@
 	const shown = $derived(chosen ?? course?.topics[0] ?? null);
 	let newCourse = $state(false);
 </script>
+
+{#snippet classesLine(c: Course)}
+	{#if !c.classes.length}
+		<span class="text-xs text-muted-foreground">No Classes yet</span>
+	{:else if colour === 'classes'}
+		<span class="flex flex-wrap gap-1">
+			{#each c.classes as label (label)}
+				{@const t = classTone(CLASS_TONES[label] ?? 0)}
+				<span
+					class="rounded px-1.5 py-0.5 text-[11px] font-medium"
+					style:background-color={t.bg}
+					style:color={t.fg}>{label}</span
+				>
+			{/each}
+		</span>
+	{:else}
+		<span class="text-xs text-muted-foreground">Taught to {c.classes.join(', ')}</span>
+	{/if}
+{/snippet}
+
+{#snippet dot(c: Course)}
+	{@const t = classTone(c.tone)}
+	<span
+		class="mt-1 size-2.5 shrink-0 rounded-full ring-2"
+		style:background-color={t.bg}
+		style:--tw-ring-color={t.ring}
+		aria-hidden="true"
+	></span>
+{/snippet}
 
 {#if !course}
 	<div class="mx-auto max-w-5xl px-6 py-6">
@@ -41,23 +78,34 @@
 			{#each store.courses as c (c.id)}
 				{@const total = lessonCount(c)}
 				{@const pct = total ? Math.round((plannedCount(c) / total) * 100) : 0}
-				<li class="flex flex-col overflow-hidden rounded-xl border bg-card">
+				{@const t = classTone(c.tone)}
+				<li
+					class="flex flex-col overflow-hidden rounded-xl border bg-card {colour === 'band'
+						? 'border-t-4'
+						: ''}"
+					style:border-top-color={colour === 'band' ? t.ring : undefined}
+				>
 					<a href={to({ course: c.id })} class="flex flex-1 flex-col gap-3 p-4 hover:bg-muted/30">
-						<div>
-							<div class="text-sm font-semibold">{c.name}</div>
-							<div class="text-xs text-muted-foreground">
-								{c.topics.length} Topics · {total} Lessons
+						<div class="flex items-start gap-3">
+							{#if colour === 'dot'}{@render dot(c)}{/if}
+							<div class="min-w-0">
+								<div class="text-sm font-semibold">{c.name}</div>
+								<div class="text-xs text-muted-foreground">
+									{c.topics.length} Topics · {total} Lessons
+								</div>
 							</div>
 						</div>
 						<div
 							class="h-1 overflow-hidden rounded-full bg-muted"
 							aria-label="{pct}% of Lessons Planned"
 						>
-							<div class="h-full bg-primary/60" style:width="{pct}%"></div>
+							<div
+								class="h-full {courseTone ? '' : 'bg-primary/60'}"
+								style:width="{pct}%"
+								style:background-color={courseTone ? t.ring : undefined}
+							></div>
 						</div>
-						<div class="mt-auto text-xs text-muted-foreground">
-							{c.classes.length ? `Taught to ${c.classes.join(', ')}` : 'No Classes yet'}
-						</div>
+						<div class="mt-auto">{@render classesLine(c)}</div>
 					</a>
 					<div class="flex items-center border-t px-2 py-1.5">
 						<span class="flex-1 px-2 text-xs text-muted-foreground">{pct}% Planned</span>
@@ -92,37 +140,48 @@
 		<Button variant="ghost" size="sm" class="mb-2 -ml-2" href={to()}>
 			<ArrowLeftIcon />Courses
 		</Button>
-		<PageHeader>
-			<InlineName
-				value={course.name}
-				class="text-lg font-semibold tracking-tight"
-				inputClass="h-9 w-80 text-lg font-semibold"
-				onsave={(v) => (course.name = v)}
-			/>
-			<p class="mt-1 text-sm text-muted-foreground">
-				{course.topics.length} Topics · {lessonCount(course)} Lessons ·
-				{course.classes.length ? `Taught to ${course.classes.join(', ')}` : 'No Classes yet'}
-			</p>
-			{#snippet actions()}
-				<ImportButton courseName={course.name} />
-				<ItemMenu
-					label="More for {course.name}"
-					items={[
-						{
-							label: 'Delete Course',
-							hint: 'Removes its Topics and Lessons too',
-							destructive: true,
-							onclick: () => {
-								if (confirm(`Delete ${course.name} and everything in it?`)) {
-									removeAt(store.courses, course.id);
-									goto(to());
+		<div
+			class={colour === 'band' ? 'mb-4 rounded-lg border-l-4 px-4 pt-3' : ''}
+			style:border-left-color={colour === 'band' ? classTone(course.tone).ring : undefined}
+			style:background-color={colour === 'band' ? classTone(course.tone).bg : undefined}
+		>
+			<PageHeader>
+				<div class="flex items-start gap-3">
+					{#if colour === 'dot'}{@render dot(course)}{/if}
+					<div class="min-w-0">
+						<InlineName
+							value={course.name}
+							class="text-lg font-semibold tracking-tight"
+							inputClass="h-9 w-80 text-lg font-semibold"
+							onsave={(v) => (course.name = v)}
+						/>
+						<p class="mt-1 text-sm text-muted-foreground">
+							{course.topics.length} Topics · {lessonCount(course)} Lessons
+						</p>
+						<div class="mt-1.5">{@render classesLine(course)}</div>
+					</div>
+				</div>
+				{#snippet actions()}
+					<ImportButton courseName={course.name} />
+					<ItemMenu
+						label="More for {course.name}"
+						items={[
+							{
+								label: 'Delete Course',
+								hint: 'Removes its Topics and Lessons too',
+								destructive: true,
+								onclick: () => {
+									if (confirm(`Delete ${course.name} and everything in it?`)) {
+										removeAt(store.courses, course.id);
+										goto(to());
+									}
 								}
 							}
-						}
-					]}
-				/>
-			{/snippet}
-		</PageHeader>
+						]}
+					/>
+				{/snippet}
+			</PageHeader>
+		</div>
 
 		<div class="grid gap-6 lg:grid-cols-[20rem_1fr]">
 			<!-- Topics -->
@@ -135,10 +194,13 @@
 						<li>
 							<a
 								href={to({ course: course.id, topic: t.id })}
-								class="flex items-start gap-2 rounded-md px-3 py-2 text-sm hover:bg-muted {t.id ===
+								class="flex items-start gap-2 rounded-md border-l-2 border-transparent px-3 py-2 text-sm hover:bg-muted {t.id ===
 								shown?.id
 									? 'lg:bg-muted lg:font-medium'
 									: ''}"
+								style:border-left-color={courseTone && t.id === shown?.id
+									? classTone(course.tone).ring
+									: undefined}
 							>
 								<span class="min-w-0 flex-1">{t.name}</span>
 								<span class="shrink-0 pt-0.5 text-xs text-muted-foreground tabular-nums">
@@ -161,7 +223,12 @@
 
 			<!-- The chosen Topic's Lessons -->
 			{#if shown}
-				<section class="min-w-0 rounded-lg border {chosen ? '' : 'max-lg:hidden'}">
+				<section
+					class="min-w-0 rounded-lg border {chosen ? '' : 'max-lg:hidden'} {colour === 'band'
+						? 'border-t-4'
+						: ''}"
+					style:border-top-color={colour === 'band' ? classTone(course.tone).ring : undefined}
+				>
 					<div class="flex items-start gap-3 border-b px-4 py-3">
 						<div class="min-w-0 flex-1">
 							<Button
