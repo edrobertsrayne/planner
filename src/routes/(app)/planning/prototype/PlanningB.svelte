@@ -1,7 +1,7 @@
 <!--
 	PROTOTYPE ONLY (issue #307). Variant B: a table that uses the full width. One column per fact:
 	next taught, Class, Lesson, Topic, Course, Tags, status. Below `lg` Topic and Course fold under
-	the title; on a phone each row is a card. The whole row opens the Lesson editor.
+	the title; on a phone each row is a card. Only the Lesson title opens the Lesson editor.
 	B: the Class filter stays a dropdown; "Show more" replaces the page-size buttons.
 	B2 (`chips`): the Class filter is a row of Class chips; the window scrolls the whole stream.
 -->
@@ -28,7 +28,6 @@
 		planned: rows.filter((r) => r.status === 'planned').length
 	});
 	const opens = (r: Entry) => !!(r.topicName || r.occurrence);
-	const open = (r: Entry) => opens(r) && goto(to({ lesson: r.id }));
 </script>
 
 <div class="px-4 py-6 md:px-6">
@@ -114,16 +113,13 @@
 				<th class="hidden w-56 py-2 pr-3 font-medium xl:table-cell">Topic</th>
 				<th class="hidden w-36 py-2 pr-3 font-medium xl:table-cell">Course</th>
 				<th class="hidden w-40 py-2 pr-3 font-medium lg:table-cell">Tags</th>
-				<th class="w-36 py-2 font-medium">Status</th>
+				<th class="w-px py-2 font-medium whitespace-nowrap">Status</th>
 			</tr>
 		</thead>
 		<tbody>
 			{#each visible as r (r.id)}
 				{@const o = r.occurrence}
-				<tr
-					class="border-b align-top {opens(r) ? 'cursor-pointer hover:bg-muted/50' : ''}"
-					onclick={() => open(r)}
-				>
+				<tr class="border-b align-top">
 					<td class="py-2 pr-3 whitespace-nowrap tabular-nums">
 						{#if o}
 							{formatShortWeekday(o.date)} <span class="text-muted-foreground">P{o.period}</span>
@@ -135,11 +131,11 @@
 						>{#if o}<ClassChip label={o.label} tone={o.tone} />{/if}</td
 					>
 					<td class="py-2 pr-3">
-						<a
-							href={opens(r) ? to({ lesson: r.id }) : undefined}
-							class="font-medium hover:underline"
-							onclick={(e) => e.stopPropagation()}>{r.title}</a
-						>
+						{#if opens(r)}
+							<a href={to({ lesson: r.id })} class="font-medium hover:underline">{r.title}</a>
+						{:else}
+							<span class="font-medium">{r.title}</span>
+						{/if}
 						<div class="text-xs text-muted-foreground xl:hidden">
 							{r.topicName ? `${r.topicName} · ${r.courseName}` : 'Standalone Lesson'}
 						</div>
@@ -161,11 +157,7 @@
 		{#each visible as r (r.id)}
 			{@const o = r.occurrence}
 			<li>
-				<svelte:element
-					this={opens(r) ? 'a' : 'div'}
-					href={opens(r) ? to({ lesson: r.id }) : undefined}
-					class="block rounded-lg border bg-card p-3"
-				>
+				<div class="rounded-lg border bg-card p-3">
 					<div class="flex items-center gap-2 text-xs text-muted-foreground">
 						{#if o}
 							<span class="font-medium text-foreground">{formatShortWeekday(o.date)}</span>
@@ -176,11 +168,19 @@
 						{/if}
 						<span class="ml-auto"><StatusToggle id={r.id} status={r.status} /></span>
 					</div>
-					<div class="mt-1.5 text-sm font-medium">{r.title}</div>
+					{#if opens(r)}
+						<a
+							href={to({ lesson: r.id })}
+							class="mt-1.5 block text-sm font-medium underline-offset-2 hover:underline"
+							>{r.title}</a
+						>
+					{:else}
+						<div class="mt-1.5 text-sm font-medium">{r.title}</div>
+					{/if}
 					<div class="text-xs text-muted-foreground">
 						{r.topicName ? `${r.topicName} · ${r.courseName}` : 'Standalone Lesson'}
 					</div>
-				</svelte:element>
+				</div>
 			</li>
 		{/each}
 	</ul>
