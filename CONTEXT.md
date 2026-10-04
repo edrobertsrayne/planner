@@ -288,9 +288,11 @@ carries no Ready tick, since there is no (Lesson, Class) pairing to key one on. 
 upcoming row carries the Ready tick for its Class, and this is the only screen on which Readiness
 is written; a row can be ticked only while it is on screen, so the ticks reach only as far as the
 chosen horizon, and no past day can be ticked. A Continuation's two rows share one Readiness
-record, so ticking either moves both. The Agenda can be narrowed to one Tag: while a Tag filter is
-on, it shows only the Lessons with that Tag and hides Open Slots, in the look-back and in the days
-ahead.
+record, so ticking either moves both. The Agenda can be narrowed to one Tag with a row of Tag chips
+under the heading, the same control as the Class chips on Planning: while a Tag filter is on, it
+shows only the Lessons with that Tag and hides Open Slots, in the look-back and in the days ahead.
+The Agenda is one column at every size. On a phone it is the main screen, so the Ready tick and an
+Open Slot's Plan button show without a hover.
 
 **Calendar**:
 One Teaching Week as a grid of Periods against days, showing which Class is taught when and what
