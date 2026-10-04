@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
 	import { createInPlace, createThenSelect } from '$lib/client/enhance';
 	import XIcon from '@lucide/svelte/icons/x';
 	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
@@ -11,7 +12,6 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import RenameableRow from '$lib/components/renameable-row.svelte';
 	import ConfirmDeleteDialog from './ConfirmDeleteDialog.svelte';
-	import LessonEditor from './LessonEditor.svelte';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -213,8 +213,7 @@
 							<div class="min-w-0 flex-1">
 								<RenameableRow
 									name={lesson.title}
-									selected={lesson.id === data.lesson?.id}
-									href={`?course=${data.course?.id}&topic=${data.topic.id}&lesson=${lesson.id}`}
+									href={resolve(`/lessons/${lesson.id}`)}
 									action="?/renameLesson"
 									hidden={{ id: lesson.id }}
 									field="title"
@@ -272,28 +271,6 @@
 		</main>
 	</div>
 </div>
-
-{#if data.lesson && data.course && data.topic}
-	{@const courseId = data.course.id}
-	<LessonEditor
-		lesson={data.lesson}
-		links={data.links}
-		tags={data.tags}
-		existingTagNames={data.existingTagNames}
-		attachments={data.attachments}
-		index={data.lessonIndex}
-		count={data.lessons.length}
-		previousId={data.lessonIndex > 0 ? data.lessons[data.lessonIndex - 1].id : null}
-		nextId={data.lessonIndex < data.lessons.length - 1
-			? data.lessons[data.lessonIndex + 1].id
-			: null}
-		topicId={data.topic.id}
-		topics={data.topics}
-		taughtBy={data.taughtBy}
-		hrefFor={(lessonId, topicId) =>
-			`?course=${courseId}&topic=${topicId}${lessonId ? `&lesson=${lessonId}` : ''}`}
-	/>
-{/if}
 
 <ConfirmDeleteDialog
 	bind:target={pendingDelete}

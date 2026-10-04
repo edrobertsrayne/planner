@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
 	import { classTone } from '$lib/class-tone';
 	import { replaceQuery } from '$lib/client/enhance';
 	import { openSession } from '$lib/client/session-panel.svelte';
@@ -10,7 +11,6 @@
 	import PlacementsMovedAlert from '$lib/components/placements-moved-alert.svelte';
 	import TagChips from '$lib/components/tag-chips.svelte';
 	import * as Select from '$lib/components/ui/select/index.js';
-	import LessonEditor from '../courses/LessonEditor.svelte';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -53,17 +53,13 @@
 
 	const ALL_CLASSES = 'all';
 
-	// The one place the page's URL is built. The Class filter lives in it, so opening and closing
-	// a Lesson keeps the filter.
-	function href(classId: string | undefined, lessonId: string | null) {
-		const query = [classId && `class=${classId}`, lessonId && `lesson=${lessonId}`].filter(Boolean);
-		return query.length > 0 ? `?${query.join('&')}` : '/planning';
+	// The Class filter lives in the query string, so it survives a Back from a Lesson.
+	function href(classId: string | undefined) {
+		return classId ? `?class=${classId}` : '/planning';
 	}
 
-	const hrefFor = (lessonId: string | null) => href(data.classId, lessonId);
-
 	const setClass = (classId: string) =>
-		replaceQuery(href(classId === ALL_CLASSES ? undefined : classId, null));
+		replaceQuery(href(classId === ALL_CLASSES ? undefined : classId));
 </script>
 
 <svelte:head><title>Planning</title></svelte:head>
@@ -169,19 +165,24 @@
 						<div class="h-8 w-px bg-border"></div>
 
 						<div class="min-w-0 flex-1">
-							{#if placed && !s}
-								<span class="block max-w-full truncate text-sm font-medium">{lesson.title}</span>
-							{:else}
+							{#if placed && s}
 								<button
 									type="button"
 									class="block max-w-full truncate text-left text-sm font-medium hover:underline"
 									onclick={() =>
-										placed && s
-											? openSession({ classId: s.classId, date: s.date, period: s.period })
-											: replaceQuery(hrefFor(lesson.id))}
+										openSession({ classId: s.classId, date: s.date, period: s.period })}
 								>
 									{lesson.title}
 								</button>
+							{:else if placed}
+								<span class="block max-w-full truncate text-sm font-medium">{lesson.title}</span>
+							{:else}
+								<a
+									href={resolve(`/lessons/${lesson.id}`)}
+									class="block max-w-full truncate text-sm font-medium hover:underline"
+								>
+									{lesson.title}
+								</a>
 							{/if}
 							<div class="truncate text-xs text-muted-foreground">
 								{#if lesson.topicName}
@@ -241,23 +242,3 @@
 		{/if}
 	{/if}
 </div>
-
-{#if data.lesson && data.course && data.topic}
-	<LessonEditor
-		lesson={data.lesson}
-		links={data.links}
-		tags={data.tags}
-		existingTagNames={data.existingTagNames}
-		attachments={data.attachments}
-		index={data.lessonIndex}
-		count={data.lessons.length}
-		previousId={data.lessonIndex > 0 ? data.lessons[data.lessonIndex - 1].id : null}
-		nextId={data.lessonIndex < data.lessons.length - 1
-			? data.lessons[data.lessonIndex + 1].id
-			: null}
-		topicId={data.topic.id}
-		topics={data.topics}
-		taughtBy={data.taughtBy}
-		{hrefFor}
-	/>
-{/if}

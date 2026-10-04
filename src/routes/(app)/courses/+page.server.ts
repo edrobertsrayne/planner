@@ -4,20 +4,14 @@ import { DATABASE_URL, db } from '$lib/server/db/client';
 import { refusal, trimmed } from '$lib/server/form';
 import { lessonActions } from '$lib/server/lesson-actions';
 import {
-	attachedTags,
 	attachmentsDir,
-	attachmentsOf,
-	classesTaughtLesson,
 	createCourse,
 	createLesson,
 	createTopic,
 	deleteCourse,
-	deleteLesson,
 	deleteTopic,
-	lessonDetail,
 	lessonsOf,
 	listCourses,
-	listTagNames,
 	moveLesson,
 	renameCourse,
 	renameLesson,
@@ -38,30 +32,16 @@ export const load: PageServerLoad = ({ url }) => {
 	const topic = topicId ? (topics.find((t) => t.id === topicId) ?? null) : null;
 	const lessons = topic ? lessonsOf(db, topic.id) : [];
 
-	const lessonId = url.searchParams.get('lesson');
-	const detail =
-		lessonId && lessons.some((l) => l.id === lessonId) ? lessonDetail(db, lessonId) : null;
-	const attachments = detail ? attachmentsOf(db, detail.id) : [];
-	const lessonIndex = detail ? lessons.findIndex((l) => l.id === detail.id) : -1;
-	const taughtBy = detail ? classesTaughtLesson(db, { lessonId: detail.id, today: today() }) : [];
-
 	return {
 		courses,
 		course,
 		topics,
 		topic,
 		lessons,
-		lesson: detail,
-		links: detail?.links ?? [],
-		tags: detail ? attachedTags(db, detail.id) : [],
-		existingTagNames: detail ? listTagNames(db) : [],
 		tagsByLesson: tagsByLesson(
 			db,
 			lessons.map((l) => l.id)
-		),
-		attachments,
-		lessonIndex,
-		taughtBy
+		)
 	};
 };
 
@@ -133,22 +113,6 @@ export const actions: Actions = {
 			const lesson = renameLesson(db, { id, title });
 			if (!lesson) return fail(404, { error: 'No such Lesson.' });
 			return { lesson };
-		} catch (error) {
-			return refusal(error);
-		}
-	},
-
-	// The seam now writes the reason: a Lesson a Class has already been taught refuses with the
-	// Detach hint, and one a Placement names with the Placement way out — so the action shows the
-	// real reason instead of one fixed "already been taught" line for both (issue: the courses
-	// form's deleteLesson mislabeled a placed Lesson as taught).
-	deleteLesson: async ({ request }) => {
-		const data = await request.formData();
-		const id = trimmed(data, 'id');
-		try {
-			const lesson = deleteLesson(db, { id, today: today(), dir: attachmentsDir(DATABASE_URL) });
-			if (!lesson) return fail(404, { error: 'No such Lesson.' });
-			return {};
 		} catch (error) {
 			return refusal(error);
 		}

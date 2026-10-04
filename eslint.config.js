@@ -39,7 +39,7 @@ export default defineConfig(
 	// comment at each line: the reason is a property of the file, and it does not change per link.
 	{
 		// A URL the teacher typed. It leaves the app, so resolve() must not touch it.
-		files: ['src/lib/components/session-body.svelte', 'src/routes/(app)/courses/LinkRow.svelte'],
+		files: ['src/lib/components/session-body.svelte', 'src/routes/(app)/lessons/*/LinkRow.svelte'],
 		rules: {
 			'svelte/no-navigation-without-resolve': 'off'
 		}
@@ -60,7 +60,7 @@ export default defineConfig(
 		files: [
 			'src/lib/client/enhance.ts',
 			'src/lib/client/session-panel.svelte.ts',
-			'src/routes/(app)/courses/LessonEditor.svelte'
+			'src/lib/client/back.ts'
 		],
 		rules: {
 			'svelte/no-navigation-without-resolve': 'off'

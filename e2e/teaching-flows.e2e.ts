@@ -155,24 +155,20 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		expect(toneA).not.toBe(toneB);
 	});
 
-	test('the Lesson editor traps focus and closes on Escape', async () => {
+	test('the Lesson page stays open on Escape, and Back returns to the Courses screen', async () => {
 		await page.goto('/courses');
 		await page.getByRole('link', { name: 'KS3 Science' }).click();
 		await page.getByRole('link', { name: 'Forces' }).click();
 		await page.getByRole('link', { name: 'Speed', exact: true }).click();
 
-		const dialog = page.getByRole('dialog');
-		await expect(dialog).toBeVisible();
-
-		// Tabbing all the way round a Dialog with a focus trap never leaves it.
-		const tabStops = 12;
-		for (let i = 0; i < tabStops; i++) {
-			await page.keyboard.press('Tab');
-			await expect(dialog.locator(':focus')).toHaveCount(1);
-		}
+		await expect(page).toHaveURL(/\/lessons\//);
+		await expect(page.getByRole('dialog')).toHaveCount(0);
 
 		await page.keyboard.press('Escape');
-		await expect(dialog).toBeHidden();
+		await expect(page).toHaveURL(/\/lessons\//);
+
+		await page.getByRole('button', { name: 'Back' }).click();
+		await expect(page).toHaveURL(/\/courses\?course=.*&topic=/);
 	});
 
 	test('opening a Session from the Agenda, and dismissing it by the close button', async () => {
@@ -407,10 +403,10 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		await page.getByRole('button', { name: '+ Add Tag' }).click();
 		await page.getByPlaceholder('Tag name').fill('Practical');
 		await page.getByPlaceholder('Tag name').press('Enter');
-		await expect(page.getByRole('dialog').getByText('Practical', { exact: true })).toBeVisible();
+		await expect(page.locator('main').getByText('Practical', { exact: true })).toBeVisible();
 
-		await page.keyboard.press('Escape');
-		await expect(page.getByRole('dialog')).toBeHidden();
+		await page.getByRole('button', { name: 'Back' }).click();
+		await expect(page).toHaveURL(/\/courses\?course=.*&topic=/);
 
 		const courseRow = page.locator('li').filter({ hasText: 'Motion' });
 		await expect(courseRow.getByText('Practical', { exact: true })).toBeVisible();
@@ -632,9 +628,9 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		await page.getByRole('button', { name: '+ Add Tag' }).click();
 		await page.getByPlaceholder('Tag name').fill('Recap');
 		await page.getByPlaceholder('Tag name').press('Enter');
-		await expect(page.getByRole('dialog').getByText('Recap', { exact: true })).toBeVisible();
-		await page.keyboard.press('Escape');
-		await expect(page.getByRole('dialog')).toBeHidden();
+		await expect(page.locator('main').getByText('Recap', { exact: true })).toBeVisible();
+		await page.getByRole('button', { name: 'Back' }).click();
+		await expect(page).toHaveURL(/\/courses\?course=.*&topic=/);
 
 		// The look-back is off by default.
 		await page.goto('/');
@@ -706,6 +702,6 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		await page.getByRole('link', { name: 'Forces' }).click();
 		await page.getByRole('link', { name: 'Speed', exact: true }).click();
 		await page.getByRole('button', { name: 'Remove Recap' }).click();
-		await expect(page.getByRole('dialog').getByText('Recap', { exact: true })).toBeHidden();
+		await expect(page.locator('main').getByText('Recap', { exact: true })).toBeHidden();
 	});
 });
