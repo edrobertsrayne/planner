@@ -318,18 +318,22 @@ The day's menu shows from a tablet up and not on a phone, because the calendar i
 **Classes**:
 One tone-coloured tile per Class, keyed by Class rather than by time. Each tile carries the
 Class's label, Course and tone, its progress through its Assigned Topics, its current Topic with
-the Lesson queued next inside it, and its Runway; its footer holds Assign next Topic and Open
-Class page, and navigating to the Class page is the label's job — the tile as a whole is not one
-link. A Class is created here, in a dialog opened from this screen. The Runway is shown plainly on
-every tile and is never coloured or flagged: a Class approaching the end of its Assigned Topics is
-the normal condition several times a year, so a threshold warning would be on almost always and
-mean nothing. The Agenda showing Open Slots inside its own horizon is the only alert the
-planner has.
+the Lesson queued next inside it, and its Runway. The tile body is one link to the Class page, as
+on Courses; its footer holds Assign next Topic and Open Class. A Class is created here, in a dialog
+opened from the New Class tile. On a phone the footer keeps only Open Class, and there is no New
+Class tile, because nothing is written there. The Runway is shown plainly on every tile and is
+never coloured or flagged: a Class approaching the end of its Assigned Topics is the normal
+condition several times a year, so a threshold warning would be on almost always and mean
+nothing. The Agenda showing Open Slots inside its own horizon is the only alert the planner has.
 
 **Class page**:
-The single surface for one Class, laid out as a two-column bench: the Slot grid — both weeks
-stacked, at editing density — fills the left column, and a rail beside it holds the Class's
-identity and its Assigned Topics in order. The only place a Class is timetabled. Creating a Class
+The single surface for one Class, in two tabs under the Class's label and Course. Overview, the
+default, leads with the Class's next five Sessions, each opening the Session page, then its
+progress (Last taught with its Session note, Next up, the Runway); beside them stand its Assigned
+Topics in order, whose reorder and Unassign controls show only after Edit, so none hides behind
+hover. Timetable holds the "Timetable as at" control and the Slot grid, both weeks stacked. The
+Timetable tab shows, and is written, from a tablet up; a phone shows Overview only, with no tabs
+and no Edit. The only place a Class is timetabled. Creating a Class
 happens on the Classes screen, which also carries Assign next Topic; the Assigned Topics already
 given are ordered here. There is no screen showing every Class's Timetable at once, because the
 Timetable is only ever read or written one Class at a time. Periods held by another Class carry
