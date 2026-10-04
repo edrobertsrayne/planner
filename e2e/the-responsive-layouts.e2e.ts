@@ -318,3 +318,88 @@ test.describe('the Lesson editor on a laptop', () => {
 		await page.getByRole('button', { name: 'Back' }).click();
 	});
 });
+
+test.describe('the Lesson editor for a Standalone Lesson', () => {
+	test.use({ viewport: { width: 1536, height: 750 } });
+
+	function standaloneLesson(title: string): string {
+		return runFixture('create-standalone-lesson', title).trim();
+	}
+
+	async function expectToast(page: Page, fragment: string) {
+		await expect(page.locator('[data-sonner-toast]').filter({ hasText: fragment })).toBeVisible();
+	}
+
+	test('the form has Draft/Planned, Length and Tags, Links and Attachments, and no Topic, steps or Placements', async ({
+		page
+	}) => {
+		const id = standaloneLesson('Revision carousel');
+		await login(page);
+		await page.goto(`/lessons/${id}`);
+		await expectLessonPage(page);
+
+		await expect(page.getByText('Standalone Lesson', { exact: true })).toBeVisible();
+		await expect(page.getByRole('radio', { name: 'Planned' })).toBeVisible();
+		await expect(page.getByLabel('Length')).toBeVisible();
+		await expect(page.getByLabel('Topic', { exact: true })).toHaveCount(0);
+		await expect(page.getByRole('button', { name: 'Next Lesson' })).toHaveCount(0);
+		await expect(page.getByText(/^Lesson \d+ of \d+$/)).toHaveCount(0);
+
+		await page.getByRole('button', { name: '+ Add Tag' }).click();
+		await page.getByPlaceholder('Tag name').fill('revision');
+		await page.getByRole('button', { name: 'Add', exact: true }).click();
+		await expect(page.getByRole('button', { name: 'Remove revision' })).toBeVisible();
+
+		await page.getByRole('button', { name: '+ Add Link' }).click();
+		await page.getByPlaceholder('Label').fill('Past papers');
+		await page.getByPlaceholder('https://…').fill('https://example.com/papers');
+		await page.getByRole('button', { name: 'Add', exact: true }).click();
+		await expect(page.getByRole('link', { name: 'Past papers' })).toBeVisible();
+
+		await page.getByLabel('Choose a file to attach').setInputFiles({
+			name: 'carousel.txt',
+			mimeType: 'text/plain',
+			buffer: Buffer.from('stations')
+		});
+		await expect(page.locator('main').getByText('carousel.txt')).toBeVisible();
+
+		// Opened directly, Back goes to Planning.
+		await page.getByRole('button', { name: 'Back' }).click();
+		await expect(page).toHaveURL(/\/planning$/);
+	});
+
+	test('Delete on a placed Standalone Lesson shows the refusal and keeps it; an unplaced one is deleted', async ({
+		page
+	}) => {
+		const id = standaloneLesson('Placed carousel');
+		const date = new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10);
+		runFixture('place-lesson', id, '9C/Sc1', date);
+		await login(page);
+		await page.goto(`/lessons/${id}`);
+		await expectLessonPage(page);
+
+		await page.getByRole('button', { name: 'Delete Lesson' }).click();
+		await expectToast(page, 'A Placement names this Lesson');
+		await expect(page).toHaveURL(`/lessons/${id}`);
+
+		// Every Lesson title on Planning opens the Lesson editor, a placed Standalone one too.
+		await page.goto('/planning');
+		await page.getByRole('link', { name: 'Placed carousel', exact: true }).click();
+		await expect(page).toHaveURL(`/lessons/${id}`);
+
+		runFixture('unplace-lesson', id);
+		await page.reload();
+		await page.getByRole('button', { name: 'Delete Lesson' }).click();
+		await expect(page).toHaveURL(/\/planning$/);
+		await expect(page.getByRole('link', { name: 'Placed carousel' })).toHaveCount(0);
+	});
+
+	test('an unplaced Standalone Lesson on Planning opens the Lesson editor', async ({ page }) => {
+		await login(page);
+		await page.goto('/planning');
+		await page.getByRole('button', { name: 'Show all' }).click();
+		await page.getByRole('link', { name: 'Revision carousel', exact: true }).click();
+		await expectLessonPage(page);
+		await expect(page.getByText('Standalone Lesson', { exact: true })).toBeVisible();
+	});
+});

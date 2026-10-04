@@ -3,7 +3,6 @@
 	import { resolve } from '$app/paths';
 	import { classTone } from '$lib/class-tone';
 	import { replaceQuery } from '$lib/client/enhance';
-	import { openSession } from '$lib/client/session-panel.svelte';
 	import { formatShortWeekday } from '$lib/date';
 	import { statusTone, type PlanningStatus } from '$lib/feedback-tone';
 	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
@@ -140,7 +139,6 @@
 			<ul class="mt-4 space-y-2">
 				{#each visible as lesson (lesson.id)}
 					{@const s = lesson.occurrence}
-					{@const placed = !lesson.topicName}
 					<li class="flex items-center gap-3 rounded-lg border bg-card px-3 py-2">
 						<div class="flex w-28 shrink-0 flex-col items-end gap-0.5">
 							{#if s}
@@ -165,25 +163,12 @@
 						<div class="h-8 w-px bg-border"></div>
 
 						<div class="min-w-0 flex-1">
-							{#if placed && s}
-								<button
-									type="button"
-									class="block max-w-full truncate text-left text-sm font-medium hover:underline"
-									onclick={() =>
-										openSession({ classId: s.classId, date: s.date, period: s.period })}
-								>
-									{lesson.title}
-								</button>
-							{:else if placed}
-								<span class="block max-w-full truncate text-sm font-medium">{lesson.title}</span>
-							{:else}
-								<a
-									href={resolve(`/lessons/${lesson.id}`)}
-									class="block max-w-full truncate text-sm font-medium hover:underline"
-								>
-									{lesson.title}
-								</a>
-							{/if}
+							<a
+								href={resolve(`/lessons/${lesson.id}`)}
+								class="block max-w-full truncate text-sm font-medium hover:underline"
+							>
+								{lesson.title}
+							</a>
 							<div class="truncate text-xs text-muted-foreground">
 								{#if lesson.topicName}
 									{lesson.topicName} · {lesson.courseName}

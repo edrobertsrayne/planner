@@ -23,8 +23,9 @@
 	let { data }: PageProps = $props();
 	const lesson = $derived(data.lesson);
 
+	// A Standalone Lesson belongs to no Course, so Back with nowhere to go goes to Planning.
 	const back = useBack(() =>
-		data.course && data.topic ? courseHref(data.course.id, data.topic.id) : resolve('/courses')
+		data.course && data.topic ? courseHref(data.course.id, data.topic.id) : resolve('/planning')
 	);
 
 	// Title and plan save on blur. Blurring the focused field before every move off this page, Back,
@@ -116,6 +117,8 @@
 				<span class="max-w-80 truncate">{data.topic.name}</span>
 			</a>
 			<!-- eslint-enable svelte/no-navigation-without-resolve -->
+		{:else}
+			<span class="text-xs text-muted-foreground">Standalone Lesson</span>
 		{/if}
 		{#if index >= 0}
 			<div class="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
@@ -227,8 +230,8 @@
 							<span class="text-muted-foreground">Periods</span>
 						</div>
 
-						<label for="lesson-topic" class="text-muted-foreground">Topic</label>
 						{#if data.topic}
+							<label for="lesson-topic" class="text-muted-foreground">Topic</label>
 							<form
 								method="POST"
 								action="?/moveLessonToTopic"
@@ -251,8 +254,6 @@
 									{/each}
 								</select>
 							</form>
-						{:else}
-							<span id="lesson-topic">None</span>
 						{/if}
 
 						{#if data.taughtBy.length}

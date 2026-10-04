@@ -11,6 +11,9 @@
  *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts assign-topic <classLabel> <topicId>
  *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts create-class <label> <courseId>
  *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts clear-terms
+ *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts create-standalone-lesson <title>
+ *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts place-lesson <lessonId> <classLabel> <date>
+ *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts unplace-lesson <lessonId>
  */
 import { DatabaseSync } from 'node:sqlite';
 import { drizzle } from 'drizzle-orm/node-sqlite';
@@ -101,6 +104,40 @@ switch (command) {
 	// way to un-set the six Terms through the app once they are saved.
 	case 'clear-terms': {
 		db.delete(schema.term).run();
+		break;
+	}
+	// A Standalone Lesson with no Placement, for the Lesson editor's Standalone Lesson form. The
+	// app makes one only by placing a Lesson and removing the Placement again.
+	case 'create-standalone-lesson': {
+		const [title] = args;
+		if (!title) throw new Error('Usage: create-standalone-lesson <title>');
+		const [row] = db.insert(schema.lesson).values({ title, position: 0 }).returning().all();
+		process.stdout.write(row.id);
+		break;
+	}
+	// A Placement on the Class's first Slot, written without a re-derive: only the refusal to
+	// delete a placed Lesson is under test.
+	case 'place-lesson': {
+		const [lessonId, classLabel, date] = args;
+		if (!lessonId || !classLabel || !date) {
+			throw new Error('Usage: place-lesson <lessonId> <classLabel> <date>');
+		}
+		const [slot] = db
+			.select({ id: schema.slot.id, classId: schema.slot.classId })
+			.from(schema.slot)
+			.innerJoin(schema.classes, eq(schema.classes.id, schema.slot.classId))
+			.where(eq(schema.classes.label, classLabel))
+			.all();
+		if (!slot) throw new Error(`No Slot for Class ${classLabel}`);
+		db.insert(schema.placement)
+			.values({ classId: slot.classId, slotId: slot.id, date, lessonId })
+			.run();
+		break;
+	}
+	case 'unplace-lesson': {
+		const [lessonId] = args;
+		if (!lessonId) throw new Error('Usage: unplace-lesson <lessonId>');
+		db.delete(schema.placement).where(eq(schema.placement.lessonId, lessonId)).run();
 		break;
 	}
 	default:
