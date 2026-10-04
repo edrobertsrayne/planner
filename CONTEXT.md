@@ -261,6 +261,16 @@ _Avoid_: Export, dump, snapshot, Import
 Names for the screens, not for anything in the domain. Recorded so that issues, tests and code
 agree on what to call them.
 
+**App shell**:
+The frame around every screen except Login and Setup. On a laptop it is a sidebar on the left: the
+wordmark, room for a later search control, the five screens (Agenda, Calendar, Classes, Courses,
+Planning) with an icon and a name each, and at its foot Settings, the theme toggle, Log out and the
+build line. On a tablet the sidebar shows icons only. On a phone it is a top bar with a menu button,
+the current screen's name and the search room; the menu button opens the same list as a drawer.
+There is no top header on a laptop or a tablet, so a screen starts at the top of the window. The
+window is the only thing that scrolls. The shell has no shortcut to the next Session: the teacher
+opens a Session from its row on the Agenda or the Calendar.
+
 **Agenda**:
 The chronological stream of upcoming Sessions across every Class, grouped by day, reaching a
 horizon the teacher chooses: a number of days, or **All**, to the end of the last Term. Where the
@@ -325,7 +335,7 @@ operation.
 Where Course content is written. Three panes — Courses, then that Course's Topics, then that
 Topic's Lessons in order — with a new Course, a new Topic and a new Lesson each created by typing
 a name into the foot of its own pane. The only screen that reads or writes Courses, Topics and
-Lessons. Unlike the other three tabs it is a writing surface, and it is where the planner is used
+Lessons. Unlike the other three screens it is a writing surface, and it is where the planner is used
 on a Sunday rather than during a teaching week.
 
 **Planning**:
@@ -359,11 +369,12 @@ Agenda row already ticks, so it would otherwise hide a fact its own row displays
 shows Readiness.
 
 **Settings**:
-The change-password form and the API key manager, side by side. Reached from a control in the
-header rather than from a tab, so no tab is lit while it is open — a narrow centred column under
-the same page header every screen carries. The only place the password is changed, and changing it
-signs out every other device, which the card says plainly: the forgotten session on a school machine
-is the reason to change a password at all. API keys belong here because they identify the account
+The change-password form and the API key manager, side by side. Reached from a control at the foot
+of the app shell's sidebar rather than from its list of screens, so no screen is lit while it is
+open — a narrow centred column under the same page header every screen carries. The only place the
+password is changed, and changing it signs out every other device, which the card says plainly: the
+forgotten session on a school machine is the reason to change a password at all. API keys belong
+here because they identify the account
 (the single user), not the calendar model and not any Course — the only other thing that belongs to
 the account and nothing else. Opening the screen mints the key when the database has none, so there
 is no Generate step and no state in which the planner has no key; the card shows the token in full,
@@ -375,7 +386,7 @@ success would read as nothing.
 
 **Login**:
 Where the teacher signs in, and the only way into the planner. Sits outside the app shell: no
-tabs, no header controls, a wordmark above a centred card on the muted ground. It carries an email
+sidebar, no menu, a wordmark above a centred card on the muted ground. It carries an email
 field, a password field and nothing beside them — no third-party sign-in, no link to create an
 account, and no password reset, all three deliberate. There is one account, it is created by Setup
 and nowhere else, and the planner has no way to send email, so the reset link that would normally
