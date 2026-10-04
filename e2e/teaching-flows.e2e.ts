@@ -155,7 +155,7 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		expect(toneA).not.toBe(toneB);
 	});
 
-	test('the Lesson page stays open on Escape, and Back returns to the Courses screen', async () => {
+	test('the Lesson editor stays open on Escape, and Back returns to the Courses screen', async () => {
 		await page.goto('/courses');
 		await page.getByRole('link', { name: 'KS3 Science' }).click();
 		await page.getByRole('link', { name: 'Forces' }).click();

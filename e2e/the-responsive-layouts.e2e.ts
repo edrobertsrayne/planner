@@ -73,14 +73,14 @@ async function expectLessonPage(page: Page) {
 	await expect(page.getByRole('textbox', { name: 'Lesson title' })).toBeVisible();
 }
 
-// The Lesson page of Speed by its address: the Courses screen is not usable at every size yet.
+// The Lesson editor of Speed by its address: the Courses screen is not usable at every size yet.
 async function openLesson(page: Page) {
 	await login(page);
 	await page.goto(`/lessons/${runFixture('find-lesson-id', 'Speed').trim()}`);
 	await expectLessonPage(page);
 }
 
-// The Lesson page of Speed, opened from the Courses screen as Ed opens it.
+// The Lesson editor of Speed, opened from the Courses screen as Ed opens it.
 async function openLessonFromCourses(page: Page) {
 	await openCourse(page);
 	await page.getByRole('link', { name: 'Forces' }).click();
@@ -219,7 +219,7 @@ test.describe('the App shell on a phone', () => {
 	});
 });
 
-test.describe('the Lesson page on a laptop', () => {
+test.describe('the Lesson editor on a laptop', () => {
 	test.use({ viewport: { width: 1536, height: 750 } });
 
 	test('Back returns to the screen that opened it, or to the Course page when opened directly', async ({

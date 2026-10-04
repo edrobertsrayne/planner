@@ -1,4 +1,4 @@
-// Back from a page that other screens open (the Lesson page, and the Session page after it).
+// Back from a page that other screens open (the Lesson editor, and the Session page after it).
 //
 // When the previous page is in the app, Back is the browser's own Back, so Ed lands on the screen
 // that opened this one, scroll and filters intact. With no previous page in the app (a reload, a
