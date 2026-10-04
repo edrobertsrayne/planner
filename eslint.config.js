@@ -61,12 +61,13 @@ export default defineConfig(
 			'src/lib/client/enhance.ts',
 			'src/lib/client/session-panel.svelte.ts',
 			'src/routes/(app)/courses/LessonEditor.svelte',
-			// Throwaway prototype infrastructure (issues #305, #306, #307). Leaves with the prototype.
+			// Throwaway prototype infrastructure (issues #305, #306, #307, #310). Leaves with the prototype.
 			'src/lib/components/prototype-switcher.svelte',
 			'src/routes/(app)/prototype-shell/**',
 			'src/routes/(app)/courses/+page.svelte',
 			'src/routes/(app)/courses/prototype/**',
-			'src/routes/(app)/planning/prototype/**'
+			'src/routes/(app)/planning/prototype/**',
+			'src/routes/(app)/prototype-agenda/**'
 		],
 		rules: {
 			'svelte/no-navigation-without-resolve': 'off',
