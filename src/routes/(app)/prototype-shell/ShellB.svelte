@@ -16,15 +16,10 @@
 	import * as Sheet from '$lib/components/ui/sheet';
 	import type { Occasion } from '$lib/client/session-panel.svelte';
 	import SessionPanel from '../SessionPanel.svelte';
-	import NextSessionButton from './NextSessionButton.svelte';
 	import SearchSlot from './SearchSlot.svelte';
-	import { SCREENS, isActive, screenTitle, type NextSession } from './nav';
+	import { SCREENS, isActive, screenTitle } from './nav';
 
-	let {
-		children,
-		occasion,
-		next
-	}: { children: Snippet; occasion: Occasion | null; next: NextSession | null } = $props();
+	let { children, occasion }: { children: Snippet; occasion: Occasion | null } = $props();
 
 	let drawer = $state(false);
 	const settingsActive = $derived(isActive(resolve('/settings')));
@@ -134,7 +129,6 @@
 		<span class="font-semibold">{screenTitle()}</span>
 		<div class="ml-auto flex items-center gap-1">
 			<SearchSlot compact />
-			<NextSessionButton {next} look="icon" class="size-10" />
 		</div>
 	</header>
 
