@@ -1,8 +1,12 @@
 <script lang="ts" module>
+	import { touchTarget } from '../touch-target.js';
 	import { type VariantProps, tv } from 'tailwind-variants';
 
 	export const toggleVariants = tv({
-		base: "gap-1 rounded-2xl text-sm font-medium transition-colors hover:text-foreground focus-visible:border-ring focus-visible:ring-ring/30 aria-invalid:border-destructive aria-invalid:ring-destructive/20 aria-pressed:bg-muted dark:aria-invalid:ring-destructive/40 [&_svg:not([class*='size-'])]:size-4 group/toggle inline-flex items-center justify-center whitespace-nowrap outline-none hover:bg-muted focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+		base: [
+			touchTarget,
+			"gap-1 rounded-2xl text-sm font-medium transition-colors hover:text-foreground focus-visible:border-ring focus-visible:ring-ring/30 aria-invalid:border-destructive aria-invalid:ring-destructive/20 aria-pressed:bg-muted dark:aria-invalid:ring-destructive/40 [&_svg:not([class*='size-'])]:size-4 group/toggle inline-flex items-center justify-center whitespace-nowrap outline-none hover:bg-muted focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0"
+		],
 		variants: {
 			variant: {
 				default: 'bg-transparent',

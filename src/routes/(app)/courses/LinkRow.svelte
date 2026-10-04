@@ -86,7 +86,7 @@
 		<span class="shrink-0 font-mono text-[10px] text-muted-foreground">
 			{new URL(link.url).hostname.split('.')[0]}
 		</span>
-		<span class="flex shrink-0 items-center gap-0.5 opacity-0 group-hover:opacity-100">
+		<span class="flex shrink-0 items-center gap-0.5 row-control">
 			<Button
 				variant="ghost"
 				size="icon-sm"

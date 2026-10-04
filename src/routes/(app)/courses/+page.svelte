@@ -60,7 +60,7 @@
 								hidden={{ id: course.id }}
 							/>
 						</div>
-						<span class="flex shrink-0 items-center pr-2 opacity-0 group-hover:opacity-100">
+						<span class="flex shrink-0 items-center pr-2 row-control">
 							<form
 								method="POST"
 								action="?/deleteCourse"
@@ -133,7 +133,7 @@
 									hidden={{ id: topic.id }}
 								/>
 							</div>
-							<span class="flex shrink-0 items-center pr-2 opacity-0 group-hover:opacity-100">
+							<span class="flex shrink-0 items-center pr-2 row-control">
 								<form
 									method="POST"
 									action="?/deleteTopic"
@@ -221,9 +221,7 @@
 								/>
 							</div>
 							<TagChips {tags} class="max-w-40 shrink justify-end self-center pr-1" />
-							<span
-								class="flex shrink-0 items-center gap-0.5 pr-2 opacity-0 group-hover:opacity-100"
-							>
+							<span class="flex shrink-0 items-center gap-0.5 pr-2 row-control">
 								<ReorderButtons
 									action="?/moveLesson"
 									fields={{ topicId: data.topic.id, id: lesson.id }}

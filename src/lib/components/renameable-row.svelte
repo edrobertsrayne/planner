@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { Input } from '$lib/components/ui/input/index.js';
+	import { touchTarget } from '$lib/components/ui/touch-target.js';
 
 	let {
 		name,
@@ -78,9 +79,9 @@
 		{/if}
 		<button
 			type="button"
-			class="shrink-0 {heading
+			class="{touchTarget} shrink-0 {heading
 				? ''
-				: 'px-2'} text-xs text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground"
+				: 'px-2'} text-xs text-muted-foreground row-control hover:text-foreground"
 			onclick={startEditing}
 			aria-label="Rename {name}"
 		>

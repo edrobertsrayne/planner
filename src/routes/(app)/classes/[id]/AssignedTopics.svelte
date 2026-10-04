@@ -62,7 +62,7 @@
 				<span class="self-center text-xs text-muted-foreground tabular-nums">{i + 1}</span>
 				<span class="min-w-0 flex-1 self-center truncate text-sm">{a.topicName}</span>
 
-				<div class="flex flex-col justify-center opacity-0 group-hover:opacity-100">
+				<div class="flex flex-col justify-center row-control">
 					{#each MOVES as move (move.direction)}
 						<form
 							method="POST"
@@ -99,7 +99,7 @@
 						type="submit"
 						variant="ghost"
 						size="icon-xs"
-						class="self-center opacity-0 group-hover:opacity-100"
+						class="self-center row-control"
 						aria-label="Unassign {a.topicName}"
 					>
 						<XIcon />

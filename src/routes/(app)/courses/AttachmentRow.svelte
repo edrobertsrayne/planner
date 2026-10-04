@@ -24,7 +24,7 @@
 	<form
 		method="POST"
 		action="?/deleteAttachment"
-		class="flex shrink-0 items-center opacity-0 group-hover:opacity-100"
+		class="flex shrink-0 items-center row-control"
 		use:enhance
 	>
 		<input type="hidden" name="id" value={attachment.id} />

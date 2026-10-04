@@ -128,7 +128,7 @@
 				<Button
 					variant="ghost"
 					size="sm"
-					class="h-7 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
+					class="h-7 row-control"
 					data-session-trigger
 					onclick={() => openOccasion(row)}
 				>
