@@ -68,8 +68,8 @@
 
 <svelte:head><title>Planning</title></svelte:head>
 
-<div class="mx-auto max-w-4xl px-6 py-6">
-	<PageHeader title="Planning" description="Every Lesson in scheduled order." />
+<div class="mx-auto max-w-6xl px-6 py-6">
+	<PageHeader title="Planning" />
 
 	{#if form?.atRisk}
 		<AtRiskAlert atRisk={form.atRisk} />

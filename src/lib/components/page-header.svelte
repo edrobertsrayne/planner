@@ -4,13 +4,11 @@
 
 	let {
 		title,
-		description,
 		actions,
 		children,
 		class: className
 	}: {
 		title?: string;
-		description?: string;
 		actions?: Snippet;
 		children?: Snippet;
 		class?: string;
@@ -23,9 +21,6 @@
 			{@render children()}
 		{:else}
 			<h1 class="text-lg font-semibold tracking-tight">{title}</h1>
-		{/if}
-		{#if description}
-			<p class="mt-1 text-sm text-muted-foreground">{description}</p>
 		{/if}
 	</div>
 	{#if actions}

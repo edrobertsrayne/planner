@@ -96,7 +96,7 @@
 <svelte:head><title>Calendar</title></svelte:head>
 
 <div class="mx-auto max-w-6xl px-6 py-6">
-	<PageHeader title="Calendar" description="One Teaching Week, Periods against days.">
+	<PageHeader title="Calendar">
 		{#snippet actions()}
 			<!-- Save year and Cancel sit in the setup mode's own header: the week controls here
 			     would read a year that is not saved yet. -->

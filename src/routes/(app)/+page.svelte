@@ -41,8 +41,8 @@
 
 <svelte:head><title>Agenda</title></svelte:head>
 
-<div class="mx-auto max-w-3xl px-6 py-6">
-	<PageHeader title="Agenda" description="What is coming up, in order.">
+<div class="mx-auto max-w-6xl px-6 py-6">
+	<PageHeader title="Agenda">
 		{#snippet actions()}
 			<Select.Root
 				type="single"

@@ -76,8 +76,8 @@
 	}
 </script>
 
-<div class="mx-auto max-w-xl px-6 py-8">
-	<PageHeader title="Settings" description="This planner has one account." />
+<div class="mx-auto max-w-6xl px-6 py-8">
+	<PageHeader title="Settings" />
 
 	<Card.Root>
 		<Card.Header>

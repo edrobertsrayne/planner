@@ -25,11 +25,8 @@
 
 <svelte:head><title>Classes</title></svelte:head>
 
-<div class="mx-auto max-w-5xl px-6 py-6">
-	<PageHeader
-		title="Classes"
-		description="Pick a Class to timetable it, or give it its next Topic from here."
-	/>
+<div class="mx-auto max-w-6xl px-6 py-6">
+	<PageHeader title="Classes" />
 
 	{#if form?.atRisk}
 		<AtRiskAlert atRisk={form.atRisk} />
