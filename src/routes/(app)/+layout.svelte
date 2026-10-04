@@ -6,6 +6,7 @@
 	import MenuIcon from '@lucide/svelte/icons/menu';
 	import MoonIcon from '@lucide/svelte/icons/moon';
 	import SettingsIcon from '@lucide/svelte/icons/settings';
+	import SunIcon from '@lucide/svelte/icons/sun';
 	import BuildInfo from '$lib/components/build-info.svelte';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import * as Tooltip from '$lib/components/ui/tooltip';
@@ -13,7 +14,7 @@
 	import { selectedOccasion } from '$lib/client/session-panel.svelte';
 	import SearchRoom from './SearchRoom.svelte';
 	import SessionPanel from './SessionPanel.svelte';
-	import { SCREENS, isActive, screenTitle } from './nav';
+	import { SCREENS, isActive, screenTitle, settingsOpen } from './nav';
 	import type { LayoutProps } from './$types';
 
 	let { children, data }: LayoutProps = $props();
@@ -24,70 +25,85 @@
 
 	let drawerOpen = $state(false);
 
-	// Settings is not one of the five screens, so no screen is lit while it is open.
-	const settingsOpen = $derived(isActive(resolve('/settings')));
-
 	const ROW =
 		'flex items-center gap-3 rounded-md px-2.5 py-2 text-sm font-medium transition-colors pointer-coarse:min-h-11';
 	const IDLE = 'text-muted-foreground hover:bg-muted/60 hover:text-foreground';
-	// On a tablet the rail shows icons only; the label stays for screen readers.
-	const RAIL = 'justify-center lg:justify-start';
+	// On a tablet the sidebar shows icons only; the name stays for screen readers.
+	const ICONS_BELOW_LG = 'justify-center lg:justify-start';
 </script>
 
-<!-- A row of the sidebar or the drawer. `rail` rows lose their label below `lg`. -->
-{#snippet label(text: string, rail: boolean)}
-	<span class={rail ? 'sr-only lg:not-sr-only' : ''}>{text}</span>
+<!--
+	One row of the sidebar or the drawer: a link or a button, an icon and a name. In the sidebar the
+	name is hidden below `lg` and a tooltip shows it instead.
+-->
+{#snippet row(
+	text: string,
+	Icon: typeof SettingsIcon,
+	{
+		href,
+		active = false,
+		onclick,
+		type,
+		ariaLabel,
+		inSidebar
+	}: {
+		href?: string;
+		active?: boolean;
+		onclick?: () => void;
+		type?: 'button' | 'submit';
+		ariaLabel?: string;
+		inSidebar: boolean;
+	}
+)}
+	{@const cls = `${ROW} ${active ? 'bg-muted text-foreground' : IDLE} ${inSidebar ? ICONS_BELOW_LG : ''}`}
+	<Tooltip.Root>
+		<Tooltip.Trigger>
+			{#snippet child({ props })}
+				{#if href}
+					<!-- Every caller passes an href already run through resolve(). -->
+					<!-- eslint-disable svelte/no-navigation-without-resolve -->
+					<a
+						{...props}
+						{href}
+						onclick={() => (drawerOpen = false)}
+						class={cls}
+						aria-current={active && SCREENS.some((s) => s.href === href) ? 'page' : undefined}
+					>
+						<Icon class="size-4 shrink-0" />
+						<span class={inSidebar ? 'sr-only lg:not-sr-only' : ''}>{text}</span>
+					</a>
+					<!-- eslint-enable svelte/no-navigation-without-resolve -->
+				{:else}
+					<button {...props} {type} {onclick} aria-label={ariaLabel} class="{cls} w-full">
+						<Icon class="size-4 shrink-0" />
+						<span class={inSidebar ? 'sr-only lg:not-sr-only' : ''}>{text}</span>
+					</button>
+				{/if}
+			{/snippet}
+		</Tooltip.Trigger>
+		{#if inSidebar}
+			<Tooltip.Content side="right" class="lg:hidden">{ariaLabel ?? text}</Tooltip.Content>
+		{/if}
+	</Tooltip.Root>
 {/snippet}
 
-{#snippet railTip(text: string, rail: boolean)}
-	{#if rail}<Tooltip.Content side="right" class="lg:hidden">{text}</Tooltip.Content>{/if}
-{/snippet}
-
-{#snippet screens(rail: boolean)}
+{#snippet screens(inSidebar: boolean)}
 	<nav class="flex flex-col gap-0.5" aria-label="Primary">
-		{#each SCREENS as { href, label: text, icon: Icon } (href)}
-			{@const active = isActive(href)}
-			<Tooltip.Root>
-				<Tooltip.Trigger>
-					{#snippet child({ props })}
-						<a
-							{...props}
-							{href}
-							onclick={() => (drawerOpen = false)}
-							class="{ROW} {active ? 'bg-muted text-foreground' : IDLE} {rail ? RAIL : ''}"
-							aria-current={active ? 'page' : undefined}
-						>
-							<Icon class="size-4 shrink-0" />
-							{@render label(text, rail)}
-						</a>
-					{/snippet}
-				</Tooltip.Trigger>
-				{@render railTip(text, rail)}
-			</Tooltip.Root>
+		{#each SCREENS as { href, label, icon } (href)}
+			{@render row(label, icon, { href, active: isActive(href), inSidebar })}
 		{/each}
 	</nav>
 {/snippet}
 
-{#snippet foot(rail: boolean)}
+{#snippet foot(inSidebar: boolean)}
 	<div class="mt-auto flex flex-col gap-0.5">
-		<Tooltip.Root>
-			<Tooltip.Trigger>
-				{#snippet child({ props })}
-					<a
-						{...props}
-						href={resolve('/settings')}
-						onclick={() => (drawerOpen = false)}
-						class="{ROW} {settingsOpen ? 'bg-muted text-foreground' : IDLE} {rail ? RAIL : ''}"
-					>
-						<SettingsIcon class="size-4 shrink-0" />
-						{@render label('Settings', rail)}
-					</a>
-				{/snippet}
-			</Tooltip.Trigger>
-			{@render railTip('Settings', rail)}
-		</Tooltip.Root>
-
-		{#if rail}
+		{@render row('Settings', SettingsIcon, {
+			href: resolve('/settings'),
+			active: settingsOpen(),
+			inSidebar
+		})}
+		{#if inSidebar}
+			<!-- The drawer has no theme toggle (issue #324). -->
 			<Tooltip.Root>
 				<Tooltip.Trigger>
 					{#snippet child({ props })}
@@ -96,31 +112,21 @@
 							type="button"
 							onclick={toggleMode}
 							aria-label="Toggle theme"
-							class="{ROW} {IDLE} {RAIL}"
+							class="{ROW} {IDLE} {ICONS_BELOW_LG} w-full"
 						>
-							<MoonIcon class="size-4 shrink-0" />
-							{@render label('Theme', rail)}
+							<SunIcon class="size-4 shrink-0 dark:hidden" />
+							<MoonIcon class="hidden size-4 shrink-0 dark:block" />
+							<span class="sr-only lg:not-sr-only">Theme</span>
 						</button>
 					{/snippet}
 				</Tooltip.Trigger>
-				{@render railTip('Toggle theme', rail)}
+				<Tooltip.Content side="right" class="lg:hidden">Toggle theme</Tooltip.Content>
 			</Tooltip.Root>
 		{/if}
-
 		<form method="POST" action="/logout">
-			<Tooltip.Root>
-				<Tooltip.Trigger>
-					{#snippet child({ props })}
-						<button {...props} type="submit" class="{ROW} {IDLE} w-full {rail ? RAIL : ''}">
-							<LogOutIcon class="size-4 shrink-0" />
-							{@render label('Log out', rail)}
-						</button>
-					{/snippet}
-				</Tooltip.Trigger>
-				{@render railTip('Log out', rail)}
-			</Tooltip.Root>
+			{@render row('Log out', LogOutIcon, { type: 'submit', inSidebar })}
 		</form>
-		<BuildInfo class="px-2.5 pt-2 {rail ? 'hidden lg:block' : ''}" />
+		<BuildInfo class="px-2.5 pt-2 {inSidebar ? 'hidden lg:block' : ''}" />
 	</div>
 {/snippet}
 

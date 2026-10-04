@@ -29,7 +29,10 @@
 
 <!-- In-flow beside the screen — no overlay, no focus trap; what is behind stays usable
 (ADR-0012). -->
-<aside data-session-panel class="w-96 shrink-0 overflow-y-auto border-l bg-card px-5 py-5">
+<aside
+	data-session-panel
+	class="sticky top-14 h-[calc(100vh-3.5rem)] w-96 shrink-0 self-start overflow-y-auto border-l bg-card px-5 py-5 md:top-0 md:h-screen"
+>
 	<div class="mb-1 flex justify-end">
 		<Button variant="ghost" size="sm" onclick={closeSession} aria-label="Close Session">
 			<XIcon class="size-4" />

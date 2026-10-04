@@ -18,8 +18,13 @@ export function isActive(href: string): boolean {
 	return href === '/' ? page.url.pathname === '/' : page.url.pathname.startsWith(href);
 }
 
-/** The name of the open screen, for the phone top bar. Settings is not one of the five screens. */
+/** Settings is not one of the five screens, so no screen is lit while it is open. */
+export function settingsOpen(): boolean {
+	return isActive(resolve('/settings'));
+}
+
+/** The name of the open screen, for the phone top bar. */
 export function screenTitle(): string {
-	if (isActive(resolve('/settings'))) return 'Settings';
+	if (settingsOpen()) return 'Settings';
 	return SCREENS.find((s) => isActive(s.href))?.label ?? 'Planner';
 }
