@@ -330,10 +330,11 @@ nothing. The Agenda showing Open Slots inside its own horizon is the only alert 
 The single surface for one Class, in two tabs under the Class's label and Course. Overview, the
 default, leads with the Class's next five Sessions, each opening the Session page, then its
 progress (Last taught with its Session note, Next up, the Runway); beside them stand its Assigned
-Topics in order, whose reorder and Unassign controls show only after Edit, so none hides behind
-hover. Timetable holds the "Timetable as at" control and the Slot grid, both weeks stacked. The
-Timetable tab shows, and is written, from a tablet up; a phone shows Overview only, with no tabs
-and no Edit. The only place a Class is timetabled. Creating a Class
+Topics in order, whose reorder and Unassign controls show on hover or keyboard focus, and always
+on a touch screen, like every other row control. Timetable holds the "Timetable as at" control and
+the Slot grid, both weeks stacked. The Timetable tab shows, and is written, from a tablet up; a
+phone shows Overview only, with no tabs and no reorder or Unassign. The only place a Class is
+timetabled. Creating a Class
 happens on the Classes screen, which also carries Assign next Topic; the Assigned Topics already
 given are ordered here. There is no screen showing every Class's Timetable at once, because the
 Timetable is only ever read or written one Class at a time. Periods held by another Class carry
