@@ -1,6 +1,7 @@
 <!--
 	PROTOTYPE ONLY (issue #306). Variant A: Course tiles, then a page per Course with its Topics
-	beside the chosen Topic's Lessons. Below `lg` the Course page drills: Topics, then Lessons.
+	beside the chosen Topic's Lessons. Below `xl` the Course page drills: Topics, then Lessons, so a
+	1024 px window with the labelled sidebar still gives Lesson titles the full width.
 	`colour` tries ways to tell Courses apart: none; a Course Tone shown as a band or as a dot; or
 	no Course colour, with each Class teaching the Course shown in its own Tone.
 -->
@@ -34,7 +35,7 @@
 
 	const course = $derived(current.course);
 	const chosen = $derived(current.topic);
-	// On a laptop the first Topic shows when none is chosen; below `lg` the Topic list shows instead.
+	// From `xl` the first Topic shows when none is chosen; below `xl` the Topic list shows instead.
 	const shown = $derived(chosen ?? course?.topics[0] ?? null);
 	let newCourse = $state(false);
 </script>
@@ -179,9 +180,9 @@
 			</PageHeader>
 		</div>
 
-		<div class="grid gap-6 lg:grid-cols-[20rem_1fr]">
+		<div class="grid gap-6 xl:grid-cols-[20rem_1fr]">
 			<!-- Topics -->
-			<section class={chosen ? 'max-lg:hidden' : ''} aria-label="Topics">
+			<section class={chosen ? 'max-xl:hidden' : ''} aria-label="Topics">
 				<h2 class="px-3 pb-2 text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
 					Topics
 				</h2>
@@ -192,7 +193,7 @@
 								href={to({ course: course.id, topic: t.id })}
 								class="flex items-start gap-2 rounded-md border-l-2 border-transparent px-3 py-2 text-sm hover:bg-muted {t.id ===
 								shown?.id
-									? 'lg:bg-muted lg:font-medium'
+									? 'xl:bg-muted xl:font-medium'
 									: ''}"
 								style:border-left-color={courseTone && t.id === shown?.id
 									? classTone(course.tone).ring
@@ -202,7 +203,7 @@
 								<span class="shrink-0 pt-0.5 text-xs text-muted-foreground tabular-nums">
 									{t.lessons.length}
 								</span>
-								<ChevronRightIcon class="size-4 shrink-0 text-muted-foreground lg:hidden" />
+								<ChevronRightIcon class="size-4 shrink-0 text-muted-foreground xl:hidden" />
 							</a>
 						</li>
 					{/each}
@@ -220,7 +221,7 @@
 			<!-- The chosen Topic's Lessons -->
 			{#if shown}
 				<section
-					class="min-w-0 rounded-lg border {chosen ? '' : 'max-lg:hidden'} {colour === 'band'
+					class="min-w-0 rounded-lg border {chosen ? '' : 'max-xl:hidden'} {colour === 'band'
 						? 'border-t-4'
 						: ''}"
 					style:border-top-color={colour === 'band' ? classTone(course.tone).ring : undefined}
@@ -230,7 +231,7 @@
 							<Button
 								variant="ghost"
 								size="sm"
-								class="mb-1 -ml-2 lg:hidden"
+								class="mb-1 -ml-2 xl:hidden"
 								href={to({ course: course.id })}
 							>
 								<ArrowLeftIcon />Topics
