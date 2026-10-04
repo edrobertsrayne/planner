@@ -17,7 +17,7 @@ The body of teaching material for a subject and year group, such as "Year 9 Phys
 Topics, which it holds in no particular order — a Course is what a Class _may_ be taught, not a
 sequence it works through. It outlives the Classes drawing on it, and a Class typically teaches
 only part of one in a year. Course names are unique across the planner, case-insensitive, so
-"Year 9 Physics" and "YEAR 9 PHYSICS" are the same name.
+"Year 9 Physics" and "YEAR 9 PHYSICS" are the same name. It has a Tone of its own.
 _Avoid_: Scheme of work, syllabus, curriculum, module, unit
 
 **Topic**:
@@ -104,12 +104,14 @@ pupils.
 _Avoid_: Group, set, form, cohort
 
 **Tone**:
-One of eight recurring colour identities that tell Classes apart. Every Class is given a Tone
-automatically when it is created — the next colour in a sequence that walks around the wheel rather
-than stepping through neighbouring hues — and keeps it for its whole life: no other Class's creation
-or deletion ever changes it. A deleted Class's Tone may be given to a later Class, and past eight
-live Classes Tones repeat; two Classes sharing one is accepted, not a fault. A Tone carries no
-meaning beyond recognition — it says nothing about year group, subject or Course.
+One of eight recurring colour identities that tell Classes apart, and tell Courses apart. Every
+Class and every Course is given a Tone automatically when it is created — the next colour in a
+sequence that walks around the wheel rather than stepping through neighbouring hues — and keeps it
+for its whole life: no other creation or deletion ever changes it. Classes and Courses walk the
+sequence separately, so a Course and a Class may share a Tone. A deleted Class's or Course's Tone
+may be given to a later one, and past eight Tones repeat; two sharing one is accepted, not a fault.
+A Tone carries no meaning beyond recognition — a Class's Tone says nothing about year group,
+subject or Course.
 _Avoid_: Colour, theme
 
 **Assigned Topic**:
@@ -261,6 +263,16 @@ _Avoid_: Export, dump, snapshot, Import
 Names for the screens, not for anything in the domain. Recorded so that issues, tests and code
 agree on what to call them.
 
+**App shell**:
+The frame around every screen except Login and Setup. On a laptop it is a sidebar on the left: the
+wordmark, room for a later search control, the five screens (Agenda, Calendar, Classes, Courses,
+Planning) with an icon and a name each, and at its foot Settings, the theme toggle, Log out and the
+build line. On a tablet the sidebar shows icons only. On a phone it is a top bar with a menu button,
+the current screen's name and the search room; the menu button opens the same list as a drawer.
+There is no top header on a laptop or a tablet, so a screen starts at the top of the window. The
+window is the only thing that scrolls. The shell has no shortcut to the next Session: the teacher
+opens a Session from its row on the Agenda or the Calendar.
+
 **Agenda**:
 The chronological stream of upcoming Sessions across every Class, grouped by day, reaching a
 horizon the teacher chooses: a number of days, or **All**, to the end of the last Term. Where the
@@ -268,7 +280,7 @@ planner opens. The teacher can also turn on the look-back: the Sessions of the p
 shown above today, grouped by day, oldest first. The look-back is off by default and read-only. Its
 span is fixed: the horizon changes only the days ahead. The look-back obeys the Tag filter the same
 way the days ahead do.
-A past row carries no Ready tick. It opens the Session panel on its occasion, where the teacher
+A past row carries no Ready tick. It opens the Session page on its occasion, where the teacher
 reads the note. The past days are told apart from the days ahead by a step in shade, never a hue.
 An Open Slot appears as an ordinary row in its own position, marked as carrying no Lesson, because
 the teacher is teaching that Period and an Agenda that omitted it would report a free one — it
@@ -276,9 +288,11 @@ carries no Ready tick, since there is no (Lesson, Class) pairing to key one on. 
 upcoming row carries the Ready tick for its Class, and this is the only screen on which Readiness
 is written; a row can be ticked only while it is on screen, so the ticks reach only as far as the
 chosen horizon, and no past day can be ticked. A Continuation's two rows share one Readiness
-record, so ticking either moves both. The Agenda can be narrowed to one Tag: while a Tag filter is
-on, it shows only the Lessons with that Tag and hides Open Slots, in the look-back and in the days
-ahead.
+record, so ticking either moves both. The Agenda can be narrowed to one Tag with a row of Tag chips
+under the heading, the same control as the Class chips on Planning: while a Tag filter is on, it
+shows only the Lessons with that Tag and hides Open Slots, in the look-back and in the days ahead.
+The Agenda is one column at every size. On a phone it is the main screen, so the Ready tick and an
+Open Slot's Plan button show without a hover.
 
 **Calendar**:
 One Teaching Week as a grid of Periods against days, showing which Class is taught when and what
@@ -298,22 +312,32 @@ Blocked Slot recorded on a School Holiday is still a removal. The column reads a
 Holiday's panel. The Blocked Slot's Unblock line sits in that day's menu, like every other act on
 the day. A Blocked Day entered on a School Holiday still reads as the School Holiday in the panel's
 headline. The day's menu still offers Unblock day. The Blocked Day is not hidden.
+The Calendar is the same grid at every size; on a narrower window the tiles give way, not the
+grid. On a phone a tile shows only its Class, and the Lesson title comes back where there is room.
+A tap on a tile opens the Session page. On a phone the week controls are the two arrows around the
+week's letter and date, with Today; the ribbon of weeks and Set up year show only from a tablet up.
+The day's menu shows from a tablet up and not on a phone, because the calendar is not written there.
 
 **Classes**:
 One tone-coloured tile per Class, keyed by Class rather than by time. Each tile carries the
 Class's label, Course and tone, its progress through its Assigned Topics, its current Topic with
-the Lesson queued next inside it, and its Runway; its footer holds Assign next Topic and Open
-Class page, and navigating to the Class page is the label's job — the tile as a whole is not one
-link. A Class is created here, in a dialog opened from this screen. The Runway is shown plainly on
-every tile and is never coloured or flagged: a Class approaching the end of its Assigned Topics is
-the normal condition several times a year, so a threshold warning would be on almost always and
-mean nothing. The Agenda showing Open Slots inside its own horizon is the only alert the
-planner has.
+the Lesson queued next inside it, and its Runway. The tile body is one link to the Class page, as
+on Courses; its footer holds Assign next Topic and Open Class. A Class is created here, in a dialog
+opened from the New Class tile. On a phone the footer keeps only Open Class, and there is no New
+Class tile, because nothing is written there. The Runway is shown plainly on every tile and is
+never coloured or flagged: a Class approaching the end of its Assigned Topics is the normal
+condition several times a year, so a threshold warning would be on almost always and mean
+nothing. The Agenda showing Open Slots inside its own horizon is the only alert the planner has.
 
 **Class page**:
-The single surface for one Class, laid out as a two-column bench: the Slot grid — both weeks
-stacked, at editing density — fills the left column, and a rail beside it holds the Class's
-identity and its Assigned Topics in order. The only place a Class is timetabled. Creating a Class
+The single surface for one Class, in two tabs under the Class's label and Course. Overview, the
+default, leads with the Class's next five Sessions, each opening the Session page, then its
+progress (Last taught with its Session note, Next up, the Runway); beside them stand its Assigned
+Topics in order, whose reorder and Unassign controls show on hover or keyboard focus, and always
+on a touch screen, like every other row control. Timetable holds the "Timetable as at" control and
+the Slot grid, both weeks stacked. The Timetable tab shows, and is written, from a tablet up; a
+phone shows Overview only, with no tabs and no reorder or Unassign. The only place a Class is
+timetabled. Creating a Class
 happens on the Classes screen, which also carries Assign next Topic; the Assigned Topics already
 given are ordered here. There is no screen showing every Class's Timetable at once, because the
 Timetable is only ever read or written one Class at a time. Periods held by another Class carry
@@ -325,47 +349,74 @@ history, so ending one Slot and starting another is ordinary editing rather than
 operation.
 
 **Courses**:
-Where Course content is written. Three panes — Courses, then that Course's Topics, then that
-Topic's Lessons in order — with a new Course, a new Topic and a new Lesson each created by typing
-a name into the foot of its own pane. The only screen that reads or writes Courses, Topics and
-Lessons. Unlike the other three tabs it is a writing surface, and it is where the planner is used
-on a Sunday rather than during a teaching week.
+Where Course content is written. One tile per Course, marked by the Course's Tone as a dot and as
+the colour of its progress bar, with a New Course tile after them; each tile opens a page for that
+Course. The Course page holds the Course's Topics on the left and the chosen Topic's Lessons in
+order on the right. Below a wide laptop window it shows one at a time: the Topics, then the
+chosen Topic's Lessons. A new Topic and a new Lesson are each created by typing a name at the foot
+of its own list. Detach and delete a Lesson are in the Lesson editor only. Import has no control
+here. The only screen that reads or writes Courses, Topics and Lessons. On a phone it is read-only.
+Unlike the other three screens it is a writing surface, and it is where the planner is used on a
+Sunday rather than during a teaching week.
 
 **Planning**:
 The stream of upcoming Lessons by planning status — which are still Draft, which are Planned —
 ordered by soonest next Scheduled occurrence, Lessons with no scheduled occurrence last. Keyed by
 Lesson rather than by Class, so it shows the shared plan and never shows Readiness: what the
 teacher has not yet written is one question, and whether one Class is set to be taught is another.
-The screen can be narrowed to one Class; it then lists only that Class's upcoming Lessons, ordered
-by that Class's Sessions.
+The screen can be narrowed to one Class with a row of Class chips; it then lists only that Class's
+upcoming Lessons, ordered by that Class's Sessions. It is a table, one row per Lesson, holding the
+whole stream with no page size; the window scrolls it. Only the Lesson's title opens the Lesson
+editor. On a phone each row is a card, and Draft and Planned are shown but not changed.
 Note that this names a _screen_; "planning" unqualified means the activity, and the Planning half
 of the Language above names its parts.
 
 **Lesson editor**:
-The single surface for one Lesson — its title, its markdown body, its links, its attachments and
-its Length. Opens as a modal over the Courses view, and steps to the next or previous Lesson in the
-Topic without closing. Distinct from the Session panel: the Lesson editor writes the plan shared
-by every Class, the Session panel writes one Class's occasion.
+The single surface for one Lesson — its title, its markdown body, its links, its attachments, its
+Tags and its Length, and the Detach and delete controls. Every Lesson is written here, a Standalone
+Lesson included, placed or not: to the teacher a Standalone Lesson differs from any other only in
+having no Topic, so its page simply lacks what needs one — the Topic, the stepping and Detach. A
+page of its own, addressed by the Lesson alone, so the same page opens from the Courses view, the
+Planning view and the Session page, and moving the Lesson to another Topic, or Detaching it, keeps
+the teacher on it. It steps to the next or previous Lesson in the Lesson's Topic, in the Topic's
+order, whichever view opened it; stepping stops at either end of the Topic and never crosses into
+another, because a Course holds its Topics in no order. Leaving it — by Back or by deleting the
+Lesson — returns the teacher to the view they came from, or, when there is none, to the Lesson's
+Topic on its Course page, or to the Planning view for a Standalone Lesson. Creating a Lesson does
+not open it. It is written on a laptop or desktop; on a phone it is a read view. Distinct from the
+Session page: the Lesson editor writes the plan shared by every Class, the Session page writes
+one Class's occasion.
 
-**Session panel**:
+**Session page**:
 The single surface for one Session — its Lesson's plan, links and attachments, the note on the
 occasion, and the Continuation control. Attachments here are view-and-download only, like Links.
-For a Topic Lesson the panel never rewrites the shared plan; for a placed Standalone Lesson it
-does — the panel writes that Lesson's title, plan, Length and Draft/Planned mark directly, because
-a Standalone Lesson reaches no Lesson editor (ADR-0022). Opened from any of the three reading
-views; there is no other place a Session is read or written. It opens on an Open Slot too, showing
-no plan and offering the note — a Session is identified by its occasion, not by its Lesson, so a
-Slot carrying no Lesson is still an occasion the teacher may want to write about. Shows the Class's
-Readiness for this Lesson, read-only — the panel describes the exact (Lesson, Class) occasion the
-Agenda row already ticks, so it would otherwise hide a fact its own row displays. No other screen
-shows Readiness.
+The page never rewrites the shared plan, for a Topic Lesson or a placed Standalone Lesson alike;
+it opens the Lesson's own page in the Lesson editor for that. It is where a Lesson is Placed and a
+Placement removed, because those are acts on the occasion, not on the plan. Opened from any of the
+three reading views; there is no other place a Session is read or written. It opens on an Open
+Slot too, showing no plan and offering the note — a Session is identified by its occasion, not by
+its Lesson, so a Slot carrying no Lesson is still an occasion the teacher may want to write about.
+Shows the Class's Readiness for this Lesson, read-only — the page describes the exact (Lesson,
+Class) occasion the Agenda row already ticks, so it would otherwise hide a fact its own row
+displays. No other screen shows Readiness.
+A page of its own, like the Lesson editor, addressed by its occasion: the Class, the date and the
+Period. It does not step to another Session. Leaving it by Back returns the teacher to the view
+they came from, or, when there is none, to the Agenda. On a laptop the plan is on the left and a
+rail on the right holds the note and the acts on the occasion — Needs more time, Place a Lesson
+and Remove placement. Below a laptop it is one column, and once the Session has started the note
+comes before the plan, because on a phone the teacher opens it after the lesson to write the note.
+_Avoid_: Session panel
 
 **Settings**:
-The change-password form and the API key manager, side by side. Reached from a control in the
-header rather than from a tab, so no tab is lit while it is open — a narrow centred column under
-the same page header every screen carries. The only place the password is changed, and changing it
-signs out every other device, which the card says plainly: the forgotten session on a school machine
-is the reason to change a password at all. API keys belong here because they identify the account
+Three cards: Change password, API key and Backup. Reached from a control at the foot of the app
+shell's sidebar rather than from its list of screens, so no screen is lit while it is open. It has
+the shared screen width and title, with no description line. On a laptop, Change password stands on
+the left, and API key and Backup are stacked on the right. Below a laptop it is one column. If
+Settings gets more sections, a list of sections with one section shown at a time is the expected
+next layout. The only place the
+password is changed, and changing it signs out every other device, which the card says plainly: the
+forgotten session on a school machine is the reason to change a password at all. API keys belong
+here because they identify the account
 (the single user), not the calendar model and not any Course — the only other thing that belongs to
 the account and nothing else. Opening the screen mints the key when the database has none, so there
 is no Generate step and no state in which the planner has no key; the card shows the token in full,
@@ -377,7 +428,9 @@ success would read as nothing.
 
 **Login**:
 Where the teacher signs in, and the only way into the planner. Sits outside the app shell: no
-tabs, no header controls, a wordmark above a centred card on the muted ground. It carries an email
+sidebar, no menu, a wordmark above a narrow card on the muted ground. On a phone the card frame and
+the muted ground go, and the form starts at the top of the screen, so the keyboard does not move it.
+It carries an email
 field, a password field and nothing beside them — no third-party sign-in, no link to create an
 account, and no password reset, all three deliberate. There is one account, it is created by Setup
 and nowhere else, and the planner has no way to send email, so the reset link that would normally
@@ -390,8 +443,10 @@ The first-run screen that creates the single account — name, email, password a
 — and then signs the teacher in. It is not merely available before there is an account, it is
 compulsory: every other screen redirects here until one exists, and afterwards Setup itself
 redirects away, so it is passed through exactly once in the planner's life. Shares Login's
-signed-out treatment, outside the app shell. One screen, not a stepped wizard: four fields and a
-confirmation do not earn steps, and stepping them is the one choice here that the end-to-end tests
-cannot survive. That there is no reset link is said on this screen rather than on Login, as small
-print under the password field, because this is where the irreversible choice is actually being
-made.
+signed-out treatment, outside the app shell, flush on a phone as Login is. One screen, not a stepped
+wizard: four fields and a confirmation do not earn steps, and stepping them is the one choice here
+that the end-to-end tests cannot survive. That there is no reset link is said on this screen rather
+than on Login, as small print under the password field, because this is where the irreversible
+choice is actually being made. Restore from a Backup is behind a line under the card, "Moving from
+another planner?", which swaps the card for the Restore form and offers a link back. Its
+instructions sit under the file field, not in a card description.
