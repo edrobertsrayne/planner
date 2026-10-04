@@ -24,6 +24,6 @@
 		{/if}
 	</div>
 	{#if actions}
-		<div class="flex shrink-0 items-center gap-2">{@render actions()}</div>
+		<div class="flex max-w-full flex-wrap items-center gap-2">{@render actions()}</div>
 	{/if}
 </div>
