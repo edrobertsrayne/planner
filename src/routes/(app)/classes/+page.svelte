@@ -1,6 +1,6 @@
 <!--
 	PROTOTYPE ONLY — issue #313 "How should the Classes screen and the Class page lay out at each
-	size?" Four variants, switchable via `?view=A|B|C|D`, inside the chosen app shell (issue #305),
+	size?" Five variants, switchable via `?view=A|B|C|D|E`, inside the chosen app shell (issue #305),
 	at `max-w-6xl` with no description line (issue #316). `?class=<id>` opens the Class page on this
 	route, as the Courses prototype did. Fake data held in memory, from the Planning and Agenda
 	prototypes, so Last taught and the next Sessions open the Session page chosen in issue #311.
@@ -18,7 +18,8 @@
 		{ key: 'A', label: 'The bench, kept' },
 		{ key: 'B', label: 'A list, both weeks side by side' },
 		{ key: 'C', label: 'Overview and Timetable tabs' },
-		{ key: 'D', label: 'One week at a time, by Course' }
+		{ key: 'D', label: 'One week at a time, by Course' },
+		{ key: 'E', label: 'C, with the next Sessions from D' }
 	];
 	const variant = $derived(page.url.searchParams.get('view') ?? 'A');
 </script>
@@ -31,8 +32,10 @@
 	<ClassesB />
 {:else if variant === 'C'}
 	<ClassesC />
-{:else}
+{:else if variant === 'D'}
 	<ClassesD />
+{:else}
+	<ClassesC next />
 {/if}
 
 <PrototypeSwitcher variants={VARIANTS} current={variant} paramName="view" />

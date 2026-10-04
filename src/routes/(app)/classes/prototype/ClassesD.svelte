@@ -13,10 +13,11 @@
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import { classTone } from '$lib/class-tone';
-	import { formatDateShort, formatShortWeekday } from '$lib/date';
+	import { formatDateShort } from '$lib/date';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import AsAt from './AsAt.svelte';
+	import NextSessions from './NextSessions.svelte';
 	import Progress from './Progress.svelte';
 	import SlotList from './SlotList.svelte';
 	import Topics from './Topics.svelte';
@@ -29,7 +30,6 @@
 		classParam,
 		lane,
 		onParam,
-		sessionHref,
 		slotsOf,
 		to,
 		type Week
@@ -118,26 +118,7 @@
 					<h1 class="text-lg font-semibold tracking-tight">{klass.label}</h1>
 					<span class="text-sm text-muted-foreground">{klass.course}</span>
 				</div>
-				<section>
-					<h2 class="mb-1 text-sm font-semibold">Next Sessions</h2>
-					<ul class="divide-y rounded-xl border">
-						{#each lane(klass).upcoming as r (r.key)}
-							<li>
-								<a href={sessionHref(r)} class="flex min-h-12 items-center gap-3 px-3 py-2">
-									<span
-										class="w-24 shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums"
-									>
-										{formatShortWeekday(r.date)} P{r.periodFrom}
-									</span>
-									<span class="min-w-0 flex-1 truncate text-sm">
-										{r.lesson?.title ?? 'Open Slot'}
-									</span>
-									<ChevronRightIcon class="size-4 text-muted-foreground" />
-								</a>
-							</li>
-						{/each}
-					</ul>
-				</section>
+				<NextSessions {klass} />
 				<Progress {klass} />
 				<Topics {klass} controls="none" />
 				<section>

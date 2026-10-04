@@ -7,7 +7,8 @@
 	  taller cells. Each tab fits a laptop window on its own.
 	- Assigned Topics read as a plain list. An Edit button shows the arrows and Unassign, so no
 	  control hides behind hover.
-	- Phone: the same two tabs. Overview reads without Edit; Timetable is the list.
+	- Phone: no Timetable and no tabs (Ed, issue #313). Overview only, read without Edit.
+	- Variant E (`next`): Overview leads with the next five Sessions, from D.
 -->
 <script lang="ts">
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
@@ -19,8 +20,8 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import AsAt from './AsAt.svelte';
+	import NextSessions from './NextSessions.svelte';
 	import Progress from './Progress.svelte';
-	import SlotList from './SlotList.svelte';
 	import Topics from './Topics.svelte';
 	import WeekGrid from './WeekGrid.svelte';
 	import {
@@ -43,6 +44,8 @@
 	const klass = $derived(classById(classParam()));
 	const past = $derived(onParam() < TODAY);
 	let tab = $state<'overview' | 'timetable'>('overview');
+	// Variant E: C with the next five Sessions from D at the head of Overview.
+	let { next = false }: { next?: boolean } = $props();
 </script>
 
 {#snippet dot(tone: number)}
@@ -142,7 +145,8 @@
 			</div>
 		</PageHeader>
 
-		<div class="flex border-b text-sm" role="tablist">
+		<!-- No Timetable on a phone, so no tabs there: the phone shows Overview only. -->
+		<div class="flex border-b text-sm max-md:hidden" role="tablist">
 			{#each [['overview', 'Overview'], ['timetable', 'Timetable']] as [key, name] (key)}
 				<button
 					type="button"
@@ -161,15 +165,20 @@
 			{/each}
 		</div>
 
-		{#if tab === 'overview'}
+		<!-- Overview always shows on a phone, whichever tab was last chosen on a wider window. -->
+		<div class={tab === 'overview' ? '' : 'md:hidden'}>
 			<div class="mt-5 grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-				<div class="rounded-xl border p-4"><Progress {klass} /></div>
+				<div class="min-w-0 space-y-6">
+					{#if next}<NextSessions {klass} />{/if}
+					<div class="rounded-xl border p-4"><Progress {klass} /></div>
+				</div>
 				<div class="max-md:hidden"><Topics {klass} controls="edit" /></div>
 				<div class="md:hidden"><Topics {klass} controls="none" /></div>
 			</div>
-		{:else}
-			<section class="mt-5">
-				<div class="max-md:hidden">
+		</div>
+		{#if tab === 'timetable'}
+			<section class="mt-5 max-md:hidden">
+				<div>
 					<AsAt {klass} />
 					<div class="mt-4 space-y-6">
 						{#each WEEKS as w (w)}<WeekGrid {klass} week={w} readOnly={past} cell="h-9" />{/each}
@@ -189,7 +198,6 @@
 						</div>
 					{/if}
 				</div>
-				<div class="md:hidden"><SlotList {klass} /></div>
 			</section>
 		{/if}
 	</div>
