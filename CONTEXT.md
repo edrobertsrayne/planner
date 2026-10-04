@@ -404,9 +404,12 @@ comes before the plan, because on a phone the teacher opens it after the lesson 
 _Avoid_: Session panel
 
 **Settings**:
-The change-password form and the API key manager, side by side. Reached from a control at the foot
-of the app shell's sidebar rather than from its list of screens, so no screen is lit while it is
-open — a narrow centred column under the same page header every screen carries. The only place the
+Three cards: Change password, API key and Backup. Reached from a control at the foot of the app
+shell's sidebar rather than from its list of screens, so no screen is lit while it is open. It has
+the shared screen width and title, with no description line. On a laptop, Change password stands on
+the left, and API key and Backup are stacked on the right. Below a laptop it is one column. If
+Settings gets more sections, a list of sections with one section shown at a time is the expected
+next layout. The only place the
 password is changed, and changing it signs out every other device, which the card says plainly: the
 forgotten session on a school machine is the reason to change a password at all. API keys belong
 here because they identify the account
@@ -421,7 +424,9 @@ success would read as nothing.
 
 **Login**:
 Where the teacher signs in, and the only way into the planner. Sits outside the app shell: no
-sidebar, no menu, a wordmark above a centred card on the muted ground. It carries an email
+sidebar, no menu, a wordmark above a narrow card on the muted ground. On a phone the card frame and
+the muted ground go, and the form starts at the top of the screen, so the keyboard does not move it.
+It carries an email
 field, a password field and nothing beside them — no third-party sign-in, no link to create an
 account, and no password reset, all three deliberate. There is one account, it is created by Setup
 and nowhere else, and the planner has no way to send email, so the reset link that would normally
@@ -434,8 +439,10 @@ The first-run screen that creates the single account — name, email, password a
 — and then signs the teacher in. It is not merely available before there is an account, it is
 compulsory: every other screen redirects here until one exists, and afterwards Setup itself
 redirects away, so it is passed through exactly once in the planner's life. Shares Login's
-signed-out treatment, outside the app shell. One screen, not a stepped wizard: four fields and a
-confirmation do not earn steps, and stepping them is the one choice here that the end-to-end tests
-cannot survive. That there is no reset link is said on this screen rather than on Login, as small
-print under the password field, because this is where the irreversible choice is actually being
-made.
+signed-out treatment, outside the app shell, flush on a phone as Login is. One screen, not a stepped
+wizard: four fields and a confirmation do not earn steps, and stepping them is the one choice here
+that the end-to-end tests cannot survive. That there is no reset link is said on this screen rather
+than on Login, as small print under the password field, because this is where the irreversible
+choice is actually being made. Restore from a Backup is behind a line under the card, "Moving from
+another planner?", which swaps the card for the Restore form and offers a link back. Its
+instructions sit under the file field, not in a card description.
