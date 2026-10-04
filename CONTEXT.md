@@ -280,7 +280,7 @@ planner opens. The teacher can also turn on the look-back: the Sessions of the p
 shown above today, grouped by day, oldest first. The look-back is off by default and read-only. Its
 span is fixed: the horizon changes only the days ahead. The look-back obeys the Tag filter the same
 way the days ahead do.
-A past row carries no Ready tick. It opens the Session panel on its occasion, where the teacher
+A past row carries no Ready tick. It opens the Session page on its occasion, where the teacher
 reads the note. The past days are told apart from the days ahead by a step in shade, never a hue.
 An Open Slot appears as an ordinary row in its own position, marked as carrying no Lesson, because
 the teacher is teaching that Period and an Agenda that omitted it would report a free one — it
@@ -364,28 +364,35 @@ Tags and its Length, and the Detach and delete controls. Every Lesson is written
 Lesson included, placed or not: to the teacher a Standalone Lesson differs from any other only in
 having no Topic, so its page simply lacks what needs one — the Topic, the stepping and Detach. A
 page of its own, addressed by the Lesson alone, so the same page opens from the Courses view, the
-Planning view and the Session panel, and moving the Lesson to another Topic, or Detaching it, keeps
+Planning view and the Session page, and moving the Lesson to another Topic, or Detaching it, keeps
 the teacher on it. It steps to the next or previous Lesson in the Lesson's Topic, in the Topic's
 order, whichever view opened it; stepping stops at either end of the Topic and never crosses into
 another, because a Course holds its Topics in no order. Leaving it — by Back or by deleting the
 Lesson — returns the teacher to the view they came from, or, when there is none, to the Lesson's
 Topic on its Course page, or to the Planning view for a Standalone Lesson. Creating a Lesson does
 not open it. It is written on a laptop or desktop; on a phone it is a read view. Distinct from the
-Session panel: the Lesson editor writes the plan shared by every Class, the Session panel writes
+Session page: the Lesson editor writes the plan shared by every Class, the Session page writes
 one Class's occasion.
 
-**Session panel**:
+**Session page**:
 The single surface for one Session — its Lesson's plan, links and attachments, the note on the
 occasion, and the Continuation control. Attachments here are view-and-download only, like Links.
-The panel never rewrites the shared plan, for a Topic Lesson or a placed Standalone Lesson alike;
+The page never rewrites the shared plan, for a Topic Lesson or a placed Standalone Lesson alike;
 it opens the Lesson's own page in the Lesson editor for that. It is where a Lesson is Placed and a
 Placement removed, because those are acts on the occasion, not on the plan. Opened from any of the
 three reading views; there is no other place a Session is read or written. It opens on an Open
 Slot too, showing no plan and offering the note — a Session is identified by its occasion, not by
 its Lesson, so a Slot carrying no Lesson is still an occasion the teacher may want to write about.
-Shows the Class's Readiness for this Lesson, read-only — the panel describes the exact (Lesson,
+Shows the Class's Readiness for this Lesson, read-only — the page describes the exact (Lesson,
 Class) occasion the Agenda row already ticks, so it would otherwise hide a fact its own row
 displays. No other screen shows Readiness.
+A page of its own, like the Lesson editor, addressed by its occasion: the Class, the date and the
+Period. It does not step to another Session. Leaving it by Back returns the teacher to the view
+they came from, or, when there is none, to the Agenda. On a laptop the plan is on the left and a
+rail on the right holds the note and the acts on the occasion — Needs more time, Place a Lesson
+and Remove placement. Below a laptop it is one column, and once the Session has started the note
+comes before the plan, because on a phone the teacher opens it after the lesson to write the note.
+_Avoid_: Session panel
 
 **Settings**:
 The change-password form and the API key manager, side by side. Reached from a control at the foot
