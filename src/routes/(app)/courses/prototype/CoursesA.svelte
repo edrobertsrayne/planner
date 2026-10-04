@@ -13,7 +13,6 @@
 	import PageHeader from '$lib/components/page-header.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import CreateInput from './CreateInput.svelte';
-	import ImportButton from './ImportButton.svelte';
 	import InlineName from './InlineName.svelte';
 	import ItemMenu from './ItemMenu.svelte';
 	import LessonRows from './LessonRows.svelte';
@@ -71,9 +70,7 @@
 
 {#if !course}
 	<div class="mx-auto max-w-5xl px-6 py-6">
-		<PageHeader title="Courses" description="Pick a Course to write its Topics and Lessons.">
-			{#snippet actions()}<ImportButton />{/snippet}
-		</PageHeader>
+		<PageHeader title="Courses" description="Pick a Course to write its Topics and Lessons." />
 		<ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 			{#each store.courses as c (c.id)}
 				{@const total = lessonCount(c)}
@@ -162,7 +159,6 @@
 					</div>
 				</div>
 				{#snippet actions()}
-					<ImportButton courseName={course.name} />
 					<ItemMenu
 						label="More for {course.name}"
 						items={[

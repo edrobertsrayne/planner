@@ -1,14 +1,13 @@
 <!--
 	PROTOTYPE ONLY (issue #306): one Topic's Lessons in order. Each title wraps (no truncation)
-	and opens the Lesson editor. Reorder and the ⋯ menu (Detach, delete) show on hover from tablet
-	up; a phone shows the list only. `dense` drops the Tags and status column for narrow hosts.
+	and opens the Lesson editor. Reorder shows on hover from tablet up; Detach and delete live in
+	the Lesson editor only. A phone shows the list only. `dense` drops the Tags and status column.
 -->
 <script lang="ts">
 	import TagChips from '$lib/components/tag-chips.svelte';
 	import CreateInput from './CreateInput.svelte';
-	import ItemMenu from './ItemMenu.svelte';
 	import MoveButtons from './MoveButtons.svelte';
-	import { addLesson, removeAt, to, type Course, type Topic } from './store.svelte';
+	import { addLesson, to, type Course, type Topic } from './store.svelte';
 
 	let {
 		course,
@@ -43,21 +42,6 @@
 				class="flex shrink-0 items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 max-md:hidden"
 			>
 				<MoveButtons list={topic.lessons} index={i} label={lesson.title} />
-				<ItemMenu
-					label="More for {lesson.title}"
-					items={[
-						{
-							label: 'Detach',
-							hint: 'Keep it as a Standalone Lesson',
-							onclick: () => removeAt(topic.lessons, lesson.id)
-						},
-						{
-							label: 'Delete',
-							destructive: true,
-							onclick: () => removeAt(topic.lessons, lesson.id)
-						}
-					]}
-				/>
 			</span>
 		</li>
 	{/each}
