@@ -357,6 +357,69 @@ test.describe('the App shell on a phone', () => {
 	});
 });
 
+test.describe('the Agenda on a phone', () => {
+	// `defaultBrowserType` would force a new worker inside a describe, so take the other fields.
+	const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];
+	test.use({ viewport, userAgent, deviceScaleFactor, isMobile, hasTouch });
+
+	test('the teacher reads the Agenda and ticks Ready on a row (phone flow 2)', async ({ page }) => {
+		await login(page);
+		await expectNoHorizontalScroll(page);
+
+		// The top bar names the screen, so the page heading is hidden below `md` (story 81).
+		await expect(page.getByRole('heading', { level: 1 })).toHaveCount(0);
+
+		// Reading and ticking Ready is all the Agenda takes on a phone: nothing else writes.
+		await expect(page.getByRole('textbox')).toHaveCount(0);
+
+		// The teacher ticks Ready on a row (story 82). On touch the tick's padded label is its 44 px
+		// target and covers the 16 px input, so the tap goes to the label. Each step waits for the
+		// write and a reload, because the write ends by reloading the page data
+		// (teaching-flows.e2e.ts).
+		const tickOf = () =>
+			page
+				.locator('li')
+				.filter({ hasText: '9B/Sc1' })
+				.first()
+				.getByRole('checkbox', { name: /Ready to teach/ });
+		const tick = () =>
+			Promise.all([
+				page.waitForResponse((r) => r.url().includes('setReadiness')),
+				tickOf().locator('xpath=..').click()
+			]);
+		await expect(tickOf()).not.toBeChecked();
+		await tick();
+		await page.reload();
+		await expect(tickOf()).toBeChecked();
+
+		// Put the tick back for the files that follow.
+		await tick();
+		await page.reload();
+		await expect(tickOf()).not.toBeChecked();
+	});
+
+	test('Ready and Plan keep a 44 px target on touch, and Plan shows without a hover', async ({
+		page
+	}) => {
+		await login(page);
+		// 9C/Sc1 gets no Topic assigned, so its Tuesday P3 Slot carries no Lesson and its row
+		// reads Open Slot in every week (teaching-placement.e2e.ts): a horizon that reaches the
+		// next Tuesday always holds one.
+		await page.goto('/?horizon=28');
+		const plan = page
+			.locator('li')
+			.filter({ hasText: 'Open Slot' })
+			.first()
+			.getByRole('link', { name: 'Plan' });
+		await expect(plan).toBeVisible();
+
+		// On touch there is no hover to wait for (story 83): the control shows, muted.
+		await expect(plan).not.toHaveCSS('opacity', '0');
+		await expectHitArea44(page, 'Plan', 'link');
+		await expectHitArea44(page, /Ready to teach/, 'checkbox');
+	});
+});
+
 test.describe('the Lesson editor on a laptop', () => {
 	test.use({ viewport: { width: 1536, height: 750 } });
 
@@ -594,18 +657,28 @@ async function openSessionWithLesson(page: Page): Promise<string> {
 }
 
 // On touch a control keeps its drawn size and gets its 44 px from an invisible ::after (see
-// touch-target.ts), so the box to measure is the larger of the two.
-async function expectHitArea44(page: Page, name: string, role: 'button' | 'link') {
-	const height = await page
+// touch-target.ts), so the box to measure is the larger of the two. A checkbox is tapped through
+// the label that wraps it (ready-tick.svelte), so that label is its hit area.
+async function expectHitArea44(
+	page: Page,
+	name: string | RegExp,
+	role: 'button' | 'link' | 'checkbox'
+) {
+	const box = await page
 		.getByRole(role, { name })
 		.first()
-		.evaluate((el) =>
-			Math.max(
-				el.getBoundingClientRect().height,
-				parseFloat(getComputedStyle(el, '::after').height) || 0
-			)
-		);
-	expect(height).toBeGreaterThanOrEqual(44);
+		.evaluate((el, wrapped) => {
+			const target = wrapped ? (el.closest('label') ?? el) : el;
+			const after = (node: Element, side: 'width' | 'height') =>
+				parseFloat(getComputedStyle(node, '::after')[side]) || 0;
+			const rect = target.getBoundingClientRect();
+			return {
+				width: Math.max(rect.width, after(target, 'width')),
+				height: Math.max(rect.height, after(target, 'height'))
+			};
+		}, role === 'checkbox');
+	expect(box.width).toBeGreaterThanOrEqual(44);
+	expect(box.height).toBeGreaterThanOrEqual(44);
 }
 
 test.describe('the Session page on a phone', () => {

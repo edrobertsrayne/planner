@@ -20,7 +20,7 @@
 	let { data }: PageProps = $props();
 
 	// Each filter sets one parameter and keeps the rest, so a change to the horizon or the
-	// look-back keeps the Tag in the address (withParam, adviser note in docs/backlog.md).
+	// look-back keeps the Tag in the address (withParam, issue #338).
 	function setHorizon(horizon: string | number) {
 		return replaceQuery(withParam(page.url, 'horizon', String(horizon)));
 	}
@@ -49,10 +49,14 @@
 <svelte:head><title>Agenda</title></svelte:head>
 
 <div class="mx-auto max-w-6xl px-6 py-6">
-	<PageHeader title="Agenda">
+	<PageHeader>
+		<!-- The top bar names the screen on a phone, so below `md` the heading goes and the
+		     days start near the top (issue #342). -->
+		<h1 class="hidden text-lg font-semibold tracking-tight md:block">Agenda</h1>
 		{#snippet actions()}
 			<!-- The horizon is tabs at the right of the heading (issue #341), the same tab style as
-			     Draft/Planned on Planning. On a phone PageHeader's wrap puts them under the heading. -->
+			     Draft/Planned on Planning. Below `md` the heading is hidden (issue #342), so the
+			     tabs sit where the heading would. -->
 			<Tabs.Root
 				value={String(data.horizon)}
 				onValueChange={(v) => {

@@ -292,7 +292,8 @@ record, so ticking either moves both. The Agenda can be narrowed to one Tag with
 under the heading, the same control as the Class chips on Planning: while a Tag filter is on, it
 shows only the Lessons with that Tag and hides Open Slots, in the look-back and in the days ahead.
 The Agenda is one column at every size. On a phone it is the main screen, so the Ready tick and an
-Open Slot's Plan button show without a hover.
+Open Slot's Plan button show without a hover. On a phone the page heading is hidden, because the top
+bar names the screen.
 
 **Calendar**:
 One Teaching Week as a grid of Periods against days, showing which Class is taught when and what

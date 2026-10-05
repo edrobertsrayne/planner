@@ -112,9 +112,20 @@ test.describe.serial('Placing and removing a Lesson', () => {
 		await page
 			.getByRole('textbox', { name: 'Notes & objectives' })
 			.fill('Revise the whole unit, past paper Q1-6.');
-		await page.getByRole('textbox', { name: 'Notes & objectives' }).blur();
-		await page.getByRole('radio', { name: 'Planned' }).click();
+		// The plan saves on blur and the status posts on the toggle (ADR-0022). Each write ends
+		// by invalidating the page data, and Back clicked inside that patch is lost (the flake
+		// family in issue #352): each write waits for its response, and the page settles before
+		// Back leaves it.
+		await Promise.all([
+			page.waitForResponse((r) => r.url().includes('updateLesson')),
+			page.getByRole('textbox', { name: 'Notes & objectives' }).blur()
+		]);
+		await Promise.all([
+			page.waitForResponse((r) => r.url().includes('setLessonStatus')),
+			page.getByRole('radio', { name: 'Planned' }).click()
+		]);
 		await expect(page.getByRole('radio', { name: 'Planned' })).toHaveAttribute('data-state', 'on');
+		await page.waitForLoadState('networkidle');
 
 		await page.getByRole('button', { name: 'Back' }).click();
 		await openSessionAndExpect(page);

@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import { replaceQuery } from '$lib/client/enhance';
 	import { formatDate } from '$lib/date';
+	import { withParam } from '$lib/query';
 	import RenameableRow from '$lib/components/renameable-row.svelte';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
@@ -14,7 +16,9 @@
 
 	let { data, form }: PageProps = $props();
 
-	const setAsAt = (date: string) => replaceQuery(`?from=${date}`);
+	// The "Timetable as at" date sets one parameter and keeps the rest, like every filter
+	// (withParam, issue #338).
+	const setAsAt = (date: string) => replaceQuery(withParam(page.url, 'from', date));
 
 	const labelOf = (classId: string) => data.classes.find((c) => c.id === classId)?.label ?? classId;
 
