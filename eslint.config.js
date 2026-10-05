@@ -57,11 +57,7 @@ export default defineConfig(
 	{
 		// Navigation helpers. Each is given a URL that is already built — by its caller, or from
 		// page.url — so there is nothing here for resolve() to be applied to.
-		files: [
-			'src/lib/client/enhance.ts',
-			'src/lib/client/session-panel.svelte.ts',
-			'src/lib/client/back.ts'
-		],
+		files: ['src/lib/client/enhance.ts', 'src/lib/client/back.ts'],
 		rules: {
 			'svelte/no-navigation-without-resolve': 'off'
 		}

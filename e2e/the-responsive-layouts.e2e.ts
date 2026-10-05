@@ -459,3 +459,104 @@ test.describe('Detach on the Lesson editor', () => {
 		await expect(page.getByRole('link', { name: 'Detachable' })).toHaveCount(0);
 	});
 });
+
+// A Session page with a Lesson, opened from the first Agenda row that carries one, the way the
+// teacher opens it. Returns the address, so a test can reload it or open it directly.
+async function openSessionWithLesson(page: Page): Promise<string> {
+	await login(page);
+	const row = page
+		.locator('li')
+		.filter({ has: page.locator('a[href^="/sessions/"]') })
+		.filter({ hasNotText: 'Open Slot' })
+		.first();
+	await row.locator('a[href^="/sessions/"]').first().click();
+	await expect(page.getByLabel('How it went')).toBeVisible();
+	await expect(page.getByRole('link', { name: 'Open in Lesson editor' })).toBeVisible();
+	return new URL(page.url()).pathname;
+}
+
+// On touch a control keeps its drawn size and gets its 44 px from an invisible ::after (see
+// touch-target.ts), so the box to measure is the larger of the two.
+async function expectHitArea44(page: Page, name: string, role: 'button' | 'link') {
+	const height = await page
+		.getByRole(role, { name })
+		.first()
+		.evaluate((el) =>
+			Math.max(
+				el.getBoundingClientRect().height,
+				parseFloat(getComputedStyle(el, '::after').height) || 0
+			)
+		);
+	expect(height).toBeGreaterThanOrEqual(44);
+}
+
+test.describe('the Session page on a phone', () => {
+	const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];
+	test.use({ viewport, userAgent, deviceScaleFactor, isMobile, hasTouch });
+
+	test('fits the width, puts the note first once started, and has 44 px targets', async ({
+		page
+	}) => {
+		const path = await openSessionWithLesson(page);
+		await expectNoHorizontalScroll(page);
+
+		const date = path.split('/')[3];
+		const started = date <= new Date().toISOString().slice(0, 10);
+		const note = await page.locator('[data-note]').boundingBox();
+		const plan = await page.locator('[data-plan]').boundingBox();
+		expect(note && plan && (started ? note.y < plan.y : plan.y < note.y)).toBe(true);
+
+		await expectHitArea44(page, 'Back', 'button');
+		await expectHitArea44(page, 'Open in Lesson editor', 'link');
+		await expectHitArea44(page, 'Needs more time', 'button');
+	});
+
+	test('writes a Session note that a reload keeps', async ({ page }) => {
+		await openSessionWithLesson(page);
+		const text = `Phone note ${Date.now()}`;
+		const field = page.getByLabel('How it went');
+		await field.click();
+		await field.pressSequentially(text);
+		// The note saves on leaving the page, so go Back and return to it.
+		await page.getByRole('button', { name: 'Back' }).click();
+		await expect(page).toHaveURL('/');
+		await page.goForward();
+		await page.reload();
+		await expect(page.getByLabel('How it went')).toHaveText(text);
+	});
+});
+
+for (const [name, viewport] of [
+	['tablet portrait', { width: 800, height: 1180 }],
+	['tablet landscape', { width: 1280, height: 800 }]
+] as const) {
+	test.describe(`the Session page on a ${name}`, () => {
+		test.use({ viewport, hasTouch: true });
+
+		test('fits the width', async ({ page }) => {
+			await openSessionWithLesson(page);
+			await expectNoHorizontalScroll(page);
+		});
+	});
+}
+
+test.describe('the Session page on a laptop', () => {
+	test.use({ viewport: { width: 1536, height: 750 } });
+
+	test('a reload keeps it, Back with nothing behind goes to the Agenda, and the Lesson editor opens', async ({
+		page
+	}) => {
+		const path = await openSessionWithLesson(page);
+		await page.reload();
+		await expect(page).toHaveURL(path);
+		await expect(page.getByLabel('How it went')).toBeVisible();
+
+		await page.getByRole('link', { name: 'Open in Lesson editor' }).click();
+		await expectLessonPage(page);
+
+		// Opened directly there is no page behind it.
+		await page.goto(path);
+		await page.getByRole('button', { name: 'Back' }).click();
+		await expect(page).toHaveURL('/');
+	});
+});

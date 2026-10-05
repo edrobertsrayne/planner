@@ -361,11 +361,11 @@ test.describe.serial('the Calendar setup mode', () => {
 			await page.goto(`/calendar?week=${plusDays(monday, offset)}`);
 			// Monday P1 is 9B/Sc1's Slot, and 9C/Sc1 tiles Tuesdays in both letters — so the
 			// probe is the one cell the test acts on, not any tile on the page.
-			if ((await cell.locator('[data-session-trigger]').count()) > 0) break;
+			if ((await cell.locator('a[href^="/sessions/"]').count()) > 0) break;
 		}
 		// One of the two weeks carries the Slots' letter; if neither does, fail here, at the
 		// cause, not later in a menu that never opens.
-		await expect(cell.locator('[data-session-trigger]')).toBeVisible();
+		await expect(cell.locator('a[href^="/sessions/"]')).toBeVisible();
 
 		await openDayMenu('Mon');
 		await page.getByRole('menuitem', { name: '9B/Sc1, P1…' }).click();
@@ -403,7 +403,7 @@ test.describe.serial('the Calendar setup mode', () => {
 		// undone, leaving no Blocked Slot and no Blocked Day behind.
 		await unblockDayFromHeader('Mon');
 		await expect(cell).not.toContainText('Assembly');
-		await expect(cell.locator('[data-session-trigger]')).toHaveCount(1);
+		await expect(cell.locator('a[href^="/sessions/"]')).toHaveCount(1);
 	});
 
 	test('a refused note stays in the form, and the corrected one blocks', async () => {
@@ -415,9 +415,9 @@ test.describe.serial('the Calendar setup mode', () => {
 			await page.goto(`/calendar?week=${plusDays(monday, offset)}`);
 			// Monday P1 is 9B/Sc1's Slot, and 9C/Sc1 tiles Tuesdays in both letters — so the
 			// probe is the one cell the test acts on, not any tile on the page.
-			if ((await cell.locator('[data-session-trigger]').count()) > 0) break;
+			if ((await cell.locator('a[href^="/sessions/"]').count()) > 0) break;
 		}
-		await expect(cell.locator('[data-session-trigger]')).toBeVisible();
+		await expect(cell.locator('a[href^="/sessions/"]')).toBeVisible();
 		const note = page.getByRole('textbox', { name: 'Block 9B/Sc1, P1' });
 
 		// A pick is for the week it was made in: walking to the neighbouring week and back
@@ -454,7 +454,7 @@ test.describe.serial('the Calendar setup mode', () => {
 		await openDayMenu('Mon');
 		await page.getByRole('menuitem', { name: 'Unblock 9B/Sc1, P1' }).click();
 		await expect(cell).not.toContainText('Cover');
-		await expect(cell.locator('[data-session-trigger]')).toHaveCount(1);
+		await expect(cell.locator('a[href^="/sessions/"]')).toHaveCount(1);
 	});
 
 	test('cancel returns to the week the teacher was on with nothing saved', async () => {

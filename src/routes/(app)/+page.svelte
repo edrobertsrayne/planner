@@ -2,7 +2,7 @@
 	import { classTone } from '$lib/class-tone';
 	import { formatWeekday } from '$lib/date';
 	import { replaceQuery } from '$lib/client/enhance';
-	import { openSession } from '$lib/client/session-panel.svelte';
+	import { sessionHref } from '$lib/client/session-href';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import TagChips from '$lib/components/tag-chips.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -30,8 +30,8 @@
 		return replaceQuery(`?horizon=${horizon}${tagPart}${lookBackOn ? '&past=1' : ''}`);
 	}
 
-	function openOccasion(row: (typeof data.rows)[number]) {
-		openSession({ classId: row.classId, date: row.date, period: row.periodFrom });
+	function hrefOf(row: (typeof data.rows)[number]) {
+		return sessionHref({ classId: row.classId, date: row.date, period: row.periodFrom });
 	}
 
 	const days = $derived(groupByDay(filterByTag(data.rows, data.tag)));
@@ -104,11 +104,10 @@
 				{row.classLabel}
 			</span>
 
-			<button
-				type="button"
-				data-session-trigger
+			<!-- eslint-disable svelte/no-navigation-without-resolve -- sessionHref resolves it -->
+			<a
+				href={hrefOf(row)}
 				class="min-w-0 flex-1 py-3 text-left outline-none focus-visible:underline"
-				onclick={() => openOccasion(row)}
 			>
 				{#if row.lesson}
 					<span class="block truncate text-sm font-medium">{row.lesson.title}</span>
@@ -121,19 +120,13 @@
 				{:else}
 					<span class="block text-sm text-muted-foreground italic">Open Slot</span>
 				{/if}
-			</button>
+			</a>
+			<!-- eslint-enable svelte/no-navigation-without-resolve -->
 
 			<!-- A past row carries no Ready tick: Readiness is written ahead only. -->
 			{#if !row.lesson}
-				<Button
-					variant="ghost"
-					size="sm"
-					class="h-7 row-control"
-					data-session-trigger
-					onclick={() => openOccasion(row)}
-				>
-					Plan
-				</Button>
+				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- sessionHref resolves it -->
+				<Button variant="ghost" size="sm" class="h-7 row-control" href={hrefOf(row)}>Plan</Button>
 			{:else if !past}
 				<ReadyTick
 					lessonId={row.lesson.id}

@@ -32,15 +32,15 @@ async function login(page: Page, email: string, password: string) {
 }
 
 async function openSessionAndExpect(page: Page) {
-	await expect(page.getByRole('button', { name: 'Close Session' })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Back' })).toBeVisible();
 	await expect(page.getByLabel('How it went')).toBeVisible();
 }
 
 async function expectSessionClosed(page: Page) {
-	await expect(page.getByRole('button', { name: 'Close Session' })).toBeHidden();
+	await expect(page.getByRole('button', { name: 'Back' })).toBeHidden();
 }
 
-test.describe.serial('the rebuilt reading views and their Session panel', () => {
+test.describe.serial('the rebuilt reading views and their Session page', () => {
 	let page: Page;
 	let classAId = '';
 	let classBId = '';
@@ -171,64 +171,42 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		await expect(page).toHaveURL(/\/courses\?course=.*&topic=/);
 	});
 
-	test('opening a Session from the Agenda, and dismissing it by the close button', async () => {
+	test('opening a Session from the Agenda, and going Back to the Agenda', async () => {
 		await page.goto('/');
 		const row = page.locator('li').filter({ hasText: '9B/Sc1' }).first();
-		await row.getByRole('button').first().click();
+		await row.getByRole('link').first().click();
 
 		await openSessionAndExpect(page);
-		await expect(page.locator('[data-session-panel]')).toContainText('9B/Sc1');
+		await expect(page.locator('main')).toContainText('9B/Sc1');
 
-		await page.getByRole('button', { name: 'Close Session' }).click();
+		await page.getByRole('button', { name: 'Back' }).click();
 		await expectSessionClosed(page);
 	});
 
-	test('opening a Session from the Calendar, and dismissing it by Escape', async () => {
+	test('opening a Session from the Calendar, and going Back to the Calendar', async () => {
 		// An upcoming Open Slot, not a past one. 9C/Sc1's Slot is Tuesday P3 in both letters, so
 		// load the week of the next Tuesday: this week's grid early in the week, next week's from
 		// Wednesday on.
 		const tuesday = (2 - new Date().getUTCDay() + 7) % 7;
 		await page.goto(`/calendar?week=${isoDate(tuesday - 1)}`);
-		await page.getByRole('button', { name: '9C/Sc1 Open Slot' }).click();
+		await page.getByRole('link', { name: '9C/Sc1 Open Slot' }).click();
 		await openSessionAndExpect(page);
-		await expect(page.locator('[data-session-panel]')).toContainText('9C/Sc1');
+		await expect(page.locator('main')).toContainText('9C/Sc1');
 
-		await page.keyboard.press('Escape');
+		await page.getByRole('button', { name: 'Back' }).click();
 		await expectSessionClosed(page);
 	});
 
-	test('opening a Session from the Class page, and dismissing it by clicking away', async () => {
+	test('opening a Session from the Class page, and going Back to the Class page', async () => {
 		await page.goto(`/classes/${classAId}`);
-		await page.getByRole('button', { name: 'Speed' }).click();
+		await page.getByRole('link', { name: 'Speed' }).click();
 
 		await openSessionAndExpect(page);
-		await expect(page.locator('[data-session-panel]')).toContainText('Speed');
+		await expect(page.locator('main')).toContainText('Speed');
 
-		await page.getByRole('heading', { name: '9B/Sc1' }).click();
+		await page.getByRole('button', { name: 'Back' }).click();
 		await expectSessionClosed(page);
-	});
-
-	test('clicking a second Agenda row switches the Session rather than closing and reopening it', async () => {
-		await page.goto('/');
-		await page
-			.locator('li')
-			.filter({ hasText: '9B/Sc1' })
-			.first()
-			.getByRole('button')
-			.first()
-			.click();
-		await expect(page.locator('[data-session-panel]')).toContainText('9B/Sc1');
-
-		await page
-			.locator('li')
-			.filter({ hasText: '9C/Sc1' })
-			.first()
-			.getByRole('button')
-			.first()
-			.click();
-		await expect(page.locator('[data-session-panel]')).toContainText('9C/Sc1');
-		// Never dropped out of view between the two clicks.
-		await expect(page.getByRole('button', { name: 'Close Session' })).toBeVisible();
+		await expect(page).toHaveURL(`/classes/${classAId}`);
 	});
 
 	test('a note typed and then dismissed is present on reopen', async () => {
@@ -239,7 +217,7 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 			.locator('li')
 			.filter({ hasText: '9C/Sc1' })
 			.first()
-			.getByRole('button')
+			.getByRole('link')
 			.first()
 			.click();
 		await openSessionAndExpect(page);
@@ -247,14 +225,14 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		await noteField.click();
 		await noteField.pressSequentially(note);
 
-		await page.keyboard.press('Escape');
+		await page.getByRole('button', { name: 'Back' }).click();
 		await expectSessionClosed(page);
 
 		await page
 			.locator('li')
 			.filter({ hasText: '9C/Sc1' })
 			.first()
-			.getByRole('button')
+			.getByRole('link')
 			.first()
 			.click();
 		await expect(page.getByLabel('How it went')).toHaveText(note);
@@ -455,19 +433,17 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		await expect(page.getByRole('button', { name: 'Filter by Class' })).toHaveText('All classes');
 	});
 
-	test('a tagged Lesson shows its chip on the Agenda and Session panel, and click-through from the Calendar', async () => {
+	test('a tagged Lesson shows its chip on the Agenda and Session page, and click-through from the Calendar', async () => {
 		// Motion (9B/Sc1's next scheduled Lesson, carrying the Practical Tag attached above) is
 		// this Class's row both on the Agenda and on the current week's Calendar grid.
 		await page.goto('/');
 		const agendaRow = page.locator('li').filter({ hasText: '9B/Sc1' }).first();
 		await expect(agendaRow.getByText('Practical', { exact: true })).toBeVisible();
 
-		await agendaRow.getByRole('button').first().click();
+		await agendaRow.getByRole('link').first().click();
 		await openSessionAndExpect(page);
-		await expect(
-			page.locator('[data-session-panel]').getByText('Practical', { exact: true })
-		).toBeVisible();
-		await page.keyboard.press('Escape');
+		await expect(page.locator('main').getByText('Practical', { exact: true })).toBeVisible();
+		await page.getByRole('button', { name: 'Back' }).click();
 		await expectSessionClosed(page);
 
 		// The Calendar tile itself carries no Tag — only the click-through does. Pinned to the same
@@ -477,17 +453,12 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		const day = new Date().getUTCDay();
 		const mondayOffset = day === 0 ? 1 : day === 6 ? 2 : 1 - day;
 		await page.goto(`/calendar?week=${isoDate(mondayOffset)}`);
-		const tile = page
-			.getByRole('button')
-			.filter({ hasText: '9B/Sc1' })
-			.filter({ hasText: 'Motion' });
+		const tile = page.getByRole('link').filter({ hasText: '9B/Sc1' }).filter({ hasText: 'Motion' });
 		await expect(tile.getByText('Practical', { exact: true })).toBeHidden();
 		await tile.click();
 		await openSessionAndExpect(page);
-		await expect(
-			page.locator('[data-session-panel]').getByText('Practical', { exact: true })
-		).toBeVisible();
-		await page.keyboard.press('Escape');
+		await expect(page.locator('main').getByText('Practical', { exact: true })).toBeVisible();
+		await page.getByRole('button', { name: 'Back' }).click();
 		await expectSessionClosed(page);
 	});
 
@@ -512,11 +483,11 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		const reloadedCheckbox = reloadedRow.getByRole('checkbox', { name: /Ready to teach/ });
 		await expect(reloadedCheckbox).toBeChecked();
 
-		// Open the Session and verify that the Session panel shows Ready read-only
-		await reloadedRow.getByRole('button').first().click();
+		// Open the Session and verify that the Session page shows Ready read-only
+		await reloadedRow.getByRole('link').first().click();
 		await openSessionAndExpect(page);
-		await expect(page.locator('[data-session-panel]')).toContainText('Ready');
-		await page.getByRole('button', { name: 'Close Session' }).click();
+		await expect(page.locator('main')).toContainText('Ready');
+		await page.getByRole('button', { name: 'Back' }).click();
 		await expectSessionClosed(page);
 
 		// Untick Ready and verify
@@ -586,7 +557,7 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 
 		await page.goto(`/calendar?week=${monday}`);
 		// The beforeAll Session ten days back can fall in this week too: either tile is past.
-		const tile = page.locator('[data-session-trigger]').filter({ hasText: 'Speed' }).first();
+		const tile = page.locator('a[href^="/sessions/"]').filter({ hasText: 'Speed' }).first();
 		await expect(tile).toBeVisible();
 		await expect(tile).toContainText('9B/Sc1');
 		await expect(tile).toContainText('Forces');
@@ -595,9 +566,9 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 
 		await tile.click();
 		await openSessionAndExpect(page);
-		await expect(page.locator('[data-session-panel]')).toContainText('9B/Sc1');
-		await expect(page.locator('[data-session-panel]')).toContainText('Speed');
-		await page.keyboard.press('Escape');
+		await expect(page.locator('main')).toContainText('9B/Sc1');
+		await expect(page.locator('main')).toContainText('Speed');
+		await page.getByRole('button', { name: 'Back' }).click();
 		await expectSessionClosed(page);
 
 		runFixture('unmark-taught', classAId, monday, '4');
@@ -685,13 +656,13 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		await expect(pastToggle).toHaveAttribute('aria-pressed', 'false');
 		await expect(lookBack).toHaveCount(0);
 
-		// A past row opens the Session panel on that occasion, with its note.
+		// A past row opens the Session page on that occasion, with its note.
 		await page.goto('/?past=1');
-		await pastRows.nth(0).getByRole('button').first().click();
+		await pastRows.nth(0).getByRole('link').first().click();
 		await openSessionAndExpect(page);
-		await expect(page.locator('[data-session-panel]')).toContainText('9B/Sc1');
+		await expect(page.locator('main')).toContainText('9B/Sc1');
 		await expect(page.getByLabel('How it went')).toHaveText(note);
-		await page.keyboard.press('Escape');
+		await page.getByRole('button', { name: 'Back' }).click();
 		await expectSessionClosed(page);
 
 		// A noted past Session left behind would show in the Term save report of the-calendar-setup.

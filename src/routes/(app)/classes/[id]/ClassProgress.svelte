@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { openSession } from '$lib/client/session-panel.svelte';
+	import { sessionHref } from '$lib/client/session-href';
 	import Markdown from '$lib/components/markdown.svelte';
 	import { formatDate } from '$lib/date';
 	import type { ClassLane } from '$lib/server/planner';
@@ -28,14 +28,14 @@
 			<dd>
 				{#if lane.lastTaught}
 					{@const lt = lane.lastTaught}
-					<button
-						type="button"
-						data-session-trigger
+					<!-- eslint-disable svelte/no-navigation-without-resolve -- sessionHref resolves it -->
+					<a
+						href={sessionHref({ classId, date: lt.date, period: lt.period })}
 						class="text-left font-medium hover:underline"
-						onclick={() => openSession({ classId, date: lt.date, period: lt.period })}
 					>
 						{lt.title}
-					</button>
+					</a>
+					<!-- eslint-enable svelte/no-navigation-without-resolve -->
 					{#if lt.note}<Markdown
 							source={lt.note}
 							class="mt-0.5 text-xs text-muted-foreground"

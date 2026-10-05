@@ -11,17 +11,11 @@
 	import * as Sheet from '$lib/components/ui/sheet';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { Toaster } from '$lib/components/ui/sonner';
-	import { selectedOccasion } from '$lib/client/session-panel.svelte';
 	import SearchRoom from './SearchRoom.svelte';
-	import SessionPanel from './SessionPanel.svelte';
 	import { SCREENS, isActive, screenTitle, settingsOpen } from './nav';
 	import type { LayoutProps } from './$types';
 
 	let { children, data }: LayoutProps = $props();
-
-	// The panel is open exactly while the URL carries a Session (issue #88), so it survives a
-	// reload and Back closes it; the layout renders it once, beside whichever screen is open.
-	const occasion = $derived(selectedOccasion());
 
 	let drawerOpen = $state(false);
 
@@ -178,9 +172,6 @@
 				<div class="min-w-0 flex-1">
 					{@render children()}
 				</div>
-				{#if occasion}
-					<SessionPanel {occasion} />
-				{/if}
 			</main>
 		</div>
 	</div>

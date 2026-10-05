@@ -1,10 +1,9 @@
 <script lang="ts">
-	import { invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { toast } from 'svelte-sonner';
-	import { formatWeekday } from '$lib/date';
+	import { formatWeekday, today } from '$lib/date';
 	import { formatSize } from '$lib/format-size';
-	import type { Occasion } from '$lib/client/session-panel.svelte';
+	import type { Occasion } from '$lib/client/session-href';
 	import { createSessionNotes } from '$lib/client/session-note';
 	import type {
 		AtRiskSession,
@@ -18,18 +17,20 @@
 	import TagChips from '$lib/components/tag-chips.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import { Separator } from '$lib/components/ui/separator';
 	import Markdown from '$lib/components/markdown.svelte';
 	import MarkdownEditor from '$lib/components/markdown-editor.svelte';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.js';
 
-	// The one body every entry point renders (issue #88): plan first — the Lesson is the subject —
-	// with "How it went" beneath it.
+	// The Session page's body. The occasion comes from the page's address, so the page remounts
+	// the body for another Session and no state carries over.
 	let { occasion }: { occasion: Occasion } = $props();
 
+	// A Session that has started — today or earlier — puts the note before the plan on a phone.
+	const started = $derived(occasion.date <= today());
+
 	// The note's persistence rules (issue #89) live in the module; here they meet the exits.
-	// Every dismissal — click-away, Escape, ✕, Back, switching Session — unmounts the panel or
-	// re-runs the effect below, so the effect cleanup is the one flush point for them all;
+	// Every exit — Back, a link out, switching Session — unmounts the body or re-runs the effect
+	// below, so the effect cleanup is the one flush point for them all;
 	// closing the tab has no Svelte hook, so pagehide covers it. None of them waits for the
 	// write, and there is no unsaved-changes prompt anywhere.
 	const notes = createSessionNotes({
@@ -51,6 +52,7 @@
 	});
 
 	let detail = $state<SessionDetail | null>(null);
+	let missing = $state(false);
 	let note = $state('');
 	let continuing = $state(false);
 	let continuationError = $state<string | null>(null);
@@ -69,7 +71,7 @@
 	let planPlacementsMoved = $state<PlacementMoved[]>([]);
 
 	// Mirrors a fetched Lesson onto the plan-editing fields (issue: placed-Lesson editing). Runs
-	// after every fetch that can carry a Lesson, so the panel — not just the Place-a-Lesson flow —
+	// after every fetch that can carry a Lesson, so the page — not just the Place-a-Lesson flow —
 	// always edits the Lesson actually on screen. A no-op for an Open Slot or a Topic Lesson: the
 	// fields exist only to seed the placed-Lesson editor below.
 	function syncPlanFields(d: SessionDetail) {
@@ -84,6 +86,7 @@
 		const { classId, date, period } = occasion;
 		let current = true;
 		detail = null;
+		missing = false;
 		continuing = false;
 		continuationError = null;
 		continuationAtRisk = [];
@@ -100,7 +103,10 @@
 		planError = null;
 		planPlacementsMoved = [];
 		fetch(`/session?classId=${encodeURIComponent(classId)}&date=${date}&period=${period}`)
-			.then((r) => r.json())
+			.then((r) => {
+				if (!r.ok) throw new Error(`Load failed: ${r.status}`);
+				return r.json();
+			})
 			.then((d: SessionDetail) => {
 				// A later click on a different Session can resolve before this one — only apply the
 				// response if it's still the occasion this effect was fetching for.
@@ -110,8 +116,9 @@
 				syncPlanFields(d);
 			})
 			.catch(() => {
-				// The panel has nothing to show without its Session; a silent miss beats an
-				// unhandled rejection. Any draft still waits in storage for a better reconnect.
+				// Nothing to show without the Session. Any draft still waits in storage for a
+				// better reconnect.
+				if (current) missing = true;
 			});
 		return () => {
 			current = false;
@@ -143,7 +150,6 @@
 				continuing = false;
 				continuationAtRisk = d.atRisk;
 				continuationPlacementsMoved = d.placementsMoved;
-				invalidateAll();
 			})
 			.catch((e: Error) => {
 				if (target !== occasion) return;
@@ -173,7 +179,6 @@
 				syncPlanFields(d);
 				placing = false;
 				placeTitle = '';
-				invalidateAll();
 			})
 			.catch((e: Error) => {
 				if (target !== occasion) return;
@@ -202,7 +207,6 @@
 				detail = d;
 				syncPlanFields(d);
 				removingPlacement = false;
-				invalidateAll();
 			})
 			.catch((e: Error) => {
 				if (target !== occasion) return;
@@ -213,7 +217,7 @@
 
 	// Writes a placed Standalone Lesson's title, plan, Length and Draft/Planned mark, one field at
 	// a time (issue: placed-Lesson editing). A Topic Lesson's plan has no editor here — it reaches
-	// no Lesson editor either, but rewriting it from the Session panel would rewrite what every
+	// no Lesson editor either, but rewriting it from the Session page would rewrite what every
 	// other Class assigned the Topic shares (ADR-0022). `report.placementsMoved` renders the same
 	// alert a Continuation's Length change already does: a Length increase can push this or
 	// another Placement off its anchor.
@@ -241,10 +245,6 @@
 				detail = d;
 				syncPlanFields(d);
 				planPlacementsMoved = d.report.placementsMoved;
-				// The Calendar tile behind this panel shows the Lesson's title and, on a Length
-				// change, may shift which Slots hold it — neither the plan body nor the Draft/Planned
-				// mark appears there, so only these two fields are worth the reload.
-				if ('title' in fields || 'length' in fields) invalidateAll();
 			})
 			.catch((e: Error) => {
 				if (target !== occasion) return;
@@ -253,240 +253,263 @@
 	}
 </script>
 
-<div class="flex items-center gap-2">
+<div class="flex flex-wrap items-center gap-2">
 	{#if detail}<Badge variant="outline">{detail.classLabel}</Badge>{/if}
 	<span class="text-xs text-muted-foreground">
 		{formatWeekday(occasion.date)} · P{occasion.period}
 	</span>
 	{#if detail?.ready !== null && detail?.ready !== undefined}
-		<Badge variant="outline" class="ml-auto text-xs {detail.ready ? '' : 'text-muted-foreground'}">
+		<Badge variant="outline" class="text-xs {detail.ready ? '' : 'text-muted-foreground'}">
 			{detail.ready ? 'Ready' : 'Not ready'}
 		</Badge>
 	{/if}
 </div>
 
 {#if detail}
-	<Separator class="my-4" />
-
-	{#if detail.lesson}
-		{#if detail.placement}
-			<Input
-				class="h-9 text-lg leading-snug font-semibold"
-				aria-label="Lesson title"
-				value={planTitle}
-				oninput={(e) => (planTitle = e.currentTarget.value)}
-				onblur={() => {
-					const title = planTitle.trim();
-					if (!title) {
-						planTitle = detail?.lesson?.title ?? '';
-						return;
-					}
-					if (title !== detail?.lesson?.title) patchLesson({ title });
-				}}
-			/>
-			<p class="mt-1 text-xs text-muted-foreground">Standalone Lesson · Placed</p>
-		{:else}
-			<h2 class="text-lg leading-snug font-semibold">{detail.lesson.title}</h2>
-			{#if detail.lesson.topicName}
-				<p class="mt-1 text-xs text-muted-foreground">{detail.lesson.topicName}</p>
-			{/if}
-		{/if}
-		<TagChips tags={detail.lesson.tags} class="mt-2" />
-		{#if detail.placement}
-			{#key detail.lesson.id}
-				<MarkdownEditor
-					value={planBody}
-					label="Plan"
-					placeholder="Objectives, what to set up…"
-					class="mt-4"
-					onchange={(markdown) => (planBody = markdown)}
-					onblur={() => {
-						if (planBody !== (detail?.lesson?.body ?? '')) patchLesson({ body: planBody || null });
-					}}
-				/>
-			{/key}
-			<div class="mt-3 flex flex-wrap items-center gap-3">
-				<ToggleGroup.Root
-					type="single"
-					variant="outline"
-					size="sm"
-					value={planStatus}
-					onValueChange={(v) => {
-						if (v && v !== planStatus) {
-							planStatus = v as LessonStatus;
-							patchLesson({ status: planStatus });
-						}
-					}}
-				>
-					<ToggleGroup.Item value="draft">Draft</ToggleGroup.Item>
-					<ToggleGroup.Item value="planned">Planned</ToggleGroup.Item>
-				</ToggleGroup.Root>
-				<label class="flex items-center gap-1.5">
-					<span class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-						Length
-					</span>
+	<div class="mt-4 flex flex-wrap items-start justify-between gap-3">
+		<div class="min-w-0 flex-1">
+			{#if detail.lesson}
+				{#if detail.placement}
 					<Input
-						type="number"
-						min="1"
-						class="h-7 w-16"
-						value={planLength}
-						onchange={(e) => {
-							const length = Number(e.currentTarget.value);
-							if (Number.isInteger(length) && length >= 1 && length !== planLength) {
-								planLength = length;
-								patchLesson({ length });
-							} else {
-								e.currentTarget.value = String(planLength);
+						class="h-9 text-lg leading-snug font-semibold"
+						aria-label="Lesson title"
+						value={planTitle}
+						oninput={(e) => (planTitle = e.currentTarget.value)}
+						onblur={() => {
+							const title = planTitle.trim();
+							if (!title) {
+								planTitle = detail?.lesson?.title ?? '';
+								return;
 							}
+							if (title !== detail?.lesson?.title) patchLesson({ title });
 						}}
 					/>
-					<span class="text-xs text-muted-foreground">Periods</span>
-				</label>
-			</div>
-			{#if planError}
-				<p class="mt-1.5 text-xs text-destructive">{planError}</p>
-			{/if}
-			{#if planPlacementsMoved.length > 0}
-				<div class="mt-3">
-					<PlacementsMovedAlert placementsMoved={planPlacementsMoved} />
-				</div>
-			{/if}
-		{:else if detail.lesson.body}
-			<Markdown source={detail.lesson.body} class="mt-4" />
-		{:else}
-			<p class="mt-4 text-sm text-muted-foreground italic">
-				No plan written yet — a title alone is a complete Lesson.
-			</p>
-		{/if}
-
-		{#if detail.lesson.links.length}
-			<ul class="mt-4 space-y-1">
-				{#each detail.lesson.links as link (link.id)}
-					<li>
-						<a
-							href={link.url}
-							target="_blank"
-							rel="noopener noreferrer"
-							class="text-sm underline underline-offset-4">{link.label}</a
-						>
-					</li>
-				{/each}
-			</ul>
-		{/if}
-
-		{#if detail.lesson.attachments.length}
-			<ul class="mt-2 space-y-1">
-				{#each detail.lesson.attachments as attachment (attachment.id)}
-					<li class="flex items-baseline gap-2 text-sm">
-						<a
-							href={resolve('/attachments/[id]', { id: attachment.id })}
-							class="min-w-0 flex-1 truncate underline underline-offset-4"
-						>
-							{attachment.filename}
-						</a>
-						<span class="shrink-0 font-mono text-[10px] text-muted-foreground">
-							{formatSize(attachment.size)}
-						</span>
-					</li>
-				{/each}
-			</ul>
-		{/if}
-
-		<div class="mt-5">
-			<Button variant="outline" size="sm" disabled={continuing} onclick={markContinuation}>
-				{continuing ? 'Marking…' : 'Needs more time'}
-			</Button>
-			<p class="mt-1.5 text-xs text-muted-foreground">
-				Widens this Lesson onto the Class's next Available Slot.
-			</p>
-			{#if continuationError}
-				<p class="mt-1 text-xs text-destructive">{continuationError}</p>
-			{/if}
-			{#if continuationAtRisk.length > 0}
-				<div class="mt-3">
-					<AtRiskAlert atRisk={continuationAtRisk} />
-				</div>
-			{/if}
-			{#if continuationPlacementsMoved.length > 0}
-				<div class="mt-3">
-					<PlacementsMovedAlert placementsMoved={continuationPlacementsMoved} />
-				</div>
-			{/if}
-		</div>
-	{:else}
-		<h2 class="text-lg font-semibold text-muted-foreground italic">Open Slot</h2>
-		<p class="mt-1 text-xs text-muted-foreground">No Lesson planned for this occasion.</p>
-	{/if}
-
-	<!-- One card, on an Open Slot and on an occasion a Topic Lesson already holds alike (issue
-	     #256) — a Placement claims its Slot ahead of the Topic stream, so the Lesson there and
-	     every Lesson after it shift right. `canPlace` (sessions.ts) is the whole gate: future or
-	     today, and no Placement anchored here already. -->
-	{#if detail.canPlace}
-		<div class="mt-4 rounded-lg border border-dashed p-3">
-			<h3 class="text-sm font-semibold">Place a Lesson</h3>
-			<p class="mt-1 text-xs text-muted-foreground">
-				A Lesson with no Topic, scheduled directly on this occasion. It will not be part of
-				{detail.classLabel}'s Course sequence.
-				{#if detail.lesson}
-					{detail.lesson.title} and every Lesson after it move to the next Available Slots.
+					<p class="mt-1 text-xs text-muted-foreground">Standalone Lesson · Placed</p>
+				{:else}
+					<h2 class="text-lg leading-snug font-semibold">{detail.lesson.title}</h2>
+					{#if detail.lesson.topicName}
+						<p class="mt-1 text-xs text-muted-foreground">{detail.lesson.topicName}</p>
+					{/if}
 				{/if}
-			</p>
-			<Input
-				class="mt-2 h-8 text-sm"
-				placeholder="Title"
-				aria-label="Lesson title"
-				value={placeTitle}
-				oninput={(e) => (placeTitle = e.currentTarget.value)}
-				onkeydown={(e) => {
-					if (e.key === 'Enter') placeLessonNow();
-				}}
-			/>
-			<Button
-				class="mt-2"
-				size="sm"
-				disabled={placing || !placeTitle.trim()}
-				onclick={placeLessonNow}
-			>
-				{placing ? 'Placing…' : 'Place'}
-			</Button>
-			{#if placeError}
-				<p class="mt-1.5 text-xs text-destructive">{placeError}</p>
+				<TagChips tags={detail.lesson.tags} class="mt-2" />
+			{:else}
+				<h2 class="text-lg font-semibold text-muted-foreground italic">Open Slot</h2>
+				<p class="mt-1 text-xs text-muted-foreground">No Lesson planned for this occasion.</p>
 			{/if}
 		</div>
-	{/if}
-
-	<Separator class="my-5" />
-	<div class="mb-1.5 flex items-baseline justify-between">
-		<span class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-			How it went
-		</span>
-		{#if detail.placement}
-			<Button
-				variant="ghost"
-				size="sm"
-				class="h-6 px-2 text-xs text-destructive"
-				disabled={removingPlacement}
-				onclick={removePlacementNow}
-			>
-				{removingPlacement ? 'Removing…' : 'Remove placement'}
+		{#if detail.lesson}
+			<Button variant="outline" size="sm" href={resolve(`/lessons/${detail.lesson.id}`)}>
+				Open in Lesson editor
 			</Button>
-		{:else}
-			<span class="text-xs text-muted-foreground">stays with the occasion</span>
 		{/if}
 	</div>
-	{#if removeError}
-		<p class="mb-1.5 text-xs text-destructive">{removeError}</p>
-	{/if}
-	<MarkdownEditor
-		value={note}
-		label="How it went"
-		placeholder="Notes on this Session…"
-		onchange={(markdown) => {
-			note = markdown;
-			notes.edit(occasion, markdown);
-		}}
-	/>
+
+	<!-- Below `lg` one column: the plan first for a Session still ahead, the note first once the
+	     Session has started. From `lg` the plan is on the left and the rail on the right. -->
+	<div class="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+		{#if detail.lesson}
+			<section data-plan class="min-w-0 lg:order-1 {started ? 'order-2' : 'order-1'}">
+				{#if detail.placement}
+					{#key detail.lesson.id}
+						<MarkdownEditor
+							value={planBody}
+							label="Plan"
+							placeholder="Objectives, what to set up…"
+							onchange={(markdown) => (planBody = markdown)}
+							onblur={() => {
+								if (planBody !== (detail?.lesson?.body ?? ''))
+									patchLesson({ body: planBody || null });
+							}}
+						/>
+					{/key}
+					<div class="mt-3 flex flex-wrap items-center gap-3">
+						<ToggleGroup.Root
+							type="single"
+							variant="outline"
+							size="sm"
+							value={planStatus}
+							onValueChange={(v) => {
+								if (v && v !== planStatus) {
+									planStatus = v as LessonStatus;
+									patchLesson({ status: planStatus });
+								}
+							}}
+						>
+							<ToggleGroup.Item value="draft">Draft</ToggleGroup.Item>
+							<ToggleGroup.Item value="planned">Planned</ToggleGroup.Item>
+						</ToggleGroup.Root>
+						<label class="flex items-center gap-1.5">
+							<span class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+								Length
+							</span>
+							<Input
+								type="number"
+								min="1"
+								class="h-7 w-16"
+								value={planLength}
+								onchange={(e) => {
+									const length = Number(e.currentTarget.value);
+									if (Number.isInteger(length) && length >= 1 && length !== planLength) {
+										planLength = length;
+										patchLesson({ length });
+									} else {
+										e.currentTarget.value = String(planLength);
+									}
+								}}
+							/>
+							<span class="text-xs text-muted-foreground">Periods</span>
+						</label>
+					</div>
+					{#if planError}
+						<p class="mt-1.5 text-xs text-destructive">{planError}</p>
+					{/if}
+					{#if planPlacementsMoved.length > 0}
+						<div class="mt-3">
+							<PlacementsMovedAlert placementsMoved={planPlacementsMoved} />
+						</div>
+					{/if}
+				{:else if detail.lesson.body}
+					<Markdown source={detail.lesson.body} />
+				{:else}
+					<p class="text-sm text-muted-foreground italic">
+						No plan written yet — a title alone is a complete Lesson.
+					</p>
+				{/if}
+
+				{#if detail.lesson.links.length}
+					<ul class="mt-4 space-y-1">
+						{#each detail.lesson.links as link (link.id)}
+							<li>
+								<a
+									href={link.url}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="text-sm underline underline-offset-4">{link.label}</a
+								>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+
+				{#if detail.lesson.attachments.length}
+					<ul class="mt-2 space-y-1">
+						{#each detail.lesson.attachments as attachment (attachment.id)}
+							<li class="flex items-baseline gap-2 text-sm">
+								<a
+									href={resolve('/attachments/[id]', { id: attachment.id })}
+									class="min-w-0 flex-1 truncate underline underline-offset-4"
+								>
+									{attachment.filename}
+								</a>
+								<span class="shrink-0 font-mono text-[10px] text-muted-foreground">
+									{formatSize(attachment.size)}
+								</span>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</section>
+		{/if}
+
+		<div class="flex min-w-0 flex-col gap-5 lg:order-2 {started ? 'order-1' : 'order-2'}">
+			<section data-note>
+				<div class="mb-1.5 flex items-baseline justify-between gap-2">
+					<span class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+						How it went
+					</span>
+					{#if detail.placement}
+						<Button
+							variant="ghost"
+							size="sm"
+							class="h-6 px-2 text-xs text-destructive"
+							disabled={removingPlacement}
+							onclick={removePlacementNow}
+						>
+							{removingPlacement ? 'Removing…' : 'Remove placement'}
+						</Button>
+					{:else}
+						<span class="text-xs text-muted-foreground">stays with the occasion</span>
+					{/if}
+				</div>
+				{#if removeError}
+					<p class="mb-1.5 text-xs text-destructive">{removeError}</p>
+				{/if}
+				<MarkdownEditor
+					value={note}
+					label="How it went"
+					placeholder="Notes on this Session…"
+					onchange={(markdown) => {
+						note = markdown;
+						notes.edit(occasion, markdown);
+					}}
+				/>
+			</section>
+
+			{#if detail.lesson}
+				<div>
+					<Button variant="outline" size="sm" disabled={continuing} onclick={markContinuation}>
+						{continuing ? 'Marking…' : 'Needs more time'}
+					</Button>
+					<p class="mt-1.5 text-xs text-muted-foreground">
+						Widens this Lesson onto the Class's next Available Slot.
+					</p>
+					{#if continuationError}
+						<p class="mt-1 text-xs text-destructive">{continuationError}</p>
+					{/if}
+					{#if continuationAtRisk.length > 0}
+						<div class="mt-3">
+							<AtRiskAlert atRisk={continuationAtRisk} />
+						</div>
+					{/if}
+					{#if continuationPlacementsMoved.length > 0}
+						<div class="mt-3">
+							<PlacementsMovedAlert placementsMoved={continuationPlacementsMoved} />
+						</div>
+					{/if}
+				</div>
+			{/if}
+
+			<!-- One card, on an Open Slot and on an occasion a Topic Lesson already holds alike (issue
+			     #256) — a Placement claims its Slot ahead of the Topic stream, so the Lesson there and
+			     every Lesson after it shift right. `canPlace` (sessions.ts) is the whole gate: future or
+			     today, and no Placement anchored here already. -->
+			{#if detail.canPlace}
+				<div class="rounded-lg border border-dashed p-3">
+					<h3 class="text-sm font-semibold">Place a Lesson</h3>
+					<p class="mt-1 text-xs text-muted-foreground">
+						A Lesson with no Topic, scheduled directly on this occasion. It will not be part of
+						{detail.classLabel}'s Course sequence.
+						{#if detail.lesson}
+							{detail.lesson.title} and every Lesson after it move to the next Available Slots.
+						{/if}
+					</p>
+					<Input
+						class="mt-2 h-8 text-sm"
+						placeholder="Title"
+						aria-label="Lesson title"
+						value={placeTitle}
+						oninput={(e) => (placeTitle = e.currentTarget.value)}
+						onkeydown={(e) => {
+							if (e.key === 'Enter') placeLessonNow();
+						}}
+					/>
+					<Button
+						class="mt-2"
+						size="sm"
+						disabled={placing || !placeTitle.trim()}
+						onclick={placeLessonNow}
+					>
+						{placing ? 'Placing…' : 'Place'}
+					</Button>
+					{#if placeError}
+						<p class="mt-1.5 text-xs text-destructive">{placeError}</p>
+					{/if}
+				</div>
+			{/if}
+		</div>
+	</div>
+{:else if missing}
+	<p class="mt-4 text-sm text-muted-foreground">No such Session.</p>
 {/if}
 
 <svelte:window onpagehide={() => notes.flush()} />

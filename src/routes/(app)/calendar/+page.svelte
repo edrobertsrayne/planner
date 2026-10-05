@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { tick } from 'svelte';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
@@ -8,7 +9,7 @@
 	import { classTone } from '$lib/class-tone';
 	import { formatDayMonth } from '$lib/date';
 	import { refresh } from '$lib/client/enhance';
-	import { openSession } from '$lib/client/session-panel.svelte';
+	import { sessionHref } from '$lib/client/session-href';
 	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
 	import AtRiskReport from '$lib/components/at-risk-report.svelte';
 	import PlacementsMovedAlert from '$lib/components/placements-moved-alert.svelte';
@@ -43,6 +44,10 @@
 
 	// The ribbon, the two arrows and Today all navigate by query string. Each carries a week
 	// commencing date, not a URL, so the link is built here.
+	function openToPlace(classId: string, date: string, period: number) {
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- sessionHref resolves it
+		return goto(sessionHref({ classId, date, period }));
+	}
 	const weekHref = (weekCommencing: string) => resolve(`/calendar?week=${weekCommencing}`);
 
 	// One entry per (day, Period); see calendar-grid.ts. The explicit `h-16` on a start cell's
@@ -274,16 +279,11 @@
 													     the Topic stream, so the Lesson there and every Lesson after it
 													     shift right. Only a Slot already holding a placed Lesson is left
 													     out, matching the panel's own `canPlace` (sessions.ts). Lands on
-													     the Session panel's own Place-a-Lesson card, the one place the
+													     the Session page's own Place-a-Lesson card, the one place the
 													     title is typed. -->
 															{#each placeableSlots as slot (slot.slotId)}
 																<DropdownMenu.Item
-																	onSelect={() =>
-																		openSession({
-																			classId: slot.classId,
-																			date,
-																			period: slot.period
-																		})}
+																	onSelect={() => openToPlace(slot.classId, date, slot.period)}
 																	>Open {slot.classLabel}, P{slot.period} to place…</DropdownMenu.Item
 																>
 															{/each}
@@ -377,22 +377,20 @@
 											{:else}
 												<!-- A past tile is the record of what happened, not a removal: it keeps
 											its Class Tone and text, and takes the hatch only to step back from the
-											upcoming tiles. Its Session panel opens like any other. -->
-												<button
-													type="button"
-													data-session-trigger
+											upcoming tiles. Its Session page opens like any other. -->
+												<!-- eslint-disable svelte/no-navigation-without-resolve -- sessionHref resolves it -->
+												<a
+													href={sessionHref({
+														classId: cell.classId,
+														date: cell.date,
+														period: cell.periodFrom
+													})}
 													class={cn(
 														'relative flex h-full min-h-16 w-full flex-col overflow-hidden rounded-lg border px-2 py-1.5 text-left',
 														cell.past && 'hatched'
 													)}
 													style:background-color={tone.bg}
 													style:border-color={tone.ring}
-													onclick={() =>
-														openSession({
-															classId: cell.classId,
-															date: cell.date,
-															period: cell.periodFrom
-														})}
 												>
 													<span class="truncate text-xs font-semibold" style:color={tone.fg}>
 														{cell.classLabel}
@@ -426,7 +424,8 @@
 															Open Slot
 														</span>
 													{/if}
-												</button>
+												</a>
+												<!-- eslint-enable svelte/no-navigation-without-resolve -->
 
 												{#if slotNote && slotNote.date === cell.date && cell.slotIds.includes(slotNote.slotId)}
 													<!-- The day menu chose this Slot; the note is asked for over the tile
