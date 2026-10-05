@@ -659,3 +659,50 @@ test.describe('the Session page on a laptop', () => {
 		await expect(page).toHaveURL('/');
 	});
 });
+
+test.describe('the Courses screen on a laptop', () => {
+	test.use({ viewport: { width: 1536, height: 750 } });
+
+	test('a tile shows the Course and opens its page', async ({ page }) => {
+		await login(page);
+		await page.goto('/courses');
+		const tile = page.getByRole('link', { name: /KS3 Science/ });
+		await expect(tile).toContainText('Topics');
+		await expect(tile).toContainText('Lessons');
+		await expect(tile.getByRole('img', { name: /of Lessons Planned/ })).toBeVisible();
+		await tile.click();
+		await expect(page).toHaveURL(/\/courses\/[^/?]+$/);
+	});
+
+	test('typing a name in the New Course tile and pressing Enter opens the new Course', async ({
+		page
+	}) => {
+		await login(page);
+		await page.goto('/courses');
+		const name = `Tile Course ${Date.now()}`;
+		await page.getByPlaceholder('New Course name').fill(name);
+		await page.keyboard.press('Enter');
+		await expect(page).toHaveURL(/\/courses\/[^/?]+$/);
+		await expect(page.getByRole('heading', { name })).toBeVisible();
+	});
+});
+
+{
+	const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];
+	for (const [name, use] of [
+		['phone', { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch }],
+		['tablet portrait', { viewport: { width: 800, height: 1180 }, hasTouch: true }],
+		['tablet landscape', { viewport: { width: 1280, height: 800 }, hasTouch: true }]
+	] as const) {
+		test.describe(`the Courses screen on a ${name}`, () => {
+			test.use(use);
+
+			test('fits the width', async ({ page }) => {
+				await login(page);
+				await page.goto('/courses');
+				await expect(page.getByRole('link', { name: /KS3 Science/ })).toBeVisible();
+				await expectNoHorizontalScroll(page);
+			});
+		});
+	}
+}

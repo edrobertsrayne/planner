@@ -1,9 +1,9 @@
 import { db } from '$lib/server/db/client';
 import { refusal } from '$lib/server/form';
-import { createCourse, listCourses } from '$lib/server/planner';
+import { courseTiles, createCourse } from '$lib/server/planner';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = () => ({ courses: listCourses(db) });
+export const load: PageServerLoad = () => ({ courses: courseTiles(db) });
 
 export const actions: Actions = {
 	createCourse: async ({ request }) => {

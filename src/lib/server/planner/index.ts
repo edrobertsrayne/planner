@@ -85,6 +85,7 @@ export {
 	createLesson,
 	createLink,
 	courseSummary,
+	courseTiles,
 	createTopic,
 	deleteCourse,
 	deleteLesson,

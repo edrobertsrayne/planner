@@ -11,6 +11,7 @@ import {
 	createLesson,
 	createLink,
 	courseSummary,
+	courseTiles,
 	createTopic,
 	deleteCourse,
 	deleteLesson,
@@ -91,6 +92,35 @@ describe('a Course summary', () => {
 		expect(summary.lessonCounts.get(forces.id)).toBe(3);
 		expect(summary.lessonCounts.get(empty.id) ?? 0).toBe(0);
 		expect(summary.classes.map((c) => c.label)).toEqual(['9A/Ph1', '9B/Ph1']);
+	});
+});
+
+describe('the Course tiles', () => {
+	test('each Course carries its Topic, Lesson and Planned Lesson counts and its Classes', () => {
+		const { db } = setUpAuthoring();
+		const course = createCourse(db, { name: 'Year 9 Physics' });
+		const bare = createCourse(db, { name: 'Year 10 Chemistry' });
+		const forces = makeTopic(db, course.id, 'Forces');
+		makeTopic(db, course.id, 'Energy');
+		const [first] = makeLessons(db, forces.id, 3);
+		setLessonStatus(db, first.id, 'planned');
+		createClass(db, { label: '9B/Ph1', courseId: course.id });
+		createClass(db, { label: '9A/Ph1', courseId: course.id });
+
+		const tiles = courseTiles(db);
+		expect(tiles.map((t) => t.name)).toEqual(['Year 10 Chemistry', 'Year 9 Physics']);
+		expect(tiles.find((t) => t.id === bare.id)).toMatchObject({
+			topicCount: 0,
+			lessonCount: 0,
+			plannedCount: 0,
+			classes: []
+		});
+		expect(tiles.find((t) => t.id === course.id)).toMatchObject({
+			topicCount: 2,
+			lessonCount: 3,
+			plannedCount: 1,
+			classes: ['9A/Ph1', '9B/Ph1']
+		});
 	});
 });
 

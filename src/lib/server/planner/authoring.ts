@@ -124,6 +124,43 @@ export function courseSummary(db: Db, courseId: string) {
 	return { lessonCounts: new Map(counts.map((c) => [c.topicId, c.count])), classes };
 }
 
+// What the Courses screen shows for each Course: counts and the Classes that teach it.
+export function courseTiles(db: Db) {
+	const topicCounts = new Map(
+		db
+			.select({ courseId: schema.topic.courseId, n: sql<number>`count(*)` })
+			.from(schema.topic)
+			.groupBy(schema.topic.courseId)
+			.all()
+			.map((r) => [r.courseId, r.n])
+	);
+	const lessonCounts = new Map(
+		db
+			.select({
+				courseId: schema.topic.courseId,
+				n: sql<number>`count(*)`,
+				planned: sql<number>`sum(${schema.lesson.status} = 'planned')`
+			})
+			.from(schema.lesson)
+			.innerJoin(schema.topic, eq(schema.topic.id, schema.lesson.topicId))
+			.groupBy(schema.topic.courseId)
+			.all()
+			.map((r) => [r.courseId, r])
+	);
+	const classLabels = db
+		.select({ courseId: schema.classes.courseId, label: schema.classes.label })
+		.from(schema.classes)
+		.orderBy(asc(schema.classes.label))
+		.all();
+	return listCourses(db).map((course) => ({
+		...course,
+		topicCount: topicCounts.get(course.id) ?? 0,
+		lessonCount: lessonCounts.get(course.id)?.n ?? 0,
+		plannedCount: lessonCounts.get(course.id)?.planned ?? 0,
+		classes: classLabels.filter((c) => c.courseId === course.id).map((c) => c.label)
+	}));
+}
+
 // A Course's Tone is assigned once, at creation: the next unused position of the same walk a
 // Class uses (ADR-0013), walked over Courses only. Nothing else writes it.
 function nextCourseTone(db: Db) {
