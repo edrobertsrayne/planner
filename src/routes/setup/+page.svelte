@@ -84,7 +84,9 @@
 
 <svelte:head><title>Set up Planner</title></svelte:head>
 
-<main class="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-6 md:p-10">
+<main
+	class="flex min-h-svh flex-col items-center gap-6 p-4 pt-10 sm:justify-center sm:bg-muted sm:p-6 md:p-10"
+>
 	<div class="flex w-full max-w-sm flex-col gap-6">
 		<div class="flex items-center gap-2 self-center font-medium">
 			<div
@@ -95,13 +97,15 @@
 			<span class="text-sm font-semibold tracking-tight">Planner</span>
 		</div>
 
-		<Card.Root>
-			<Card.Header class="text-center">
+		<!-- Below `sm` the card loses its frame and the page its centring and backdrop (story
+		     122), as Login's does: on a phone the form starts at the top. -->
+		<Card.Root class="max-sm:border-0 max-sm:bg-transparent max-sm:shadow-none max-sm:ring-0">
+			<Card.Header class="text-center max-sm:px-0">
 				<Card.Title class="text-xl">
 					{showRestore ? 'Restore from a Backup' : 'Set up Planner'}
 				</Card.Title>
 			</Card.Header>
-			<Card.Content class="flex flex-col gap-6">
+			<Card.Content class="flex flex-col gap-6 max-sm:px-0">
 				{#if activeError}
 					<Alert.Root variant="destructive">
 						<Alert.Description>{activeError}</Alert.Description>

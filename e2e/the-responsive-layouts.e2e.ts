@@ -1,4 +1,4 @@
-import { test, expect, devices, type Page } from '@playwright/test';
+import { test, expect, devices, type Locator, type Page } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 
 // Runs after the-planning-api/ and before user-settings-password.e2e.ts, for the suite's
@@ -856,29 +856,31 @@ async function openSessionWithLesson(page: Page): Promise<string> {
 	return new URL(page.url()).pathname;
 }
 
-// On touch a control keeps its drawn size and gets its 44 px from an invisible ::after (see
-// touch-target.ts), so the box to measure is the larger of the two. A checkbox is tapped through
-// the label that wraps it (ready-tick.svelte), so that label is its hit area.
+// The box a control gives a touch: its drawn box, and the larger of that and its invisible
+// 44 px ::after (see touch-target.ts, which buttons carry; an input instead grows to min-h-11
+// on touch). A checkbox is tapped through the label that wraps it (ready-tick.svelte), so that
+// label is its hit area.
+async function expectBox44(control: Locator, wrapped = false) {
+	const box = await control.evaluate((el, wrapped) => {
+		const target = wrapped ? (el.closest('label') ?? el) : el;
+		const after = (node: Element, side: 'width' | 'height') =>
+			parseFloat(getComputedStyle(node, '::after')[side]) || 0;
+		const rect = target.getBoundingClientRect();
+		return {
+			width: Math.max(rect.width, after(target, 'width')),
+			height: Math.max(rect.height, after(target, 'height'))
+		};
+	}, wrapped);
+	expect(box.width).toBeGreaterThanOrEqual(44);
+	expect(box.height).toBeGreaterThanOrEqual(44);
+}
+
 async function expectHitArea44(
 	page: Page,
 	name: string | RegExp,
 	role: 'button' | 'link' | 'checkbox'
 ) {
-	const box = await page
-		.getByRole(role, { name })
-		.first()
-		.evaluate((el, wrapped) => {
-			const target = wrapped ? (el.closest('label') ?? el) : el;
-			const after = (node: Element, side: 'width' | 'height') =>
-				parseFloat(getComputedStyle(node, '::after')[side]) || 0;
-			const rect = target.getBoundingClientRect();
-			return {
-				width: Math.max(rect.width, after(target, 'width')),
-				height: Math.max(rect.height, after(target, 'height'))
-			};
-		}, role === 'checkbox');
-	expect(box.width).toBeGreaterThanOrEqual(44);
-	expect(box.height).toBeGreaterThanOrEqual(44);
+	await expectBox44(page.getByRole(role, { name }).first(), role === 'checkbox');
 }
 
 test.describe('the Session page on a phone', () => {
@@ -1209,5 +1211,88 @@ test.describe('the Classes screen on a phone writes nothing', () => {
 		await expect(page.getByRole('button', { name: 'Assign next Topic' })).toBeHidden();
 		await expectHitArea44(page, 'Open Class', 'link');
 		await expectNoHorizontalScroll(page);
+	});
+});
+
+// Login and Setup leave the app shell, so these describes stand alone. Setup is reachable with
+// no account only, so its tests run in setup-wizard.e2e.ts; Login's run here, where the one
+// user already exists.
+test.describe('the Login page on a phone (issue #351)', () => {
+	const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];
+	test.use({ viewport, userAgent, deviceScaleFactor, isMobile, hasTouch });
+
+	test('the form is flush at the top, with no card frame (story 122)', async ({ page }) => {
+		await page.goto('/login');
+		await expect(page.getByLabel('Email')).toBeVisible();
+
+		// Below `sm` the card draws no frame and the page no muted backdrop; the form starts at
+		// the top of the window, so the keyboard does not push it about. The card's top sits
+		// only just below the wordmark; a centred layout would put it well down the window.
+		const card = page.locator('[data-slot="card"]');
+		await expect(card).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+		await expect(page.locator('main')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+		const box = (await card.boundingBox())!;
+		expect(box.y).toBeLessThan(120);
+
+		// No shadow or ring may paint either: the frame would survive a transparent card.
+		// v4 writes each box-shadow entry colour-first, so a comma inside a colour never
+		// follows a length: the entries split where a comma follows one.
+		const painting = await card.evaluate((el: HTMLElement) => {
+			const shadow = getComputedStyle(el).boxShadow;
+			if (shadow === 'none') return 0;
+			const entries = shadow.split(/(?<=px), /);
+			return entries.filter((entry) =>
+				(entry.match(/[-\d.]+px/g) ?? []).some((px) => parseFloat(px) !== 0)
+			).length;
+		});
+		expect(painting).toBe(0);
+
+		await expectNoHorizontalScroll(page);
+	});
+
+	test('on touch the inputs and the button each have a 44 px box (story 124)', async ({ page }) => {
+		await page.goto('/login');
+		await expectBox44(page.getByLabel('Email'));
+		await expectBox44(page.getByLabel('Password'));
+		await expectBox44(page.getByRole('button', { name: 'Log in' }));
+	});
+});
+
+test.describe('the Login page from sm up (issue #351)', () => {
+	test.use({ viewport: { width: 1536, height: 750 } });
+
+	test('the centred card is back on the muted background (story 123)', async ({ page }) => {
+		await page.goto('/login');
+		const card = page.locator('[data-slot="card"]');
+		await expect(card).toBeVisible();
+
+		// The card draws its background again, the page its muted backdrop, and the card sits
+		// centred in the window again.
+		const background = (el: HTMLElement) => getComputedStyle(el).backgroundColor;
+		expect(await card.evaluate(background)).not.toBe('rgba(0, 0, 0, 0)');
+		expect(await page.locator('main').evaluate(background)).not.toBe('rgba(0, 0, 0, 0)');
+		const width = page.viewportSize()!.width;
+		const box = (await card.boundingBox())!;
+		expect(Math.abs(box.x - (width - box.width) / 2)).toBeLessThanOrEqual(1);
+		const centre = (box.y + box.height / 2) / page.viewportSize()!.height;
+		expect(centre).toBeGreaterThan(0.3);
+		expect(centre).toBeLessThan(0.7);
+	});
+});
+
+// The flush window closes exactly at `sm` (640 px): a narrower phone size is proven on a phone,
+// a laptop size here, and the boundary itself — the range a wider-than-phone tablet landscape
+// can land in — is pinned here. The shell's other screens break at `md` instead, so the `sm`
+// edge is worth its own test.
+test.describe('the Login page at the sm edge (issue #351)', () => {
+	test.use({ viewport: { width: 640, height: 720 } });
+
+	test('the card shows from sm up', async ({ page }) => {
+		await page.goto('/login');
+		const card = page.locator('[data-slot="card"]');
+		await expect(card).toBeVisible();
+		const background = (el: HTMLElement) => getComputedStyle(el).backgroundColor;
+		expect(await card.evaluate(background)).not.toBe('rgba(0, 0, 0, 0)');
+		expect(await page.locator('main').evaluate(background)).not.toBe('rgba(0, 0, 0, 0)');
 	});
 });
