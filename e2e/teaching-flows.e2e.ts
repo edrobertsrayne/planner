@@ -274,8 +274,8 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expect.poll(isDark).toBe(!before);
 	});
 
-	test('the Planning tab filters, pages, and updates status with tones and counts', async () => {
-		// Create additional lessons in Courses to reach 11 total so stream trimming is testable.
+	test('the Planning tab shows the whole stream and updates status with tones and counts', async () => {
+		// Nine more Lessons in Courses: the stream then holds 11, and the counts below read 11.
 		await page.goto('/courses');
 		await page.getByRole('link', { name: 'KS3 Science' }).click();
 		await page.getByRole('link', { name: 'Forces' }).click();
@@ -304,13 +304,15 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 
 		await page.goto('/planning');
 
-		const speedRow = page.locator('li').filter({ hasText: 'Speed' });
-		const motionRow = page.locator('li').filter({ hasText: 'Motion' });
+		const speedRow = page.getByRole('row').filter({ hasText: 'Speed' });
+		const motionRow = page.getByRole('row').filter({ hasText: 'Motion' });
 
-		// Motion is scheduled next, so it sits in the top 10; Speed was taught in the past so it
-		// sits in the unscheduled tail past the initial 10-item limit.
+		// The whole stream shows at once: Speed was taught in the past and so sits in the
+		// unscheduled tail, and it is in view with no page size to trim it.
 		await expect(motionRow).toBeVisible();
-		await expect(speedRow).toBeHidden();
+		await expect(speedRow).toBeVisible();
+		await expect(page.getByRole('button', { name: /^(Show \d+|Show all)$/ })).toHaveCount(0);
+		await expect(page.getByText(/^Showing \d+ of \d+$/)).toHaveCount(0);
 
 		// Initial counts: 11 lessons, all Draft.
 		const allFilter = page.getByRole('button', { name: /^All\s+\d+$/ });
@@ -319,22 +321,6 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expect(allFilter).toContainText('11');
 		await expect(draftFilter).toContainText('11');
 		await expect(plannedFilter).toContainText('0');
-
-		// Trimming line is visible with default Show 10.
-		await expect(page.getByText('Showing 10 of 11')).toBeVisible();
-
-		// Paging controls: Show all reveals all 11 items (including Speed) and hides trimming line.
-		const showAllBtn = page.getByRole('button', { name: 'Show all' });
-		const show10Btn = page.getByRole('button', { name: 'Show 10' });
-		await showAllBtn.click();
-		await expect(showAllBtn).toHaveAttribute('aria-pressed', 'true');
-		await expect(page.getByText('Showing 10 of 11')).toBeHidden();
-		await expect(speedRow).toBeVisible();
-
-		await show10Btn.click();
-		await expect(show10Btn).toHaveAttribute('aria-pressed', 'true');
-		await expect(page.getByText('Showing 10 of 11')).toBeVisible();
-		await expect(speedRow).toBeHidden();
 
 		// Filtering by Planned shows the dashed empty state.
 		await plannedFilter.click();
@@ -364,12 +350,10 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		// Filter to Planned — only 'Motion' shows.
 		await plannedFilter.click();
 		await expect(motionRow).toBeVisible();
-		await expect(page.getByText('Showing 10 of 11')).toBeHidden();
 
 		// Filter to Draft — 'Motion' is hidden.
 		await draftFilter.click();
 		await expect(motionRow).toBeHidden();
-		await expect(page.getByText('Showing 10 of 10')).toBeHidden();
 	});
 
 	test('tagging a Lesson in the editor shows its chip on the Courses list and Planning', async () => {
@@ -390,8 +374,9 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expect(courseRow.getByText('Practical', { exact: true })).toBeVisible();
 
 		await page.goto('/planning');
-		const motionRow = page.locator('li').filter({ hasText: 'Motion' });
-		await expect(motionRow.getByText('Practical', { exact: true })).toBeVisible();
+		const motionRow = page.getByRole('row').filter({ hasText: 'Motion' });
+		// The chip reads in the row at every size: in the Tags column, or folded under the title.
+		await expect(motionRow).toContainText('Practical');
 	});
 
 	test('the Planning tab narrows to one Class, kept in the URL across a reload', async () => {
@@ -406,17 +391,16 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 
 		// Only 9B/Sc1's upcoming Lessons, each dated by 9B/Sc1, with no unscheduled tail.
 		const rows = page
-			.locator('li')
+			.getByRole('row')
 			.filter({ has: page.getByRole('button', { name: 'Draft', exact: true }) });
-		await page.getByRole('button', { name: 'Show all' }).click();
 		await expect(rows.first()).toContainText('9B/Sc1');
 		await expect(rows.filter({ hasText: '9C/Sc1' })).toHaveCount(0);
-		await expect(rows.filter({ hasText: 'unscheduled' })).toHaveCount(0);
+		await expect(rows.filter({ hasText: '—' })).toHaveCount(0);
 		await expect(allFilter).not.toContainText('11');
 
 		await page.reload();
 		await expect(page.getByRole('button', { name: 'Filter by Class' })).toHaveText('9B/Sc1');
-		await expect(rows.filter({ hasText: 'unscheduled' })).toHaveCount(0);
+		await expect(rows.filter({ hasText: '—' })).toHaveCount(0);
 
 		// The status filter narrows the Class's list further: Motion is the one Planned Lesson.
 		await plannedFilter.click();

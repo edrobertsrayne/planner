@@ -496,7 +496,6 @@ test.describe('the Lesson editor for a Standalone Lesson', () => {
 	test('an unplaced Standalone Lesson on Planning opens the Lesson editor', async ({ page }) => {
 		await login(page);
 		await page.goto('/planning');
-		await page.getByRole('button', { name: 'Show all' }).click();
 		await page.getByRole('link', { name: 'Revision carousel', exact: true }).click();
 		await expectLessonPage(page);
 		await expect(page.getByText('Standalone Lesson', { exact: true })).toBeVisible();
@@ -731,3 +730,63 @@ test.describe('the Courses screens on a phone write nothing', () => {
 		await expectNoHorizontalScroll(page);
 	});
 });
+
+test.describe('the Planning table on a laptop', () => {
+	// Shorter than the whole stream, so the window scrolls and the headings can be checked.
+	test.use({ viewport: { width: 1536, height: 560 } });
+
+	test('the column headings stay in view as the window scrolls', async ({ page }) => {
+		await login(page);
+		await page.goto('/planning');
+		// The files before have built Lessons: the whole stream is longer than the window.
+		expect(
+			await page.evaluate(
+				() => document.documentElement.scrollHeight > document.documentElement.clientHeight
+			)
+		).toBe(true);
+		await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+		const box = (await page.getByRole('columnheader', { name: 'Lesson' }).boundingBox())!;
+		expect(box.y).toBeGreaterThanOrEqual(0);
+		expect(box.y).toBeLessThan(40);
+	});
+
+	test('a click beside the Draft/Planned toggle opens nothing; the title opens the Lesson', async ({
+		page
+	}) => {
+		await login(page);
+		await page.goto('/planning');
+		const row = page
+			.getByRole('row')
+			.filter({ has: page.getByRole('link', { name: 'Speed', exact: true }) })
+			.first();
+		// The corner of the Status cell is beside the toggle and on no control.
+		await row
+			.getByRole('cell')
+			.last()
+			.click({ position: { x: 2, y: 2 } });
+		await expect(page).toHaveURL(/\/planning/);
+		await expect(row).toBeVisible();
+		await row.getByRole('link', { name: 'Speed', exact: true }).click();
+		await expectLessonPage(page);
+	});
+});
+
+{
+	const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];
+	for (const [name, use] of [
+		['phone', { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch }],
+		['tablet portrait', { viewport: { width: 800, height: 1180 }, hasTouch: true }],
+		['tablet landscape', { viewport: { width: 1280, height: 800 }, hasTouch: true }]
+	] as const) {
+		test.describe(`Planning on a ${name}`, () => {
+			test.use(use);
+
+			test('fits the width', async ({ page }) => {
+				await login(page);
+				await page.goto('/planning');
+				await expect(page.getByRole('link', { name: 'Speed', exact: true })).toBeVisible();
+				await expectNoHorizontalScroll(page);
+			});
+		});
+	}
+}
