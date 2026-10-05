@@ -508,19 +508,30 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 
 	test('the Agenda filters to one Tag, kept in the URL with the horizon (issue #280)', async () => {
 		const rows = page.locator('main li');
-		const tagControl = page.getByRole('button', { name: 'Tag', exact: true });
 		const openSlots = rows.filter({ hasText: 'Open Slot' });
 
 		await page.goto('/?horizon=28');
 		await expect(openSlots.first()).toBeVisible();
 
-		await tagControl.click();
-		await page.getByRole('option', { name: 'Practical' }).click();
+		// The Tag chips (issue #340) replace the dropdown: each Tag's chip carries the count of
+		// rows it holds in the window, and the filter keeps exactly those rows.
+		const held = await rows.filter({ has: page.getByText('Practical', { exact: true }) }).count();
+		const practicalChip = page.getByRole('button', { name: new RegExp(`^Practical ${held}$`) });
+		await practicalChip.click();
 		await expect(page).toHaveURL(/horizon=28/);
 		await expect(page).toHaveURL(/tag=Practical/);
 		await expect(rows.filter({ hasText: '9B/Sc1' }).first()).toBeVisible();
 		await expect(openSlots).toHaveCount(0);
 		await expect(rows.filter({ hasNotText: 'Practical' })).toHaveCount(0);
+		await expect(rows).toHaveCount(held);
+
+		// The filter survives a Back from a Session.
+		await rows.first().getByRole('link').first().click();
+		await openSessionAndExpect(page);
+		await page.getByRole('button', { name: 'Back' }).click();
+		await expectSessionClosed(page);
+		await expect(page).toHaveURL(/tag=Practical/);
+		await expect(rows).toHaveCount(held);
 
 		// A filtered row keeps its Ready tick. Each tick waits for its write and a reload, because
 		// the write ends by reloading the page data, and that would cancel a navigation started first.
@@ -532,7 +543,7 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 			]);
 		await tick();
 		await page.reload();
-		await expect(tagControl).toHaveText('Practical');
+		await expect(practicalChip).toHaveAttribute('aria-pressed', 'true');
 		await expect(checkbox).toBeChecked();
 		await tick();
 		await page.reload();
@@ -542,16 +553,25 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expect(page).toHaveURL(/horizon=14/);
 		await expect(page).toHaveURL(/tag=Practical/);
 
-		await tagControl.click();
-		await page.getByRole('option', { name: 'All tags' }).click();
+		// A second click on the chip that is on goes back to All Lessons (issue #340).
+		await practicalChip.click();
 		await expect(page).not.toHaveURL(/tag=/);
 		await expect(page).toHaveURL(/horizon=14/);
-		await expect(tagControl).toHaveText('All tags');
+		await expect(practicalChip).toHaveAttribute('aria-pressed', 'false');
 
-		// A Tag with no Lesson in the window stays selected so it can be cleared.
+		// The All Lessons chip clears the filter the same way.
+		await practicalChip.click();
+		await expect(page).toHaveURL(/tag=Practical/);
+		await page.getByRole('button', { name: 'All Lessons' }).click();
+		await expect(page).not.toHaveURL(/tag=/);
+
+		// A Tag with no Lesson in the window keeps its chip at a count of zero, so it can be cleared.
 		await page.goto('/?horizon=7&tag=Nowhere');
-		await expect(tagControl).toHaveText('Nowhere');
+		const nowhereChip = page.getByRole('button', { name: 'Nowhere 0' });
+		await expect(nowhereChip).toHaveAttribute('aria-pressed', 'true');
 		await expect(page.getByText('No Lessons with the Tag “Nowhere”')).toBeVisible();
+		await nowhereChip.click();
+		await expect(page).not.toHaveURL(/tag=/);
 	});
 
 	test('a past Session on the Calendar keeps its tile on a hatch, never Blocked (issue #292)', async () => {
@@ -584,7 +604,6 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		const lookBack = page.getByRole('region', { name: 'Past seven days' });
 		const pastRows = lookBack.locator('li');
 		const pastToggle = page.getByRole('button', { name: 'Previous 7 days' });
-		const tagControl = page.getByRole('button', { name: 'Tag', exact: true });
 
 		// The only past Session so far is ten days old, outside the look-back.
 		await page.goto('/?past=1');
@@ -636,15 +655,14 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expect(pastRows).toHaveCount(2);
 
 		// The look-back obeys the Tag filter: Speed does not carry Practical.
-		await tagControl.click();
-		await page.getByRole('option', { name: 'Practical' }).click();
+		await page.getByRole('button', { name: /^Practical \d+$/ }).click();
 		await expect(page).toHaveURL(/tag=Practical/);
 		await expect(page).toHaveURL(/past=1/);
 		await expect(lookBack).toHaveCount(0);
 
-		// A Tag found only in the look-back can be chosen.
-		await tagControl.click();
-		await page.getByRole('option', { name: 'Recap' }).click();
+		// A Tag found only in the look-back can be chosen, its chip counting the two past rows
+		// it holds in the window (issue #340).
+		await page.getByRole('button', { name: 'Recap 2' }).click();
 		await expect(page).toHaveURL(/tag=Recap/);
 		await expect(pastRows).toHaveCount(2);
 		await expect(page.getByRole('checkbox', { name: /Ready to teach/ })).toHaveCount(0);

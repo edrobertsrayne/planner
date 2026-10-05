@@ -10,7 +10,9 @@
 	// string, so it survives a reload and a Back into the page. On a phone the row scrolls
 	// sideways and the page does not; from `md` the chips wrap instead. A Class chip is filled
 	// with its Tone and rings it while off (ADR-0013); the All chip and a chip with no Tone —
-	// the Agenda's Tags, issue #340 — fill with the primary color and read muted while off.
+	// the Agenda's Tags, issue #340 — fill with the primary color and read muted while off. A
+	// chip may carry a count — the rows its Tag holds in the window (issue #340) — muted and
+	// tabular beside its name.
 
 	let {
 		param,
@@ -24,14 +26,14 @@
 		value: string | null;
 		allLabel: string;
 		label: string;
-		options: { value: string; label: string; tone?: ToneTokens }[];
+		options: { value: string; label: string; tone?: ToneTokens; count?: number }[];
 		class?: string;
 	} = $props();
 
 	const select = (next: string | null) => replaceQuery(withParam(page.url, param, next));
 </script>
 
-{#snippet chip(chipValue: string | null, text: string, tone?: ToneTokens)}
+{#snippet chip(chipValue: string | null, text: string, tone?: ToneTokens, count?: number)}
 	{@const on = value === chipValue}
 	<button
 		type="button"
@@ -46,6 +48,9 @@
 		onclick={() => select(on ? null : chipValue)}
 	>
 		{text}
+		{#if count !== undefined}
+			<span class="tabular-nums opacity-60">{count}</span>
+		{/if}
 	</button>
 {/snippet}
 
@@ -57,7 +62,7 @@
 	>
 		{@render chip(null, allLabel)}
 		{#each options as option (option.value)}
-			{@render chip(option.value, option.label, option.tone)}
+			{@render chip(option.value, option.label, option.tone, option.count)}
 		{/each}
 	</div>
 {/if}

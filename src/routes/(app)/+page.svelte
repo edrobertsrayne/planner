@@ -3,10 +3,10 @@
 	import { formatWeekday } from '$lib/date';
 	import { replaceQuery } from '$lib/client/enhance';
 	import { sessionHref } from '$lib/client/session-href';
+	import FilterChips from '$lib/components/filter-chips.svelte';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import TagChips from '$lib/components/tag-chips.svelte';
 	import { Button } from '$lib/components/ui/button';
-	import * as Select from '$lib/components/ui/select/index.js';
 	import { Toggle } from '$lib/components/ui/toggle';
 	import { ToggleGroup, ToggleGroupItem } from '$lib/components/ui/toggle-group';
 	import { AGENDA_HORIZONS } from './agenda-horizons';
@@ -16,17 +16,16 @@
 
 	let { data }: PageProps = $props();
 
-	// The horizon, the Tag and the look-back share the query string, so a change to one keeps the others.
+	// The horizon and the look-back share the query string with the Tag filter, so a change to
+	// one keeps the Tag in the address.
 	function setQuery({
 		horizon = data.horizon,
-		tag = data.tag,
 		lookBackOn = data.lookBackOn
 	}: {
 		horizon?: string | number;
-		tag?: string | null;
 		lookBackOn?: boolean;
 	}) {
-		const tagPart = tag ? `&tag=${encodeURIComponent(tag)}` : '';
+		const tagPart = data.tag ? `&tag=${encodeURIComponent(data.tag)}` : '';
 		return replaceQuery(`?horizon=${horizon}${tagPart}${lookBackOn ? '&past=1' : ''}`);
 	}
 
@@ -36,7 +35,15 @@
 
 	const days = $derived(groupByDay(filterByTag(data.rows, data.tag)));
 	const pastDays = $derived(groupByDay(filterByTag(data.lookBack, data.tag)));
+
+	// One chip per Tag in the window with its count (issue #340). A Tag with no Lesson in the
+	// window keeps its chip at a count of zero, so a filter on it can still be cleared.
+	const tagOption = (name: string, count: number) => ({ value: name, label: name, count });
 	const tags = $derived(tagsIn([...data.lookBack, ...data.rows]));
+	const tagOptions = $derived([
+		...tags.map((t) => tagOption(t.name, t.count)),
+		...(data.tag && !tags.some((t) => t.name === data.tag) ? [tagOption(data.tag, 0)] : [])
+	]);
 </script>
 
 <svelte:head><title>Agenda</title></svelte:head>
@@ -44,21 +51,6 @@
 <div class="mx-auto max-w-6xl px-6 py-6">
 	<PageHeader title="Agenda">
 		{#snippet actions()}
-			<Select.Root
-				type="single"
-				value={data.tag ?? ''}
-				onValueChange={(v) => setQuery({ tag: v || null })}
-			>
-				<Select.Trigger size="sm" aria-label="Tag" class="w-40">
-					{data.tag ?? 'All tags'}
-				</Select.Trigger>
-				<Select.Content>
-					<Select.Item value="" label="All tags" />
-					{#each tags as tag (tag)}
-						<Select.Item value={tag} label={tag} />
-					{/each}
-				</Select.Content>
-			</Select.Root>
 			<ToggleGroup
 				type="single"
 				variant="outline"
@@ -82,6 +74,17 @@
 			</Toggle>
 		{/snippet}
 	</PageHeader>
+
+	<!-- The Tag chips under the heading, the same control as the Class chips on Planning (issue
+	     #340): the value lives in the query string, so a Back from a Session keeps the filter. -->
+	<FilterChips
+		param="tag"
+		value={data.tag}
+		allLabel="All Lessons"
+		label="Filter by Tag"
+		options={tagOptions}
+		class="-mx-6 mt-4 px-6 md:mx-0 md:px-0"
+	/>
 
 	{#snippet agendaRow(row: (typeof data.rows)[number], past: boolean)}
 		{@const tone = classTone(row.tone)}
