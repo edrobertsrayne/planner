@@ -6,10 +6,9 @@
 import { afterNavigate, goto } from '$app/navigation';
 import { resolve } from '$app/paths';
 
-// The Course page's address with a Topic chosen. Until the Course page has its own route this is
-// the Courses screen's query address.
+// The Course page's address with a Topic chosen.
 export function courseHref(courseId: string, topicId: string): string {
-	return `${resolve('/courses')}?course=${courseId}&topic=${topicId}`;
+	return `${resolve(`/courses/${courseId}`)}?topic=${topicId}`;
 }
 
 // Call once while the page initialises. `fallback` is read when Back is pressed, so it follows

@@ -41,6 +41,44 @@ test.describe('the tablet layout (touch, about 800×1180)', () => {
 test.describe('the laptop layout (mouse)', () => {
 	test.use({ viewport: { width: 1536, height: 750 } });
 
+	test('a long Topic title wraps in full, and Delete Topic asks before it deletes', async ({
+		page
+	}) => {
+		await openCourse(page);
+		const title = 'A very long Topic title that has to wrap inside the narrow column of Topics';
+		const box = page.getByPlaceholder('New Topic name — press Enter');
+		await box.fill(title);
+		await box.press('Enter');
+		const link = page.getByRole('link', { name: title });
+		await expect(link).toBeVisible();
+		expect(await link.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+
+		await page.getByRole('button', { name: 'Topic actions' }).click();
+		await page.getByRole('menuitem', { name: 'Delete Topic' }).click();
+		await page.getByRole('button', { name: 'Cancel' }).click();
+		await expect(link).toBeVisible();
+
+		await page.getByRole('button', { name: 'Topic actions' }).click();
+		await page.getByRole('menuitem', { name: 'Delete Topic' }).click();
+		await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
+		await expect(link).toHaveCount(0);
+	});
+
+	test('Delete Course asks before it deletes, and a Course with Classes refuses', async ({
+		page
+	}) => {
+		await openCourse(page);
+		await page.getByRole('button', { name: 'Course actions' }).click();
+		await page.getByRole('menuitem', { name: 'Delete Course' }).click();
+		await page.getByRole('button', { name: 'Cancel' }).click();
+		await expect(page.getByRole('heading', { level: 1, name: 'KS3 Science' })).toBeVisible();
+
+		await page.getByRole('button', { name: 'Course actions' }).click();
+		await page.getByRole('menuitem', { name: 'Delete Course' }).click();
+		await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
+		await expect(page.getByRole('alert')).toContainText('A Class follows this Course');
+	});
+
 	test('a row control is hidden until the row is hovered or holds focus', async ({ page }) => {
 		await openCourse(page);
 		const pencil = page.getByRole('button', { name: /^Rename / }).first();
@@ -151,7 +189,21 @@ test.describe('the App shell on a laptop', () => {
 });
 
 test.describe('the App shell on a tablet in landscape', () => {
-	test.use({ viewport: { width: 1280, height: 800 }, hasTouch: true });
+	test.use({ viewport: { width: 1280, height: 700 }, hasTouch: true });
+
+	test('the Course page shows the Topics beside the Lessons and fits the width', async ({
+		page
+	}) => {
+		await openCourse(page);
+		// With no Topic chosen the first Topic's Lessons show, so the panel is there at once.
+		await expect(page.getByRole('region', { name: 'Lessons' })).toBeVisible();
+		await expectNoHorizontalScroll(page);
+		await page.getByRole('link', { name: 'Forces' }).click();
+		await expect(page).toHaveURL(/\/courses\/[^/?]+\?topic=/);
+		await expect(page.getByRole('link', { name: 'Forces' })).toBeVisible();
+		await expect(page.getByRole('link', { name: 'Speed', exact: true })).toBeVisible();
+		await expectNoHorizontalScroll(page);
+	});
 
 	test('the Lesson editor fits the width', async ({ page }) => {
 		await openLesson(page);
@@ -170,6 +222,22 @@ test.describe('the App shell on a tablet in portrait', () => {
 	test('the Lesson editor fits the width', async ({ page }) => {
 		await openLesson(page);
 		await expectNoHorizontalScroll(page);
+	});
+
+	test('the Course page shows the Topics, then the Lessons of one with a way back', async ({
+		page
+	}) => {
+		await openCourse(page);
+		await expect(page.getByRole('link', { name: 'Forces' })).toBeVisible();
+		await expect(page.getByRole('link', { name: 'Speed', exact: true })).toBeHidden();
+		await expectNoHorizontalScroll(page);
+
+		await page.getByRole('link', { name: 'Forces' }).click();
+		await expect(page.getByRole('link', { name: 'Speed', exact: true })).toBeVisible();
+		await expectNoHorizontalScroll(page);
+		await page.getByRole('link', { name: 'Topics', exact: true }).click();
+		await expect(page.getByRole('link', { name: 'Speed', exact: true })).toBeHidden();
+		await expect(page.getByRole('link', { name: 'Forces' })).toBeVisible();
 	});
 
 	test('the sidebar shows icons only, each with a tooltip', async ({ page }) => {
@@ -219,6 +287,14 @@ test.describe('the App shell on a phone', () => {
 		await expectNoHorizontalScroll(page);
 	});
 
+	test('the Course page fits the width', async ({ page }) => {
+		await openCourse(page);
+		await expectNoHorizontalScroll(page);
+		await page.getByRole('link', { name: 'Forces' }).click();
+		await expect(page.getByRole('link', { name: 'Speed', exact: true })).toBeVisible();
+		await expectNoHorizontalScroll(page);
+	});
+
 	test('the drawer opens from the menu button and goes to the Agenda', async ({ page }) => {
 		await login(page);
 		await page.goto('/calendar');
@@ -251,12 +327,12 @@ test.describe('the Lesson editor on a laptop', () => {
 		await openLessonFromCourses(page);
 		const lessonUrl = page.url();
 		await page.getByRole('button', { name: 'Back' }).click();
-		await expect(page).toHaveURL(/\/courses\?course=.*&topic=/);
+		await expect(page).toHaveURL(/\/courses\/[^/?]+\?topic=/);
 
 		// A full load has no earlier page in the app.
 		await page.goto(lessonUrl);
 		await page.getByRole('button', { name: 'Back' }).click();
-		await expect(page).toHaveURL(/\/courses\?course=.*&topic=/);
+		await expect(page).toHaveURL(/\/courses\/[^/?]+\?topic=/);
 		await expect(page.getByRole('link', { name: 'Speed', exact: true })).toBeVisible();
 	});
 
@@ -294,7 +370,7 @@ test.describe('the Lesson editor on a laptop', () => {
 		await title.blur();
 
 		await page.getByRole('button', { name: 'Back' }).click();
-		await expect(page).toHaveURL(/\/courses\?course=.*&topic=/);
+		await expect(page).toHaveURL(/\/courses\/[^/?]+\?topic=/);
 	});
 
 	test('a title edit followed at once by the breadcrumb is saved', async ({ page }) => {
@@ -437,6 +513,10 @@ test.describe('Detach on the Lesson editor', () => {
 		await page.getByRole('link', { name: 'Forces' }).click();
 		await page.getByPlaceholder('New Lesson title — press Enter').fill('Detachable');
 		await page.getByPlaceholder('New Lesson title — press Enter').press('Enter');
+		// Creating a Lesson neither opens it nor takes the caret out of the box.
+		await expect(page.getByRole('link', { name: 'Detachable', exact: true })).toBeVisible();
+		await expect(page).toHaveURL(/\/courses\/[^/?]+\?topic=/);
+		await expect(page.getByPlaceholder('New Lesson title — press Enter')).toBeFocused();
 		await page.getByRole('link', { name: 'Detachable', exact: true }).click();
 		await expectLessonPage(page);
 		const url = page.url();
@@ -455,7 +535,7 @@ test.describe('Detach on the Lesson editor', () => {
 		// Leave nothing behind for the files that follow. It was opened from the Courses screen,
 		// so Back after the delete returns there.
 		await page.getByRole('button', { name: 'Delete Lesson' }).click();
-		await expect(page).toHaveURL(/\/courses\?course=/);
+		await expect(page).toHaveURL(/\/courses\/[^/?]+\?topic=/);
 		await expect(page.getByRole('link', { name: 'Detachable' })).toHaveCount(0);
 	});
 });

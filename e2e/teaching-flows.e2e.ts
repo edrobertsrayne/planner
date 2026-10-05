@@ -168,7 +168,7 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expect(page).toHaveURL(/\/lessons\//);
 
 		await page.getByRole('button', { name: 'Back' }).click();
-		await expect(page).toHaveURL(/\/courses\?course=.*&topic=/);
+		await expect(page).toHaveURL(/\/courses\/[^/?]+\?topic=/);
 	});
 
 	test('opening a Session from the Agenda, and going Back to the Agenda', async () => {
@@ -384,7 +384,7 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expect(page.locator('main').getByText('Practical', { exact: true })).toBeVisible();
 
 		await page.getByRole('button', { name: 'Back' }).click();
-		await expect(page).toHaveURL(/\/courses\?course=.*&topic=/);
+		await expect(page).toHaveURL(/\/courses\/[^/?]+\?topic=/);
 
 		const courseRow = page.locator('li').filter({ hasText: 'Motion' });
 		await expect(courseRow.getByText('Practical', { exact: true })).toBeVisible();
@@ -601,7 +601,7 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await page.getByPlaceholder('Tag name').press('Enter');
 		await expect(page.locator('main').getByText('Recap', { exact: true })).toBeVisible();
 		await page.getByRole('button', { name: 'Back' }).click();
-		await expect(page).toHaveURL(/\/courses\?course=.*&topic=/);
+		await expect(page).toHaveURL(/\/courses\/[^/?]+\?topic=/);
 
 		// The look-back is off by default.
 		await page.goto('/');

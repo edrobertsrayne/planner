@@ -12,6 +12,7 @@
 		hidden,
 		field = 'name',
 		heading = false,
+		level = 1,
 		tone
 	}: {
 		name: string;
@@ -21,6 +22,8 @@
 		hidden: Record<string, string>;
 		field?: 'name' | 'title' | 'label';
 		heading?: boolean;
+		// The heading's rank, and so its size: a page title or a panel title.
+		level?: 1 | 2;
 		tone?: number;
 	} = $props();
 
@@ -65,7 +68,12 @@
 		</form>
 	{:else}
 		{#if heading}
-			<h1 class="text-lg font-semibold tracking-tight">{name}</h1>
+			<svelte:element
+				this={level === 1 ? 'h1' : 'h2'}
+				class="min-w-0 font-semibold {level === 1 ? 'text-lg tracking-tight' : 'text-base'}"
+			>
+				{name}
+			</svelte:element>
 		{:else if href}
 			<a
 				{href}

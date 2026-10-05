@@ -10,6 +10,7 @@ import {
 	createCourse,
 	createLesson,
 	createLink,
+	courseSummary,
 	createTopic,
 	deleteCourse,
 	deleteLesson,
@@ -71,6 +72,25 @@ describe('a Course Tone', () => {
 		);
 		const imported = listCourses(db).find((c) => c.id === course.id);
 		expect(imported?.tone).toBe(TONE_SEQUENCE[1]);
+	});
+});
+
+describe('a Course summary', () => {
+	test('counts the Lessons of each Topic and names the Classes that follow the Course', () => {
+		const { db } = setUpAuthoring();
+		const course = createCourse(db, { name: 'Year 9 Physics' });
+		const other = createCourse(db, { name: 'Year 10 Chemistry' });
+		const forces = makeTopic(db, course.id, 'Forces');
+		const empty = makeTopic(db, course.id, 'Energy');
+		makeLessons(db, forces.id, 3);
+		createClass(db, { label: '9B/Ph1', courseId: course.id });
+		createClass(db, { label: '9A/Ph1', courseId: course.id });
+		createClass(db, { label: '10A/Ch1', courseId: other.id });
+
+		const summary = courseSummary(db, course.id);
+		expect(summary.lessonCounts.get(forces.id)).toBe(3);
+		expect(summary.lessonCounts.get(empty.id) ?? 0).toBe(0);
+		expect(summary.classes.map((c) => c.label)).toEqual(['9A/Ph1', '9B/Ph1']);
 	});
 });
 

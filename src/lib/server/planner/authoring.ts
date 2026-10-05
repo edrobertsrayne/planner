@@ -105,6 +105,25 @@ export function lessonsOf(db: Db, topicId: string) {
 		.all();
 }
 
+// What the Course page shows beside the Topics: how many Lessons each Topic holds, and the
+// Classes that follow the Course, by label.
+export function courseSummary(db: Db, courseId: string) {
+	const counts = db
+		.select({ topicId: schema.lesson.topicId, count: sql<number>`count(*)` })
+		.from(schema.lesson)
+		.innerJoin(schema.topic, eq(schema.topic.id, schema.lesson.topicId))
+		.where(eq(schema.topic.courseId, courseId))
+		.groupBy(schema.lesson.topicId)
+		.all();
+	const classes = db
+		.select({ id: schema.classes.id, label: schema.classes.label })
+		.from(schema.classes)
+		.where(eq(schema.classes.courseId, courseId))
+		.orderBy(asc(schema.classes.label))
+		.all();
+	return { lessonCounts: new Map(counts.map((c) => [c.topicId, c.count])), classes };
+}
+
 // A Course's Tone is assigned once, at creation: the next unused position of the same walk a
 // Class uses (ADR-0013), walked over Courses only. Nothing else writes it.
 function nextCourseTone(db: Db) {
