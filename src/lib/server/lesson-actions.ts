@@ -13,6 +13,7 @@ import {
 	detachTag,
 	moveLessonToTopic,
 	moveLink,
+	patchLesson,
 	setLessonStatus,
 	updateLesson,
 	updateLink
@@ -61,6 +62,19 @@ export const lessonActions = {
 		const lesson = moveLessonToTopic(db, { id, topicId, today: today() });
 		if (!lesson) return fail(404, { error: 'No such Lesson.' });
 		return { lesson };
+	},
+
+	// One-way: the Lesson keeps its title, plan, Tags, Links and Attachments and leaves its Topic.
+	detachLesson: async ({ request }) => {
+		const data = await request.formData();
+		const id = trimmed(data, 'id');
+		try {
+			const lesson = patchLesson(db, { id, fields: { topicId: null }, today: today() });
+			if (!lesson) return fail(404, { error: 'No such Lesson.' });
+			return { lesson };
+		} catch (error) {
+			return refusal(error);
+		}
 	},
 
 	createLink: async ({ request }) => {

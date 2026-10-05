@@ -9,6 +9,7 @@
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
+	import UnlinkIcon from '@lucide/svelte/icons/unlink';
 	import XIcon from '@lucide/svelte/icons/x';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
@@ -467,7 +468,7 @@
 					</section>
 				</div>
 
-				<div class="border-t pt-3 max-lg:order-4">
+				<div class="flex flex-wrap items-center gap-1 border-t pt-3 max-lg:order-4">
 					<form
 						method="POST"
 						action="?/deleteLesson"
@@ -495,6 +496,26 @@
 							Delete Lesson
 						</Button>
 					</form>
+					{#if data.topic}
+						<form
+							method="POST"
+							action="?/detachLesson"
+							use:enhance={() => {
+								return async ({ result, update }) => {
+									if (result.type === 'success') toast.success('Lesson detached from its Topic.');
+									else if (result.type === 'failure')
+										toast.error(failureReason(result, 'Could not detach the Lesson.'));
+									await update({ reset: false });
+								};
+							}}
+						>
+							<input type="hidden" name="id" value={lesson.id} />
+							<Button type="submit" variant="ghost" size="sm" class="text-muted-foreground">
+								<UnlinkIcon data-icon="inline-start" />
+								Detach from Topic
+							</Button>
+						</form>
+					{/if}
 				</div>
 			</aside>
 		</div>

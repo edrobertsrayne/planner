@@ -403,3 +403,36 @@ test.describe('the Lesson editor for a Standalone Lesson', () => {
 		await expect(page.getByText('Standalone Lesson', { exact: true })).toBeVisible();
 	});
 });
+
+test.describe('Detach on the Lesson editor', () => {
+	test.use({ viewport: { width: 1536, height: 750 } });
+
+	test('a Lesson in a Topic shows Detach; after it the same Lesson shows the Standalone Lesson form', async ({
+		page
+	}) => {
+		await openCourse(page);
+		await page.getByRole('link', { name: 'Forces' }).click();
+		await page.getByPlaceholder('New Lesson title — press Enter').fill('Detachable');
+		await page.getByPlaceholder('New Lesson title — press Enter').press('Enter');
+		await page.getByRole('link', { name: 'Detachable', exact: true }).click();
+		await expectLessonPage(page);
+		const url = page.url();
+		await expect(page.getByLabel('Topic', { exact: true })).toBeVisible();
+
+		await page.getByRole('button', { name: 'Detach from Topic' }).click();
+		await expect(
+			page.locator('[data-sonner-toast]').filter({ hasText: 'Lesson detached from its Topic.' })
+		).toBeVisible();
+		expect(page.url()).toBe(url);
+		await expect(page.getByRole('textbox', { name: 'Lesson title' })).toHaveValue('Detachable');
+		await expect(page.getByText('Standalone Lesson', { exact: true })).toBeVisible();
+		await expect(page.getByLabel('Topic', { exact: true })).toHaveCount(0);
+		await expect(page.getByRole('button', { name: 'Detach from Topic' })).toHaveCount(0);
+
+		// Leave nothing behind for the files that follow. It was opened from the Courses screen,
+		// so Back after the delete returns there.
+		await page.getByRole('button', { name: 'Delete Lesson' }).click();
+		await expect(page).toHaveURL(/\/courses\?course=/);
+		await expect(page.getByRole('link', { name: 'Detachable' })).toHaveCount(0);
+	});
+});
