@@ -1,14 +1,17 @@
 <script lang="ts">
+	import { page } from '$app/state';
+	import HistoryIcon from '@lucide/svelte/icons/history';
 	import { classTone } from '$lib/class-tone';
 	import { formatWeekday } from '$lib/date';
 	import { replaceQuery } from '$lib/client/enhance';
 	import { sessionHref } from '$lib/client/session-href';
+	import { withParam } from '$lib/query';
+	import { touchTarget } from '$lib/components/ui/touch-target';
 	import FilterChips from '$lib/components/filter-chips.svelte';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import TagChips from '$lib/components/tag-chips.svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { Toggle } from '$lib/components/ui/toggle';
-	import { ToggleGroup, ToggleGroupItem } from '$lib/components/ui/toggle-group';
+	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import { AGENDA_HORIZONS } from './agenda-horizons';
 	import { filterByTag, groupByDay, horizonEndsOn, tagsIn } from './agenda-days';
 	import ReadyTick from './ready-tick.svelte';
@@ -16,17 +19,14 @@
 
 	let { data }: PageProps = $props();
 
-	// The horizon and the look-back share the query string with the Tag filter, so a change to
-	// one keeps the Tag in the address.
-	function setQuery({
-		horizon = data.horizon,
-		lookBackOn = data.lookBackOn
-	}: {
-		horizon?: string | number;
-		lookBackOn?: boolean;
-	}) {
-		const tagPart = data.tag ? `&tag=${encodeURIComponent(data.tag)}` : '';
-		return replaceQuery(`?horizon=${horizon}${tagPart}${lookBackOn ? '&past=1' : ''}`);
+	// Each filter sets one parameter and keeps the rest, so a change to the horizon or the
+	// look-back keeps the Tag in the address (withParam, adviser note in docs/backlog.md).
+	function setHorizon(horizon: string | number) {
+		return replaceQuery(withParam(page.url, 'horizon', String(horizon)));
+	}
+
+	function toggleLookBack() {
+		return replaceQuery(withParam(page.url, 'past', data.lookBackOn ? null : '1'));
 	}
 
 	function hrefOf(row: (typeof data.rows)[number]) {
@@ -51,27 +51,20 @@
 <div class="mx-auto max-w-6xl px-6 py-6">
 	<PageHeader title="Agenda">
 		{#snippet actions()}
-			<ToggleGroup
-				type="single"
-				variant="outline"
-				size="sm"
+			<!-- The horizon is tabs at the right of the heading (issue #341), the same tab style as
+			     Draft/Planned on Planning. On a phone PageHeader's wrap puts them under the heading. -->
+			<Tabs.Root
 				value={String(data.horizon)}
 				onValueChange={(v) => {
-					if (v) setQuery({ horizon: v });
+					if (v) setHorizon(v);
 				}}
 			>
-				{#each AGENDA_HORIZONS as [n, label] (n)}
-					<ToggleGroupItem value={String(n)}>{label}</ToggleGroupItem>
-				{/each}
-			</ToggleGroup>
-			<Toggle
-				variant="outline"
-				size="sm"
-				pressed={data.lookBackOn}
-				onPressedChange={(lookBackOn) => setQuery({ lookBackOn })}
-			>
-				Previous 7 days
-			</Toggle>
+				<Tabs.List variant="line">
+					{#each AGENDA_HORIZONS as [n, label] (n)}
+						<Tabs.Trigger value={String(n)}>{label}</Tabs.Trigger>
+					{/each}
+				</Tabs.List>
+			</Tabs.Root>
 		{/snippet}
 	</PageHeader>
 
@@ -86,6 +79,17 @@
 		class="-mx-6 mt-4 px-6 md:mx-0 md:px-0"
 	/>
 
+	<!-- The look-back sits where it appears (issue #341): this full-width button above the first
+	     day replaces the "Previous 7 days" toggle in the header. -->
+	<button
+		type="button"
+		class="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-dashed text-xs font-medium text-muted-foreground hover:bg-muted md:h-8 {touchTarget}"
+		onclick={toggleLookBack}
+	>
+		<HistoryIcon class="size-3.5" />
+		{data.lookBackOn ? 'Hide the previous 7 days' : 'Show the previous 7 days'}
+	</button>
+
 	{#snippet agendaRow(row: (typeof data.rows)[number], past: boolean)}
 		{@const tone = classTone(row.tone)}
 		<li class="group/row relative flex items-center gap-3 pr-2 pl-4 hover:bg-muted/40">
@@ -99,12 +103,15 @@
 				P{row.periodFrom}{#if row.periodTo !== row.periodFrom}–P{row.periodTo}{/if}
 			</span>
 
-			<span
-				class="h-fit shrink-0 rounded-2xl px-2 py-0.5 text-xs font-medium"
-				style:background-color={tone.bg}
-				style:color={tone.fg}
-			>
-				{row.classLabel}
+			<!-- The Class chip sits in a fixed-width column, so the titles line up (issue #341). -->
+			<span class="w-16 shrink-0">
+				<span
+					class="rounded-2xl px-2 py-0.5 text-xs font-medium whitespace-nowrap"
+					style:background-color={tone.bg}
+					style:color={tone.fg}
+				>
+					{row.classLabel}
+				</span>
 			</span>
 
 			<!-- eslint-disable svelte/no-navigation-without-resolve -- sessionHref resolves it -->
@@ -113,8 +120,9 @@
 				class="min-w-0 flex-1 py-3 text-left outline-none focus-visible:underline"
 			>
 				{#if row.lesson}
-					<span class="block truncate text-sm font-medium">{row.lesson.title}</span>
-					<span class="block truncate text-xs text-muted-foreground">
+					<!-- A title or a Topic name wraps in full, never truncates (issue #341). -->
+					<span class="block text-sm font-medium">{row.lesson.title}</span>
+					<span class="block text-xs text-muted-foreground">
 						{#if row.lesson.topicName}
 							{row.lesson.topicName}
 						{/if}

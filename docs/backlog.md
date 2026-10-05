@@ -9,9 +9,9 @@ Add new entries at the top, dated:
 - YYYY-MM-DD: idea
 
 - 2026-10-05: One query-string helper for every filter. `withParam` (issue #338) sets one
-  parameter and keeps the rest, while the Agenda (`?horizon=`, `?past=`) and the Class page
-  (`?from=`) still build their hrefs by hand. Move those to `withParam` once the Agenda's
-  filters are rebuilt (#340, #341), so one convention serves every filter.
+  parameter and keeps the rest. The Agenda's horizon and look-back now use it (issue #341);
+  the Class page (`?from=`) still builds its hrefs by hand. Move that one to `withParam` so
+  one convention serves every filter.
 
 - 2026-08-27: End-of-year rollover. A destructive control that clears the calendar model
   and wipes every Session for a fresh start in a new academic year. Ruled out of scope

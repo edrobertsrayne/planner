@@ -36,6 +36,13 @@ test.describe('the tablet layout (touch, about 800×1180)', () => {
 		await expect(pencil).toBeVisible();
 		await expect(pencil).not.toHaveCSS('opacity', '0');
 	});
+
+	test('the look-back button keeps a 44 px hit area on touch (issue #341)', async ({ page }) => {
+		await login(page);
+		// The button is drawn at the shadcn size from `md` up; its hit area comes from the
+		// shared touch rule (touch-target.ts).
+		await expectHitArea44(page, 'Show the previous 7 days', 'button');
+	});
 });
 
 test.describe('the laptop layout (mouse)', () => {
@@ -62,6 +69,38 @@ test.describe('the laptop layout (mouse)', () => {
 		await page.getByRole('menuitem', { name: 'Delete Topic' }).click();
 		await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
 		await expect(link).toHaveCount(0);
+	});
+
+	test('a long Lesson title wraps in full on the Agenda (issue #341)', async ({ page }) => {
+		await openSessionWithLesson(page);
+		await page.getByRole('link', { name: 'Open in Lesson editor' }).click();
+		await expectLessonPage(page);
+		const lessonUrl = page.url();
+		const title = page.getByRole('textbox', { name: 'Lesson title' });
+		const original = await title.inputValue();
+		const longTitle =
+			'A very long Lesson title that has to wrap in full inside the Agenda row instead of being cut off, and it keeps going well past one line at every window size the teacher uses';
+
+		await title.fill(longTitle);
+		await page
+			.getByRole('navigation', { name: 'Primary' })
+			.getByRole('link', { name: 'Agenda' })
+			.click();
+		await expect(page).toHaveURL('/');
+
+		// The whole title reads on as many lines as it needs: nothing is cut off.
+		const shown = page.getByText(longTitle, { exact: true }).first();
+		await expect(shown).toBeVisible();
+		expect(await shown.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+
+		// Put the title back for the files that follow.
+		await page.goto(lessonUrl);
+		await title.fill(original);
+		await page
+			.getByRole('navigation', { name: 'Primary' })
+			.getByRole('link', { name: 'Agenda' })
+			.click();
+		await expect(page.getByText(original, { exact: true }).first()).toBeVisible();
 	});
 
 	test('Delete Course asks before it deletes, and a Course with Classes refuses', async ({

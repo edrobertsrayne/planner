@@ -238,14 +238,17 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expect(page.getByLabel('How it went')).toHaveText(note);
 	});
 
-	test("the Agenda's horizon survives a reload via the URL", async () => {
+	test("the Agenda's horizon tabs change the horizon and survive a reload via the URL (issue #341)", async () => {
 		await page.goto('/');
-		await page.getByRole('radio', { name: 'Two Weeks' }).click();
+		await page.getByRole('tab', { name: 'Two Weeks' }).click();
 		await expect(page).toHaveURL(/horizon=14/);
 
 		await page.reload();
 		await expect(page).toHaveURL(/horizon=14/);
-		await expect(page.getByRole('radio', { name: 'Two Weeks' })).toBeChecked();
+		await expect(page.getByRole('tab', { name: 'Two Weeks' })).toHaveAttribute(
+			'aria-selected',
+			'true'
+		);
 	});
 
 	test("the Agenda's All horizon reaches past Four Weeks and survives a reload (issue #281)", async () => {
@@ -254,12 +257,12 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expect(days.first()).toBeVisible();
 		const fourWeeks = await days.count();
 
-		await page.getByRole('radio', { name: 'All' }).click();
+		await page.getByRole('tab', { name: 'All' }).click();
 		await expect(page).toHaveURL(/horizon=all/);
 		await expect.poll(() => days.count()).toBeGreaterThan(fourWeeks);
 
 		await page.reload();
-		await expect(page.getByRole('radio', { name: 'All' })).toBeChecked();
+		await expect(page.getByRole('tab', { name: 'All' })).toHaveAttribute('aria-selected', 'true');
 	});
 
 	test('the theme toggle persists across a reload', async () => {
@@ -549,7 +552,7 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await page.reload();
 		await expect(checkbox).not.toBeChecked();
 
-		await page.getByRole('radio', { name: 'Two Weeks' }).click();
+		await page.getByRole('tab', { name: 'Two Weeks' }).click();
 		await expect(page).toHaveURL(/horizon=14/);
 		await expect(page).toHaveURL(/tag=Practical/);
 
@@ -600,14 +603,16 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		runFixture('unmark-taught', classAId, monday, '4');
 	});
 
-	test('the Agenda shows the past seven days above today when turned on, read-only and fixed', async () => {
+	test('the look-back button above the first day shows and hides the past seven days (issue #341)', async () => {
 		const lookBack = page.getByRole('region', { name: 'Past seven days' });
 		const pastRows = lookBack.locator('li');
-		const pastToggle = page.getByRole('button', { name: 'Previous 7 days' });
+		const showPast = page.getByRole('button', { name: 'Show the previous 7 days' });
+		const hidePast = page.getByRole('button', { name: 'Hide the previous 7 days' });
 
 		// The only past Session so far is ten days old, outside the look-back.
 		await page.goto('/?past=1');
 		await expect(page.getByRole('heading', { name: 'Agenda' })).toBeVisible();
+		await expect(hidePast).toBeVisible();
 		await expect(lookBack).toHaveCount(0);
 
 		// Written last in the file: a past Session exists only through the fixture (see beforeAll).
@@ -631,10 +636,11 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		// The look-back is off by default.
 		await page.goto('/');
 		await expect(page.getByRole('heading', { name: 'Agenda' })).toBeVisible();
-		await expect(pastToggle).toHaveAttribute('aria-pressed', 'false');
+		await expect(showPast).toBeVisible();
+		await expect(hidePast).toHaveCount(0);
 		await expect(lookBack).toHaveCount(0);
 
-		await pastToggle.click();
+		await showPast.click();
 		await expect(page).toHaveURL(/past=1/);
 		// Oldest first: three days ago, then yesterday.
 		await expect(pastRows).toHaveCount(2);
@@ -642,14 +648,24 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expect(pastRows.nth(1)).toContainText('9C/Sc1');
 		await expect(lookBack.getByRole('heading')).toHaveCount(2);
 
+		// The button sits above the first day, where the look-back appears.
+		expect(
+			await hidePast.evaluate((button) => {
+				const firstDay = document.querySelector('main section');
+				return Boolean(
+					firstDay && button.compareDocumentPosition(firstDay) & Node.DOCUMENT_POSITION_FOLLOWING
+				);
+			})
+		).toBe(true);
+
 		// A past row carries no Ready tick; a future row still does.
 		await expect(lookBack.getByRole('checkbox')).toHaveCount(0);
 		await expect(
 			page.getByRole('checkbox', { name: 'Ready to teach Motion to 9B/Sc1' }).first()
 		).toBeVisible();
 
-		// The horizon moves only the forward window, and keeps the toggle on.
-		await page.getByRole('radio', { name: 'Four Weeks' }).click();
+		// The horizon moves only the forward window, and keeps the look-back on.
+		await page.getByRole('tab', { name: 'Four Weeks' }).click();
 		await expect(page).toHaveURL(/horizon=28/);
 		await expect(page).toHaveURL(/past=1/);
 		await expect(pastRows).toHaveCount(2);
@@ -667,8 +683,8 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expect(pastRows).toHaveCount(2);
 		await expect(page.getByRole('checkbox', { name: /Ready to teach/ })).toHaveCount(0);
 
-		// Turning the toggle off keeps the horizon and the Tag.
-		await pastToggle.click();
+		// Turning the button off keeps the horizon and the Tag.
+		await hidePast.click();
 		await expect(page).not.toHaveURL(/past=/);
 		await expect(page).toHaveURL(/horizon=28/);
 		await expect(page).toHaveURL(/tag=Recap/);
@@ -677,7 +693,8 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		// An unknown value is off.
 		await page.goto('/?past=yes');
 		await expect(page.getByRole('heading', { name: 'Agenda' })).toBeVisible();
-		await expect(pastToggle).toHaveAttribute('aria-pressed', 'false');
+		await expect(showPast).toBeVisible();
+		await expect(hidePast).toHaveCount(0);
 		await expect(lookBack).toHaveCount(0);
 
 		// A past row opens the Session page on that occasion, with its note.
