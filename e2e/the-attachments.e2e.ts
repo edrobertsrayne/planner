@@ -43,6 +43,13 @@ test.describe.serial('Attachments on Lessons', () => {
 		await page.getByRole('link', { name: 'KS3 Science' }).click();
 		await page.getByPlaceholder('New Topic name — press Enter').fill('Materials');
 		await page.getByPlaceholder('New Topic name — press Enter').press('Enter');
+		// Creating a Topic opens it by navigating to it once the create lands (enhance.ts,
+		// createThenSelect). Wait for the Lessons panel to name it before typing the Lesson:
+		// typed earlier, the form submits while the old Topic is still the one shown, and the
+		// Lesson lands there instead.
+		await expect(
+			page.getByRole('region', { name: 'Lessons' }).getByRole('heading', { name: 'Materials' })
+		).toBeVisible();
 		await page.getByPlaceholder('New Lesson title — press Enter').fill('Glaciers');
 		await page.getByPlaceholder('New Lesson title — press Enter').press('Enter');
 		await expect(page.getByRole('link', { name: 'Glaciers', exact: true })).toBeVisible();
