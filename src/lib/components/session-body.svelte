@@ -216,9 +216,9 @@
 	}
 
 	// Writes a placed Standalone Lesson's title, plan, Length and Draft/Planned mark, one field at
-	// a time (issue: placed-Lesson editing). A Topic Lesson's plan has no editor here — it reaches
-	// no Lesson editor either, but rewriting it from the Session page would rewrite what every
-	// other Class assigned the Topic shares (ADR-0022). `report.placementsMoved` renders the same
+	// a time (issue: placed-Lesson editing). A Topic Lesson's plan has no editor here: rewriting
+	// it from the Session page would rewrite what every other Class assigned the Topic shares
+	// (ADR-0022); the Lesson editor is where it is written. `report.placementsMoved` renders the same
 	// alert a Continuation's Length change already does: a Length increase can push this or
 	// another Placement off its anchor.
 	function patchLesson(fields: {
@@ -258,7 +258,7 @@
 	<span class="text-xs text-muted-foreground">
 		{formatWeekday(occasion.date)} · P{occasion.period}
 	</span>
-	{#if detail?.ready !== null && detail?.ready !== undefined}
+	{#if occasion.date >= today() && detail?.ready !== null && detail?.ready !== undefined}
 		<Badge variant="outline" class="text-xs {detail.ready ? '' : 'text-muted-foreground'}">
 			{detail.ready ? 'Ready' : 'Not ready'}
 		</Badge>

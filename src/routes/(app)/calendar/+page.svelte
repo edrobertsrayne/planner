@@ -44,11 +44,12 @@
 
 	// The ribbon, the two arrows and Today all navigate by query string. Each carries a week
 	// commencing date, not a URL, so the link is built here.
+	const weekHref = (weekCommencing: string) => resolve(`/calendar?week=${weekCommencing}`);
+
 	function openToPlace(classId: string, date: string, period: number) {
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- sessionHref resolves it
 		return goto(sessionHref({ classId, date, period }));
 	}
-	const weekHref = (weekCommencing: string) => resolve(`/calendar?week=${weekCommencing}`);
 
 	// One entry per (day, Period); see calendar-grid.ts. The explicit `h-16` on a start cell's
 	// <td> is what lets the tile's `h-full` resolve, so a multi-Period Lesson renders as one tall
@@ -278,7 +279,7 @@
 													     holds alike (issue #256): a Placement claims its Slot ahead of
 													     the Topic stream, so the Lesson there and every Lesson after it
 													     shift right. Only a Slot already holding a placed Lesson is left
-													     out, matching the panel's own `canPlace` (sessions.ts). Lands on
+													     out, matching the Session page's own `canPlace` (sessions.ts). Lands on
 													     the Session page's own Place-a-Lesson card, the one place the
 													     title is typed. -->
 															{#each placeableSlots as slot (slot.slotId)}
