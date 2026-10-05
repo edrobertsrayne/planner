@@ -62,14 +62,16 @@ export const actions: Actions = {
 	},
 
 	deleteCourse: async ({ request }) => {
-		const id = trimmed(await request.formData(), 'id');
+		const data = await request.formData();
+		const id = trimmed(data, 'id');
 		try {
 			const result = deleteCourse(db, id, {
 				today: today(),
-				confirmed: true,
+				confirmed: trimmed(data, 'confirmed') === 'true',
 				dir: attachmentsDir(DATABASE_URL)
 			});
 			if (!result) return fail(404, { error: 'No such Course.' });
+			if ('needsConfirm' in result) return fail(409, { error: result.reason });
 		} catch (error) {
 			return refusal(error);
 		}
@@ -101,14 +103,16 @@ export const actions: Actions = {
 	},
 
 	deleteTopic: async ({ request }) => {
-		const id = trimmed(await request.formData(), 'id');
+		const data = await request.formData();
+		const id = trimmed(data, 'id');
 		try {
 			const result = deleteTopic(db, id, {
 				today: today(),
-				confirmed: true,
+				confirmed: trimmed(data, 'confirmed') === 'true',
 				dir: attachmentsDir(DATABASE_URL)
 			});
 			if (!result) return fail(404, { error: 'No such Topic.' });
+			if ('needsConfirm' in result) return fail(409, { error: result.reason });
 			return {};
 		} catch (error) {
 			return refusal(error);

@@ -19,8 +19,7 @@ import {
 	updateLink
 } from '$lib/server/planner';
 
-// The lesson-editing actions the Lesson editor and the Courses screen share. The Lesson editor posts
-// to them all; Courses uses deleteLesson from its Lesson rows.
+// The lesson-editing actions the Lesson editor and Planning share.
 export const lessonActions = {
 	updateLesson: async ({ request }) => {
 		const data = await request.formData();
