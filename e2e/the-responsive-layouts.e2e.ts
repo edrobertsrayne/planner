@@ -487,14 +487,57 @@ test.describe('the Calendar grid on a phone', () => {
 		await tiles.filter({ hasText: '9C/Sc1' }).first().click();
 		await expect(page).toHaveURL(/\/sessions\//);
 	});
+
+	test('the week controls step weeks and Today returns to this week (story 102)', async ({
+		page
+	}) => {
+		await login(page);
+		await page.goto('/calendar');
+
+		// On a phone the week on show reads as its letter and its date between the arrows.
+		// The label is the one paragraph in the controls row, so its text is matched whole.
+		await expect(page.getByText(/^Week [AB] · w\/c \d{1,2} [A-Z][a-z]{2,3}$/)).toBeVisible();
+
+		// The arrows step the week and the address names the week on show. Each href is read
+		// before its click: after a click the arrow names the week beyond the one it opened.
+		const next = page.getByRole('link', { name: 'Next Teaching Week' });
+		const stepped = (await next.getAttribute('href'))!.split('week=')[1];
+		await next.click();
+		await expect(page).toHaveURL(`/calendar?week=${stepped}`);
+
+		// Today returns to this week.
+		const today = page.getByRole('link', { name: 'Today' });
+		const current = (await today.getAttribute('href'))!.split('week=')[1];
+		await today.click();
+		await expect(page).toHaveURL(`/calendar?week=${current}`);
+	});
+
+	test('the week controls keep a 44 px target on touch (story 102)', async ({ page }) => {
+		await login(page);
+		await page.goto('/calendar');
+		// On the week a bare load opens on, Today stands down as a disabled button; the arrows
+		// are links (they navigate by query string).
+		await expectHitArea44(page, 'Previous Teaching Week', 'link');
+		await expectHitArea44(page, 'Next Teaching Week', 'link');
+		await expectHitArea44(page, 'Today', 'button');
+	});
+
+	test('no day menu and no Set up year show (story 105)', async ({ page }) => {
+		await login(page);
+		await page.goto('/calendar');
+		// The day menu and Set up year are hidden below `md`, and a hidden subtree is out of
+		// the accessibility tree, so a role query finds nothing to open the calendar's writes.
+		await expect(page.getByRole('button', { name: /actions$/ })).toHaveCount(0);
+		await expect(page.getByRole('button', { name: 'Set up year' })).toHaveCount(0);
+	});
 });
 
 {
 	const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];
-	for (const [name, use] of [
-		['phone', { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch }],
-		['tablet portrait', { viewport: { width: 800, height: 1180 }, hasTouch: true }],
-		['tablet landscape', { viewport: { width: 1280, height: 800 }, hasTouch: true }]
+	for (const [name, use, isPhone] of [
+		['phone', { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch }, true],
+		['tablet portrait', { viewport: { width: 800, height: 1180 }, hasTouch: true }, false],
+		['tablet landscape', { viewport: { width: 1280, height: 800 }, hasTouch: true }, false]
 	] as const) {
 		test.describe(`the Calendar on a ${name}`, () => {
 			test.use(use);
@@ -504,6 +547,23 @@ test.describe('the Calendar grid on a phone', () => {
 				await page.goto('/calendar');
 				await expect(page.locator('main table')).toBeVisible();
 				await expectNoHorizontalScroll(page);
+			});
+
+			// The day menu (block and unblock) and Set up year show from `md` up and not on a
+			// phone (stories 104 and 105).
+			test('the day menu and Set up year show by size', async ({ page }) => {
+				await login(page);
+				await page.goto('/calendar');
+				const dayMenu = page.getByRole('button', { name: /actions$/ });
+				const setUpYear = page.getByRole('button', { name: 'Set up year' });
+				if (isPhone) {
+					await expect(dayMenu).toHaveCount(0);
+					await expect(setUpYear).toHaveCount(0);
+				} else {
+					await expect(dayMenu.first()).toBeVisible();
+					await expect(setUpYear).toBeVisible();
+					await expect(page.getByRole('link', { name: 'Previous Teaching Week' })).toBeVisible();
+				}
 			});
 		});
 	}

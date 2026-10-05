@@ -14,6 +14,7 @@
 	import AtRiskReport from '$lib/components/at-risk-report.svelte';
 	import PlacementsMovedAlert from '$lib/components/placements-moved-alert.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import { touchTarget } from '$lib/components/ui/touch-target';
 	import { cn } from '$lib/utils.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import PageHeader from '$lib/components/page-header.svelte';
@@ -102,18 +103,25 @@
 <svelte:head><title>Calendar</title></svelte:head>
 
 <div class="mx-auto max-w-6xl px-6 py-6">
-	<PageHeader title="Calendar">
+	<PageHeader>
+		<!-- The top bar names the screen on a phone, so below `md` the heading goes — the layout
+	     the prototype of issue #344 points to, as on the Agenda (issue #342). -->
+		<h1 class="hidden text-lg font-semibold tracking-tight md:block">Calendar</h1>
 		{#snippet actions()}
 			<!-- Save year and Cancel sit in the setup mode's own header: the week controls here
 			     would read a year that is not saved yet. -->
 			{#if !setup}
 				{#if data.week}
-					<!-- `min-w-0` lets this row shrink to the page width on a phone: left alone, its
-					     automatic minimum is the ribbon's content, and nothing in the row can give. -->
-					<div class="flex min-w-0 items-center gap-2">
+					<!-- One row for both sizes, the size choosing what shows and where (stories 102
+					     and 103). Below `md` the arrows frame one label — the week's letter and its
+					     Monday — with Today beside them; from `md` today's header is back: arrows,
+					     Today, the five-week ribbon. Flex order moves the pieces between the two, so
+					     each control exists once and no name is doubled in the accessibility tree. -->
+					<div class="flex min-w-0 items-center gap-1 md:gap-2">
 						<Button
 							variant="ghost"
 							size="icon-sm"
+							class="order-1"
 							href={data.prev ? weekHref(data.prev) : undefined}
 							disabled={!data.prev}
 							aria-label="Previous Teaching Week"
@@ -121,11 +129,30 @@
 							<ChevronLeftIcon />
 						</Button>
 
+						<span
+							class="order-2 min-w-0 flex-1 truncate text-center text-sm font-medium tabular-nums md:hidden"
+						>
+							Week {data.week.letter} · w/c {formatDayMonth(data.week.weekCommencing)}
+						</span>
+
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							class="order-3 md:order-4"
+							href={data.next ? weekHref(data.next) : undefined}
+							disabled={!data.next}
+							aria-label="Next Teaching Week"
+						>
+							<ChevronRightIcon />
+						</Button>
+
 						<!-- Today is the header's main action once the year exists; until then the week
-						     controls do not render at all and setting the year keeps the emphasis. -->
+					     controls do not render at all and setting the year keeps the emphasis. While
+					     already on the week it would return to it stands down, a disabled button
+					     without an href. -->
 						<Button
 							size="sm"
-							class="h-7"
+							class="order-4 h-7 md:order-2"
 							href={data.current && data.selected !== data.current
 								? weekHref(data.current)
 								: undefined}
@@ -134,11 +161,11 @@
 							Today
 						</Button>
 
-						<!-- The week ribbon is the one row that must fit beside the arrows and Today. On
-						     a phone it shrinks and scrolls inside itself — the chip-row rule the Agenda
-						     and Planning follow — so the page never scrolls sideways (issue #343). -->
+						<!-- The week ribbon is the one row that must fit beside the arrows and Today. It
+						     shrinks and scrolls inside itself — the chip-row rule the Agenda and
+						     Planning follow — so the page never scrolls sideways (issue #343). -->
 						<div
-							class="flex max-w-full items-center gap-0.5 overflow-x-auto rounded-md border p-0.5"
+							class="order-5 hidden max-w-full items-center gap-0.5 overflow-x-auto rounded-md border p-0.5 md:order-3 md:flex"
 						>
 							{#each data.ribbon as w (w.weekCommencing)}
 								{@const isSelected = w.weekCommencing === data.selected}
@@ -156,22 +183,14 @@
 								</a>
 							{/each}
 						</div>
-
-						<Button
-							variant="ghost"
-							size="icon-sm"
-							href={data.next ? weekHref(data.next) : undefined}
-							disabled={!data.next}
-							aria-label="Next Teaching Week"
-						>
-							<ChevronRightIcon />
-						</Button>
 					</div>
 				{/if}
 
+				<!-- On a phone the year is not written, so Set up year is out below `md` (story
+				     105). -->
 				<Button
 					size="sm"
-					class="h-7"
+					class="hidden h-7 md:inline-flex"
 					variant={data.terms.length === 0 ? 'default' : 'ghost'}
 					onclick={() => (setup = true)}
 				>
@@ -235,10 +254,15 @@
 									<span class="md:hidden">{Number(date.slice(8))}</span>
 									<span class="hidden md:inline">{formatDayMonth(date)}</span>
 								</span>
+								<!-- The day menu writes the calendar, so it is out below `md` (story 105):
+									     a hidden subtree is out of the accessibility tree, and no trigger
+									     means no menu. -->
 								<DropdownMenu.Root>
+									<!-- The 44 px target on touch comes from the shared pointer rule, the same
+									     as the Course page's own day-menu trigger. -->
 									<DropdownMenu.Trigger
 										id={`day-menu-${date}`}
-										class="ml-auto rounded px-0.5 text-muted-foreground/50 hover:text-foreground [&_svg]:size-4"
+										class="{touchTarget} ml-auto hidden rounded px-0.5 text-muted-foreground/50 hover:text-foreground md:inline-flex [&_svg]:size-4"
 										aria-label={`${d} ${formatDayMonth(date)} actions`}
 									>
 										<EllipsisIcon />
