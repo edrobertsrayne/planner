@@ -3,7 +3,8 @@ import { execFileSync } from 'node:child_process';
 
 // Runs after the-planning-api/ and before user-settings-password.e2e.ts, for the suite's
 // single-worker ordering (see isolation.e2e.ts). Reads the one user and the KS3 Science course
-// that earlier files built, and creates nothing.
+// that earlier files built, and creates nothing that lasts: the block-note test undoes its own
+// Blocked Slot.
 //
 // Touch mode: Playwright's Chromium matches `(pointer: coarse)` as soon as `hasTouch` is true;
 // `isMobile` is not needed. Each describe sets its size and pointer with `test.use`.
@@ -42,6 +43,56 @@ test.describe('the tablet layout (touch, about 800×1180)', () => {
 		// The button is drawn at the shadcn size from `md` up; its hit area comes from the
 		// shared touch rule (touch-target.ts).
 		await expectHitArea44(page, 'Show the previous 7 days', 'button');
+	});
+
+	// The block note is asked for in a dialog, not a popover over the tile, so it works by
+	// touch as by mouse (issue #345). The week and the Slot come from teaching-flows, the way
+	// the-calendar-setup.e2e.ts finds them; the Blocked Slot is undone before the test ends.
+	test('the teacher blocks a Slot and saves its note by touch (story 106)', async ({ page }) => {
+		// The classes' Slots were written for the Week letter the Calendar opened on when
+		// teaching-flows ran; one of the two weeks after the engineered one carries that letter,
+		// and its Monday P1 is 9B/Sc1's Slot.
+		const monday = new Date();
+		monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
+		const mondayIso = monday.toISOString().slice(0, 10);
+		const plusDays = (iso: string, days: number) => {
+			const d = new Date(`${iso}T00:00:00Z`);
+			d.setUTCDate(d.getUTCDate() + days);
+			return d.toISOString().slice(0, 10);
+		};
+		const mondayCell = page.locator('tbody tr').first().locator('td').first();
+		await login(page);
+		for (const offset of [7, 14]) {
+			await page.goto(`/calendar?week=${plusDays(mondayIso, offset)}`);
+			if ((await mondayCell.locator('a[href^="/sessions/"]').count()) > 0) break;
+		}
+		await expect(mondayCell.locator('a[href^="/sessions/"]')).toBeVisible();
+
+		// Open the day's menu with a touch, and pick the Slot to block.
+		const menu = page
+			.locator('thead th')
+			.filter({ hasText: 'Mon' })
+			.getByRole('button', {
+				name: /actions$/
+			});
+		await menu.tap();
+		await page.getByRole('menuitem', { name: '9B/Sc1, P1…' }).tap();
+
+		// The note is asked for in a dialog, reached and dismissed by touch alone.
+		const note = page.getByRole('textbox', { name: 'Block 9B/Sc1, P1' });
+		await expect(note).toBeVisible();
+		await note.fill('Assembly');
+		await page.getByRole('button', { name: 'Block', exact: true }).tap();
+
+		// The tile drains: the hatch and the note in place of the Lesson it removed.
+		await expect(mondayCell.locator('.hatched')).toBeVisible();
+		await expect(mondayCell).toContainText('Assembly');
+
+		// The same touch menu unblocks, leaving nothing behind for later files.
+		await menu.tap();
+		await page.getByRole('menuitem', { name: 'Unblock 9B/Sc1, P1' }).tap();
+		await expect(mondayCell.locator('a[href^="/sessions/"]')).toHaveCount(1);
+		await expect(mondayCell).not.toContainText('Assembly');
 	});
 });
 

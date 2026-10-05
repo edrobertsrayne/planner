@@ -421,10 +421,13 @@ test.describe.serial('the Calendar setup mode', () => {
 		const note = page.getByRole('textbox', { name: 'Block 9B/Sc1, P1' });
 
 		// A pick is for the week it was made in: walking to the neighbouring week and back
-		// must not reopen the note form by itself.
+		// must not reopen the note form by itself. The dialog is modal, so the walk starts by
+		// putting it away.
 		await openDayMenu('Mon');
 		await page.getByRole('menuitem', { name: '9B/Sc1, P1…' }).click();
 		await expect(note).toBeVisible();
+		await page.keyboard.press('Escape');
+		await expect(note).toHaveCount(0);
 		const here = page.url();
 		await page.getByLabel('Next Teaching Week').click();
 		await expect(note).toHaveCount(0);

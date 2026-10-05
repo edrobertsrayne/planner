@@ -2,7 +2,6 @@
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { tick } from 'svelte';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
@@ -18,9 +17,15 @@
 	import { cn } from '$lib/utils.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import PageHeader from '$lib/components/page-header.svelte';
-	import BlockPopover from './BlockPopover.svelte';
+	import BlockNoteDialog from './BlockNoteDialog.svelte';
 	import CalendarSetup from './CalendarSetup.svelte';
-	import { availableSlotLines, blockedSlotLines, PERIODS, toGrid } from './calendar-grid';
+	import {
+		availableSlotLines,
+		blockedSlotLines,
+		PERIODS,
+		toGrid,
+		type AvailableSlotLine
+	} from './calendar-grid';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -58,30 +63,19 @@
 	const grid = $derived.by(() => toGrid(data.week?.days ?? [], data.week?.cells ?? []));
 	const blockedByDate = $derived(new Map((data.week?.blockedDays ?? []).map((b) => [b.date, b])));
 
-	// The Slot the day menu picked to block, whose note is asked for over its tile. Rendering
-	// the popover only while a pick is open is the whole of the opening gesture: the menu
-	// chooses, the popover asks.
-	let slotNote = $state<{ date: string; slotId: string; period: number } | null>(null);
+	// The Slot the day menu picked to block, whose note is asked for in a dialog. The dialog
+	// is mounted once and opens through the bound pick, the way ConfirmDeleteDialog is.
+	let slotNote = $state<(AvailableSlotLine & { date: string }) | null>(null);
 
 	// A pick names a Slot in the week's data, so it dies when the week it names is no longer
 	// the one shown — a navigation, or a week with no grid. Clearing on every change of the
-	// week's data would drop the pick mid-refusal: the block popover reloads the week before
+	// week's data would drop the pick mid-refusal: the dialog's form reloads the week before
 	// it reads the answer, and a refused note would be discarded with the form. A week
 	// navigated away from and back to must not reopen the note form by itself.
 	$effect(() => {
 		const picked = slotNote;
 		if (picked && !data.week?.days.some((d) => d.date === picked.date)) slotNote = null;
 	});
-
-	// Closing the pick unmounts the popover in the same flush, and with it the zero-size
-	// trigger bits-ui would hand focus back to — left alone, focus falls to the body and the
-	// keyboard user loses the day menu they came from. Once the unmount has run, focus returns
-	// to that day's menu trigger, found by the id its head carries.
-	function closePick() {
-		const picked = slotNote;
-		slotNote = null;
-		if (picked) tick().then(() => document.getElementById(`day-menu-${picked.date}`)?.focus());
-	}
 
 	// The day head's menu acts through one hidden form rather than three: a Blocked Day records
 	// no cause, so every act the menu offers is a single click, and the form's action and its
@@ -289,15 +283,10 @@
 														>Block one Slot</DropdownMenu.GroupHeading
 													>
 													<!-- One line per real Slot, so a Lesson over two Periods appears
-													     twice. Picking one opens the note form over its tile. -->
+													     twice. Picking one opens the note dialog. -->
 													{#each availableSlots as slot (slot.slotId)}
-														<DropdownMenu.Item
-															onSelect={() =>
-																(slotNote = {
-																	date,
-																	slotId: slot.slotId,
-																	period: slot.period
-																})}>{slot.classLabel}, P{slot.period}…</DropdownMenu.Item
+														<DropdownMenu.Item onSelect={() => (slotNote = { ...slot, date })}
+															>{slot.classLabel}, P{slot.period}…</DropdownMenu.Item
 														>
 													{/each}
 												</DropdownMenu.Group>
@@ -478,24 +467,6 @@
 												{/if}
 											</a>
 											<!-- eslint-enable svelte/no-navigation-without-resolve -->
-
-											{#if slotNote && slotNote.date === cell.date && cell.slotIds.includes(slotNote.slotId)}
-												<!-- The day menu chose this Slot; the note is asked for over the tile
-												it names, so the teacher can see which one they picked. For a Lesson
-												over two Periods both lines open the same tile, each naming its own. -->
-												<BlockPopover
-													pick={{
-														classId: cell.classId,
-														classLabel: cell.classLabel,
-														date: cell.date,
-														slotId: slotNote.slotId,
-														period: slotNote.period
-													}}
-													onOpenChange={(o) => {
-														if (!o) closePick();
-													}}
-												/>
-											{/if}
 										{/if}
 									</td>
 								{/if}
@@ -505,6 +476,11 @@
 				{/each}
 			</tbody>
 		</table>
+
+		<!-- Mounted once for the whole grid: the menu sets the picked Slot, the dialog asks for
+		     its note, and the binding carries the close back — Escape, the X, a click on the
+		     overlay and a saved note all clear the pick. -->
+		<BlockNoteDialog bind:pick={slotNote} />
 	{:else}
 		<p class="text-sm text-muted-foreground">This is not a Teaching Week.</p>
 	{/if}
