@@ -102,6 +102,8 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		const letter = (await page.locator('[aria-current="true"]').first().innerText()).charAt(0);
 
 		await page.goto(`/classes/${classAId}`);
+		// The grid now lives on the Timetable tab (issue #347).
+		await page.getByRole('tab', { name: /^Timetable/ }).click();
 		// Three periods a week — Mon, Wed and Fri P1 — a realistic KS3 cadence, and enough future
 		// Available Slots for the Planning test to page against: one fortnightly Slot supplies only
 		// 8 before the fixture's Terms run out on a Saturday, leaving two of the ten Lessons
@@ -114,10 +116,13 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 				})
 				.click();
 		}
+		// The Assigned Topics shelf lives on the Overview tab (issue #347).
+		await page.getByRole('tab', { name: 'Overview' }).click();
 		await page.getByRole('button', { name: 'Assign next Topic' }).click();
 		await page.getByRole('option', { name: 'Forces' }).click();
 
 		await page.goto(`/classes/${classBId}`);
+		await page.getByRole('tab', { name: /^Timetable/ }).click();
 		// Tuesday P3 — a day classA leaves untouched — in BOTH letters, so whatever the run
 		// date, a Tuesday sits within the Agenda's This Week horizon, and the week the Calendar
 		// test loads always carries one. The cells are positions, not dates (see above).

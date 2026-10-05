@@ -62,7 +62,9 @@
 				<span class="self-center text-xs text-muted-foreground tabular-nums">{i + 1}</span>
 				<span class="min-w-0 flex-1 self-center truncate text-sm">{a.topicName}</span>
 
-				<div class="flex flex-col justify-center row-control">
+				<!-- The reorder and Unassign sit in one column behind the row's hover rule (story
+				     113); a phone reads, so they go with the Assign row below `md` (story 116). -->
+				<div class="flex flex-col justify-center row-control max-md:hidden">
 					{#each MOVES as move (move.direction)}
 						<form
 							method="POST"
@@ -92,6 +94,7 @@
 					method="POST"
 					action="?/unassignTopic"
 					use:enhance={onFail('Could not unassign the Topic.')}
+					class="max-md:hidden"
 				>
 					<input type="hidden" name="classId" value={classId} />
 					<input type="hidden" name="id" value={a.id} />
@@ -111,7 +114,7 @@
 		{/each}
 
 		{#if courseTopics.length}
-			<li class="p-1">
+			<li class="p-1 max-md:hidden">
 				<form
 					method="POST"
 					action="?/assignTopic"

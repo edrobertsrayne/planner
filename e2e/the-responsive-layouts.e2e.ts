@@ -1214,6 +1214,113 @@ test.describe('the Classes screen on a phone writes nothing', () => {
 	});
 });
 
+// The Class page (issue #347): Overview and Timetable tabs from `md` up; on a phone Overview
+// only, and nothing written there.
+async function openClassPage(page: Page) {
+	await login(page);
+	await page.goto('/classes');
+	const href = await page
+		.getByRole('link', { name: /9B\/Sc1/ })
+		.first()
+		.getAttribute('href');
+	await page.goto(href as string);
+	await expect(page.getByRole('heading', { level: 1, name: '9B/Sc1' })).toBeVisible();
+}
+
+test.describe('the Class page on a laptop', () => {
+	test.use({ viewport: { width: 1536, height: 750 } });
+
+	test('opens on Overview, and the Timetable tab shows its Slot count and the Timetable', async ({
+		page
+	}) => {
+		await openClassPage(page);
+		await expect(page.getByRole('tablist')).toBeVisible();
+		await expect(page.getByRole('tab', { name: 'Overview' })).toHaveAttribute(
+			'aria-selected',
+			'true'
+		);
+		// Overview first: the Assigned Topics stand beside the progress card, the Timetable
+		// not yet.
+		await expect(page.getByRole('heading', { name: 'Assigned Topics' })).toBeVisible();
+		await expect(page.getByLabel('Timetable as at — pick any date')).toBeHidden();
+
+		await page.getByRole('tab', { name: /^Timetable/ }).click();
+		await expect(page.getByRole('tab', { name: /^Timetable/ })).toHaveAttribute(
+			'aria-selected',
+			'true'
+		);
+		// The Slot count sits in the tab: 9B/Sc1 holds Mon, Wed and Fri P1.
+		await expect(page.getByRole('tab', { name: /^Timetable/ })).toHaveAccessibleName(/3/);
+		await expect(page.getByLabel('Timetable as at — pick any date')).toBeVisible();
+	});
+});
+
+{
+	const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];
+	for (const [name, use] of [
+		['phone', { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch }],
+		['tablet portrait', { viewport: { width: 800, height: 1180 }, hasTouch: true }],
+		['tablet landscape', { viewport: { width: 1280, height: 800 }, hasTouch: true }]
+	] as const) {
+		test.describe(`the Class page on a ${name}`, () => {
+			test.use(use);
+
+			test('fits the width', async ({ page }) => {
+				await openClassPage(page);
+				await expectNoHorizontalScroll(page);
+			});
+		});
+	}
+}
+
+for (const [name, use] of [
+	['tablet portrait', { viewport: { width: 800, height: 1180 }, hasTouch: true }],
+	['tablet landscape', { viewport: { width: 1280, height: 800 }, hasTouch: true }]
+] as const) {
+	test.describe(`the Class page on a ${name} can write the Timetable`, () => {
+		test.use(use);
+
+		test('the Timetable tab shows, and the teacher can write a Slot', async ({ page }) => {
+			await openClassPage(page);
+			// The tablist shows from a tablet up (story 115).
+			await expect(page.getByRole('tablist')).toBeVisible();
+			await page.getByRole('tab', { name: /^Timetable/ }).click();
+
+			// A free cell — Tuesday P1 in Week A. The take is reversible, so this test leaves
+			// the Timetable exactly as it found it for the files that follow.
+			await expect(page.getByRole('button', { name: /^Week A Tue P1 — empty/ })).toBeVisible();
+			await page.getByRole('button', { name: /^Week A Tue P1 — empty/ }).click();
+			await expect(
+				page.getByRole('button', { name: /^Week A Tue P1 — 9B\/Sc1, click to clear/ })
+			).toBeVisible();
+
+			await page.getByRole('button', { name: /^Week A Tue P1 — 9B\/Sc1, click to clear/ }).click();
+			await expect(page.getByRole('button', { name: /^Week A Tue P1 — empty/ })).toHaveCount(1);
+		});
+	});
+}
+
+test.describe('the Class page on a phone writes nothing', () => {
+	// `defaultBrowserType` stays out, so no new worker is forced (as on the Courses screens).
+	const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];
+	test.use({ viewport, userAgent, deviceScaleFactor, isMobile, hasTouch });
+
+	test('no tabs and no Timetable; Overview only, with no reorder or Unassign (story 116)', async ({
+		page
+	}) => {
+		await openClassPage(page);
+		// No tabs at all: A chosen Timetable tab on a wider window still shows Overview here.
+		await expect(page.getByRole('tab', { name: 'Overview' })).toBeHidden();
+		// The Timetable itself is gone, with its "Timetable as at" control.
+		await expect(page.getByLabel('Timetable as at — pick any date')).toBeHidden();
+		// Overview reads: the progress card and the Assigned Topics, without their controls.
+		await expect(page.getByRole('heading', { name: 'Assigned Topics' })).toBeVisible();
+		await expect(page.getByRole('button', { name: /^Unassign / })).toBeHidden();
+		await expect(page.getByRole('button', { name: /^Move / })).toBeHidden();
+		await expect(page.getByRole('button', { name: 'Assign next Topic' })).toBeHidden();
+	});
+});
+
 // Login and Setup leave the app shell, so these describes stand alone. Setup is reachable with
 // no account only, so its tests run in setup-wizard.e2e.ts; Login's run here, where the one
 // user already exists.

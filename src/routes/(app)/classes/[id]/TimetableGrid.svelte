@@ -97,7 +97,7 @@
 								<td>
 									{#if cell.kind === 'other'}
 										<div
-											class="flex h-8 w-full cursor-not-allowed items-center justify-center rounded-md bg-muted/60 text-[11px] text-muted-foreground/80 inset-ring inset-ring-border"
+											class="flex h-9 w-full cursor-not-allowed items-center justify-center rounded-md bg-muted/60 text-[11px] text-muted-foreground/80 inset-ring inset-ring-border"
 											title="Held by {cell.label}"
 											aria-label={description}
 										>
@@ -105,14 +105,14 @@
 										</div>
 									{:else if readOnly && cell.kind === 'mine'}
 										<div
-											class="flex h-8 w-full items-center justify-center rounded-md bg-primary/10 text-[11px] font-medium text-primary inset-ring inset-ring-primary/30"
+											class="flex h-9 w-full items-center justify-center rounded-md bg-primary/10 text-[11px] font-medium text-primary inset-ring inset-ring-primary/30"
 											aria-label={description}
 										>
 											{cell.label}
 										</div>
 									{:else if readOnly}
 										<div
-											class="h-8 w-full rounded-md border border-dashed opacity-40"
+											class="h-9 w-full rounded-md border border-dashed opacity-40"
 											aria-label={description}
 										></div>
 									{:else}
@@ -127,7 +127,7 @@
 											<input type="hidden" name="period" value={p} />
 											<input type="hidden" name="from" value={on} />
 											{#if cell.kind === 'mine'}
-												<Button type="submit" size="xs" class="h-8 w-full" aria-label={description}>
+												<Button type="submit" size="xs" class="h-9 w-full" aria-label={description}>
 													{cell.label}
 												</Button>
 											{:else}
@@ -135,7 +135,7 @@
 													type="submit"
 													variant="outline"
 													size="xs"
-													class="h-8 w-full border-dashed text-muted-foreground/40 hover:border-solid hover:text-foreground"
+													class="h-9 w-full border-dashed text-muted-foreground/40 hover:border-solid hover:text-foreground"
 													aria-label={description}
 												>
 													<PlusIcon class="size-3" />

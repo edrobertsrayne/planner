@@ -60,6 +60,7 @@ export function classDetail(db: Db, id: string) {
 		.select({
 			id: schema.classes.id,
 			label: schema.classes.label,
+			tone: schema.classes.tone,
 			courseId: schema.classes.courseId,
 			courseName: schema.course.name
 		})

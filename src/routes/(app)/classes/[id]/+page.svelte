@@ -1,14 +1,16 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { MediaQuery } from 'svelte/reactivity';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
+	import { classTone } from '$lib/class-tone';
 	import { replaceQuery } from '$lib/client/enhance';
 	import { formatDate } from '$lib/date';
 	import { withParam } from '$lib/query';
 	import RenameableRow from '$lib/components/renameable-row.svelte';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
-	import { Separator } from '$lib/components/ui/separator/index.js';
+	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import AssignedTopics from './AssignedTopics.svelte';
 	import ClassProgress from './ClassProgress.svelte';
 	import TimetableGrid from './TimetableGrid.svelte';
@@ -16,9 +18,17 @@
 
 	let { data, form }: PageProps = $props();
 
+	// The Timetable reads and writes from a tablet up; on a phone Overview is the only view, so
+	// the rename pencil — the page's other edit — follows the Course page's rule.
+	const md = new MediaQuery('min-width: 768px', true);
+	let tab = $state<'overview' | 'timetable'>('overview');
+
 	// The "Timetable as at" date sets one parameter and keeps the rest, like every filter
 	// (withParam, issue #338).
 	const setAsAt = (date: string) => replaceQuery(withParam(page.url, 'from', date));
+
+	const tone = $derived(classTone(data.class.tone));
+	const slotCount = $derived(data.grid.filter((s) => s.classId === data.class.id).length);
 
 	const labelOf = (classId: string) => data.classes.find((c) => c.id === classId)?.label ?? classId;
 
@@ -60,16 +70,67 @@
 		<p role="alert" class="mt-3 text-xs text-destructive">{form.error}</p>
 	{/if}
 
-	<div class="mt-3 grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-		<section class="min-w-0">
-			<div class="flex flex-wrap items-baseline justify-between gap-2">
-				<h2 class="text-sm font-semibold">Timetable</h2>
-				<span class="text-xs text-muted-foreground tabular-nums">
-					{data.grid.filter((s) => s.classId === data.class.id).length} Slots a fortnight
-				</span>
-			</div>
+	<div class="mt-3 flex items-start gap-3">
+		<span
+			class="mt-1.5 size-2.5 shrink-0 rounded-full ring-2"
+			style:background-color={tone.bg}
+			style:--tw-ring-color={tone.ring}
+			aria-hidden="true"
+		></span>
+		<div class="min-w-0">
+			<RenameableRow
+				name={data.class.label}
+				action="?/renameClass"
+				hidden={{ id: data.class.id }}
+				field="label"
+				heading
+				editable={md.current}
+			/>
+			<Badge variant="outline" class="mt-1">{data.class.courseName}</Badge>
+		</div>
+	</div>
 
-			<div class="mt-2 flex flex-wrap items-center gap-2">
+	<!-- Overview and Timetable under the Class's label (story 110). No tabs on a phone: Overview
+	     is all a phone reads of this page, whichever tab was last chosen on a wider window. -->
+	<Tabs.Root value={tab} onValueChange={(v) => v && (tab = v as typeof tab)} class="mt-3">
+		<Tabs.List variant="line" class="max-md:hidden">
+			<Tabs.Trigger value="overview">Overview</Tabs.Trigger>
+			<Tabs.Trigger value="timetable">
+				Timetable <span class="text-xs tabular-nums opacity-60">{slotCount}</span>
+			</Tabs.Trigger>
+		</Tabs.List>
+	</Tabs.Root>
+
+	<!-- Overview always shows on a phone (story 116): the class stays written above. -->
+	<div
+		class="mt-4 grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] {tab === 'overview'
+			? ''
+			: 'md:hidden'}"
+	>
+		<div class="min-w-0">
+			{#if data.lane}
+				<div class="rounded-xl border p-4">
+					<ClassProgress classId={data.class.id} lane={data.lane} />
+				</div>
+			{/if}
+		</div>
+		<div class="min-w-0">
+			<AssignedTopics
+				classId={data.class.id}
+				classLabel={data.class.label}
+				assigned={data.assignedTopics}
+				courseTopics={data.courseTopics}
+				atRisk={form?.atRisk}
+				placementsMoved={form?.placementsMoved}
+			/>
+		</div>
+	</div>
+
+	<!-- The Timetable from a tablet up only (story 116): hidden below `md`, and unless its tab
+	     is on above `md`. -->
+	<div class={tab === 'timetable' ? 'max-md:hidden' : 'hidden'}>
+		<section class="min-w-0">
+			<div class="mt-4 flex flex-wrap items-center gap-2">
 				<span class="text-xs font-medium text-muted-foreground">Timetable as at</span>
 				<Select.Root type="single" value={data.on} onValueChange={(v) => v && setAsAt(v)}>
 					<Select.Trigger size="sm" class="h-7 w-56 text-xs">
@@ -126,35 +187,5 @@
 				{/if}
 			</div>
 		</section>
-
-		<aside class="space-y-5 lg:sticky lg:top-6 lg:self-start">
-			<div>
-				<RenameableRow
-					name={data.class.label}
-					action="?/renameClass"
-					hidden={{ id: data.class.id }}
-					field="label"
-					heading
-				/>
-				<Badge variant="outline" class="mt-1">{data.class.courseName}</Badge>
-				<p class="mt-2 text-xs text-muted-foreground">
-					The Course is fixed at creation — a mis-pick means deleting the Class and starting again.
-				</p>
-			</div>
-
-			{#if data.lane}
-				<ClassProgress classId={data.class.id} lane={data.lane} />
-				<Separator />
-			{/if}
-
-			<AssignedTopics
-				classId={data.class.id}
-				classLabel={data.class.label}
-				assigned={data.assignedTopics}
-				courseTopics={data.courseTopics}
-				atRisk={form?.atRisk}
-				placementsMoved={form?.placementsMoved}
-			/>
-		</aside>
 	</div>
 </div>
