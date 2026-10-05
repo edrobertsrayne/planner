@@ -68,9 +68,12 @@ function runFixture(...args: string[]): string {
 	});
 }
 
+// The Lesson editor shows its title as a field on a laptop or tablet, and as a heading on a phone.
 async function expectLessonPage(page: Page) {
 	await expect(page).toHaveURL(/\/lessons\//);
-	await expect(page.getByRole('textbox', { name: 'Lesson title' })).toBeVisible();
+	await expect(
+		page.getByRole('textbox', { name: 'Lesson title' }).or(page.getByRole('heading', { level: 1 }))
+	).toBeVisible();
 }
 
 // The Lesson editor of Speed by its address: the Courses screen is not usable at every size yet.
@@ -193,6 +196,26 @@ test.describe('the App shell on a phone', () => {
 
 	test('the Lesson editor fits the width', async ({ page }) => {
 		await openLesson(page);
+		await expectNoHorizontalScroll(page);
+	});
+
+	test('the Lesson editor is a read view that steps and writes nothing', async ({ page }) => {
+		await openLesson(page);
+		await expect(page.getByRole('heading', { level: 1 })).toHaveText('Speed');
+		await expect(page.getByText('Forces', { exact: true }).first()).toBeVisible();
+		await expect(page.getByText(/^(Draft|Planned)$/)).toBeVisible();
+
+		// Nothing on the page takes a write.
+		await expect(page.getByRole('textbox')).toHaveCount(0);
+		await expect(
+			page.getByRole('button', { name: /Delete Lesson|Detach|Add |Remove|^Draft$|^Planned$/ })
+		).toHaveCount(0);
+
+		await page.getByRole('button', { name: 'Next Lesson' }).click();
+		await expect(page.getByText(/^Lesson 2 of \d+$/)).toBeVisible();
+		await expect(page.getByRole('heading', { level: 1 })).toHaveText('Motion');
+		await page.getByRole('button', { name: 'Previous Lesson' }).click();
+		await expect(page.getByRole('heading', { level: 1 })).toHaveText('Speed');
 		await expectNoHorizontalScroll(page);
 	});
 
