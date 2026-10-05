@@ -511,6 +511,20 @@ test.describe('the Session page on a phone', () => {
 		await expectHitArea44(page, 'Needs more time', 'button');
 	});
 
+	test('Open in Lesson editor shows the read view, and Back returns to the Session page', async ({
+		page
+	}) => {
+		const path = await openSessionWithLesson(page);
+		await page.getByRole('link', { name: 'Open in Lesson editor' }).click();
+		await expectLessonPage(page);
+		await expect(page.getByRole('textbox')).toHaveCount(0);
+		await expectNoHorizontalScroll(page);
+
+		await page.getByRole('button', { name: 'Back' }).click();
+		await expect(page).toHaveURL(path);
+		await expect(page.getByLabel('How it went')).toBeVisible();
+	});
+
 	test('writes a Session note that a reload keeps', async ({ page }) => {
 		await openSessionWithLesson(page);
 		const text = `Phone note ${Date.now()}`;
@@ -550,6 +564,11 @@ test.describe('the Session page on a laptop', () => {
 		await page.reload();
 		await expect(page).toHaveURL(path);
 		await expect(page.getByLabel('How it went')).toBeVisible();
+
+		await page.getByRole('link', { name: 'Open in Lesson editor' }).click();
+		await expectLessonPage(page);
+		await page.getByRole('button', { name: 'Back' }).click();
+		await expect(page).toHaveURL(path);
 
 		await page.getByRole('link', { name: 'Open in Lesson editor' }).click();
 		await expectLessonPage(page);
