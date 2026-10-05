@@ -1153,3 +1153,61 @@ test.describe('the Class chip row on a phone', () => {
 		await expectNoHorizontalScroll(page);
 	});
 });
+
+test.describe('the Classes screen on a laptop', () => {
+	test.use({ viewport: { width: 1536, height: 750 } });
+
+	test('a tile opens its Class page from its body, and the footer holds its two controls (stories 107–108)', async ({
+		page
+	}) => {
+		await login(page);
+		await page.goto('/classes');
+		const item = page.getByRole('listitem').filter({ hasText: '9B/Sc1' });
+		const tile = item.getByRole('link', { name: /9B\/Sc1/ });
+		await expect(tile).toContainText('KS3 Science');
+		await expect(tile).toContainText('Runway');
+		// The footer sits beside the body link, not inside it: only the body opens the page.
+		await expect(item.getByRole('button', { name: 'Assign next Topic' })).toBeVisible();
+		await expect(item.getByRole('link', { name: 'Open Class' })).toBeVisible();
+		await tile.click();
+		await expect(page).toHaveURL(/\/classes\/[^/?]+$/);
+	});
+});
+
+{
+	const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];
+	for (const [name, use] of [
+		['phone', { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch }],
+		['tablet portrait', { viewport: { width: 800, height: 1180 }, hasTouch: true }],
+		['tablet landscape', { viewport: { width: 1280, height: 800 }, hasTouch: true }]
+	] as const) {
+		test.describe(`the Classes screen on a ${name}`, () => {
+			test.use(use);
+
+			test('fits the width', async ({ page }) => {
+				await login(page);
+				await page.goto('/classes');
+				await expect(page.getByRole('link', { name: /9B\/Sc1/ })).toBeVisible();
+				await expectNoHorizontalScroll(page);
+			});
+		});
+	}
+}
+
+test.describe('the Classes screen on a phone writes nothing', () => {
+	// `defaultBrowserType` stays out, so no new worker is forced (as on the Courses screens).
+	const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];
+	test.use({ viewport, userAgent, deviceScaleFactor, isMobile, hasTouch });
+
+	test('no New Class tile and no Assign next Topic; Open Class has a 44 px box (story 109)', async ({
+		page
+	}) => {
+		await login(page);
+		await page.goto('/classes');
+		await expect(page.getByRole('link', { name: /9B\/Sc1/ })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'New Class' })).toBeHidden();
+		await expect(page.getByRole('button', { name: 'Assign next Topic' })).toBeHidden();
+		await expectHitArea44(page, 'Open Class', 'link');
+		await expectNoHorizontalScroll(page);
+	});
+});

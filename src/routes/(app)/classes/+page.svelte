@@ -51,7 +51,7 @@
 			</p>
 			<NewClassDialog courses={data.courses}>
 				{#snippet trigger(props)}
-					<Button {...props} size="sm" class="mt-4">
+					<Button {...props} size="sm" class="mt-4 max-md:hidden">
 						<PlusIcon data-icon="inline-start" />New Class
 					</Button>
 				{/snippet}
@@ -62,30 +62,28 @@
 			{#each data.lanes as lane (lane.classId)}
 				{@const tone = classTone(lane.tone)}
 				{@const pct = lane.total ? Math.round((lane.taught / lane.total) * 100) : 0}
+				<!-- The tile body is one link to the Class page, as on Courses (story 107). -->
 				<li class="flex flex-col overflow-hidden rounded-xl border bg-card">
-					<div class="flex flex-1 flex-col gap-3 p-4">
-						<div class="flex items-start gap-3">
+					<a
+						href={resolve(`/classes/${lane.classId}`)}
+						class="flex flex-1 flex-col gap-3 p-4 hover:bg-accent"
+					>
+						<span class="flex items-start gap-3">
 							<span
-								class="mt-0.5 size-2.5 shrink-0 rounded-full ring-2"
+								class="mt-1 size-2.5 shrink-0 rounded-full ring-2"
 								style:background-color={tone.bg}
 								style:--tw-ring-color={tone.ring}
 								aria-hidden="true"
 							></span>
-							<div class="min-w-0 flex-1">
-								<a
-									href={resolve(`/classes/${lane.classId}`)}
-									class="block truncate text-sm font-semibold hover:underline"
-								>
-									{lane.classLabel}
-								</a>
-								<div class="truncate text-xs text-muted-foreground">
+							<span class="min-w-0">
+								<span class="block text-sm font-semibold">{lane.classLabel}</span>
+								<span class="block text-xs text-muted-foreground">
 									{courseName(lane.courseId)}
-								</div>
-							</div>
-							<div class="text-right text-xs text-muted-foreground tabular-nums">{pct}%</div>
-						</div>
+								</span>
+							</span>
+						</span>
 
-						<div
+						<span
 							class="h-1 overflow-hidden rounded-full bg-muted"
 							role="progressbar"
 							aria-valuenow={pct}
@@ -93,35 +91,36 @@
 							aria-valuemax={100}
 							aria-label={`${lane.classLabel}: ${lane.taught} of ${lane.total} Lessons taught`}
 						>
-							<div class="h-full" style:width="{pct}%" style:background-color={tone.ring}></div>
-						</div>
+							<span class="block h-full" style:width="{pct}%" style:background-color={tone.ring}
+							></span>
+						</span>
 
 						<dl class="mt-auto space-y-1 text-xs">
 							<!-- The Topic sits above the Lesson because the Lesson is inside it: the tile reads
-							     "you are in Electricity, and the next one is Resistance". -->
+						     "you are in Electricity, and the next one is Resistance". -->
 							<div class="flex gap-1.5">
 								<dt class="shrink-0 text-muted-foreground">Topic</dt>
-								<dd class="truncate font-medium">{lane.nextUp?.topicName ?? '—'}</dd>
+								<dd class="min-w-0 font-medium">{lane.nextUp?.topicName ?? '—'}</dd>
 							</div>
 							<div class="flex gap-1.5">
 								<dt class="shrink-0 text-muted-foreground">Next</dt>
-								<dd class="truncate">{lane.nextUp?.title ?? '—'}</dd>
+								<dd class="min-w-0">{lane.nextUp?.title ?? '—'}</dd>
 							</div>
 							<div class="flex gap-1.5">
 								<dt class="shrink-0 text-muted-foreground">Runway</dt>
-								<dd class="truncate tabular-nums">
+								<dd class="min-w-0 tabular-nums">
 									{lane.runway.date ? formatDateShort(lane.runway.date) : 'open-ended'}
 								</dd>
 							</div>
 						</dl>
-					</div>
+					</a>
 
 					<div class="flex items-center gap-1 border-t px-2 py-1.5">
 						{#if data.courseTopics[lane.courseId]?.length}
 							<form
 								method="POST"
 								action="?/assignTopic"
-								class="min-w-0 flex-1"
+								class="min-w-0 flex-1 max-md:hidden"
 								bind:this={assignForms[lane.classId]}
 								use:enhance={onFail('Could not assign the Topic.')}
 							>
@@ -146,23 +145,24 @@
 								</Select.Root>
 							</form>
 						{:else}
-							<span class="min-w-0 flex-1 px-2 text-xs text-muted-foreground/60">
+							<span class="min-w-0 flex-1 px-2 text-xs text-muted-foreground/60 max-md:hidden">
 								No Topics to assign
 							</span>
 						{/if}
 						<Button
 							variant="ghost"
 							size="sm"
-							class="shrink-0 px-2 text-xs"
+							class="ml-auto shrink-0 px-2 text-xs"
 							href={resolve(`/classes/${lane.classId}`)}
 						>
-							Open Class page<ChevronRightIcon />
+							Open Class<ChevronRightIcon />
 						</Button>
 					</div>
 				</li>
 			{/each}
 
-			<li>
+			<!-- Nothing is written on a phone, so the New Class tile is not there (story 109). -->
+			<li class="max-md:hidden">
 				<NewClassDialog courses={data.courses}>
 					{#snippet trigger(props)}
 						<button
