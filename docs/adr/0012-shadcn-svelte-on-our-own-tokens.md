@@ -90,6 +90,10 @@ command, so rebuild tickets decide what they need when they need it rather than 
 up front. `dialog`, `field`, `separator` and `badge` are in use as of the prototypes; `sheet` and
 `tabs` were tried and rejected.
 
+> **Amended 2026-10-05 (issue #338).** `tabs` is in use after all: the Planning screen's All /
+> Draft / Planned tabs (issue #338, prototype decision #307) needed it, and "try the CLI first"
+> is the cheaper rule to keep than a rejection taken on prototype grounds. `sheet` stays rejected.
+
 **`data-table` is available, and the dependency is not the reason to avoid it.** The research
 document flags that it pulls `@tanstack/table-core`; that is true and is not a deciding factor, on a
 branch already adding Bits UI and `@internationalized/date`. The criterion is behaviour: a table

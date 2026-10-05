@@ -24,8 +24,16 @@ export function nextTone(inUse: readonly number[]): number {
 	);
 }
 
+// The token roles a Tone resolves to (ADR-0012): CSS custom-property references consumers style
+// with inline.
+export interface ToneTokens {
+	bg: string;
+	fg: string;
+	ring: string;
+}
+
 // A stored Tone index to its token role names.
-export function classTone(tone: number) {
+export function classTone(tone: number): ToneTokens {
 	return {
 		bg: `var(--tone-${tone}-bg)`,
 		fg: `var(--tone-${tone}-fg)`,
