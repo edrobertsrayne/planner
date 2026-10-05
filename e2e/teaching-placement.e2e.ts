@@ -97,20 +97,28 @@ test.describe.serial('Placing and removing a Lesson', () => {
 		await page.getByRole('textbox', { name: 'Lesson title' }).fill('Revision session');
 		await page.getByRole('button', { name: 'Place' }).click();
 
+		// The Session page shows the placed Lesson read-only: no title, plan, Length or
+		// Draft/Planned control (ADR-0022).
 		await expect(page.getByText('Standalone Lesson · Placed')).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Revision session' })).toBeVisible();
+		await expect(page.getByRole('textbox', { name: 'Lesson title' })).toHaveCount(0);
+		await expect(page.getByRole('radio', { name: 'Planned' })).toHaveCount(0);
+
+		// The plan is written in the Lesson editor.
+		await page.getByRole('link', { name: 'Open in Lesson editor' }).click();
 		await expect(page.getByRole('textbox', { name: 'Lesson title' })).toHaveValue(
 			'Revision session'
 		);
-
-		// A placed Standalone Lesson's plan has no editor anywhere else (ADR-0022) — this Session
-		// panel is it.
 		await page
-			.getByRole('textbox', { name: 'Plan' })
+			.getByRole('textbox', { name: 'Notes & objectives' })
 			.fill('Revise the whole unit, past paper Q1-6.');
-		await page.getByRole('textbox', { name: 'Plan' }).blur();
+		await page.getByRole('textbox', { name: 'Notes & objectives' }).blur();
 		await page.getByRole('radio', { name: 'Planned' }).click();
 		await expect(page.getByRole('radio', { name: 'Planned' })).toHaveAttribute('data-state', 'on');
 
+		await page.getByRole('button', { name: 'Back' }).click();
+		await openSessionAndExpect(page);
+		await expect(page.getByText('Revise the whole unit, past paper Q1-6.')).toBeVisible();
 		await page.getByRole('button', { name: 'Back' }).click();
 		await expectSessionClosed(page);
 
@@ -118,16 +126,6 @@ test.describe.serial('Placing and removing a Lesson', () => {
 		await expect(cell).toContainText('Revision session');
 		await expect(cell).toContainText('Standalone Lesson');
 		await expect(cell.locator('[data-standalone-ring]')).toBeVisible();
-
-		// Reopening reads the plan and the Planned mark back — not just the panel's own state.
-		await cell.getByRole('link').click();
-		await openSessionAndExpect(page);
-		await expect(page.getByRole('textbox', { name: 'Plan' })).toContainText(
-			'Revise the whole unit, past paper Q1-6.'
-		);
-		await expect(page.getByRole('radio', { name: 'Planned' })).toHaveAttribute('data-state', 'on');
-		await page.getByRole('button', { name: 'Back' }).click();
-		await expectSessionClosed(page);
 	});
 
 	test('opening the placed Lesson shows Standalone Lesson · Placed, and Remove placement returns the tile to an Open Slot', async () => {

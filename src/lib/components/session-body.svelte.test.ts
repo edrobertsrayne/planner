@@ -181,6 +181,33 @@ describe('the Session panel', () => {
 		await expect.element(screen.getByRole('button', { name: 'Remove placement' })).toBeVisible();
 	});
 
+	test('a placed Lesson shows its title and plan read-only, with no field to write them', async () => {
+		stubSessionFetch({
+			...baseDetail,
+			placement: { id: 'placement-1' },
+			lesson: {
+				id: 'lesson-1',
+				title: 'Assembly',
+				topicName: null,
+				body: 'Hand out the **slides**.',
+				status: 'draft',
+				length: 1,
+				links: [],
+				tags: [],
+				attachments: []
+			}
+		});
+
+		const screen = await render(SessionBody, { occasion });
+
+		await expect.element(screen.getByRole('heading', { name: 'Assembly' })).toBeVisible();
+		await expect.element(screen.getByText('slides')).toBeVisible();
+		await expect
+			.element(screen.getByRole('textbox', { name: 'Lesson title' }))
+			.not.toBeInTheDocument();
+		await expect.element(screen.getByRole('radio', { name: 'Planned' })).not.toBeInTheDocument();
+	});
+
 	test('the Place button stays disabled for a blank or whitespace-only title', async () => {
 		stubSessionFetch({ ...baseDetail, canPlace: true });
 
