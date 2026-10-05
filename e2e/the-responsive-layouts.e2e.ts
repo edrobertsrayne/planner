@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 // Runs after the-planning-api/ and before user-settings-password.e2e.ts, for the suite's
 // single-worker ordering (see isolation.e2e.ts). Reads the one user and the KS3 Science course
 // that earlier files built, and creates nothing that lasts: the block-note test undoes its own
-// Blocked Slot.
+// Blocked Slot, and the Class chip row test deletes the six Filler Classes it made.
 //
 // Touch mode: Playwright's Chromium matches `(pointer: coarse)` as soon as `hasTouch` is true;
 // `isMobile` is not needed. Each describe sets its size and pointer with `test.use`.
@@ -1210,6 +1210,11 @@ test.describe('the Class chip row on a phone', () => {
 		await expect(chips.getByRole('button', { name: 'Filler 1' })).toBeVisible();
 		expect(await chips.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
 		await expectNoHorizontalScroll(page);
+
+		// The Fillers exist to outnumber what a phone shows; after the assertions they go, so
+		// the Classes-screen and Class-page describes below read the classes the suite built,
+		// and no Fillers.
+		for (let i = 1; i <= 6; i++) runFixture('delete-class', `Filler ${i}`);
 	});
 });
 

@@ -10,6 +10,7 @@
  *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts set-terms '<terms JSON>'
  *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts assign-topic <classLabel> <topicId>
  *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts create-class <label> <courseId>
+ *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts delete-class <label>
  *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts clear-terms
  *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts create-standalone-lesson <title>
  *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts place-lesson <lessonId> <classLabel> <date>
@@ -101,6 +102,15 @@ switch (command) {
 		const [label, courseId] = args;
 		if (!label || !courseId) throw new Error('Usage: create-class <label> <courseId>');
 		db.insert(schema.classes).values({ label, courseId }).run();
+		break;
+	}
+	// Takes a fixture Class back out by label, so a test that grows the Class list to make a
+	// chip row overflow leaves nothing behind. Deletes straight, without a re-derive: the
+	// make-shift fixture Classes carry no Slots, so they reach no derivation.
+	case 'delete-class': {
+		const [label] = args;
+		if (!label) throw new Error('Usage: delete-class <label>');
+		db.delete(schema.classes).where(eq(schema.classes.label, label)).run();
 		break;
 	}
 	// The planner with no year in it — the state the setup mode opens by itself on. There is no
