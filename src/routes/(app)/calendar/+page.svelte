@@ -108,7 +108,9 @@
 			     would read a year that is not saved yet. -->
 			{#if !setup}
 				{#if data.week}
-					<div class="flex items-center gap-2">
+					<!-- `min-w-0` lets this row shrink to the page width on a phone: left alone, its
+					     automatic minimum is the ribbon's content, and nothing in the row can give. -->
+					<div class="flex min-w-0 items-center gap-2">
 						<Button
 							variant="ghost"
 							size="icon-sm"
@@ -132,13 +134,18 @@
 							Today
 						</Button>
 
-						<div class="flex items-center gap-0.5 rounded-md border p-0.5">
+						<!-- The week ribbon is the one row that must fit beside the arrows and Today. On
+						     a phone it shrinks and scrolls inside itself — the chip-row rule the Agenda
+						     and Planning follow — so the page never scrolls sideways (issue #343). -->
+						<div
+							class="flex max-w-full items-center gap-0.5 overflow-x-auto rounded-md border p-0.5"
+						>
 							{#each data.ribbon as w (w.weekCommencing)}
 								{@const isSelected = w.weekCommencing === data.selected}
 								<a
 									href={weekHref(w.weekCommencing)}
 									aria-current={isSelected ? 'true' : undefined}
-									class="flex h-6 items-center rounded-sm px-2 text-xs font-medium tabular-nums {isSelected
+									class="flex h-6 shrink-0 items-center rounded-sm px-2 text-xs font-medium tabular-nums {isSelected
 										? 'bg-secondary text-secondary-foreground'
 										: 'text-muted-foreground hover:bg-muted'}"
 									title="w/c {formatDayMonth(w.weekCommencing)}"
@@ -206,74 +213,80 @@
 			<input bind:this={dayMenuField} type="hidden" />
 		</form>
 
-		<div class="overflow-x-auto">
-			<table class="w-full table-fixed border-separate border-spacing-1.5">
-				<thead>
-					<tr>
-						<th class="w-12"></th>
-						{#each DAY_NAMES as d, di (d)}
-							{@const date = data.week.days[di].date}
-							{@const blockedDay = blockedByDate.get(date)}
-							{@const dayKind = data.week.days[di].kind}
-							{@const blockedSlots = blockedSlotLines(data.week.cells, date)}
-							<th class="rounded-lg pb-1 text-left align-bottom" data-day-kind={dayKind}>
-								<div class="flex items-baseline gap-1.5">
-									<span class="text-sm font-semibold">{d}</span>
-									<span class="text-xs font-normal text-muted-foreground"
-										>{formatDayMonth(date)}</span
+		<table class="w-full table-fixed border-separate border-spacing-1 md:border-spacing-1.5">
+			<thead>
+				<tr>
+					<th class="w-6 md:w-12"></th>
+					{#each DAY_NAMES as d, di (d)}
+						{@const date = data.week.days[di].date}
+						{@const blockedDay = blockedByDate.get(date)}
+						{@const dayKind = data.week.days[di].kind}
+						{@const blockedSlots = blockedSlotLines(data.week.cells, date)}
+						<th class="rounded-lg pb-1 text-left align-bottom" data-day-kind={dayKind}>
+							<div class="flex items-baseline gap-1.5">
+								<!-- On a phone a head reads a letter and a date ("M 5"), so the five day
+									     columns fit the width; the day name and the month date return from
+									     `md`. The wrapper spans own the visibility at each size. -->
+								<span class="text-sm font-semibold">
+									<span class="md:hidden">{d.slice(0, 1)}</span>
+									<span class="hidden md:inline">{d}</span>
+								</span>
+								<span class="text-xs font-normal text-muted-foreground">
+									<span class="md:hidden">{Number(date.slice(8))}</span>
+									<span class="hidden md:inline">{formatDayMonth(date)}</span>
+								</span>
+								<DropdownMenu.Root>
+									<DropdownMenu.Trigger
+										id={`day-menu-${date}`}
+										class="ml-auto rounded px-0.5 text-muted-foreground/50 hover:text-foreground [&_svg]:size-4"
+										aria-label={`${d} ${formatDayMonth(date)} actions`}
 									>
-									<DropdownMenu.Root>
-										<DropdownMenu.Trigger
-											id={`day-menu-${date}`}
-											class="ml-auto rounded px-0.5 text-muted-foreground/50 hover:text-foreground [&_svg]:size-4"
-											aria-label={`${d} ${formatDayMonth(date)} actions`}
-										>
-											<EllipsisIcon />
-										</DropdownMenu.Trigger>
-										<DropdownMenu.Content class="w-60" align="end">
-											<DropdownMenu.Group>
-												{#if blockedDay}
-													<DropdownMenu.Item
-														onSelect={() => dayMenuAct('?/unblockDay', 'date', blockedDay.date)}
-														>Unblock day</DropdownMenu.Item
+										<EllipsisIcon />
+									</DropdownMenu.Trigger>
+									<DropdownMenu.Content class="w-60" align="end">
+										<DropdownMenu.Group>
+											{#if blockedDay}
+												<DropdownMenu.Item
+													onSelect={() => dayMenuAct('?/unblockDay', 'date', blockedDay.date)}
+													>Unblock day</DropdownMenu.Item
+												>
+											{:else}
+												<DropdownMenu.Item onSelect={() => dayMenuAct('?/blockDay', 'date', date)}
+													>Block day</DropdownMenu.Item
+												>
+											{/if}
+										</DropdownMenu.Group>
+										{#if dayKind === 'teaching'}
+											{@const availableSlots = availableSlotLines(data.week.cells, date)}
+											{#if availableSlots.length > 0}
+												<DropdownMenu.Separator />
+												<DropdownMenu.Group>
+													<DropdownMenu.GroupHeading class="text-muted-foreground"
+														>Block one Slot</DropdownMenu.GroupHeading
 													>
-												{:else}
-													<DropdownMenu.Item onSelect={() => dayMenuAct('?/blockDay', 'date', date)}
-														>Block day</DropdownMenu.Item
-													>
-												{/if}
-											</DropdownMenu.Group>
-											{#if dayKind === 'teaching'}
-												{@const availableSlots = availableSlotLines(data.week.cells, date)}
-												{#if availableSlots.length > 0}
+													<!-- One line per real Slot, so a Lesson over two Periods appears
+													     twice. Picking one opens the note form over its tile. -->
+													{#each availableSlots as slot (slot.slotId)}
+														<DropdownMenu.Item
+															onSelect={() =>
+																(slotNote = {
+																	date,
+																	slotId: slot.slotId,
+																	period: slot.period
+																})}>{slot.classLabel}, P{slot.period}…</DropdownMenu.Item
+														>
+													{/each}
+												</DropdownMenu.Group>
+											{/if}
+											{#if date >= data.today}
+												{@const placeableSlots = availableSlots.filter((s) => !s.placed)}
+												{#if placeableSlots.length > 0}
 													<DropdownMenu.Separator />
 													<DropdownMenu.Group>
 														<DropdownMenu.GroupHeading class="text-muted-foreground"
-															>Block one Slot</DropdownMenu.GroupHeading
+															>Place a Lesson</DropdownMenu.GroupHeading
 														>
-														<!-- One line per real Slot, so a Lesson over two Periods appears
-													     twice. Picking one opens the note form over its tile. -->
-														{#each availableSlots as slot (slot.slotId)}
-															<DropdownMenu.Item
-																onSelect={() =>
-																	(slotNote = {
-																		date,
-																		slotId: slot.slotId,
-																		period: slot.period
-																	})}>{slot.classLabel}, P{slot.period}…</DropdownMenu.Item
-															>
-														{/each}
-													</DropdownMenu.Group>
-												{/if}
-												{#if date >= data.today}
-													{@const placeableSlots = availableSlots.filter((s) => !s.placed)}
-													{#if placeableSlots.length > 0}
-														<DropdownMenu.Separator />
-														<DropdownMenu.Group>
-															<DropdownMenu.GroupHeading class="text-muted-foreground"
-																>Place a Lesson</DropdownMenu.GroupHeading
-															>
-															<!-- Placing is future-and-today only (issue #254), unlike Block one
+														<!-- Placing is future-and-today only (issue #254), unlike Block one
 													     Slot above — a past week's day menu shows no line here. Every
 													     Available Slot is offered, an Open one and one a Topic Lesson
 													     holds alike (issue #256): a Placement claims its Slot ahead of
@@ -282,179 +295,192 @@
 													     out, matching the Session page's own `canPlace` (sessions.ts). Lands on
 													     the Session page's own Place-a-Lesson card, the one place the
 													     title is typed. -->
-															{#each placeableSlots as slot (slot.slotId)}
-																<DropdownMenu.Item
-																	onSelect={() => openToPlace(slot.classId, date, slot.period)}
-																	>Open {slot.classLabel}, P{slot.period} to place…</DropdownMenu.Item
-																>
-															{/each}
-														</DropdownMenu.Group>
-													{/if}
+														{#each placeableSlots as slot (slot.slotId)}
+															<DropdownMenu.Item
+																onSelect={() => openToPlace(slot.classId, date, slot.period)}
+																>Open {slot.classLabel}, P{slot.period} to place…</DropdownMenu.Item
+															>
+														{/each}
+													</DropdownMenu.Group>
 												{/if}
 											{/if}
-											{#if blockedSlots.length > 0}
-												<DropdownMenu.Separator />
-												<DropdownMenu.Group>
-													<DropdownMenu.GroupHeading class="text-muted-foreground"
-														>Blocked Slots</DropdownMenu.GroupHeading
+										{/if}
+										{#if blockedSlots.length > 0}
+											<DropdownMenu.Separator />
+											<DropdownMenu.Group>
+												<DropdownMenu.GroupHeading class="text-muted-foreground"
+													>Blocked Slots</DropdownMenu.GroupHeading
+												>
+												{#each blockedSlots as slot (slot.blockedSlotId)}
+													<DropdownMenu.Item
+														onSelect={() => dayMenuAct('?/unblockSlot', 'id', slot.blockedSlotId)}
+														>Unblock {slot.classLabel}, P{slot.period}</DropdownMenu.Item
 													>
-													{#each blockedSlots as slot (slot.blockedSlotId)}
-														<DropdownMenu.Item
-															onSelect={() => dayMenuAct('?/unblockSlot', 'id', slot.blockedSlotId)}
-															>Unblock {slot.classLabel}, P{slot.period}</DropdownMenu.Item
-														>
-													{/each}
-												</DropdownMenu.Group>
-											{/if}
-										</DropdownMenu.Content>
-									</DropdownMenu.Root>
-								</div>
-							</th>
-						{/each}
-					</tr>
-				</thead>
-				<tbody>
-					{#each PERIODS as period (period)}
-						<tr>
-							<th class="pr-1 text-right align-top">
-								<div class="pt-1.5 text-xs font-medium text-muted-foreground tabular-nums">
-									P{period}
-								</div>
-							</th>
-							{#each DAY_NAMES as d, di (d)}
-								{@const date = data.week.days[di].date}
-								{@const dayKind = data.week.days[di].kind}
-								{#if dayKind !== 'teaching'}
-									<!-- A day with no teaching drops its six Periods and reads as one panel
+												{/each}
+											</DropdownMenu.Group>
+										{/if}
+									</DropdownMenu.Content>
+								</DropdownMenu.Root>
+							</div>
+						</th>
+					{/each}
+				</tr>
+			</thead>
+			<tbody>
+				{#each PERIODS as period (period)}
+					<tr>
+						<th class="pr-1 text-right align-top">
+							<div class="pt-1.5 text-xs font-medium text-muted-foreground tabular-nums">
+								P{period}
+							</div>
+						</th>
+						{#each DAY_NAMES as d, di (d)}
+							{@const date = data.week.days[di].date}
+							{@const dayKind = data.week.days[di].kind}
+							{#if dayKind !== 'teaching'}
+								<!-- A day with no teaching drops its six Periods and reads as one panel
 									     spanning the column, told apart from an empty Period by a step in
 									     shade — hatched grey for a removal, a solid step for a School Holiday
 									     where nothing was removed — never by a hue. -->
-									{#if period === 1}
-										{@const blockedDay = blockedByDate.get(date)}
-										{@const headline =
-											dayKind === 'holiday'
-												? 'School holiday'
-												: (blockedDay?.note ?? 'Blocked day')}
-										{@const under = dayKind === 'holiday' ? 'Outside every Term' : 'No teaching'}
-										<td rowspan={PERIODS.length} class="h-16 align-middle" data-day-kind={dayKind}>
-											<div
-												class={cn(
-													'flex h-full flex-col items-center justify-center gap-1 rounded-lg px-2 py-3 text-center',
-													dayKind === 'holiday'
-														? 'day-panel-holiday'
-														: 'hatched border border-dashed border-muted-foreground/30'
-												)}
-											>
-												<div class="text-xs font-semibold text-muted-foreground">{headline}</div>
-												<div class="text-[11px] text-muted-foreground/70">{under}</div>
-											</div>
-										</td>
-									{/if}
+								{#if period === 1}
+									{@const blockedDay = blockedByDate.get(date)}
+									{@const headline =
+										dayKind === 'holiday' ? 'School holiday' : (blockedDay?.note ?? 'Blocked day')}
+									{@const under = dayKind === 'holiday' ? 'Outside every Term' : 'No teaching'}
+									<td rowspan={PERIODS.length} class="h-16 align-middle" data-day-kind={dayKind}>
+										<div
+											class={cn(
+												'flex h-full flex-col items-center justify-center gap-1 rounded-lg px-2 py-3 text-center',
+												dayKind === 'holiday'
+													? 'day-panel-holiday'
+													: 'hatched border border-dashed border-muted-foreground/30'
+											)}
+										>
+											<div class="text-xs font-semibold text-muted-foreground">{headline}</div>
+											<div class="text-[11px] text-muted-foreground/70">{under}</div>
+										</div>
+									</td>
+								{/if}
+							{:else}
+								{@const entry = grid[di][period - 1]}
+								{#if entry.type === 'covered'}
+									<!-- covered by an earlier Period's rowspan -->
+								{:else if entry.type === 'free'}
+									<td class="h-16 rounded-lg bg-muted/40"></td>
 								{:else}
-									{@const entry = grid[di][period - 1]}
-									{#if entry.type === 'covered'}
-										<!-- covered by an earlier Period's rowspan -->
-									{:else if entry.type === 'free'}
-										<td class="h-16 rounded-lg bg-muted/40"></td>
-									{:else}
-										{@const cell = entry.cell}
-										{@const rowspan = cell.periodTo - cell.periodFrom + 1}
-										{@const tone = classTone(cell.tone)}
-										<td {rowspan} class="relative h-16 align-top">
-											{#if cell.kind === 'blocked'}
-												<!-- A Blocked Slot on an otherwise teaching day: a removal, so it keeps
+									{@const cell = entry.cell}
+									{@const rowspan = cell.periodTo - cell.periodFrom + 1}
+									{@const tone = classTone(cell.tone)}
+									<td {rowspan} class="relative h-16 align-top">
+										{#if cell.kind === 'blocked'}
+											<!-- A Blocked Slot on an otherwise teaching day: a removal, so it keeps
 											the hatch and its note. Its unblock lives in the day's menu, like every
 											other act on the day — no control sits on a tile. -->
-												<div
-													class="hatched flex h-full min-h-16 flex-col rounded-lg border border-dashed px-2 py-1.5"
-												>
-													<div class="text-xs font-semibold text-muted-foreground">
-														{cell.classLabel}
-													</div>
-													<div class="mt-0.5 line-clamp-2 text-xs text-muted-foreground/80 italic">
+											<div
+												class="hatched flex h-full min-h-16 flex-col rounded-lg border border-dashed px-1.5 py-1.5 md:px-2"
+											>
+												<div class="text-xs font-semibold text-muted-foreground">
+													{cell.classLabel}
+												</div>
+												<!-- The note is part of today's full tile, back from `md`; below it the
+											     tile gives way to its Class alone (issue #343). -->
+												<div class="mt-0.5 hidden md:block">
+													<div class="line-clamp-2 text-xs text-muted-foreground/80 italic">
 														{cell.blockedNote ?? 'Blocked'}
 													</div>
 												</div>
-											{:else}
-												<!-- A past tile is the record of what happened, not a removal: it keeps
+											</div>
+										{:else}
+											<!-- A past tile is the record of what happened, not a removal: it keeps
 											its Class Tone and text, and takes the hatch only to step back from the
 											upcoming tiles. Its Session page opens like any other. -->
-												<!-- eslint-disable svelte/no-navigation-without-resolve -- sessionHref resolves it -->
-												<a
-													href={sessionHref({
-														classId: cell.classId,
-														date: cell.date,
-														period: cell.periodFrom
-													})}
-													class={cn(
-														'relative flex h-full min-h-16 w-full flex-col overflow-hidden rounded-lg border px-2 py-1.5 text-left',
-														cell.past && 'hatched'
-													)}
-													style:background-color={tone.bg}
-													style:border-color={tone.ring}
-												>
-													<span class="truncate text-xs font-semibold" style:color={tone.fg}>
-														{cell.classLabel}
-													</span>
-													{#if cell.kind === 'lesson'}
+											<!-- eslint-disable svelte/no-navigation-without-resolve -- sessionHref resolves it -->
+											<a
+												href={sessionHref({
+													classId: cell.classId,
+													date: cell.date,
+													period: cell.periodFrom
+												})}
+												class={cn(
+													'relative flex h-full min-h-16 w-full flex-col overflow-hidden rounded-lg border px-1.5 py-1.5 text-left md:px-2',
+													cell.past && 'hatched'
+												)}
+												style:background-color={tone.bg}
+												style:border-color={tone.ring}
+											>
+												<span class="truncate text-xs font-semibold" style:color={tone.fg}>
+													{cell.classLabel}
+												</span>
+												{#if cell.kind === 'lesson'}
+													<!-- The tiles give way, not the grid (issue #343): below `sm` a tile shows
+											     its Class alone, the Lesson title returns from `sm`, and the Topic
+											     line is today's full tile back from `md`. The wrapper spans own the
+											     visibility at each size, so the clamps the inner spans own stay whole. -->
+													<span class="mt-0.5 hidden sm:block">
 														<span
-															class="mt-0.5 line-clamp-2 text-xs leading-tight font-medium"
+															class="line-clamp-2 text-xs leading-tight font-medium"
 															style:color={tone.fg}>{cell.lesson?.title}</span
 														>
-														{#if cell.lesson?.topicName}
+													</span>
+													{#if cell.lesson?.topicName}
+														<span class="mt-auto hidden md:block">
 															<span
-																class="mt-auto line-clamp-1 text-[11px] opacity-80"
+																class="line-clamp-1 text-[11px] opacity-80"
 																style:color={tone.fg}>{cell.lesson.topicName}</span
 															>
-														{:else}
-															<!-- A placed Lesson carries no Topic (issue #254): the dashed inner
+														</span>
+													{:else}
+														<!-- A placed Lesson carries no Topic (issue #254): the dashed inner
 													     ring plus this line are what tell it apart from a Topic Lesson's
 													     tile at a glance, no change to the Class's own Tone. -->
+														<span class="mt-auto hidden md:block">
 															<span
-																class="mt-auto line-clamp-1 text-[11px] italic opacity-80"
+																class="line-clamp-1 text-[11px] italic opacity-80"
 																style:color={tone.fg}>Standalone Lesson</span
 															>
-															<span
-																data-standalone-ring
-																class="pointer-events-none absolute inset-1 rounded-md border border-dashed"
-																style:border-color={tone.ring}
-															></span>
-														{/if}
-													{:else}
-														<span class="mt-0.5 text-xs italic" style:color={tone.fg}>
-															Open Slot
 														</span>
+														<span
+															data-standalone-ring
+															class="pointer-events-none absolute inset-1 rounded-md border border-dashed"
+															style:border-color={tone.ring}
+														></span>
 													{/if}
-												</a>
-												<!-- eslint-enable svelte/no-navigation-without-resolve -->
+												{:else}
+													<span class="mt-0.5 text-xs italic" style:color={tone.fg}>
+														<span class="md:hidden">Open</span><span class="hidden md:inline"
+															>Open Slot</span
+														>
+													</span>
+												{/if}
+											</a>
+											<!-- eslint-enable svelte/no-navigation-without-resolve -->
 
-												{#if slotNote && slotNote.date === cell.date && cell.slotIds.includes(slotNote.slotId)}
-													<!-- The day menu chose this Slot; the note is asked for over the tile
+											{#if slotNote && slotNote.date === cell.date && cell.slotIds.includes(slotNote.slotId)}
+												<!-- The day menu chose this Slot; the note is asked for over the tile
 												it names, so the teacher can see which one they picked. For a Lesson
 												over two Periods both lines open the same tile, each naming its own. -->
-													<BlockPopover
-														pick={{
-															classId: cell.classId,
-															classLabel: cell.classLabel,
-															date: cell.date,
-															slotId: slotNote.slotId,
-															period: slotNote.period
-														}}
-														onOpenChange={(o) => {
-															if (!o) closePick();
-														}}
-													/>
-												{/if}
+												<BlockPopover
+													pick={{
+														classId: cell.classId,
+														classLabel: cell.classLabel,
+														date: cell.date,
+														slotId: slotNote.slotId,
+														period: slotNote.period
+													}}
+													onOpenChange={(o) => {
+														if (!o) closePick();
+													}}
+												/>
 											{/if}
-										</td>
-									{/if}
+										{/if}
+									</td>
 								{/if}
-							{/each}
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
+							{/if}
+						{/each}
+					</tr>
+				{/each}
+			</tbody>
+		</table>
 	{:else}
 		<p class="text-sm text-muted-foreground">This is not a Teaching Week.</p>
 	{/if}

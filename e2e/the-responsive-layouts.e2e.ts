@@ -420,6 +420,95 @@ test.describe('the Agenda on a phone', () => {
 	});
 });
 
+test.describe('the Calendar grid on a phone', () => {
+	// `defaultBrowserType` would force a new worker inside a describe, so take the other fields.
+	const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];
+	test.use({ viewport, userAgent, deviceScaleFactor, isMobile, hasTouch });
+
+	// A bare load opens on the Teaching Week that holds today, or on the next one at a weekend
+	// (calendar/+page.server.ts, defaultWeek). Its Monday heads the first day column.
+	function defaultMonday(): Date {
+		const day = new Date().getUTCDay();
+		const offset = day === 0 ? 1 : day === 6 ? 2 : 1 - day;
+		return new Date(Date.now() + offset * 86_400_000);
+	}
+
+	test('the grid shows the five day heads and the six Periods (stories 98 and 101)', async ({
+		page
+	}) => {
+		await login(page);
+		await page.goto('/calendar');
+		// The corner cell of the head plus one cell per day, and one row per Period.
+		await expect(page.locator('main thead th')).toHaveCount(6);
+		await expect(page.locator('main tbody tr')).toHaveCount(6);
+	});
+
+	test('day heads read as a letter and a date (story 100)', async ({ page }) => {
+		await login(page);
+		await page.goto('/calendar');
+		const shown = await page
+			.locator('main thead th:not(:first-child)')
+			.evaluateAll((els) =>
+				els.map((el) => (el as HTMLElement).innerText.replace(/\s+/g, ' ').trim())
+			);
+		const monday = defaultMonday();
+		expect(shown).toEqual(
+			['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((name, i) => {
+				const date = new Date(monday.getTime() + i * 86_400_000);
+				return `${name[0]} ${date.getUTCDate()}`;
+			})
+		);
+	});
+
+	test('a tile gives way to its Class, and a tap opens the Session page (stories 99 and 101)', async ({
+		page
+	}) => {
+		await login(page);
+		await page.goto('/calendar');
+		const tiles = page.locator('main a[href^="/sessions/"]');
+		const count = await tiles.count();
+		expect(count).toBeGreaterThan(0);
+		for (let i = 0; i < count; i++) {
+			// Below `sm` a tile shows its Class, and an Open Slot adds the word "Open". The
+			// Lesson title and the Topic are read on the Session page the tile opens.
+			const lines = (await tiles.nth(i).innerText())
+				.split('\n')
+				.map((line) => line.trim())
+				.filter(Boolean);
+			expect(lines[0]).toMatch(/^\d[A-Z]\/Sc\d$/);
+			expect(lines).toHaveLength(lines[1] === 'Open' ? 2 : 1);
+
+			// The Class reads in full. A title on a tile may truncate (story 99); the Class
+			// line is what makes the week's shape readable, so it may not (story 101).
+			const label = tiles.nth(i).locator('span').first();
+			expect(await label.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+		}
+
+		await tiles.filter({ hasText: '9C/Sc1' }).first().click();
+		await expect(page).toHaveURL(/\/sessions\//);
+	});
+});
+
+{
+	const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];
+	for (const [name, use] of [
+		['phone', { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch }],
+		['tablet portrait', { viewport: { width: 800, height: 1180 }, hasTouch: true }],
+		['tablet landscape', { viewport: { width: 1280, height: 800 }, hasTouch: true }]
+	] as const) {
+		test.describe(`the Calendar on a ${name}`, () => {
+			test.use(use);
+
+			test('fits the width', async ({ page }) => {
+				await login(page);
+				await page.goto('/calendar');
+				await expect(page.locator('main table')).toBeVisible();
+				await expectNoHorizontalScroll(page);
+			});
+		});
+	}
+}
+
 test.describe('the Lesson editor on a laptop', () => {
 	test.use({ viewport: { width: 1536, height: 750 } });
 
