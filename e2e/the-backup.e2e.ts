@@ -100,6 +100,7 @@ test.describe.serial('Back up and Restore', () => {
 
 		await page.goto(`${B}/setup`);
 		for (const file of [bad, truncated]) {
+			await page.getByRole('button', { name: 'Restore from a Backup' }).click();
 			await page.getByLabel('Backup file').setInputFiles(file);
 			await page.getByRole('button', { name: 'Restore', exact: true }).click();
 			await expect(page.getByRole('alert')).toContainText('not a Backup');
@@ -119,6 +120,7 @@ test.describe.serial('Back up and Restore', () => {
 	});
 
 	test('Restoring into B recreates A: the same records, Attachments and API key', async () => {
+		await page.getByRole('button', { name: 'Restore from a Backup' }).click();
 		await page.getByLabel('Backup file').setInputFiles({
 			name: 'planner-backup.tar',
 			mimeType: 'application/x-tar',

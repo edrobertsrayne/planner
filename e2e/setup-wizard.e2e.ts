@@ -19,6 +19,39 @@ test.describe.serial('the first-run wizard', () => {
 		await expect(page).toHaveURL(/\/setup$/);
 	});
 
+	test('Create account is the page, with Restore from a Backup behind a link (issue #350)', async () => {
+		await page.goto('/setup');
+		await expect(page.getByRole('button', { name: 'Create account' })).toBeVisible();
+		await expect(page.getByText('Moving from another planner?')).toBeVisible();
+
+		// The link under the card swaps the card for the Restore form, whose instructions sit
+		// under the file field (story 121).
+		await page.getByRole('button', { name: 'Restore from a Backup' }).click();
+		await expect(page.getByLabel('Backup file')).toBeVisible();
+		await expect(page.getByText('Choose the file that Back up saved there')).toBeVisible();
+		await expect(page.getByText('Set up Planner', { exact: true })).toHaveCount(0);
+		await expect(page.getByRole('button', { name: 'Create account' })).toHaveCount(0);
+
+		// The link back swaps the Create account form in again.
+		await page.getByRole('button', { name: 'Set up a new planner instead' }).click();
+		await expect(page.getByLabel('Name')).toBeVisible();
+		await expect(page.getByLabel('Backup file')).toHaveCount(0);
+	});
+
+	test('a file that is not a Backup is refused while restoring (issue #350)', async () => {
+		await page.goto('/setup');
+		await page.getByRole('button', { name: 'Restore from a Backup' }).click();
+		await page.getByLabel('Backup file').setInputFiles({
+			name: 'notes.tar',
+			mimeType: 'application/x-tar',
+			buffer: Buffer.from('these are not planner data')
+		});
+		await page.getByRole('button', { name: 'Restore', exact: true }).click();
+		await expect(page.getByRole('alert')).toContainText('not a Backup');
+		// The refusal leaves the Restore form open, error and all.
+		await expect(page.getByLabel('Backup file')).toBeVisible();
+	});
+
 	test('a mismatched confirmation is refused and creates no user', async () => {
 		await page.goto('/setup');
 		await page.getByLabel('Name').fill('Test Teacher');

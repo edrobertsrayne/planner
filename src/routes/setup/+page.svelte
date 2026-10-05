@@ -10,6 +10,10 @@
 
 	let { form }: { form: ActionData } = $props();
 
+	// Create account is the page (story 120). Restore from a Backup hides behind the line under
+	// the card (story 121), because the common path is a new planner, not a move from one.
+	let showRestore = $state(false);
+	// An upload is in flight, as distinct from the Restore form being open.
 	let restoring = $state(false);
 	let restoreError = $state('');
 
@@ -59,6 +63,8 @@
 		}
 	}
 
+	// One alert serves both forms: whichever form is on the card owns the error shown above it.
+	const activeError = $derived(showRestore ? restoreError : form?.error);
 	const isNameInvalid = $derived(
 		Boolean(form?.error === 'Name and email are required.' && !form.name)
 	);
@@ -91,103 +97,107 @@
 
 		<Card.Root>
 			<Card.Header class="text-center">
-				<Card.Title class="text-xl">Set up Planner</Card.Title>
+				<Card.Title class="text-xl">
+					{showRestore ? 'Restore from a Backup' : 'Set up Planner'}
+				</Card.Title>
 			</Card.Header>
 			<Card.Content class="flex flex-col gap-6">
-				{#if form?.error}
+				{#if activeError}
 					<Alert.Root variant="destructive">
-						<Alert.Description>{form.error}</Alert.Description>
+						<Alert.Description>{activeError}</Alert.Description>
 					</Alert.Root>
 				{/if}
 
-				<form method="POST">
-					<Field.FieldGroup>
-						<Field.Field data-invalid={isNameInvalid ? true : undefined}>
-							<Field.FieldLabel for="name">Name</Field.FieldLabel>
-							<Input
-								id="name"
-								type="text"
-								name="name"
-								value={form?.name ?? ''}
-								required
-								aria-invalid={isNameInvalid ? 'true' : undefined}
-							/>
-						</Field.Field>
+				{#if showRestore}
+					<form onsubmit={restore}>
+						<Field.FieldGroup>
+							<Field.Field>
+								<Field.FieldLabel for="backup">Backup file</Field.FieldLabel>
+								<Input id="backup" type="file" name="backup" accept=".tar" required />
+								<!-- The instructions sit under the file field (story 121), not in a card
+								     description: the swap line under the card already names the move. -->
+								<Field.FieldDescription>
+									Choose the file that Back up saved there. You sign in with the password from that
+									planner.
+								</Field.FieldDescription>
+							</Field.Field>
 
-						<Field.Field data-invalid={isEmailInvalid ? true : undefined}>
-							<Field.FieldLabel for="email">Email</Field.FieldLabel>
-							<Input
-								id="email"
-								type="email"
-								name="email"
-								value={form?.email ?? ''}
-								required
-								aria-invalid={isEmailInvalid ? 'true' : undefined}
-							/>
-						</Field.Field>
+							<Button type="submit" variant="outline" class="w-full" disabled={restoring}>
+								{restoring ? 'Restoring…' : 'Restore'}
+							</Button>
+						</Field.FieldGroup>
+					</form>
+				{:else}
+					<form method="POST">
+						<Field.FieldGroup>
+							<Field.Field data-invalid={isNameInvalid ? true : undefined}>
+								<Field.FieldLabel for="name">Name</Field.FieldLabel>
+								<Input
+									id="name"
+									type="text"
+									name="name"
+									value={form?.name ?? ''}
+									required
+									aria-invalid={isNameInvalid ? 'true' : undefined}
+								/>
+							</Field.Field>
 
-						<Field.Field data-invalid={isPasswordInvalid ? true : undefined}>
-							<Field.FieldLabel for="password">Password</Field.FieldLabel>
-							<Input
-								id="password"
-								type="password"
-								name="password"
-								autocomplete="new-password"
-								required
-								aria-invalid={isPasswordInvalid ? 'true' : undefined}
-							/>
-							<Field.FieldDescription>
-								There is no password reset by email — keep it somewhere safe.
-							</Field.FieldDescription>
-						</Field.Field>
+							<Field.Field data-invalid={isEmailInvalid ? true : undefined}>
+								<Field.FieldLabel for="email">Email</Field.FieldLabel>
+								<Input
+									id="email"
+									type="email"
+									name="email"
+									value={form?.email ?? ''}
+									required
+									aria-invalid={isEmailInvalid ? 'true' : undefined}
+								/>
+							</Field.Field>
 
-						<Field.Field data-invalid={isConfirmPasswordInvalid ? true : undefined}>
-							<Field.FieldLabel for="confirmPassword">Confirm password</Field.FieldLabel>
-							<Input
-								id="confirmPassword"
-								type="password"
-								name="confirmPassword"
-								autocomplete="new-password"
-								required
-								aria-invalid={isConfirmPasswordInvalid ? 'true' : undefined}
-							/>
-						</Field.Field>
+							<Field.Field data-invalid={isPasswordInvalid ? true : undefined}>
+								<Field.FieldLabel for="password">Password</Field.FieldLabel>
+								<Input
+									id="password"
+									type="password"
+									name="password"
+									autocomplete="new-password"
+									required
+									aria-invalid={isPasswordInvalid ? 'true' : undefined}
+								/>
+								<Field.FieldDescription>
+									There is no password reset by email — keep it somewhere safe.
+								</Field.FieldDescription>
+							</Field.Field>
 
-						<Button type="submit" class="w-full">Create account</Button>
-					</Field.FieldGroup>
-				</form>
-			</Card.Content>
-		</Card.Root>
+							<Field.Field data-invalid={isConfirmPasswordInvalid ? true : undefined}>
+								<Field.FieldLabel for="confirmPassword">Confirm password</Field.FieldLabel>
+								<Input
+									id="confirmPassword"
+									type="password"
+									name="confirmPassword"
+									autocomplete="new-password"
+									required
+									aria-invalid={isConfirmPasswordInvalid ? 'true' : undefined}
+								/>
+							</Field.Field>
 
-		<Card.Root>
-			<Card.Header class="text-center">
-				<Card.Title class="text-xl">Restore from a Backup</Card.Title>
-				<Card.Description>
-					Moving from another planner? Choose the file that Back up saved there. You sign in with
-					the password from that planner.
-				</Card.Description>
-			</Card.Header>
-			<Card.Content class="flex flex-col gap-6">
-				{#if restoreError}
-					<Alert.Root variant="destructive">
-						<Alert.Description>{restoreError}</Alert.Description>
-					</Alert.Root>
+							<Button type="submit" class="w-full">Create account</Button>
+						</Field.FieldGroup>
+					</form>
 				{/if}
-
-				<form onsubmit={restore}>
-					<Field.FieldGroup>
-						<Field.Field>
-							<Field.FieldLabel for="backup">Backup file</Field.FieldLabel>
-							<Input id="backup" type="file" name="backup" accept=".tar" required />
-						</Field.Field>
-
-						<Button type="submit" variant="outline" class="w-full" disabled={restoring}>
-							{restoring ? 'Restoring…' : 'Restore'}
-						</Button>
-					</Field.FieldGroup>
-				</form>
 			</Card.Content>
 		</Card.Root>
+
+		<p class="text-center text-sm text-muted-foreground">
+			{#if showRestore}
+				<Button variant="link" onclick={() => (showRestore = false)}>
+					Set up a new planner instead
+				</Button>
+			{:else}
+				Moving from another planner?
+				<Button variant="link" onclick={() => (showRestore = true)}>Restore from a Backup</Button>
+			{/if}
+		</p>
 
 		<BuildInfo class="text-center" />
 	</div>
