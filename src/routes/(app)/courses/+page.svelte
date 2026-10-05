@@ -54,6 +54,7 @@
 						<div class="min-w-0 flex-1">
 							<RenameableRow
 								name={course.name}
+								tone={course.tone}
 								selected={course.id === data.course?.id}
 								href={`?course=${course.id}`}
 								action="?/renameCourse"

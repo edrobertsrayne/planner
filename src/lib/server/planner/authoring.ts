@@ -5,6 +5,7 @@
 // step (issue #31).
 import { and, asc, eq, inArray, lt, sql } from 'drizzle-orm';
 import type { Database } from 'bun:sqlite';
+import { nextTone } from '$lib/class-tone';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import { rederivePlacementLesson, rederiveTopic, type Db, type WriteReport } from './derive';
@@ -104,10 +105,26 @@ export function lessonsOf(db: Db, topicId: string) {
 		.all();
 }
 
+// A Course's Tone is assigned once, at creation: the next unused position of the same walk a
+// Class uses (ADR-0013), walked over Courses only. Nothing else writes it.
+function nextCourseTone(db: Db) {
+	return nextTone(
+		db
+			.select({ tone: schema.course.tone })
+			.from(schema.course)
+			.all()
+			.map((row) => row.tone)
+	);
+}
+
 export function createCourse(db: Db, { name }: { name: string }) {
 	const trimmed = required(name, 'A Course needs a name.');
 	assertCourseNameAvailable(db, { name: trimmed });
-	const [row] = db.insert(schema.course).values({ name: trimmed }).returning().all();
+	const [row] = db
+		.insert(schema.course)
+		.values({ name: trimmed, tone: nextCourseTone(db) })
+		.returning()
+		.all();
 	return row;
 }
 
@@ -804,7 +821,11 @@ export function importTopic(
 			if (existing) {
 				resolvedCourseId = existing.id;
 			} else {
-				const [created] = db.insert(schema.course).values({ name: trimmed }).returning().all();
+				const [created] = db
+					.insert(schema.course)
+					.values({ name: trimmed, tone: nextCourseTone(db) })
+					.returning()
+					.all();
 				resolvedCourseId = created.id;
 				courseCreated = true;
 			}

@@ -20,7 +20,8 @@ export const course = sqliteTable(
 	'course',
 	{
 		id: id(),
-		name: text('name').notNull()
+		name: text('name').notNull(),
+		tone: integer('tone').notNull().default(0)
 	},
 	(table) => [uniqueIndex('course_name_unique').on(sql`${table.name} COLLATE NOCASE`)]
 );

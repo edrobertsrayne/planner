@@ -6,6 +6,7 @@ import {
 	attachTag,
 	classSchedule,
 	classesTaughtLesson,
+	createClass,
 	createCourse,
 	createLesson,
 	createLink,
@@ -37,6 +38,41 @@ import {
 	updateLink
 } from './index';
 import * as schema from '../db/schema';
+import { TONE_SEQUENCE } from '$lib/class-tone';
+
+describe('a Course Tone', () => {
+	test('each new Course takes the next Tone of the walk, whatever the Classes hold', () => {
+		const { db } = setUpAuthoring();
+		const first = createCourse(db, { name: 'Year 9 Physics' });
+		const course = createCourse(db, { name: 'Year 10 Chemistry' });
+		// Classes take Tones from their own walk and do not move the Course walk.
+		createClass(db, { label: '9A/Ph1', courseId: first.id });
+		createClass(db, { label: '9A/Ph2', courseId: first.id });
+		const third = createCourse(db, { name: 'Year 11 Biology' });
+
+		expect([first.tone, course.tone, third.tone]).toEqual(TONE_SEQUENCE.slice(0, 3));
+	});
+
+	test('a rename keeps the Tone', () => {
+		const { db } = setUpAuthoring();
+		const course = createCourse(db, { name: 'Year 9 Physics' });
+		const renamed = renameCourse(db, { id: course.id, name: 'Year 9 Science' });
+		expect(renamed.tone).toBe(course.tone);
+	});
+
+	test('a Course made by importing a Topic takes the next Tone too', () => {
+		const { db, client } = setUpAuthoring();
+		createCourse(db, { name: 'Year 9 Physics' });
+		const { course } = importTopic(
+			db,
+			client,
+			{ courseName: 'Year 10 Chemistry', topicName: 'Moles', lessons: [{ title: 'Intro' }] },
+			'2026-09-03'
+		);
+		const imported = listCourses(db).find((c) => c.id === course.id);
+		expect(imported?.tone).toBe(TONE_SEQUENCE[1]);
+	});
+});
 
 describe('authoring Courses, Topics and Lessons', () => {
 	test('a Course is created and can be renamed', () => {

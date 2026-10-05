@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { classTone } from '$lib/class-tone';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { touchTarget } from '$lib/components/ui/touch-target.js';
 
@@ -10,7 +11,8 @@
 		action,
 		hidden,
 		field = 'name',
-		heading = false
+		heading = false,
+		tone
 	}: {
 		name: string;
 		selected?: boolean;
@@ -19,6 +21,7 @@
 		hidden: Record<string, string>;
 		field?: 'name' | 'title' | 'label';
 		heading?: boolean;
+		tone?: number;
 	} = $props();
 
 	let editing = $state(false);
@@ -66,11 +69,20 @@
 		{:else if href}
 			<a
 				{href}
-				class="flex flex-1 items-baseline justify-between px-4 py-2 text-sm hover:bg-accent {selected
+				class="flex flex-1 items-baseline px-4 py-2 text-sm hover:bg-accent {selected
 					? 'bg-accent font-medium'
 					: ''}"
 			>
-				<span class="min-w-0 truncate">{name}</span>
+				{#if tone !== undefined}
+					{@const t = classTone(tone)}
+					<span
+						class="mr-2 size-2.5 shrink-0 self-center rounded-full ring-2"
+						style:background-color={t.bg}
+						style:--tw-ring-color={t.ring}
+						aria-hidden="true"
+					></span>
+				{/if}
+				<span class="min-w-0 flex-1 truncate">{name}</span>
 			</a>
 		{:else}
 			<span class="flex flex-1 items-baseline px-4 py-2 text-sm">
