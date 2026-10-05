@@ -14,6 +14,7 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { touchTarget } from '$lib/components/ui/touch-target.js';
+	import { MediaQuery } from 'svelte/reactivity';
 	import ConfirmDeleteDialog from './ConfirmDeleteDialog.svelte';
 	import type { PageProps } from './$types';
 
@@ -28,6 +29,9 @@
 
 	// A delete always asks first. The dialog's form carries `confirmed`, so nothing is removed
 	// before it is answered.
+	// From `md` up the plan is written; below it, it is read: no rename, menu, reorder or create box.
+	const wide = new MediaQuery('min-width: 768px', true);
+
 	let pendingDelete = $state<{ kind: 'course' | 'topic'; id: string; name: string } | null>(null);
 </script>
 
@@ -69,6 +73,7 @@
 				action="?/renameCourse"
 				hidden={{ id: data.course.id }}
 				heading
+				editable={wide.current}
 			/>
 			<p class="mt-1 text-xs text-muted-foreground">
 				{plural(data.topics.length, 'Topic')} · {plural(data.lessonTotal, 'Lesson')}
@@ -87,11 +92,13 @@
 				{/if}
 			</p>
 		</div>
-		{@render menu(
-			'Course actions',
-			() => (pendingDelete = { kind: 'course', id: data.course.id, name: data.course.name }),
-			'Delete Course'
-		)}
+		{#if wide.current}
+			{@render menu(
+				'Course actions',
+				() => (pendingDelete = { kind: 'course', id: data.course.id, name: data.course.name }),
+				'Delete Course'
+			)}
+		{/if}
 	</header>
 
 	{#if form?.error}
@@ -131,26 +138,28 @@
 					<li class="px-4 py-3 text-sm text-muted-foreground">No Topics yet.</li>
 				{/if}
 			</ul>
-			<form
-				method="POST"
-				action="?/createTopic"
-				class="border-t p-3"
-				use:enhance={createThenSelect(
-					'topic',
-					(id) => `?topic=${id}`,
-					() => (newTopicName = '')
-				)}
-			>
-				<input type="hidden" name="courseId" value={data.course.id} />
-				<Input
-					bind:value={newTopicName}
-					name="name"
-					required
-					autocomplete="off"
-					class="h-8 w-full"
-					placeholder="New Topic name — press Enter"
-				/>
-			</form>
+			{#if wide.current}
+				<form
+					method="POST"
+					action="?/createTopic"
+					class="border-t p-3"
+					use:enhance={createThenSelect(
+						'topic',
+						(id) => `?topic=${id}`,
+						() => (newTopicName = '')
+					)}
+				>
+					<input type="hidden" name="courseId" value={data.course.id} />
+					<Input
+						bind:value={newTopicName}
+						name="name"
+						required
+						autocomplete="off"
+						class="h-8 w-full"
+						placeholder="New Topic name — press Enter"
+					/>
+				</form>
+			{/if}
 		</section>
 
 		<section
@@ -177,6 +186,7 @@
 								hidden={{ id: data.shown.id }}
 								heading
 								level={2}
+								editable={wide.current}
 							/>
 							<p class="mt-1 text-xs text-muted-foreground">
 								{plural(data.lessons.length, 'Lesson')}
@@ -185,11 +195,13 @@
 								Changes move dates for every Class teaching this Topic
 							</p>
 						</div>
-						{@render menu(
-							'Topic actions',
-							() => (pendingDelete = { kind: 'topic', id: shown.id, name: shown.name }),
-							'Delete Topic'
-						)}
+						{#if wide.current}
+							{@render menu(
+								'Topic actions',
+								() => (pendingDelete = { kind: 'topic', id: shown.id, name: shown.name }),
+								'Delete Topic'
+							)}
+						{/if}
 					</div>
 				</div>
 
@@ -211,15 +223,17 @@
 							<Badge variant={lesson.status === 'planned' ? 'secondary' : 'outline'} class="mt-2">
 								{lesson.status === 'planned' ? 'Planned' : 'Draft'}
 							</Badge>
-							<span class="flex shrink-0 items-center gap-0.5 pr-2 row-control">
-								<ReorderButtons
-									action="?/moveLesson"
-									fields={{ topicId: data.shown.id, id: lesson.id }}
-									label={lesson.title}
-									first={i === 0}
-									last={i === data.lessons.length - 1}
-								/>
-							</span>
+							{#if wide.current}
+								<span class="flex shrink-0 items-center gap-0.5 pr-2 row-control">
+									<ReorderButtons
+										action="?/moveLesson"
+										fields={{ topicId: data.shown.id, id: lesson.id }}
+										label={lesson.title}
+										first={i === 0}
+										last={i === data.lessons.length - 1}
+									/>
+								</span>
+							{/if}
 						</li>
 					{/each}
 					{#if !data.lessons.length}
@@ -227,25 +241,27 @@
 					{/if}
 				</ol>
 
-				<form
-					method="POST"
-					action="?/createLesson"
-					class="border-t px-4 py-3"
-					use:enhance={createInPlace(() => (newLessonTitle = ''))}
-				>
-					<input type="hidden" name="topicId" value={data.shown.id} />
-					<Input
-						bind:value={newLessonTitle}
-						name="title"
-						required
-						autocomplete="off"
-						class="h-8 w-full"
-						placeholder="New Lesson title — press Enter"
-					/>
-					<p class="mt-1.5 text-[11px] text-muted-foreground">
-						Title alone is a complete Lesson. Add notes and links whenever.
-					</p>
-				</form>
+				{#if wide.current}
+					<form
+						method="POST"
+						action="?/createLesson"
+						class="border-t px-4 py-3"
+						use:enhance={createInPlace(() => (newLessonTitle = ''))}
+					>
+						<input type="hidden" name="topicId" value={data.shown.id} />
+						<Input
+							bind:value={newLessonTitle}
+							name="title"
+							required
+							autocomplete="off"
+							class="h-8 w-full"
+							placeholder="New Lesson title — press Enter"
+						/>
+						<p class="mt-1.5 text-[11px] text-muted-foreground">
+							Title alone is a complete Lesson. Add notes and links whenever.
+						</p>
+					</form>
+				{/if}
 			{/if}
 		</section>
 	</div>

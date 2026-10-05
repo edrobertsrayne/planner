@@ -706,3 +706,28 @@ test.describe('the Courses screen on a laptop', () => {
 		});
 	}
 }
+
+test.describe('the Courses screens on a phone write nothing', () => {
+	const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];
+	test.use({ viewport, userAgent, deviceScaleFactor, isMobile, hasTouch });
+
+	test('the Courses screen has no New Course tile', async ({ page }) => {
+		await login(page);
+		await page.goto('/courses');
+		await expect(page.getByRole('link', { name: /KS3 Science/ })).toBeVisible();
+		await expect(page.getByPlaceholder('New Course name')).toHaveCount(0);
+	});
+
+	test('the Course page has no rename, menu, reorder or create control', async ({ page }) => {
+		await openCourse(page);
+		await expect(page.getByRole('heading', { level: 1 })).toHaveText('KS3 Science');
+		await expect(page.getByPlaceholder('New Topic name')).toHaveCount(0);
+		await expect(page.getByRole('button', { name: /^Rename |actions$/ })).toHaveCount(0);
+
+		await page.getByRole('link', { name: 'Forces' }).click();
+		await expect(page.getByRole('link', { name: 'Speed', exact: true })).toBeVisible();
+		await expect(page.getByPlaceholder('New Lesson title')).toHaveCount(0);
+		await expect(page.getByRole('button', { name: /^Rename |actions$|^Move /i })).toHaveCount(0);
+		await expectNoHorizontalScroll(page);
+	});
+});

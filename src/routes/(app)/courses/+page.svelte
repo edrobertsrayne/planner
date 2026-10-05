@@ -5,12 +5,16 @@
 	import { createThenSelect } from '$lib/client/enhance';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import { Input } from '$lib/components/ui/input/index.js';
+	import { MediaQuery } from 'svelte/reactivity';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
 
 	// The create box clears itself once the write lands, so the next name can be typed straight in.
 	let newCourseName = $state('');
+
+	// From `md` up the plan is written; below it, it is read, so the New Course tile is not there.
+	const wide = new MediaQuery('min-width: 768px', true);
 </script>
 
 <svelte:head><title>Courses</title></svelte:head>
@@ -62,25 +66,27 @@
 				</a>
 			</li>
 		{/each}
-		<li class="rounded-xl border border-dashed p-4">
-			<form
-				method="POST"
-				action="?/createCourse"
-				use:enhance={createThenSelect(
-					'course',
-					(id) => resolve(`/courses/${id}`),
-					() => (newCourseName = '')
-				)}
-			>
-				<Input
-					bind:value={newCourseName}
-					name="name"
-					required
-					autocomplete="off"
-					class="h-8 w-full"
-					placeholder="New Course name — press Enter"
-				/>
-			</form>
-		</li>
+		{#if wide.current}
+			<li class="rounded-xl border border-dashed p-4">
+				<form
+					method="POST"
+					action="?/createCourse"
+					use:enhance={createThenSelect(
+						'course',
+						(id) => resolve(`/courses/${id}`),
+						() => (newCourseName = '')
+					)}
+				>
+					<Input
+						bind:value={newCourseName}
+						name="name"
+						required
+						autocomplete="off"
+						class="h-8 w-full"
+						placeholder="New Course name — press Enter"
+					/>
+				</form>
+			</li>
+		{/if}
 	</ul>
 </div>

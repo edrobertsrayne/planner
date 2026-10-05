@@ -13,7 +13,8 @@
 		field = 'name',
 		heading = false,
 		level = 1,
-		tone
+		tone,
+		editable = true
 	}: {
 		name: string;
 		selected?: boolean;
@@ -25,6 +26,8 @@
 		// The heading's rank, and so its size: a page title or a panel title.
 		level?: 1 | 2;
 		tone?: number;
+		// False shows the name with no pencil, to read the plan and not change it.
+		editable?: boolean;
 	} = $props();
 
 	let editing = $state(false);
@@ -97,15 +100,17 @@
 				<span class="min-w-0 truncate">{name}</span>
 			</span>
 		{/if}
-		<button
-			type="button"
-			class="{touchTarget} shrink-0 {heading
-				? ''
-				: 'px-2'} text-xs text-muted-foreground row-control hover:text-foreground"
-			onclick={startEditing}
-			aria-label="Rename {name}"
-		>
-			✎
-		</button>
+		{#if editable}
+			<button
+				type="button"
+				class="{touchTarget} shrink-0 {heading
+					? ''
+					: 'px-2'} text-xs text-muted-foreground row-control hover:text-foreground"
+				onclick={startEditing}
+				aria-label="Rename {name}"
+			>
+				✎
+			</button>
+		{/if}
 	{/if}
 </div>
