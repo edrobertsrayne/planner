@@ -4,32 +4,29 @@
  * app has no way to create one except letting real time pass. This writes that one row straight
  * into the database instead, against the suite's own scratch database:
  *
- *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts find-lesson-id <title>
- *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts mark-taught <classId> <date> <period> <lessonId> [note]
- *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts unmark-taught <classId> <date> <period>
- *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts set-terms '<terms JSON>'
- *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts assign-topic <classLabel> <topicId>
- *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts create-class <label> <courseId>
- *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts clear-terms
- *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts create-standalone-lesson <title>
- *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts place-lesson <lessonId> <classLabel> <date>
- *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts unplace-lesson <lessonId>
+ *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts find-lesson-id <title>
+ *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts mark-taught <classId> <date> <period> <lessonId> [note]
+ *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts unmark-taught <classId> <date> <period>
+ *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts set-terms '<terms JSON>'
+ *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts assign-topic <classLabel> <topicId>
+ *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts create-class <label> <courseId>
+ *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts clear-terms
+ *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts create-standalone-lesson <title>
+ *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts place-lesson <lessonId> <classLabel> <date>
+ *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts unplace-lesson <lessonId>
  */
-import { DatabaseSync } from 'node:sqlite';
-import { drizzle } from 'drizzle-orm/node-sqlite';
 import { and, eq } from 'drizzle-orm';
+import { openDatabase } from '../src/lib/server/db/index.ts';
 import * as schema from '../src/lib/server/db/schema.ts';
+import { rederive } from '../src/lib/server/planner/derive.ts';
+import { today } from '../src/lib/date.ts';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error('DATABASE_URL is not set');
 
 const [command, ...args] = process.argv.slice(2);
 
-const client = new DatabaseSync(databaseUrl);
-client.exec('PRAGMA foreign_keys = ON');
-client.exec('PRAGMA journal_mode = WAL');
-client.exec('PRAGMA busy_timeout = 5000');
-const db = drizzle({ client });
+const { db } = openDatabase(databaseUrl);
 
 switch (command) {
 	case 'find-lesson-id': {
@@ -52,6 +49,10 @@ switch (command) {
 		db.insert(schema.session)
 			.values({ classId, date, period: Number(periodRaw), lessonId, note })
 			.run();
+		// A taught Lesson is delivered: the queue from today relabels to match, as every
+		// scheduling write in the app rederives (ADR-0007). Without this the materialized
+		// Sessions ahead of today disagree with the derivation the Agenda reads.
+		rederive(db, classId, today());
 		break;
 	}
 	// Takes a past Session back out, so a later file's Term save has no noted Session to report.
@@ -69,6 +70,8 @@ switch (command) {
 				)
 			)
 			.run();
+		// The delivery it carried comes back: relabel the queue, as mark-taught does.
+		rederive(db, classId, today());
 		break;
 	}
 	case 'set-terms': {

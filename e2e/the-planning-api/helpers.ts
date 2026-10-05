@@ -54,7 +54,7 @@ export function todayIso(): string {
 }
 
 export function runFixture(...args: string[]): string {
-	return execFileSync('node', ['scripts/e2e-fixtures.ts', ...args], {
+	return execFileSync('bun', ['scripts/e2e-fixtures.ts', ...args], {
 		cwd: process.cwd(),
 		env: { ...process.env, DATABASE_URL: 'e2e.db' },
 		encoding: 'utf-8'

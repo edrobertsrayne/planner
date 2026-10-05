@@ -13,6 +13,7 @@
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import AssignedTopics from './AssignedTopics.svelte';
 	import ClassProgress from './ClassProgress.svelte';
+	import NextSessions from './NextSessions.svelte';
 	import TimetableGrid from './TimetableGrid.svelte';
 	import type { PageProps } from './$types';
 
@@ -107,7 +108,12 @@
 			? ''
 			: 'md:hidden'}"
 	>
-		<div class="min-w-0">
+		<div class="min-w-0 space-y-6">
+			{#if data.nextSessions.length}
+				<!-- The next five Sessions lead Overview (issue #348); each opens the Session page,
+				     an Open Slot reading as such. -->
+				<NextSessions rows={data.nextSessions} />
+			{/if}
 			{#if data.lane}
 				<div class="rounded-xl border p-4">
 					<ClassProgress classId={data.class.id} lane={data.lane} />

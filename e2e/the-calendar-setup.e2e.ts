@@ -12,7 +12,7 @@ const PASSWORD = 'a-very-long-password';
 const TERM_NAMES = ['Autumn 1', 'Autumn 2', 'Spring 1', 'Spring 2', 'Summer 1', 'Summer 2'];
 
 function runFixture(...args: string[]): string {
-	return execFileSync('node', ['scripts/e2e-fixtures.ts', ...args], {
+	return execFileSync('bun', ['scripts/e2e-fixtures.ts', ...args], {
 		cwd: process.cwd(),
 		env: { ...process.env, DATABASE_URL: 'e2e.db' },
 		encoding: 'utf-8'

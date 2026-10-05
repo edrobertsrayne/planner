@@ -9,6 +9,7 @@ import {
 	assignTopic,
 	classDetail,
 	classLanes,
+	classNextSessions,
 	datedSlotsOf,
 	holderAt,
 	listClasses,
@@ -34,6 +35,9 @@ export const load: PageServerLoad = ({ params, url }) => {
 	return {
 		class: selected,
 		lane: classLanes(db, { today: today(), classId: selected.id })[0] ?? null,
+		// The next five Sessions lead Overview (issue #348), from the same derivation as the
+		// Agenda rows.
+		nextSessions: classNextSessions(db, { classId: selected.id, today: today(), limit: 5 }),
 		yearStart,
 		effectiveFrom,
 		today: today(),
