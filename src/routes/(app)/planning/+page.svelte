@@ -9,6 +9,7 @@
 	import PageHeader from '$lib/components/page-header.svelte';
 	import PlacementsMovedAlert from '$lib/components/placements-moved-alert.svelte';
 	import TagChips from '$lib/components/tag-chips.svelte';
+	import { Badge } from '$lib/components/ui/badge/index.js';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import type { PageProps } from './$types';
 
@@ -133,45 +134,42 @@
 		/>
 
 		{#if filtered.length > 0}
-			<!-- Below `md` one card per Lesson, as it reads today. The table needs a width the phone
-			     does not have; the phone card of issue #339 replaces these rows. -->
+			<!-- Below `md` one card per Lesson (issue #339): date, Period, Class chip, title, Topic
+			     and Course, with Draft/Planned as a read-only badge. Only the title opens the Lesson
+			     editor, so a tap on the rest of the card opens nothing. -->
 			<ul class="mt-4 space-y-2 md:hidden">
 				{#each filtered as lesson (lesson.id)}
 					{@const s = lesson.occurrence}
-					<li class="flex items-center gap-3 rounded-lg border bg-card px-3 py-2">
-						<div class="flex w-28 shrink-0 flex-col items-end gap-0.5">
+					<li class="rounded-lg border bg-card p-3">
+						<div class="flex items-center gap-2 text-xs text-muted-foreground">
 							{#if s}
-								<div class="text-sm font-medium tabular-nums">{formatShortWeekday(s.date)}</div>
-								<div class="flex items-center gap-1.5">
-									<span class="text-xs text-muted-foreground tabular-nums">P{s.period}</span>
-									{@render classChip(s)}
-								</div>
+								<span class="font-medium text-foreground tabular-nums"
+									>{formatShortWeekday(s.date)}</span
+								>
+								<span class="tabular-nums">P{s.period}</span>
+								{@render classChip(s)}
 							{:else}
-								<div class="text-sm text-muted-foreground">—</div>
-								<div class="text-xs text-muted-foreground">unscheduled</div>
+								<span>Not scheduled</span>
+							{/if}
+							<Badge
+								variant={lesson.status === 'planned' ? 'secondary' : 'outline'}
+								class="ml-auto"
+							>
+								{lesson.status === 'planned' ? 'Planned' : 'Draft'}
+							</Badge>
+						</div>
+						<a
+							href={resolve(`/lessons/${lesson.id}`)}
+							class="mt-1.5 block text-sm font-medium underline-offset-2 hover:underline"
+							>{lesson.title}</a
+						>
+						<div class="text-xs text-muted-foreground">
+							{#if lesson.topicName}
+								{lesson.topicName} · {lesson.courseName}
+							{:else}
+								Standalone Lesson
 							{/if}
 						</div>
-
-						<div class="h-8 w-px bg-border"></div>
-
-						<div class="min-w-0 flex-1">
-							<a
-								href={resolve(`/lessons/${lesson.id}`)}
-								class="block max-w-full truncate text-sm font-medium hover:underline"
-							>
-								{lesson.title}
-							</a>
-							<div class="truncate text-xs text-muted-foreground">
-								{#if lesson.topicName}
-									{lesson.topicName} · {lesson.courseName}
-								{:else}
-									Standalone Lesson
-								{/if}
-							</div>
-							<TagChips tags={lesson.tags} class="mt-1" />
-						</div>
-
-						{@render statusToggle(lesson)}
 					</li>
 				{/each}
 			</ul>

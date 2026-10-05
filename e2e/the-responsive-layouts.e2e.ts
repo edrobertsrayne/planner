@@ -791,6 +791,37 @@ test.describe('the Planning table on a laptop', () => {
 	}
 }
 
+test.describe('the Planning cards on a phone', () => {
+	// `defaultBrowserType` would force a new worker inside a describe, so take the other fields.
+	const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];
+	test.use({ viewport, userAgent, deviceScaleFactor, isMobile, hasTouch });
+
+	test('one card per Lesson reads its status as a read-only badge, and no toggle shows', async ({
+		page
+	}) => {
+		await login(page);
+		await page.goto('/planning');
+		await expect(page.getByRole('link', { name: 'Speed', exact: true })).toBeVisible();
+
+		// Below `md` one card per Lesson. Each card carries exactly one Draft/Planned read-only
+		// badge: a badge is one status word, where a toggle is the pair Draft and Planned.
+		const status = /^(Draft|Planned)$/;
+		const cards = page.getByRole('main').getByRole('listitem');
+		const count = await cards.count();
+		expect(count).toBeGreaterThan(0);
+		for (let i = 0; i < count; i++) {
+			// Exactly one Draft/Planned badge on the card, and it shows.
+			const badge = cards.nth(i).getByText(status);
+			await expect(badge).toHaveCount(1);
+			await expect(badge).toBeVisible();
+		}
+
+		// On a phone the Draft/Planned toggle does not show: Draft and Planned name no button.
+		await expect(page.getByRole('button', { name: status })).toHaveCount(0);
+		await expectNoHorizontalScroll(page);
+	});
+});
+
 test.describe('the Class chip row on a phone', () => {
 	// The chips must outnumber what a phone can show, so what a sideways swipe scrolls is the
 	// row itself — and never the page. `defaultBrowserType` stays out, so no new worker is forced.
