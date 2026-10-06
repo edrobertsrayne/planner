@@ -108,37 +108,22 @@
 			{#if !setup}
 				{#if data.week}
 					<!-- One row for both sizes, the size choosing what shows and where (stories 102
-					     and 103). Below `md` the arrows frame one label — the week's letter and its
-					     Monday — with Today beside them; from `md` today's header is back: arrows,
-					     Today, the five-week ribbon. Flex order moves the pieces between the two, so
-					     each control exists once and no name is doubled in the accessibility tree. -->
+					     and 103). The DOM order is the `md` order — arrows around the ribbon, Today
+					     beside the first arrow — so the keyboard path follows what a laptop shows.
+					     Below `md` the arrows frame one label — the week's letter and its Monday —
+					     with Today beside them: `max-md:order` moves the label between the arrows
+					     and Today to the end. Each control exists once, so no name is doubled in the
+					     accessibility tree. -->
 					<div class="flex min-w-0 items-center gap-1 md:gap-2">
 						<Button
 							variant="ghost"
 							size="icon-sm"
-							class="order-1"
+							class="max-md:order-1"
 							href={data.prev ? weekHref(data.prev) : undefined}
 							disabled={!data.prev}
 							aria-label="Previous Teaching Week"
 						>
 							<ChevronLeftIcon />
-						</Button>
-
-						<span
-							class="order-2 min-w-0 flex-1 truncate text-center text-sm font-medium tabular-nums md:hidden"
-						>
-							Week {data.week.letter} · w/c {formatDayMonth(data.week.weekCommencing)}
-						</span>
-
-						<Button
-							variant="ghost"
-							size="icon-sm"
-							class="order-3 md:order-4"
-							href={data.next ? weekHref(data.next) : undefined}
-							disabled={!data.next}
-							aria-label="Next Teaching Week"
-						>
-							<ChevronRightIcon />
 						</Button>
 
 						<!-- Today is the header's main action once the year exists; until then the week
@@ -147,7 +132,7 @@
 					     without an href. -->
 						<Button
 							size="sm"
-							class="order-4 h-7 md:order-2"
+							class="h-7 max-md:order-4"
 							href={data.current && data.selected !== data.current
 								? weekHref(data.current)
 								: undefined}
@@ -160,7 +145,7 @@
 						     shrinks and scrolls inside itself — the chip-row rule the Agenda and
 						     Planning follow — so the page never scrolls sideways (issue #343). -->
 						<div
-							class="order-5 hidden max-w-full items-center gap-0.5 overflow-x-auto rounded-md border p-0.5 md:order-3 md:flex"
+							class="hidden max-w-full items-center gap-0.5 overflow-x-auto rounded-md border p-0.5 md:flex"
 						>
 							{#each data.ribbon as w (w.weekCommencing)}
 								{@const isSelected = w.weekCommencing === data.selected}
@@ -178,6 +163,23 @@
 								</a>
 							{/each}
 						</div>
+
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							class="max-md:order-3"
+							href={data.next ? weekHref(data.next) : undefined}
+							disabled={!data.next}
+							aria-label="Next Teaching Week"
+						>
+							<ChevronRightIcon />
+						</Button>
+
+						<span
+							class="min-w-0 flex-1 truncate text-center text-sm font-medium tabular-nums max-md:order-2 md:hidden"
+						>
+							Week {data.week.letter} · w/c {formatDayMonth(data.week.weekCommencing)}
+						</span>
 					</div>
 				{/if}
 
