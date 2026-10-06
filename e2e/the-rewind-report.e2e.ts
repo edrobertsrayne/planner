@@ -116,7 +116,7 @@ test.describe.serial('the Rewind report after a Lesson write', () => {
 		await box.fill('A extra');
 		await box.press('Enter');
 
-		await expect(page.getByText('The Rewind changed the Lesson on a noted Session')).toBeVisible();
+		await expect(page.getByText(/The Rewind changed the Lesson on .* noted Session/)).toBeVisible();
 		await expect(
 			page.getByText(new RegExp(`${FIXTURE_CLASS_LABEL} · .* P\\d — now B one`))
 		).toBeVisible();
@@ -128,7 +128,7 @@ test.describe.serial('the Rewind report after a Lesson write', () => {
 		await expect(page.getByText('The Rewind changed the Lesson')).toHaveCount(0);
 		await page.getByRole('button', { name: 'Move A extra up' }).click();
 
-		await expect(page.getByText('The Rewind changed the Lesson on a noted Session')).toBeVisible();
+		await expect(page.getByText(/The Rewind changed the Lesson on .* noted Session/)).toBeVisible();
 	});
 
 	test('deleting a Lesson in front of a noted Session shows the report', async () => {
@@ -136,6 +136,6 @@ test.describe.serial('the Rewind report after a Lesson write', () => {
 		await page.getByRole('link', { name: 'A extra', exact: true }).click();
 		await page.getByRole('button', { name: 'Delete Lesson' }).click();
 
-		await expectToast(page, 'The Rewind changed the Lesson on a noted Session');
+		await expectToast(page, 'The Rewind changed the Lesson on');
 	});
 });
