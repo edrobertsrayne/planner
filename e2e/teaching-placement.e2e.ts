@@ -199,7 +199,7 @@ test.describe.serial('Placing and removing a Lesson', () => {
 		await expect(shiftedCell.locator('[data-standalone-ring]')).toBeVisible();
 
 		// Restore the state later files expect: unblocking returns the Slot to Available, and the
-		// Placement's anchor is where it lands again (CONTEXT.md: "returns when the Slot is
+		// Placement's anchor is where it lands again (GLOSSARY.md: "returns when the Slot is
 		// Available again") — so removal happens back on the original Tuesday, not the shifted one.
 		await page.goto(`/calendar?week=${mondayOf(tuesday)}`);
 		await openDayMenu('Tue');

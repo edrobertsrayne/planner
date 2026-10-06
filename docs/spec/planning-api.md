@@ -731,7 +731,7 @@ src/routes/api/import/+server.ts                     POST
 
 ### 7.5 Documents to update when the work lands
 
-- **`CONTEXT.md`** — the Settings entry says Settings gets no second section. It now has one.
+- **`GLOSSARY.md`** — the Settings entry says Settings gets no second section. It now has one.
 - **A new ADR** — record the API key as a deliberate second authentication mechanism alongside the
   cookie session, and why a personal single-user planner accepts two. This was flagged during
   domain-modeling on map #126 and is not yet written.

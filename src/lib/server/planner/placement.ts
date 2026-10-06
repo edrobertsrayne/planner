@@ -16,7 +16,7 @@ import { required } from './fields';
 // Creates a fresh Standalone Lesson (`topicId: null`, `position: 0`, since it belongs to no
 // Topic's order) and a Placement anchoring it to one Class, one date and one Slot, then
 // re-derives that Class from the earlier of the date and today. A Placement is made for today or
-// a later date, never a past one (CONTEXT.md) — unlike a Blocked Day or a Blocked Slot, which
+// a later date, never a past one (GLOSSARY.md) — unlike a Blocked Day or a Blocked Slot, which
 // exist precisely to record a disruption after the fact. The Lesson and its Placement are
 // created in one transaction, driven on the raw client exactly as the Topic import already is —
 // without it, a failed Placement insert (a taken anchor, a Class or Slot gone) would leave the

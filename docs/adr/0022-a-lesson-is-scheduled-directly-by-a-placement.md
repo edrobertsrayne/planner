@@ -191,7 +191,7 @@ The Calendar tile keeps its Class's Tone and gains a dashed inner ring plus a `S
 line where the Topic name normally sits. Full shape in
 [The two doors: Calendar day menu and Session panel](https://github.com/edrobertsrayne/planner/issues/228); implementation detail lives in the spec, not here.
 
-## `CONTEXT.md`
+## `GLOSSARY.md`
 
 **Standalone Lesson**, amended: the "is never Scheduled" clause is deleted, since it stops being
 true the moment this decision ships.

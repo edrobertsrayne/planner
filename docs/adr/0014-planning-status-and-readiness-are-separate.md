@@ -55,5 +55,5 @@ which the earlier ladder would have required everywhere preparation appeared.
 > taken. Nothing about the decision changes: the two states still sit on the Lesson, Ready still
 > sits on the (Lesson, Class) pairing, and the three remain independent. The rename also freed the
 > word "planned", so **Unplanned Slot** became **Open Slot** and **Planned Length** became
-> **Length** — see the amendment on ADR-0007. `CONTEXT.md` is the source of truth for all four
+> **Length** — see the amendment on ADR-0007. `GLOSSARY.md` is the source of truth for all four
 > terms.
