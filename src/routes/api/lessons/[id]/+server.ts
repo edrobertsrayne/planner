@@ -8,7 +8,8 @@ import {
 	attachmentsOf,
 	lessonDetail,
 	deleteLesson,
-	patchLesson
+	editLesson,
+	type LessonChange
 } from '$lib/server/planner';
 import type { RequestHandler } from './$types';
 
@@ -28,13 +29,7 @@ export const PATCH: RequestHandler = async (event) => {
 
 	const data = await event.request.json();
 
-	const fields: {
-		title?: string;
-		body?: string | null;
-		length?: number;
-		status?: string;
-		topicId?: string;
-	} = {};
+	const fields: LessonChange = {};
 
 	if (data.title !== undefined) {
 		const title = stringField(data.title, 'title');
@@ -70,11 +65,11 @@ export const PATCH: RequestHandler = async (event) => {
 	}
 
 	try {
-		const lesson = patchLesson(db, { id: event.params.id, fields, today: today() });
+		const result = editLesson(db, { id: event.params.id, change: fields, today: today() });
 
 		// An unknown lesson id is a URL miss — the route's own 404, not the seam's.
-		if (!lesson) return json({ error: 'Lesson not found.' }, { status: 404 });
-		return json(lesson);
+		if (!result) return json({ error: 'Lesson not found.' }, { status: 404 });
+		return json(result);
 	} catch (error) {
 		return refusalJson(error);
 	}

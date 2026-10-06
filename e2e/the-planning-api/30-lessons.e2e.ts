@@ -145,14 +145,15 @@ test.describe.serial('the Lesson endpoints', () => {
 		request
 	}) => {
 		// Absent body, absent length: a title-only PATCH changes the title and nothing else, and
-		// the reply is the Lesson without its links.
+		// the reply is the Lesson without its links, beside the Rewind report of the change.
 		const titleOnly = await request.patch(`/api/lessons/${lessonAId}`, {
 			headers: BEARER(token),
 			data: { title: 'API Lesson A Renamed' }
 		});
 		expect(titleOnly.status()).toBe(200);
 		const renamed = await titleOnly.json();
-		expect(keysOf(renamed)).toEqual([
+		expect(keysOf(renamed)).toEqual(['atRisk', 'lesson', 'placementsMoved']);
+		expect(keysOf(renamed.lesson)).toEqual([
 			'body',
 			'id',
 			'length',
@@ -161,7 +162,7 @@ test.describe.serial('the Lesson endpoints', () => {
 			'title',
 			'topicId'
 		]);
-		expect(renamed).toMatchObject({
+		expect(renamed.lesson).toMatchObject({
 			title: 'API Lesson A Renamed',
 			body: null,
 			length: 1,
@@ -174,29 +175,36 @@ test.describe.serial('the Lesson endpoints', () => {
 			data: { body: null }
 		});
 		expect(cleared.status()).toBe(200);
-		expect(await cleared.json()).toMatchObject({ body: null });
+		expect((await cleared.json()).lesson).toMatchObject({ body: null });
 
 		const set = await request.patch(`/api/lessons/${lessonBId}`, {
 			headers: BEARER(token),
 			data: { body: 'Rewritten' }
 		});
 		expect(set.status()).toBe(200);
-		expect(await set.json()).toMatchObject({ body: 'Rewritten' });
+		expect((await set.json()).lesson).toMatchObject({ body: 'Rewritten' });
 
 		const lengthTwo = await request.patch(`/api/lessons/${lessonBId}`, {
 			headers: BEARER(token),
 			data: { length: 2 }
 		});
 		expect(lengthTwo.status()).toBe(200);
-		expect(await lengthTwo.json()).toMatchObject({ length: 2, body: 'Rewritten' });
+		expect((await lengthTwo.json()).lesson).toMatchObject({ length: 2, body: 'Rewritten' });
 
-		// An empty PATCH is a no-op that returns the unchanged record.
-		const noop = await request.patch(`/api/lessons/${lessonBId}`, {
-			headers: BEARER(token),
-			data: {}
-		});
-		expect(noop.status()).toBe(200);
-		expect(await noop.json()).toMatchObject({ body: 'Rewritten', length: 2, status: 'planned' });
+		// An empty PATCH, or one that names the Lesson's own Topic, is a no-op that returns the
+		// unchanged record and an empty report.
+		for (const data of [{}, { topicId: topicOneId }]) {
+			const noop = await request.patch(`/api/lessons/${lessonBId}`, {
+				headers: BEARER(token),
+				data
+			});
+			expect(noop.status()).toBe(200);
+			expect(await noop.json()).toMatchObject({
+				lesson: { body: 'Rewritten', length: 2, status: 'planned', topicId: topicOneId },
+				atRisk: [],
+				placementsMoved: []
+			});
+		}
 
 		const blankTitle = await request.patch(`/api/lessons/${lessonBId}`, {
 			headers: BEARER(token),
@@ -227,9 +235,17 @@ test.describe.serial('the Lesson endpoints', () => {
 			data: { topicId: null }
 		});
 		expect(detach.status()).toBe(200);
-		const detached = await detach.json();
+		const detached = (await detach.json()).lesson;
 		expect(detached).toMatchObject({ topicId: null, title: 'API Lesson B', body: 'Rewritten' });
 		expect(detached.links).toBeUndefined();
+
+		// Detaching a Standalone Lesson again is a no-op, not an error.
+		const again = await request.patch(`/api/lessons/${lessonBId}`, {
+			headers: BEARER(token),
+			data: { topicId: null }
+		});
+		expect(again.status()).toBe(200);
+		expect((await again.json()).lesson).toMatchObject({ topicId: null });
 
 		const detailWhileDetached = await request.get(`/api/lessons/${lessonBId}`, {
 			headers: BEARER(token)

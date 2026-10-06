@@ -1,14 +1,14 @@
 // Authoring — the Courses view. A Course and a Topic are not themselves scheduling inputs, so
 // creating or renaming one never re-derives. A Lesson is different: once its Topic is assigned to
-// a Class, the Lesson is part of that Class's schedule, so every write to a Lesson re-derives
-// every Class with that Topic assigned — quietly, on the same write, with no separate recompute
-// step (issue #31).
-import { and, asc, eq, inArray, lt, sql } from 'drizzle-orm';
+// a Class, the Lesson is part of that Class's schedule, so every write to its place or Length
+// re-derives every Class that reaches it — quietly, on the same write, with no separate
+// recompute step (issue #31).
+import { and, asc, eq, inArray, lt, notInArray, sql } from 'drizzle-orm';
 import type { Database } from 'bun:sqlite';
 import { nextTone } from '$lib/class-tone';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
-import { rederivePlacementLesson, rederiveTopic, type Db, type WriteReport } from './derive';
+import { rederive, rederiveTopic, type Db, type WriteReport } from './derive';
 import { nextPosition, swapTargets, type Direction } from './ordering';
 import { deleteAttachmentsOfLesson } from './attachments';
 import { Refused } from './refused';
@@ -390,32 +390,6 @@ export function createLesson(
 
 export type LessonStatus = 'draft' | 'planned';
 
-export function renameLesson(db: Db, { id, title }: { id: string; title: string }) {
-	const [row] = db
-		.update(schema.lesson)
-		.set({ title: required(title, 'A Lesson needs a title.') })
-		.where(eq(schema.lesson.id, id))
-		.returning()
-		.all();
-	return row;
-}
-
-// Planning status is a fact about the Lesson (ADR-0014), shared by every Class assigned its Topic.
-// Setting it never re-derives the schedule: a status says nothing about a date. It never touches Readiness.
-export function setLessonStatus(
-	db: Db,
-	lessonId: string,
-	status: string
-): typeof schema.lesson.$inferSelect | undefined {
-	const [row] = db
-		.update(schema.lesson)
-		.set({ status: lessonStatus(status) })
-		.where(eq(schema.lesson.id, lessonId))
-		.returning()
-		.all();
-	return row;
-}
-
 // Readiness is recorded per Class and Lesson (ADR-0014).
 // Ticking inserts the row, unticking deletes it; both idempotent. No re-derive.
 export function setReadiness(db: Db, lessonId: string, classId: string, ready: boolean): void {
@@ -498,7 +472,7 @@ export function listTagNames(db: Db): string[] {
 // that matches an existing Tag reuses it — attach, never create-or-refuse, is Tag's whole point.
 // Finds a Tag matching trimmed + case-insensitive, reusing it, or creates one. Then inserts
 // lesson_tag (idempotent on the composite key — INSERT OR IGNORE). Refuses an empty/whitespace-only
-// name the same way updateLesson refuses an empty title — an `invalid`, the one input the seam
+// name the same way editLesson refuses an empty title — an `invalid`, the one input the seam
 // itself refuses. No re-derive: a Tag is descriptive metadata, exactly like Readiness, and never
 // changes a date.
 export function attachTag(
@@ -536,34 +510,104 @@ export function lessonDetail(db: Db, id: string) {
 	return { ...row, links: linksOf(db, id), tags: tagsOf(db, id) };
 }
 
-// Length is a scheduling input, so this re-derives every Class assigned this Lesson's
-// Topic from `today`. Title and body are cosmetic and never move a date, but re-deriving
-// regardless is harmless — `rederive` only writes where something actually changed.
-export function updateLesson(
+// One change to one Lesson. The change names any of title, body, Length, status and Topic; a field
+// it does not name keeps its value, and a `null` Topic is Detach. Every door that writes a Lesson
+// calls this, so the Lesson editor and the API give the same answer to the same change (#356).
+export type LessonChange = {
+	title?: string;
+	body?: string | null;
+	length?: number;
+	status?: string;
+	topicId?: string | null;
+};
+
+// The rules for the change, all here:
+// - The field rules in fields.ts run on each field the change names.
+// - A Topic the change names but the database does not hold is `missing`. The check comes first,
+//   so an unknown `topicId` answers 404 whatever the Lesson's own Topic (spec §3.4).
+// - Detach is one-way (ADR-0022): a Standalone Lesson never rejoins a Topic, a `conflict`.
+// - A move lands at the end of the new Topic's order: the Lesson has no position there yet.
+// - A change that sets nothing writes nothing and reports nothing.
+// - Length and Topic are scheduling inputs. A change to either re-derives every Class that reaches
+//   the Lesson, before or after: through the old Topic, the new Topic, or a Placement. Title, body
+//   and status never move a date (ADR-0014), so they re-derive nothing.
+// - A move to another Topic ends the Readiness of every Class the new Topic does not reach.
+//   A Detach deletes nothing, so the Standalone Lesson keeps its inert marks (ADR-0015).
+// An unknown id returns undefined, the door's 404.
+export function editLesson(
 	db: Db,
-	{
-		id,
-		title,
-		body,
-		length,
-		today
-	}: { id: string; title: string; body: string | null; length: number; today: string }
+	{ id, change, today }: { id: string; change: LessonChange; today: string }
 ): ({ lesson: typeof schema.lesson.$inferSelect } & WriteReport) | undefined {
-	const [row] = db
+	const [row] = db.select().from(schema.lesson).where(eq(schema.lesson.id, id)).all();
+	if (!row) return undefined;
+
+	const next: Partial<typeof schema.lesson.$inferInsert> = {};
+	if (change.title !== undefined) next.title = required(change.title, 'A Lesson needs a title.');
+	if (change.body !== undefined) next.body = lessonBody(change.body);
+	if (change.length !== undefined) next.length = lessonLength(change.length);
+	if (change.status !== undefined) next.status = lessonStatus(change.status);
+
+	const { topicId } = change;
+	const moves = topicId !== undefined && topicId !== row.topicId;
+	if (moves && topicId !== null) {
+		const [topic] = db
+			.select({ id: schema.topic.id })
+			.from(schema.topic)
+			.where(eq(schema.topic.id, topicId))
+			.all();
+		if (!topic) throw new Refused('missing', 'Topic not found.');
+		if (row.topicId === null)
+			throw new Refused('conflict', 'A Standalone Lesson cannot rejoin a Topic.');
+		next.position = endOfTopic(db, topicId);
+	}
+	if (moves) next.topicId = topicId;
+
+	const changed = Object.fromEntries(
+		Object.entries(next).filter(([key, value]) => row[key as keyof typeof row] !== value)
+	) as typeof next;
+	if (Object.keys(changed).length === 0) return { lesson: row, atRisk: [], placementsMoved: [] };
+
+	const [lesson] = db
 		.update(schema.lesson)
-		.set({
-			title: required(title, 'A Lesson needs a title.'),
-			body: lessonBody(body),
-			length: lessonLength(length)
-		})
+		.set(changed)
 		.where(eq(schema.lesson.id, id))
 		.returning()
 		.all();
-	if (!row) return undefined;
-	const report = row.topicId
-		? rederiveTopic(db, row.topicId, today)
-		: rederivePlacementLesson(db, row.id, today);
-	return { lesson: row, ...report };
+	if (!moves && changed.length === undefined) return { lesson, atRisk: [], placementsMoved: [] };
+
+	const assignedTo = (topicId: string | null) =>
+		topicId === null
+			? []
+			: db
+					.select({ classId: schema.assignedTopic.classId })
+					.from(schema.assignedTopic)
+					.where(eq(schema.assignedTopic.topicId, topicId))
+					.all()
+					.map((r) => r.classId);
+	const placedOn = db
+		.selectDistinct({ classId: schema.placement.classId })
+		.from(schema.placement)
+		.where(eq(schema.placement.lessonId, id))
+		.all()
+		.map((r) => r.classId);
+	const reachesNow = [...assignedTo(lesson.topicId), ...placedOn];
+
+	if (moves && lesson.topicId !== null) {
+		db.delete(schema.readiness)
+			.where(
+				and(eq(schema.readiness.lessonId, id), notInArray(schema.readiness.classId, reachesNow))
+			)
+			.run();
+	}
+
+	const reports = [...new Set([...assignedTo(row.topicId), ...reachesNow])].map((classId) =>
+		rederive(db, classId, today)
+	);
+	return {
+		lesson,
+		atRisk: reports.flatMap((r) => r.atRisk),
+		placementsMoved: reports.flatMap((r) => r.placementsMoved)
+	};
 }
 
 // Removes a Lesson entirely, along with its Links, and re-derives every Class assigned its
@@ -625,85 +669,6 @@ export function deleteLesson(
 	return row;
 }
 
-// Partial PATCH for the API. Only the fields present in `fields` change; absent fields leave
-// their values alone. Re-derives every Class assigned the Topic if anything scheduling-relevant
-// changed, or if the Lesson moved to a different Topic.
-//
-// A `topicId` the body names but the database does not is a `missing` — the one 404 the body can
-// cause. A Standalone Lesson's re-attach is a `conflict`, Detach being one-way. An unknown
-// lesson id returns undefined, the door's 404 for the URL `:id`.
-export function patchLesson(
-	db: Db,
-	{
-		id,
-		fields,
-		today
-	}: {
-		id: string;
-		fields: {
-			title?: string;
-			body?: string | null;
-			length?: number;
-			status?: string;
-			topicId?: string | null;
-		};
-		today: string;
-	}
-): typeof schema.lesson.$inferSelect | undefined {
-	const [row] = db.select().from(schema.lesson).where(eq(schema.lesson.id, id)).all();
-	if (!row) return undefined;
-
-	const update: Record<string, unknown> = {};
-
-	if (fields.title !== undefined) update.title = required(fields.title, 'A Lesson needs a title.');
-	if (fields.body !== undefined) update.body = lessonBody(fields.body);
-	if (fields.length !== undefined) update.length = lessonLength(fields.length);
-	if (fields.status !== undefined) update.status = lessonStatus(fields.status);
-
-	const oldTopicId = row.topicId;
-	const newTopicId = fields.topicId;
-
-	if (newTopicId !== undefined && newTopicId !== null && newTopicId !== oldTopicId) {
-		const [existing] = db.select().from(schema.topic).where(eq(schema.topic.id, newTopicId)).all();
-		if (!existing) throw new Refused('missing', 'Topic not found.');
-		// ADR-0022: a Standalone Lesson reaches a Class only through a Placement, never a Topic —
-		// re-filing it into one would let a Lesson a Placement names silently regain a Topic
-		// mid-Placement. Detach is one-way. Moving a Lesson between two Topics is untouched.
-		// Checked only once the named Topic is confirmed to exist, so an unknown `topicId` still
-		// answers 404 regardless of whether this Lesson currently has one (spec §3.4).
-		if (oldTopicId === null)
-			throw new Refused('conflict', 'A Standalone Lesson cannot rejoin a Topic.');
-		update.topicId = newTopicId;
-		// A re-attach or move lands at the end of the target Topic's order, as moveLessonToTopic
-		// does — a Lesson carries no position of its own into a Topic it has never been in.
-		update.position = endOfTopic(db, newTopicId);
-	} else if (newTopicId === null && newTopicId !== oldTopicId) {
-		update.topicId = null;
-	}
-
-	if (Object.keys(update).length === 0 && newTopicId === undefined) return row;
-
-	db.update(schema.lesson)
-		.set(update as Partial<typeof schema.lesson.$inferInsert>)
-		.where(eq(schema.lesson.id, id))
-		.run();
-
-	const [updated] = db.select().from(schema.lesson).where(eq(schema.lesson.id, id)).all();
-	if (!updated) return undefined;
-
-	if (newTopicId !== undefined && newTopicId !== oldTopicId) {
-		if (oldTopicId) rederiveTopic(db, oldTopicId, today);
-		if (newTopicId) rederiveTopic(db, newTopicId, today);
-	} else if (
-		updated.topicId &&
-		(fields.length !== undefined || fields.title !== undefined || fields.body !== undefined)
-	) {
-		rederiveTopic(db, updated.topicId, today);
-	}
-
-	return updated;
-}
-
 // Swaps position with the previous or next Lesson in the same Topic, and re-derives every Class
 // assigned it. Off either end is a no-op — there is no wraparound and no error, same as moveLink.
 export function moveLesson(
@@ -723,32 +688,6 @@ export function moveLesson(
 	db.update(schema.lesson).set({ position: a.position }).where(eq(schema.lesson.id, b.id)).run();
 
 	rederiveTopic(db, topicId, today);
-}
-
-// Moves a Lesson to a different Topic, keeping its body, links and Length — appended at
-// the end of the new Topic's order. Re-derives every Class assigned either Topic: the old one
-// lost a Lesson, the new one gained one.
-export function moveLessonToTopic(
-	db: Db,
-	{ id, topicId, today }: { id: string; topicId: string | null; today: string }
-) {
-	const [row] = db.select().from(schema.lesson).where(eq(schema.lesson.id, id)).all();
-	if (!row) return null;
-	const oldTopicId = row.topicId;
-
-	const [updated] = db
-		.update(schema.lesson)
-		.set({
-			topicId,
-			...(topicId !== null ? { position: endOfTopic(db, topicId) } : {})
-		})
-		.where(eq(schema.lesson.id, id))
-		.returning()
-		.all();
-
-	if (oldTopicId) rederiveTopic(db, oldTopicId, today);
-	if (topicId && topicId !== oldTopicId) rederiveTopic(db, topicId, today);
-	return updated;
 }
 
 // Which Classes have already been taught this Lesson, before `today` — the taught-by block in

@@ -11,11 +11,8 @@ import {
 	deleteLesson,
 	deleteLink,
 	detachTag,
-	moveLessonToTopic,
+	editLesson,
 	moveLink,
-	patchLesson,
-	setLessonStatus,
-	updateLesson,
 	updateLink
 } from '$lib/server/planner';
 
@@ -28,13 +25,9 @@ export const lessonActions = {
 		const body = String(data.get('body') ?? '');
 		const length = Number(data.get('length'));
 		try {
-			const result = updateLesson(db, { id, title, body, length, today: today() });
+			const result = editLesson(db, { id, change: { title, body, length }, today: today() });
 			if (!result) return fail(404, { error: 'No such Lesson.' });
-			return {
-				lesson: result.lesson,
-				atRisk: result.atRisk,
-				placementsMoved: result.placementsMoved
-			};
+			return result;
 		} catch (error) {
 			return refusal(error);
 		}
@@ -45,9 +38,9 @@ export const lessonActions = {
 		const id = trimmed(data, 'id');
 		const status = String(data.get('status') ?? '');
 		try {
-			const lesson = setLessonStatus(db, id, status);
-			if (!lesson) return fail(404, { error: 'No such Lesson.' });
-			return { lesson };
+			const result = editLesson(db, { id, change: { status }, today: today() });
+			if (!result) return fail(404, { error: 'No such Lesson.' });
+			return result;
 		} catch (error) {
 			return refusal(error);
 		}
@@ -58,9 +51,13 @@ export const lessonActions = {
 		const id = trimmed(data, 'id');
 		const topicId = trimmed(data, 'topicId');
 		if (!topicId) return fail(400, { error: 'Pick a Topic.' });
-		const lesson = moveLessonToTopic(db, { id, topicId, today: today() });
-		if (!lesson) return fail(404, { error: 'No such Lesson.' });
-		return { lesson };
+		try {
+			const result = editLesson(db, { id, change: { topicId }, today: today() });
+			if (!result) return fail(404, { error: 'No such Lesson.' });
+			return result;
+		} catch (error) {
+			return refusal(error);
+		}
 	},
 
 	// One-way: the Lesson keeps its title, plan, Tags, Links and Attachments and leaves its Topic.
@@ -68,9 +65,9 @@ export const lessonActions = {
 		const data = await request.formData();
 		const id = trimmed(data, 'id');
 		try {
-			const lesson = patchLesson(db, { id, fields: { topicId: null }, today: today() });
-			if (!lesson) return fail(404, { error: 'No such Lesson.' });
-			return { lesson };
+			const result = editLesson(db, { id, change: { topicId: null }, today: today() });
+			if (!result) return fail(404, { error: 'No such Lesson.' });
+			return result;
 		} catch (error) {
 			return refusal(error);
 		}
