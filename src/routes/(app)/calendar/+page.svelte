@@ -489,7 +489,7 @@
 <style>
 	/*
 		The hatch marks a position that is not an upcoming Session. A Blocked Day and a Blocked
-		Slot drain the colour instead of keeping it (CONTEXT.md, Calendar): present-but-empty and
+		Slot drain the colour instead of keeping it (GLOSSARY.md, Calendar): present-but-empty and
 		removed must never read alike. A past Session or Open Slot keeps its Class Tone and lays the
 		hatch over it, so it reads as done rather than removed. The texture is derived from
 		--muted-foreground, so it reads in both themes with no dark-mode branch.

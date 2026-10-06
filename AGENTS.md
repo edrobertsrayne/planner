@@ -31,7 +31,7 @@ Disable the auth guard in a prototype, unless the prototype tests the authentica
 
 - Issues: GitHub Issues on `edrobertsrayne/planner` via `gh`. See `docs/agents/issue-tracker.md`.
 - Triage labels: each label string equals its role name. See `docs/agents/triage-labels.md`.
-- Domain: single context, `CONTEXT.md` and `docs/adr/`. See `docs/agents/domain.md`.
+- Domain: single context, `GLOSSARY.md` and `docs/adr/`. See `docs/agents/domain.md`.
 - Before you write a migration, read `docs/agents/migrations.md`.
 - Backlog: add ideas you put out of scope to `docs/backlog.md`. Read it before you propose a feature.
 
@@ -51,4 +51,4 @@ Example: `gh pr create --title "..." --body-file body.md --attach screenshots/ho
 
 - Give brief context before the main point.
 - Write in ASD-STE100 Simplified Technical English: short sentences, one instruction per sentence, active voice, approved words only.
-- Use the terms in `CONTEXT.md`. Do not use the synonyms that it lists to avoid.
+- Use the terms in `GLOSSARY.md`. Do not use the synonyms that it lists to avoid.

@@ -8,7 +8,7 @@ into a new academic year.
 The planner is built for one user and **one school year** (`AGENTS.md`: do not add generality for
 a second year). The domain model agrees:
 
-- `CONTEXT.md` scopes a **Class** to one academic year: "next year's teaching is new Classes, not
+- `GLOSSARY.md` scopes a **Class** to one academic year: "next year's teaching is new Classes, not
   these ones carried forward".
 - ADR-0010 fixes a Class's Course at creation because "a Class never outlives its academic year".
 

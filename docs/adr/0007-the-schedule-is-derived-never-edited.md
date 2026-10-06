@@ -79,7 +79,7 @@ and returns the rest as unplaced. Silently dropping Lessons would make the tool 
 > this decision changes: the mirror case, the returned field and the derived Runway all stand
 > exactly as written above. Only the word moves, because #108 gave the Lesson a planning status
 > called **Planned** and one word cannot mean both "this Lesson is approved to teach from" and
-> "this Slot carries no Lesson". `CONTEXT.md` is the source of truth for the term; the prose above
+> "this Slot carries no Lesson". `GLOSSARY.md` is the source of truth for the term; the prose above
 > keeps the old word because that is what this decision was written in. The returned field is still
 > named `unplanned` in `src/lib/server/planner/engine.ts`, and renaming it is implementation work
 > left to the Planning board spec (#107).

@@ -9,7 +9,7 @@ The derived schedule already answers the question. To see what a Class will teac
 open that week in the Calendar. The schedule is derived from its inputs (ADR-0007), so Shift-right
 and Rewind are already shown there.
 
-A Milestone would add a new stored record on the Class, a new domain term in `CONTEXT.md`, an
+A Milestone would add a new stored record on the Class, a new domain term in `GLOSSARY.md`, an
 editor on the Class page and a new section on each Classes tile. All of that saves one Calendar
 look-up a few times a year. `AGENTS.md` says a rule that costs a query or a lookup must earn it,
 and this one does not.
