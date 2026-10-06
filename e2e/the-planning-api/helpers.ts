@@ -1,5 +1,4 @@
 import { expect, type Browser, type Page } from '@playwright/test';
-import { execFileSync } from 'node:child_process';
 
 // The setup every planning API e2e file shares (issue #174): the one login, the API key the
 // files read from Settings, and the small request, date and fixture helpers the resource files
@@ -24,42 +23,6 @@ export const FIXTURE_CLASS_LABEL = '9C/Sc1';
 export const BEARER = (token: string) => ({ Authorization: `Bearer ${token}` });
 
 export const keysOf = (body: Record<string, unknown>) => Object.keys(body).sort();
-
-export function plusDays(iso: string, days: number): string {
-	const date = new Date(`${iso}T00:00:00Z`);
-	date.setUTCDate(date.getUTCDate() + days);
-	return date.toISOString().slice(0, 10);
-}
-
-function weekdayOf(iso: string): number {
-	return new Date(`${iso}T00:00:00Z`).getUTCDay();
-}
-
-// The next Monday-to-Friday date on or after `iso`.
-export function nextWeekday(iso: string): string {
-	let date = iso;
-	while (weekdayOf(date) === 0 || weekdayOf(date) === 6) date = plusDays(date, 1);
-	return date;
-}
-
-// The next Saturday on or after `iso`.
-export function nextSaturday(iso: string): string {
-	let date = iso;
-	while (weekdayOf(date) !== 6) date = plusDays(date, 1);
-	return date;
-}
-
-export function todayIso(): string {
-	return new Date().toISOString().slice(0, 10);
-}
-
-export function runFixture(...args: string[]): string {
-	return execFileSync('bun', ['scripts/e2e-fixtures.ts', ...args], {
-		cwd: process.cwd(),
-		env: { ...process.env, DATABASE_URL: 'e2e.db' },
-		encoding: 'utf-8'
-	});
-}
 
 async function login(page: Page, email: string, password: string) {
 	await page.goto('/login');

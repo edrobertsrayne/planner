@@ -1,12 +1,11 @@
 import { test, expect, type Page } from '@playwright/test';
 import { readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { EMAIL, PASSWORD, expectToast } from './helpers.ts';
 
 // Runs after teaching-flows.e2e.ts — the one user and the KS3 Science course already exist —
 // and before the-calendar-setup.e2e.ts, for the suite's single-worker ordering (see
 // isolation.e2e.ts). Adds its own Topic and Lesson, so no earlier fixture changes.
-const EMAIL = 'teacher@example.com';
-const PASSWORD = 'a-very-long-password';
 
 const MB = 1024 * 1024;
 
@@ -22,12 +21,6 @@ async function login(page: Page, email: string, password: string) {
 // fires its change, and the upload submits at once.
 async function attach(page: Page, file: { name: string; mimeType: string; buffer: Buffer }) {
 	await page.locator('main').getByLabel('Choose a file to attach').setInputFiles(file);
-}
-
-// A refusal rides the app's toast convention; an older toast may still be on screen, so the
-// reason is matched rather than any toast.
-async function expectToast(page: Page, fragment: string) {
-	await expect(page.locator('[data-sonner-toast]').filter({ hasText: fragment })).toBeVisible();
 }
 
 test.describe.serial('Attachments on Lessons', () => {

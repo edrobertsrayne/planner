@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { BEARER, apiKey, keysOf, plusDays, runFixture, todayIso } from './helpers.ts';
+import { BEARER, apiKey, keysOf } from './helpers.ts';
+import { plusDays, runFixture, todayIso } from '../helpers.ts';
 
 // Covers the two Term endpoints over real HTTP (issue #164): reading the year back and replacing
 // it as one document, with every refusal the seam owns — the wrong count, an unreal date, a Term

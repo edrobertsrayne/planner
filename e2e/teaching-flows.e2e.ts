@@ -1,27 +1,11 @@
 import { test, expect, type Page } from '@playwright/test';
-import { execFileSync } from 'node:child_process';
+import { EMAIL, PASSWORD, isoDate, runFixture } from './helpers.ts';
 
 // Runs after sign-in-out.e2e.ts (issue #97), logging in as the one user the wizard test created,
 // rather than creating its own. File sorts after sign-in-out.e2e.ts and before
 // user-settings-password.e2e.ts for the suite's single-worker ordering (see isolation.e2e.ts).
-const EMAIL = 'teacher@example.com';
-const PASSWORD = 'a-very-long-password';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-
-function isoDate(offsetDays: number): string {
-	const d = new Date();
-	d.setUTCDate(d.getUTCDate() + offsetDays);
-	return d.toISOString().slice(0, 10);
-}
-
-function runFixture(...args: string[]): string {
-	return execFileSync('bun', ['scripts/e2e-fixtures.ts', ...args], {
-		cwd: process.cwd(),
-		env: { ...process.env, DATABASE_URL: 'e2e.db' },
-		encoding: 'utf-8'
-	});
-}
 
 async function login(page: Page, email: string, password: string) {
 	await page.goto('/login');

@@ -18,6 +18,8 @@ When you find a simpler approach than the one agreed, say so before you build it
 Run e2e tests only as the whole suite: `bun run test`. The suite shares one database and one user,
 so each file depends on the files before it. One file alone starts on an empty database and stops at
 the first-run wizard, with an error about a duplicate "Password" field. That error is not a selector fault.
+Shared e2e helpers live in `e2e/helpers.ts`; import from there before you write a local copy.
+Playwright runs the e2e files in path order, so name a new file for the place it must take in that order.
 You can run a unit test file alone: `bun run test:unit -- --run <file>`.
 Install the test browser once per machine: `bunx playwright install chromium`.
 

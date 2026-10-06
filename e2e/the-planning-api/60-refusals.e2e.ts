@@ -1,12 +1,6 @@
 import { test, expect } from '@playwright/test';
-import {
-	BEARER,
-	FIXTURE_CLASS_LABEL,
-	FIXTURE_COURSE,
-	apiKey,
-	runFixture,
-	type Page
-} from './helpers.ts';
+import { BEARER, FIXTURE_CLASS_LABEL, FIXTURE_COURSE, apiKey, type Page } from './helpers.ts';
+import { runFixture } from '../helpers.ts';
 
 // Covers the refusals that protect the record over real HTTP (issue #159): the deletes that
 // answer 409 because a Course still holds Topics, a Topic still holds Lessons or is assigned to

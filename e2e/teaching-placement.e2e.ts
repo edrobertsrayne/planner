@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { EMAIL, PASSWORD, isoDate, mondayOf, plusDays, weekdayOf } from './helpers.ts';
 
 // Covers the two doors a teacher places and removes a Lesson from (issue #254): an Open Slot's
 // Session page and the Calendar day menu, plus the Calendar tile's dashed-ring mark. Runs after
@@ -7,34 +8,12 @@ import { test, expect, type Page } from '@playwright/test';
 // the-attachments.e2e.ts, for the suite's single-worker ordering (see isolation.e2e.ts). Every
 // date here is chosen well clear of the dates teaching-flows.e2e.ts itself acts on, so this file
 // disturbs nothing the files after it depend on.
-const EMAIL = 'teacher@example.com';
-const PASSWORD = 'a-very-long-password';
-
-function isoDate(offsetDays: number): string {
-	const d = new Date();
-	d.setUTCDate(d.getUTCDate() + offsetDays);
-	return d.toISOString().slice(0, 10);
-}
-
-function plusDays(iso: string, days: number): string {
-	const date = new Date(`${iso}T00:00:00Z`);
-	date.setUTCDate(date.getUTCDate() + days);
-	return date.toISOString().slice(0, 10);
-}
-
-function weekdayOf(iso: string): number {
-	return new Date(`${iso}T00:00:00Z`).getUTCDay();
-}
 
 // The next Tuesday on or after `iso` — 9C/Sc1's one weekly Slot, in every Teaching Week letter.
 function nextTuesday(iso: string): string {
 	let date = iso;
 	while (weekdayOf(date) !== 2) date = plusDays(date, 1);
 	return date;
-}
-
-function mondayOf(iso: string): string {
-	return plusDays(iso, -((weekdayOf(iso) + 6) % 7));
 }
 
 async function login(page: Page, email: string, password: string) {

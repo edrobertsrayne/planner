@@ -1,31 +1,5 @@
-import { test, expect, devices, type Locator, type Page } from '@playwright/test';
-
-// The same two helpers the-responsive-layouts.e2e.ts defines. Each e2e file keeps its helpers
-// in the file (runFixture does the same in three files), so no shared module to import.
-
-// The box a control gives a touch: its drawn box, and the larger of that and its invisible
-// 44 px ::after (see touch-target.ts, which buttons carry; an input instead grows to min-h-11
-// on touch).
-async function expectBox44(control: Locator) {
-	const box = await control.evaluate((el: HTMLElement) => {
-		const after = (node: Element, side: 'width' | 'height') =>
-			parseFloat(getComputedStyle(node, '::after')[side]) || 0;
-		const rect = el.getBoundingClientRect();
-		return {
-			width: Math.max(rect.width, after(el, 'width')),
-			height: Math.max(rect.height, after(el, 'height'))
-		};
-	});
-	expect(box.width).toBeGreaterThanOrEqual(44);
-	expect(box.height).toBeGreaterThanOrEqual(44);
-}
-
-async function expectNoHorizontalScroll(page: Page) {
-	const fits = await page.evaluate(
-		() => document.documentElement.scrollWidth <= document.documentElement.clientWidth
-	);
-	expect(fits).toBe(true);
-}
+import { test, expect, devices, type Page } from '@playwright/test';
+import { expectBox44, expectNoHorizontalScroll } from './helpers.ts';
 
 // The wizard can only ever run once — this app has exactly one user (ADR-0001) — so these tests
 // share a single browser context and run in a fixed order: the refusals first, because they must
