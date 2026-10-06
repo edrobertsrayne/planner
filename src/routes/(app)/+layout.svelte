@@ -61,7 +61,7 @@
 						{href}
 						onclick={() => (drawerOpen = false)}
 						class={cls}
-						aria-current={active && SCREENS.some((s) => s.href === href) ? 'page' : undefined}
+						aria-current={active ? 'page' : undefined}
 					>
 						<Icon class="size-4 shrink-0" />
 						<span class={inSidebar ? 'sr-only lg:not-sr-only' : ''}>{text}</span>
