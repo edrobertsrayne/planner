@@ -9,9 +9,7 @@
 	import { formatDayMonth } from '$lib/date';
 	import { refresh } from '$lib/client/enhance';
 	import { sessionHref } from '$lib/client/session-href';
-	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
-	import AtRiskReport from '$lib/components/at-risk-report.svelte';
-	import PlacementsMovedAlert from '$lib/components/placements-moved-alert.svelte';
+	import RewindReport from '$lib/components/rewind-report.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { touchTarget } from '$lib/components/ui/touch-target';
 	import { cn } from '$lib/utils.js';
@@ -37,14 +35,8 @@
 	// svelte-ignore state_referenced_locally
 	let setup = $state(data.terms.length === 0);
 
-	// The save's report, narrowed once: what the Rewind put at risk, or the plain statement that
-	// it put nothing at risk — silence would be ambiguous. ActionData is a loose record, so the
-	// narrowing lives here rather than in the markup.
-	const savedYear = $derived(
-		form && 'yearSaved' in form
-			? { atRisk: form.atRisk ?? [], placementsMoved: form.placementsMoved ?? [] }
-			: null
-	);
+	// A saved year says so even when it put nothing at risk — silence would read as unsaved.
+	const savedYearNone = 'The year is saved. No Sessions were put at risk.';
 
 	const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
@@ -196,21 +188,11 @@
 		{/snippet}
 	</PageHeader>
 
-	{#if savedYear}
-		<AtRiskReport
-			atRisk={savedYear.atRisk}
-			none="The year is saved. No Sessions were put at risk."
-			class="mb-4 text-sm"
-		/>
-		<PlacementsMovedAlert placementsMoved={savedYear.placementsMoved} />
-	{:else}
-		{#if form?.atRisk}
-			<AtRiskAlert atRisk={form.atRisk} />
-		{/if}
-		{#if form?.placementsMoved}
-			<PlacementsMovedAlert placementsMoved={form.placementsMoved} />
-		{/if}
-	{/if}
+	<RewindReport
+		report={form?.report}
+		none={form && 'yearSaved' in form ? savedYearNone : undefined}
+		class="mb-4 text-sm"
+	/>
 
 	{#if setup}
 		<CalendarSetup

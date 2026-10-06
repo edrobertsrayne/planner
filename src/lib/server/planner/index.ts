@@ -23,7 +23,7 @@
 
 export type { AtRiskSession, LessonName, PlacementMoved, WriteReport } from './derive';
 
-export { teachingWeeks } from './derive';
+export { reportOf, teachingWeeks } from './derive';
 
 export { Refused, refusalStatus, type RefusalKind } from './refused';
 

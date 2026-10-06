@@ -6,6 +6,7 @@
 import { applyAction } from '$app/forms';
 import { goto, invalidateAll } from '$app/navigation';
 import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
+import type { WriteReport } from '$lib/server/planner';
 import { toast } from 'svelte-sonner';
 
 // A write can move dates on a screen other than the one it was made from — assigning a Topic
@@ -53,15 +54,26 @@ export function createdId(result: ActionResult, key: string): string | null {
 	return typeof id === 'string' ? id : null;
 }
 
+// The Rewind report a successful action answered with, when it carried one under `report`.
+export function reportOfResult(result: ActionResult): WriteReport | null {
+	if (result.type !== 'success') return null;
+	return (result.data?.report as WriteReport | undefined) ?? null;
+}
+
 // A create box that stays where it is: the new row appears in the list above it, and the box is
 // ready for the next entry. `applyAction` ends a success with SvelteKit's own `reset_focus`, which
 // takes the caret out of the box — so a success refreshes the data and nothing else, and only a
-// refusal goes through the ordinary action handling to put its reason on the page.
-export function createInPlace(clear: () => void): SubmitFunction {
+// refusal goes through the ordinary action handling to put its reason on the page. The write's
+// Rewind report, if it answered with one, goes to `onReport` instead of the page's `form`.
+export function createInPlace(
+	clear: () => void,
+	onReport: (report: WriteReport | null) => void
+): SubmitFunction {
 	return () =>
 		async ({ result }) => {
 			if (result.type !== 'success') return applyAction(result);
 			clear();
+			onReport(reportOfResult(result));
 			await invalidateAll();
 		};
 }

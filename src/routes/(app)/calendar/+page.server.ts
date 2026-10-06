@@ -74,7 +74,7 @@ export const actions: Actions = {
 
 		try {
 			const report = blockDay(db, { date, note, today: today() });
-			return { atRisk: report.atRisk, placementsMoved: report.placementsMoved };
+			return { report };
 		} catch (error) {
 			return refusal(error);
 		}
@@ -86,7 +86,7 @@ export const actions: Actions = {
 
 		const report = unblockDay(db, { date, today: today() });
 		if (!report) return fail(400, { error: 'No such Blocked Day.' });
-		return { atRisk: report.atRisk, placementsMoved: report.placementsMoved };
+		return { report };
 	},
 
 	blockSlot: async ({ request }) => {
@@ -99,7 +99,7 @@ export const actions: Actions = {
 
 		try {
 			const report = blockSlot(db, { classId, date, slotId, note, today: today() });
-			return { atRisk: report.atRisk, placementsMoved: report.placementsMoved };
+			return { report };
 		} catch (error) {
 			return refusal(error);
 		}
@@ -111,7 +111,7 @@ export const actions: Actions = {
 
 		const report = unblockSlot(db, { id, today: today() });
 		if (!report) return fail(400, { error: 'No such Blocked Slot.' });
-		return { atRisk: report.atRisk, placementsMoved: report.placementsMoved };
+		return { report };
 	},
 
 	// The whole year, replaced as one document through the Terms seam — the seam owns every
@@ -128,7 +128,7 @@ export const actions: Actions = {
 
 		try {
 			const report = replaceTerms(db, client, { terms, today: today() });
-			return { atRisk: report.atRisk, placementsMoved: report.placementsMoved, yearSaved: true };
+			return { report, yearSaved: true };
 		} catch (error) {
 			return refusal(error);
 		}

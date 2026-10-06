@@ -3,7 +3,7 @@
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { courseHref, useBack } from '$lib/client/back';
-	import { failureReason, onFail } from '$lib/client/enhance';
+	import { failureReason, onFail, reportOfResult } from '$lib/client/enhance';
 	import { toast } from 'svelte-sonner';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
@@ -24,8 +24,7 @@
 	import AttachmentRow from './AttachmentRow.svelte';
 	import LinkRow from './LinkRow.svelte';
 	import type { SubmitFunction } from '@sveltejs/kit';
-	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
-	import PlacementsMovedAlert from '$lib/components/placements-moved-alert.svelte';
+	import RewindReport from '$lib/components/rewind-report.svelte';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -157,12 +156,7 @@
 	{#if form?.error}
 		<p role="alert" class="mt-3 text-xs text-destructive">{form.error}</p>
 	{/if}
-	{#if form?.atRisk}
-		<AtRiskAlert atRisk={form.atRisk} />
-	{/if}
-	{#if form?.placementsMoved}
-		<PlacementsMovedAlert placementsMoved={form.placementsMoved} />
-	{/if}
+	<RewindReport report={form?.report} />
 
 	<!-- Stepping reuses this page, so everything seeded from the Lesson starts afresh per Lesson. -->
 	{#key lesson.id}
@@ -495,6 +489,11 @@
 								return async ({ result, update }) => {
 									if (result.type === 'success') {
 										toast.success('Lesson deleted.');
+										// This page goes with the Lesson, so the report outlives it as a toast.
+										const report = reportOfResult(result);
+										if (report && (report.atRisk.length || report.placementsMoved.length)) {
+											toast.custom(RewindReport, { componentProps: { report }, duration: 20000 });
+										}
 										await back();
 									} else if (result.type === 'failure') {
 										toast.error(failureReason(result, 'Could not delete the Lesson.'));

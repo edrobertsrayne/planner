@@ -13,11 +13,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
 	try {
 		const report = recordContinuation(db, { ...occasion, today: today() });
-		return json({
-			...sessionDetail(db, { ...occasion, today: today() }),
-			atRisk: report.atRisk,
-			placementsMoved: report.placementsMoved
-		});
+		return json({ ...sessionDetail(db, { ...occasion, today: today() }), report });
 	} catch (e) {
 		refusal(e);
 	}

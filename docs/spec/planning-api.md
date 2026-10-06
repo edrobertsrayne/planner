@@ -385,7 +385,9 @@ Lessons are ordered within their Topic (ADR-0010), so this order is meaningful a
 
 Only `title` is required. `body` defaults to null, `length` to 1, `status` to `"draft"`.
 
-→ 201, `Lesson`, appended at the end of the Topic's order. → 404 if the Topic does not exist.
+→ 201, `Lesson` with `links: []` and a `report` field, appended at the end of the Topic's order. `report`
+is the Rewind report of the new Lesson: `{ "atRisk": [...], "placementsMoved": [...] }`. → 404 if
+the Topic does not exist.
 
 **There is no 409 here.** Lesson titles are not unique and gain no constraint. One Topic may hold
 two Lessons called "Revision".
@@ -434,8 +436,8 @@ its children, because a Lesson without its Links is not the plan.
 
 Accepts `title`, `body`, `length`, `status` and `topicId`. All optional. See section 3.4.
 
-→ 200, `{ "lesson": Lesson, "atRisk": [...], "placementsMoved": [...] }`. The `Lesson` has no
-`links`. `atRisk` and `placementsMoved` are the Rewind report of the change; both are empty when
+→ 200, `{ "lesson": Lesson, "report": { "atRisk": [...], "placementsMoved": [...] } }`. The
+`Lesson` has no `links`. `report` is the Rewind report of the change; both lists are empty when
 the change moves no date. A change that sets nothing is a no-op: it returns the stored Lesson and an
 empty report. → 404 if the Lesson, or a named `topicId`, does not exist.
 → **409** if `topicId` names a Topic and the Lesson's current `topicId` is `null` — Detach is
@@ -593,13 +595,15 @@ Response, **201**:
 		},
 		{ "id": "d551...", "title": "Revision", "position": 1, "links": [] },
 		{ "id": "e6a2...", "title": "Revision", "position": 2, "links": [] }
-	]
+	],
+	"report": { "atRisk": [], "placementsMoved": [] }
 }
 ```
 
 **The response must carry every created Lesson id.** Two Lessons in one Topic may share a title, so
 an id is the only way for the caller to name what it just made. `courseCreated` tells the caller
-whether it made a Course by accident from a mistyped name.
+whether it made a Course by accident from a mistyped name. `report` is the Rewind report of the
+import. A new Topic is assigned to no Class, so it is always empty.
 
 Failures:
 

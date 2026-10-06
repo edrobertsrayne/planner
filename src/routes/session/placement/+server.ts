@@ -1,7 +1,13 @@
 import { error, json } from '@sveltejs/kit';
 import { today } from '$lib/date';
 import { client, db } from '$lib/server/db/client';
-import { classSchedule, placeLesson, removePlacement, sessionDetail } from '$lib/server/planner';
+import {
+	classSchedule,
+	placeLesson,
+	removePlacement,
+	reportOf,
+	sessionDetail
+} from '$lib/server/planner';
 import { occasionOf, refusal } from '../occasion';
 import type { RequestHandler } from './$types';
 
@@ -27,7 +33,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		error(400, `${occasion.date} P${occasion.period} already holds a placed Lesson.`);
 
 	try {
-		const { atRisk, placementsMoved } = placeLesson(db, client, {
+		const placed = placeLesson(db, client, {
 			classId: occasion.classId,
 			date: occasion.date,
 			slotId: slot.slotId,
@@ -37,7 +43,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		return json({
 			...sessionDetail(db, { ...occasion, today: now }),
-			report: { atRisk, placementsMoved }
+			report: reportOf(placed)
 		});
 	} catch (e) {
 		refusal(e);

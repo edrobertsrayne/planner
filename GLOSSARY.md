@@ -228,6 +228,14 @@ the days following it was not what the record claims. Scheduling otherwise never
 today.
 _Avoid_: Undo, replay, recalculate, backdate
 
+**Rewind report**:
+What every write that re-derives a Class answers with: the noted Sessions whose Lesson the Rewind
+changed (`atRisk`), and the Placements that no longer sit on their anchor (`placementsMoved`). The
+teacher must see it, because a changed Lesson may leave its note not applying, and a Placement
+carries no note to make silence safe. It travels as one value, `report`, from the seam to the
+screen, and one view, `RewindReport`, renders it.
+_Avoid_: Warning, at-risk list, change log
+
 **Continuation**:
 A Session marked as needing more time, so that its Lesson also occupies the following Available
 Slot. The Course is unchanged; only that Class's Sessions shift.

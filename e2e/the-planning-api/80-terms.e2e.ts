@@ -41,7 +41,7 @@ test.describe.serial('the Term endpoints', () => {
 		});
 		expect(put.status()).toBe(200);
 		const report = await put.json();
-		expect(report.atRisk).toEqual([]);
+		expect(report.report.atRisk).toEqual([]);
 		expect(report.terms.map((t: { name: string }) => t.name)).toEqual([
 			'Autumn 1',
 			'Autumn 2',

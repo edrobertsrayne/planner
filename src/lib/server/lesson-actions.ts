@@ -13,8 +13,16 @@ import {
 	detachTag,
 	editLesson,
 	moveLink,
-	updateLink
+	reportOf,
+	updateLink,
+	type WriteReport
 } from '$lib/server/planner';
+
+// A Lesson write answers with the Lesson and its Rewind report as one `report` field.
+const edited = <L>(result: { lesson: L } & WriteReport) => ({
+	lesson: result.lesson,
+	report: reportOf(result)
+});
 
 // The lesson-editing actions the Lesson editor and Planning share.
 export const lessonActions = {
@@ -27,7 +35,7 @@ export const lessonActions = {
 		try {
 			const result = editLesson(db, { id, change: { title, body, length }, today: today() });
 			if (!result) return fail(404, { error: 'No such Lesson.' });
-			return result;
+			return edited(result);
 		} catch (error) {
 			return refusal(error);
 		}
@@ -40,7 +48,7 @@ export const lessonActions = {
 		try {
 			const result = editLesson(db, { id, change: { status }, today: today() });
 			if (!result) return fail(404, { error: 'No such Lesson.' });
-			return result;
+			return edited(result);
 		} catch (error) {
 			return refusal(error);
 		}
@@ -54,7 +62,7 @@ export const lessonActions = {
 		try {
 			const result = editLesson(db, { id, change: { topicId }, today: today() });
 			if (!result) return fail(404, { error: 'No such Lesson.' });
-			return result;
+			return edited(result);
 		} catch (error) {
 			return refusal(error);
 		}
@@ -67,7 +75,7 @@ export const lessonActions = {
 		try {
 			const result = editLesson(db, { id, change: { topicId: null }, today: today() });
 			if (!result) return fail(404, { error: 'No such Lesson.' });
-			return result;
+			return edited(result);
 		} catch (error) {
 			return refusal(error);
 		}
@@ -105,9 +113,9 @@ export const lessonActions = {
 		const data = await request.formData();
 		const id = trimmed(data, 'id');
 		try {
-			const lesson = deleteLesson(db, { id, today: today(), dir: attachmentsDir(DATABASE_URL) });
-			if (!lesson) return fail(404, { error: 'No such Lesson.' });
-			return {};
+			const result = deleteLesson(db, { id, today: today(), dir: attachmentsDir(DATABASE_URL) });
+			if (!result) return fail(404, { error: 'No such Lesson.' });
+			return edited(result);
 		} catch (error) {
 			return refusal(error);
 		}

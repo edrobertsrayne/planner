@@ -14,5 +14,5 @@ export const DELETE: RequestHandler = async (event) => {
 	const report = unblockDay(db, { date: event.params.date, today: today() });
 	if (!report) return json({ error: 'No such Blocked Day.' }, { status: 404 });
 
-	return json({ atRisk: report.atRisk, placementsMoved: report.placementsMoved });
+	return json({ report });
 };
