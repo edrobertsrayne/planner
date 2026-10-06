@@ -11,8 +11,8 @@ import { execFileSync } from 'node:child_process';
 // user-settings-password.e2e.ts, which must stay last.
 //
 // The key is stable across files (issue #183): opening Settings mints one if the database has
-// none, so from 10-courses.e2e.ts on every file reads the same standing token. Only
-// 90-the-key.e2e.ts, which runs last, is allowed to replace it — that is the regeneration test.
+// none, so from 10-courses.e2e.ts on every file reads the same standing token, through `apiKey`.
+// Only 90-the-key.e2e.ts, which runs last, is allowed to replace it — that is the regeneration test.
 const EMAIL = 'teacher@example.com';
 const PASSWORD = 'a-very-long-password';
 
@@ -83,4 +83,17 @@ export async function standingKey(page: Page): Promise<string> {
 	const field = page.getByLabel('API key');
 	await expect(field).toBeVisible();
 	return (await field.inputValue()).trim();
+}
+
+// The standing key, read from Settings once per worker. Every later file reuses it.
+// 90-the-key.e2e.ts replaces the key, and it runs last, so it reads the key from its own page.
+let key: string | undefined;
+
+export async function apiKey(browser: Browser): Promise<string> {
+	if (!key) {
+		const page = await openPage(browser);
+		key = await standingKey(page);
+		await page.close();
+	}
+	return key;
 }

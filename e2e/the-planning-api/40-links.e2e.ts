@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { BEARER, standingKey, keysOf, openPage, type Page } from './helpers.ts';
+import { BEARER, apiKey, keysOf, type Page } from './helpers.ts';
 
 // Covers the two Link endpoints over real HTTP (issue #159): creation at the end of the order,
 // the URL and scheme refusals, PATCH, and removal. Reads the Lesson the Lesson file left behind
@@ -11,8 +11,8 @@ test.describe.serial('the Link endpoints', () => {
 	let lessonAId = '';
 
 	test.beforeAll(async ({ browser }) => {
-		page = await openPage(browser);
-		token = await standingKey(page);
+		page = await browser.newPage();
+		token = await apiKey(browser);
 
 		// The Lesson the earlier files left behind: under "API Test Course" → "API Topic One",
 		// renamed by the Lesson file's PATCH test.

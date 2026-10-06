@@ -1,4 +1,11 @@
-import { test, expect, devices, type Locator, type Page } from '@playwright/test';
+import {
+	test,
+	expect,
+	devices,
+	type BrowserContext,
+	type Locator,
+	type Page
+} from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 
 // Runs after the-planning-api/ and before user-settings-password.e2e.ts, for the suite's
@@ -9,21 +16,34 @@ import { execFileSync } from 'node:child_process';
 // Touch mode: Playwright's Chromium matches `(pointer: coarse)` as soon as `hasTouch` is true;
 // `isMobile` is not needed. Each describe sets its size and pointer with `test.use`.
 //
+// The form login runs once; later tests reuse its cookies (see `login`).
+//
 // Playwright counts an element at opacity 0 as visible, so "shown" is asserted on its opacity.
 const EMAIL = 'teacher@example.com';
 const PASSWORD = 'a-very-long-password';
 
-async function login(page: Page) {
+// The form login runs once per worker. Later tests reuse its session cookies, so each test opens
+// its page at once. sign-in-out.e2e.ts tests the form itself. If the stored session no longer
+// works (the guard sends the page to /login), the form runs again.
+let session: Awaited<ReturnType<BrowserContext['cookies']>> | undefined;
+
+async function login(page: Page, path = '/') {
+	if (session) {
+		await page.context().addCookies(session);
+		await page.goto(path);
+		if (new URL(page.url()).pathname !== '/login') return;
+	}
 	await page.goto('/login');
 	await page.getByLabel('Email').fill(EMAIL);
 	await page.getByLabel('Password').fill(PASSWORD);
 	await page.getByRole('button', { name: 'Log in' }).click();
 	await expect(page).toHaveURL('/');
+	session = await page.context().cookies();
+	if (path !== '/') await page.goto(path);
 }
 
 async function openCourse(page: Page) {
-	await login(page);
-	await page.goto('/courses');
+	await login(page, '/courses');
 	await page.getByRole('link', { name: 'KS3 Science' }).click();
 }
 
@@ -206,8 +226,7 @@ async function expectLessonPage(page: Page) {
 
 // The Lesson editor of Speed by its address: the Courses screen is not usable at every size yet.
 async function openLesson(page: Page) {
-	await login(page);
-	await page.goto(`/lessons/${runFixture('find-lesson-id', 'Speed').trim()}`);
+	await login(page, `/lessons/${runFixture('find-lesson-id', 'Speed').trim()}`);
 	await expectLessonPage(page);
 }
 
@@ -306,19 +325,18 @@ test.describe('the App shell on a laptop', () => {
 		await expect(sidebar.getByRole('button', { name: 'Log out' })).toBeVisible();
 		await expect(sidebar.getByText(/^Build /)).toBeVisible();
 		await expect(page.locator('body > div header')).toBeHidden();
+		await expectNoHorizontalScroll(page);
 	});
 
 	test('no screen is lit while Settings is open', async ({ page }) => {
-		await login(page);
-		await page.goto('/settings');
+		await login(page, '/settings');
 		await expect(
 			page.getByRole('navigation', { name: 'Primary' }).locator('[aria-current]')
 		).toHaveCount(0);
 	});
 
 	test('the window is the only scroller', async ({ page }) => {
-		await login(page);
-		await page.goto('/calendar');
+		await login(page, '/calendar');
 		const scrollers = await page.evaluate(
 			() =>
 				[...document.querySelectorAll('main > *')].filter(
@@ -327,11 +345,6 @@ test.describe('the App shell on a laptop', () => {
 				).length
 		);
 		expect(scrollers).toBe(0);
-	});
-
-	test('the Agenda fits the width', async ({ page }) => {
-		await login(page);
-		await expectNoHorizontalScroll(page);
 	});
 });
 
@@ -393,14 +406,10 @@ test.describe('the App shell on a tablet in portrait', () => {
 			name: 'Agenda'
 		});
 		await expect(agenda).toBeVisible();
+		await expectNoHorizontalScroll(page);
 		expect((await agenda.boundingBox())!.width).toBeLessThan(64);
 		await agenda.hover();
 		await expect(page.locator('[data-slot=tooltip-content]', { hasText: 'Agenda' })).toBeVisible();
-	});
-
-	test('the Agenda fits the width', async ({ page }) => {
-		await login(page);
-		await expectNoHorizontalScroll(page);
 	});
 });
 
@@ -408,11 +417,6 @@ test.describe('the App shell on a phone', () => {
 	// `defaultBrowserType` would force a new worker inside a describe, so take the other fields.
 	const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];
 	test.use({ viewport, userAgent, deviceScaleFactor, isMobile, hasTouch });
-
-	test('the Lesson editor fits the width', async ({ page }) => {
-		await openLesson(page);
-		await expectNoHorizontalScroll(page);
-	});
 
 	test('the Lesson editor is a read view that steps and writes nothing', async ({ page }) => {
 		await openLesson(page);
@@ -434,17 +438,8 @@ test.describe('the App shell on a phone', () => {
 		await expectNoHorizontalScroll(page);
 	});
 
-	test('the Course page fits the width', async ({ page }) => {
-		await openCourse(page);
-		await expectNoHorizontalScroll(page);
-		await page.getByRole('link', { name: 'Forces' }).click();
-		await expect(page.getByRole('link', { name: 'Speed', exact: true })).toBeVisible();
-		await expectNoHorizontalScroll(page);
-	});
-
 	test('the drawer opens from the menu button and goes to the Agenda', async ({ page }) => {
-		await login(page);
-		await page.goto('/calendar');
+		await login(page, '/calendar');
 		await expect(page.getByRole('link', { name: 'Agenda' })).toBeHidden();
 
 		await page.getByRole('button', { name: 'Menu' }).click();
@@ -457,11 +452,6 @@ test.describe('the App shell on a phone', () => {
 		await drawer.getByRole('link', { name: 'Agenda' }).click();
 		await expect(page).toHaveURL('/');
 		await expect(drawer).toBeHidden();
-	});
-
-	test('the Agenda fits the width', async ({ page }) => {
-		await login(page);
-		await expectNoHorizontalScroll(page);
 	});
 });
 
@@ -509,11 +499,10 @@ test.describe('the Agenda on a phone', () => {
 	test('Ready and Plan keep a 44 px target on touch, and Plan shows without a hover', async ({
 		page
 	}) => {
-		await login(page);
 		// 9C/Sc1 gets no Topic assigned, so its Tuesday P3 Slot carries no Lesson and its row
 		// reads Open Slot in every week (teaching-placement.e2e.ts): a horizon that reaches the
 		// next Tuesday always holds one.
-		await page.goto('/?horizon=28');
+		await login(page, '/?horizon=28');
 		const plan = page
 			.locator('li')
 			.filter({ hasText: 'Open Slot' })
@@ -544,16 +533,14 @@ test.describe('the Calendar grid on a phone', () => {
 	test('the grid shows the five day heads and the six Periods (stories 98 and 101)', async ({
 		page
 	}) => {
-		await login(page);
-		await page.goto('/calendar');
+		await login(page, '/calendar');
 		// The corner cell of the head plus one cell per day, and one row per Period.
 		await expect(page.locator('main thead th')).toHaveCount(6);
 		await expect(page.locator('main tbody tr')).toHaveCount(6);
 	});
 
 	test('day heads read as a letter and a date (story 100)', async ({ page }) => {
-		await login(page);
-		await page.goto('/calendar');
+		await login(page, '/calendar');
 		const shown = await page
 			.locator('main thead th:not(:first-child)')
 			.evaluateAll((els) =>
@@ -571,8 +558,7 @@ test.describe('the Calendar grid on a phone', () => {
 	test('a tile gives way to its Class, and a tap opens the Session page (stories 99 and 101)', async ({
 		page
 	}) => {
-		await login(page);
-		await page.goto('/calendar');
+		await login(page, '/calendar');
 		const tiles = page.locator('main a[href^="/sessions/"]');
 		const count = await tiles.count();
 		expect(count).toBeGreaterThan(0);
@@ -599,8 +585,7 @@ test.describe('the Calendar grid on a phone', () => {
 	test('the week controls step weeks and Today returns to this week (story 102)', async ({
 		page
 	}) => {
-		await login(page);
-		await page.goto('/calendar');
+		await login(page, '/calendar');
 
 		// On a phone the week on show reads as its letter and its date between the arrows.
 		// The label is the one paragraph in the controls row, so its text is matched whole.
@@ -621,22 +606,12 @@ test.describe('the Calendar grid on a phone', () => {
 	});
 
 	test('the week controls keep a 44 px target on touch (story 102)', async ({ page }) => {
-		await login(page);
-		await page.goto('/calendar');
+		await login(page, '/calendar');
 		// On the week a bare load opens on, Today stands down as a disabled button; the arrows
 		// are links (they navigate by query string).
 		await expectHitArea44(page, 'Previous Teaching Week', 'link');
 		await expectHitArea44(page, 'Next Teaching Week', 'link');
 		await expectHitArea44(page, 'Today', 'button');
-	});
-
-	test('no day menu and no Set up year show (story 105)', async ({ page }) => {
-		await login(page);
-		await page.goto('/calendar');
-		// The day menu and Set up year are hidden below `md`, and a hidden subtree is out of
-		// the accessibility tree, so a role query finds nothing to open the calendar's writes.
-		await expect(page.getByRole('button', { name: /actions$/ })).toHaveCount(0);
-		await expect(page.getByRole('button', { name: 'Set up year' })).toHaveCount(0);
 	});
 });
 
@@ -650,21 +625,17 @@ test.describe('the Calendar grid on a phone', () => {
 		test.describe(`the Calendar on a ${name}`, () => {
 			test.use(use);
 
-			test('fits the width', async ({ page }) => {
-				await login(page);
-				await page.goto('/calendar');
-				await expect(page.locator('main table')).toBeVisible();
-				await expectNoHorizontalScroll(page);
-			});
-
 			// The day menu (block and unblock) and Set up year show from `md` up and not on a
 			// phone (stories 104 and 105).
-			test('the day menu and Set up year show by size', async ({ page }) => {
-				await login(page);
-				await page.goto('/calendar');
+			test('fits the width, and the day menu and Set up year show by size', async ({ page }) => {
+				await login(page, '/calendar');
+				await expect(page.locator('main table')).toBeVisible();
+				await expectNoHorizontalScroll(page);
 				const dayMenu = page.getByRole('button', { name: /actions$/ });
 				const setUpYear = page.getByRole('button', { name: 'Set up year' });
 				if (isPhone) {
+					// Hidden below `md`, and a hidden subtree is out of the accessibility tree, so a
+					// role query finds nothing to open the calendar's writes (story 105).
 					await expect(dayMenu).toHaveCount(0);
 					await expect(setUpYear).toHaveCount(0);
 				} else {
@@ -792,8 +763,7 @@ test.describe('the Lesson editor for a Standalone Lesson', () => {
 		page
 	}) => {
 		const id = standaloneLesson('Revision carousel');
-		await login(page);
-		await page.goto(`/lessons/${id}`);
+		await login(page, `/lessons/${id}`);
 		await expectLessonPage(page);
 
 		await expect(page.getByText('Standalone Lesson', { exact: true })).toBeVisible();
@@ -832,8 +802,7 @@ test.describe('the Lesson editor for a Standalone Lesson', () => {
 		const id = standaloneLesson('Placed carousel');
 		const date = new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10);
 		runFixture('place-lesson', id, '9C/Sc1', date);
-		await login(page);
-		await page.goto(`/lessons/${id}`);
+		await login(page, `/lessons/${id}`);
 		await expectLessonPage(page);
 
 		await page.getByRole('button', { name: 'Delete Lesson' }).click();
@@ -853,8 +822,7 @@ test.describe('the Lesson editor for a Standalone Lesson', () => {
 	});
 
 	test('an unplaced Standalone Lesson on Planning opens the Lesson editor', async ({ page }) => {
-		await login(page);
-		await page.goto('/planning');
+		await login(page, '/planning');
 		await page.getByRole('link', { name: 'Revision carousel', exact: true }).click();
 		await expectLessonPage(page);
 		await expect(page.getByText('Standalone Lesson', { exact: true })).toBeVisible();
@@ -1034,8 +1002,7 @@ test.describe('the Courses screen on a laptop', () => {
 	test.use({ viewport: { width: 1280, height: 720 } });
 
 	test('a tile shows the Course and opens its page', async ({ page }) => {
-		await login(page);
-		await page.goto('/courses');
+		await login(page, '/courses');
 		const tile = page.getByRole('link', { name: /KS3 Science/ });
 		await expect(tile).toContainText('Topics');
 		await expect(tile).toContainText('Lessons');
@@ -1047,8 +1014,7 @@ test.describe('the Courses screen on a laptop', () => {
 	test('typing a name in the New Course tile and pressing Enter opens the new Course', async ({
 		page
 	}) => {
-		await login(page);
-		await page.goto('/courses');
+		await login(page, '/courses');
 		const name = `Tile Course ${Date.now()}`;
 		await page.getByPlaceholder('New Course name').fill(name);
 		await page.keyboard.press('Enter');
@@ -1058,9 +1024,7 @@ test.describe('the Courses screen on a laptop', () => {
 });
 
 {
-	const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];
 	for (const [name, use] of [
-		['phone', { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch }],
 		['tablet portrait', { viewport: { width: 800, height: 1180 }, hasTouch: true }],
 		['tablet landscape', { viewport: { width: 1280, height: 800 }, hasTouch: true }]
 	] as const) {
@@ -1068,8 +1032,7 @@ test.describe('the Courses screen on a laptop', () => {
 			test.use(use);
 
 			test('fits the width', async ({ page }) => {
-				await login(page);
-				await page.goto('/courses');
+				await login(page, '/courses');
 				await expect(page.getByRole('link', { name: /KS3 Science/ })).toBeVisible();
 				await expectNoHorizontalScroll(page);
 			});
@@ -1082,10 +1045,10 @@ test.describe('the Courses screens on a phone write nothing', () => {
 	test.use({ viewport, userAgent, deviceScaleFactor, isMobile, hasTouch });
 
 	test('the Courses screen has no New Course tile', async ({ page }) => {
-		await login(page);
-		await page.goto('/courses');
+		await login(page, '/courses');
 		await expect(page.getByRole('link', { name: /KS3 Science/ })).toBeVisible();
 		await expect(page.getByPlaceholder('New Course name')).toHaveCount(0);
+		await expectNoHorizontalScroll(page);
 	});
 
 	test('the Course page has no rename, menu, reorder or create control', async ({ page }) => {
@@ -1093,6 +1056,7 @@ test.describe('the Courses screens on a phone write nothing', () => {
 		await expect(page.getByRole('heading', { level: 1 })).toHaveText('KS3 Science');
 		await expect(page.getByPlaceholder('New Topic name')).toHaveCount(0);
 		await expect(page.getByRole('button', { name: /^Rename |actions$/ })).toHaveCount(0);
+		await expectNoHorizontalScroll(page);
 
 		await page.getByRole('link', { name: 'Forces' }).click();
 		await expect(page.getByRole('link', { name: 'Speed', exact: true })).toBeVisible();
@@ -1107,8 +1071,7 @@ test.describe('the Planning table on a laptop', () => {
 	test.use({ viewport: { width: 1280, height: 560 } });
 
 	test('the column headings stay in view as the window scrolls', async ({ page }) => {
-		await login(page);
-		await page.goto('/planning');
+		await login(page, '/planning');
 		// The files before have built Lessons: the whole stream is longer than the window.
 		expect(
 			await page.evaluate(
@@ -1124,8 +1087,7 @@ test.describe('the Planning table on a laptop', () => {
 	test('a click beside the Draft/Planned toggle opens nothing; the title opens the Lesson', async ({
 		page
 	}) => {
-		await login(page);
-		await page.goto('/planning');
+		await login(page, '/planning');
 		const row = page
 			.getByRole('row')
 			.filter({ has: page.getByRole('link', { name: 'Speed', exact: true }) })
@@ -1143,9 +1105,7 @@ test.describe('the Planning table on a laptop', () => {
 });
 
 {
-	const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];
 	for (const [name, use] of [
-		['phone', { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch }],
 		['tablet portrait', { viewport: { width: 800, height: 1180 }, hasTouch: true }],
 		['tablet landscape', { viewport: { width: 1280, height: 800 }, hasTouch: true }]
 	] as const) {
@@ -1153,8 +1113,7 @@ test.describe('the Planning table on a laptop', () => {
 			test.use(use);
 
 			test('fits the width', async ({ page }) => {
-				await login(page);
-				await page.goto('/planning');
+				await login(page, '/planning');
 				await expect(page.getByRole('link', { name: 'Speed', exact: true })).toBeVisible();
 				await expectNoHorizontalScroll(page);
 			});
@@ -1170,8 +1129,7 @@ test.describe('the Planning cards on a phone', () => {
 	test('one card per Lesson reads its status as a read-only badge, and no toggle shows', async ({
 		page
 	}) => {
-		await login(page);
-		await page.goto('/planning');
+		await login(page, '/planning');
 		await expect(page.getByRole('link', { name: 'Speed', exact: true })).toBeVisible();
 
 		// Below `md` one card per Lesson. Each card carries exactly one Draft/Planned read-only
@@ -1224,8 +1182,7 @@ test.describe('the Classes screen on a laptop', () => {
 	test('a tile opens its Class page from its body, and the footer holds its two controls (stories 107–108)', async ({
 		page
 	}) => {
-		await login(page);
-		await page.goto('/classes');
+		await login(page, '/classes');
 		const item = page.getByRole('listitem').filter({ hasText: '9B/Sc1' });
 		const tile = item.getByRole('link', { name: /9B\/Sc1/ });
 		await expect(tile).toContainText('KS3 Science');
@@ -1239,9 +1196,7 @@ test.describe('the Classes screen on a laptop', () => {
 });
 
 {
-	const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];
 	for (const [name, use] of [
-		['phone', { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch }],
 		['tablet portrait', { viewport: { width: 800, height: 1180 }, hasTouch: true }],
 		['tablet landscape', { viewport: { width: 1280, height: 800 }, hasTouch: true }]
 	] as const) {
@@ -1249,8 +1204,7 @@ test.describe('the Classes screen on a laptop', () => {
 			test.use(use);
 
 			test('fits the width', async ({ page }) => {
-				await login(page);
-				await page.goto('/classes');
+				await login(page, '/classes');
 				await expect(page.getByRole('link', { name: /9B\/Sc1/ })).toBeVisible();
 				await expectNoHorizontalScroll(page);
 			});
@@ -1266,8 +1220,7 @@ test.describe('the Classes screen on a phone writes nothing', () => {
 	test('no New Class tile and no Assign next Topic; Open Class has a 44 px box (story 109)', async ({
 		page
 	}) => {
-		await login(page);
-		await page.goto('/classes');
+		await login(page, '/classes');
 		await expect(page.getByRole('link', { name: /9B\/Sc1/ })).toBeVisible();
 		await expect(page.getByRole('button', { name: 'New Class' })).toBeHidden();
 		await expect(page.getByRole('button', { name: 'Assign next Topic' })).toBeHidden();
@@ -1279,8 +1232,7 @@ test.describe('the Classes screen on a phone writes nothing', () => {
 // The Class page (issue #347): Overview and Timetable tabs from `md` up; on a phone Overview
 // only, and nothing written there.
 async function openClassPage(page: Page) {
-	await login(page);
-	await page.goto('/classes');
+	await login(page, '/classes');
 	const href = await page
 		.getByRole('link', { name: /9B\/Sc1/ })
 		.first()
@@ -1317,24 +1269,6 @@ test.describe('the Class page on a laptop', () => {
 	});
 });
 
-{
-	const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];
-	for (const [name, use] of [
-		['phone', { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch }],
-		['tablet portrait', { viewport: { width: 800, height: 1180 }, hasTouch: true }],
-		['tablet landscape', { viewport: { width: 1280, height: 800 }, hasTouch: true }]
-	] as const) {
-		test.describe(`the Class page on a ${name}`, () => {
-			test.use(use);
-
-			test('fits the width', async ({ page }) => {
-				await openClassPage(page);
-				await expectNoHorizontalScroll(page);
-			});
-		});
-	}
-}
-
 for (const [name, use] of [
 	['tablet portrait', { viewport: { width: 800, height: 1180 }, hasTouch: true }],
 	['tablet landscape', { viewport: { width: 1280, height: 800 }, hasTouch: true }]
@@ -1342,8 +1276,11 @@ for (const [name, use] of [
 	test.describe(`the Class page on a ${name} can write the Timetable`, () => {
 		test.use(use);
 
-		test('the Timetable tab shows, and the teacher can write a Slot', async ({ page }) => {
+		test('fits the width; the Timetable tab shows, and the teacher can write a Slot', async ({
+			page
+		}) => {
 			await openClassPage(page);
+			await expectNoHorizontalScroll(page);
 			// The tablist shows from a tablet up (story 115).
 			await expect(page.getByRole('tablist')).toBeVisible();
 			await page.getByRole('tab', { name: /^Timetable/ }).click();
@@ -1371,6 +1308,7 @@ test.describe('the Class page on a phone writes nothing', () => {
 		page
 	}) => {
 		await openClassPage(page);
+		await expectNoHorizontalScroll(page);
 		// No tabs at all: A chosen Timetable tab on a wider window still shows Overview here.
 		await expect(page.getByRole('tab', { name: 'Overview' })).toBeHidden();
 		// The Timetable itself is gone, with its "Timetable as at" control.
@@ -1480,28 +1418,17 @@ test.describe('the Login page at the sm edge (issue #351)', () => {
 		test.describe(`the Settings page on a ${name} (issue #349)`, () => {
 			test.use(use);
 
-			test('fits the width', async ({ page }) => {
-				await login(page);
-				await page.goto('/settings');
-				await expect(
-					page.locator('[data-slot="card-title"]').filter({ hasText: 'Change password' })
-				).toBeVisible();
-				await expectNoHorizontalScroll(page);
-			});
-
-			if (oneColumn) {
-				test('the cards are in one column', async ({ page }) => {
-					await login(page);
-					await page.goto('/settings');
-					await expectOneColumn(page);
-				});
-			} else {
-				test('the cards are in two columns, as on a laptop', async ({ page }) => {
-					await login(page);
-					await page.goto('/settings');
-					await expectTwoColumns(page);
-				});
-			}
+			test(
+				oneColumn
+					? 'fits the width, with the cards in one column'
+					: 'fits the width, with the cards in two columns, as on a laptop',
+				async ({ page }) => {
+					await login(page, '/settings');
+					if (oneColumn) await expectOneColumn(page);
+					else await expectTwoColumns(page);
+					await expectNoHorizontalScroll(page);
+				}
+			);
 		});
 	}
 }
@@ -1510,8 +1437,7 @@ test.describe('the Settings page on a laptop (issue #349)', () => {
 	test.use({ viewport: { width: 1280, height: 720 } });
 
 	test('Change password stands beside API key and Backup (story 118)', async ({ page }) => {
-		await login(page);
-		await page.goto('/settings');
+		await login(page, '/settings');
 		await expect(
 			page.locator('[data-slot="card-title"]').filter({ hasText: 'Change password' })
 		).toBeVisible();

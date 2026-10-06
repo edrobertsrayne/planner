@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { test, expect } from '@playwright/test';
-import { BEARER, standingKey, keysOf, openPage, type Page } from './helpers.ts';
+import { BEARER, apiKey, keysOf, type Page } from './helpers.ts';
 
 // Covers the two Attachment endpoints over real HTTP (issue #268): upload, the refusals, the
 // Lesson GET's `attachments`, and removal from the row and the disk. Uses the Lesson the Lesson
@@ -12,8 +12,8 @@ test.describe.serial('the Attachment endpoints', () => {
 	let lessonAId = '';
 
 	test.beforeAll(async ({ browser }) => {
-		page = await openPage(browser);
-		token = await standingKey(page);
+		page = await browser.newPage();
+		token = await apiKey(browser);
 
 		const courses = await (
 			await page.request.get('/api/courses', { headers: BEARER(token) })

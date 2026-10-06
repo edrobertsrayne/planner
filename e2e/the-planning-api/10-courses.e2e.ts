@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { BEARER, standingKey, keysOf, openPage, type Page } from './helpers.ts';
+import { BEARER, apiKey, keysOf } from './helpers.ts';
 
 // Covers the two Course endpoints over real HTTP (issue #159): the key gate every route shares,
 // probed here against the Course routes, then the status codes, the uniqueness and validation
@@ -7,19 +7,13 @@ import { BEARER, standingKey, keysOf, openPage, type Page } from './helpers.ts';
 // "API Test Course" and "API Empty Course" — are what the Topic, Lesson and refusal files read
 // back by name.
 test.describe.serial('the Course endpoints', () => {
-	let page: Page;
 	let token = '';
 
 	let courseId = '';
 	let emptyCourseId = '';
 
 	test.beforeAll(async ({ browser }) => {
-		page = await openPage(browser);
-		token = await standingKey(page);
-	});
-
-	test.afterAll(async () => {
-		await page.close();
+		token = await apiKey(browser);
 	});
 
 	test('no key and a bad key are both 401 JSON, never a redirect to /login', async ({
