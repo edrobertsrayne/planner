@@ -448,6 +448,9 @@ test.describe('the App shell on a phone', () => {
 		await expect(drawer.getByRole('link', { name: 'Settings' })).toBeVisible();
 		await expect(drawer.getByRole('button', { name: 'Log out' })).toBeVisible();
 		await expect(drawer.getByText(/^Build /)).toBeVisible();
+		// The close button keeps its corner on touch: the shared touch rule must not turn a
+		// positioned button relative (touch-target.ts).
+		await expect(drawer.getByRole('button', { name: 'Close' })).toHaveCSS('position', 'absolute');
 
 		await drawer.getByRole('link', { name: 'Agenda' }).click();
 		await expect(page).toHaveURL('/');
