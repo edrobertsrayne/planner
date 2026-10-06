@@ -692,7 +692,7 @@ are used as they are:
 ### 7.2 Signatures to change
 
 - **`editLesson`** accepts `topicId: string | null`. A null target is Detach: it sets the column
-  and re-derives the old Topic only.
+  and re-derives every Class that reached the Lesson through its old Topic.
 - **`deleteLesson`** refuses a taught or placed Lesson by throwing `Refused('conflict', …)` — the
   message written at the seam, the status mapped by the door (`src/lib/server/planner/refused.ts`).
   An id the URL names but the database does not returns `undefined`, and the route answers its own 404.

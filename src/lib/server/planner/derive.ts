@@ -291,8 +291,8 @@ export function rederiveTopic(db: Db, topicId: string, today: string): WriteRepo
 }
 
 // Folds one WriteReport per Class into the single combined report every multi-Class re-derive
-// (rederiveTopic, rederiveAllClasses) returns.
-function combineReports(reports: WriteReport[]): WriteReport {
+// (rederiveTopic, rederiveAllClasses, editLesson) returns.
+export function combineReports(reports: WriteReport[]): WriteReport {
 	return {
 		atRisk: reports.flatMap((r) => r.atRisk),
 		placementsMoved: reports.flatMap((r) => r.placementsMoved)

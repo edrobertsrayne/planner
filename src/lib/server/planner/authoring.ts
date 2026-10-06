@@ -8,7 +8,7 @@ import type { Database } from 'bun:sqlite';
 import { nextTone } from '$lib/class-tone';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
-import { rederive, rederiveTopic, type Db, type WriteReport } from './derive';
+import { combineReports, rederive, rederiveTopic, type Db, type WriteReport } from './derive';
 import { nextPosition, swapTargets, type Direction } from './ordering';
 import { deleteAttachmentsOfLesson } from './attachments';
 import { Refused } from './refused';
@@ -600,14 +600,8 @@ export function editLesson(
 			.run();
 	}
 
-	const reports = [...new Set([...assignedTo(row.topicId), ...reachesNow])].map((classId) =>
-		rederive(db, classId, today)
-	);
-	return {
-		lesson,
-		atRisk: reports.flatMap((r) => r.atRisk),
-		placementsMoved: reports.flatMap((r) => r.placementsMoved)
-	};
+	const classIds = new Set([...assignedTo(row.topicId), ...reachesNow]);
+	return { lesson, ...combineReports([...classIds].map((c) => rederive(db, c, today))) };
 }
 
 // Removes a Lesson entirely, along with its Links, and re-derives every Class assigned its
