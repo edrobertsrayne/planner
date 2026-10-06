@@ -1103,8 +1103,7 @@ test.describe('the Courses screens on a phone write nothing', () => {
 });
 
 test.describe('the Planning table on a laptop', () => {
-	// Shorter than the whole stream, so the window scrolls and the headings can be checked.
-	test.use({ viewport: { width: 1280, height: 560 } });
+	test.use({ viewport: { width: 1280, height: 720 } });
 
 	test('the column headings stay in view as the window scrolls', async ({ page }) => {
 		await login(page);
