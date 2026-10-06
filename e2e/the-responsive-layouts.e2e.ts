@@ -97,7 +97,7 @@ test.describe('the tablet layout (touch, about 800×1180)', () => {
 });
 
 test.describe('the laptop layout (mouse)', () => {
-	test.use({ viewport: { width: 1536, height: 750 } });
+	test.use({ viewport: { width: 1280, height: 720 } });
 
 	test('a long Topic title wraps in full, and Delete Topic asks before it deletes', async ({
 		page
@@ -284,7 +284,7 @@ async function expectTwoColumns(page: Page) {
 }
 
 test.describe('the App shell on a laptop', () => {
-	test.use({ viewport: { width: 1536, height: 750 } });
+	test.use({ viewport: { width: 1280, height: 720 } });
 
 	test('the Lesson editor fits the width', async ({ page }) => {
 		await openLesson(page);
@@ -678,7 +678,7 @@ test.describe('the Calendar grid on a phone', () => {
 }
 
 test.describe('the Lesson editor on a laptop', () => {
-	test.use({ viewport: { width: 1536, height: 750 } });
+	test.use({ viewport: { width: 1280, height: 720 } });
 
 	test('Back returns to the screen that opened it, or to the Course page when opened directly', async ({
 		page
@@ -778,7 +778,7 @@ test.describe('the Lesson editor on a laptop', () => {
 });
 
 test.describe('the Lesson editor for a Standalone Lesson', () => {
-	test.use({ viewport: { width: 1536, height: 750 } });
+	test.use({ viewport: { width: 1280, height: 720 } });
 
 	function standaloneLesson(title: string): string {
 		return runFixture('create-standalone-lesson', title).trim();
@@ -862,7 +862,7 @@ test.describe('the Lesson editor for a Standalone Lesson', () => {
 });
 
 test.describe('Detach on the Lesson editor', () => {
-	test.use({ viewport: { width: 1536, height: 750 } });
+	test.use({ viewport: { width: 1280, height: 720 } });
 
 	test('a Lesson in a Topic shows Detach; after it the same Lesson shows the Standalone Lesson form', async ({
 		page
@@ -1005,7 +1005,7 @@ for (const [name, viewport] of [
 }
 
 test.describe('the Session page on a laptop', () => {
-	test.use({ viewport: { width: 1536, height: 750 } });
+	test.use({ viewport: { width: 1280, height: 720 } });
 
 	test('a reload keeps it, Back with nothing behind goes to the Agenda, and the Lesson editor opens', async ({
 		page
@@ -1031,7 +1031,7 @@ test.describe('the Session page on a laptop', () => {
 });
 
 test.describe('the Courses screen on a laptop', () => {
-	test.use({ viewport: { width: 1536, height: 750 } });
+	test.use({ viewport: { width: 1280, height: 720 } });
 
 	test('a tile shows the Course and opens its page', async ({ page }) => {
 		await login(page);
@@ -1104,7 +1104,7 @@ test.describe('the Courses screens on a phone write nothing', () => {
 
 test.describe('the Planning table on a laptop', () => {
 	// Shorter than the whole stream, so the window scrolls and the headings can be checked.
-	test.use({ viewport: { width: 1536, height: 560 } });
+	test.use({ viewport: { width: 1280, height: 560 } });
 
 	test('the column headings stay in view as the window scrolls', async ({ page }) => {
 		await login(page);
@@ -1219,7 +1219,7 @@ test.describe('the Class chip row on a phone', () => {
 });
 
 test.describe('the Classes screen on a laptop', () => {
-	test.use({ viewport: { width: 1536, height: 750 } });
+	test.use({ viewport: { width: 1280, height: 720 } });
 
 	test('a tile opens its Class page from its body, and the footer holds its two controls (stories 107–108)', async ({
 		page
@@ -1290,7 +1290,7 @@ async function openClassPage(page: Page) {
 }
 
 test.describe('the Class page on a laptop', () => {
-	test.use({ viewport: { width: 1536, height: 750 } });
+	test.use({ viewport: { width: 1280, height: 720 } });
 
 	test('opens on Overview, and the Timetable tab shows its Slot count and the Timetable', async ({
 		page
@@ -1428,7 +1428,7 @@ test.describe('the Login page on a phone (issue #351)', () => {
 });
 
 test.describe('the Login page from sm up (issue #351)', () => {
-	test.use({ viewport: { width: 1536, height: 750 } });
+	test.use({ viewport: { width: 1280, height: 720 } });
 
 	test('the centred card is back on the muted background (story 123)', async ({ page }) => {
 		await page.goto('/login');
@@ -1507,7 +1507,7 @@ test.describe('the Login page at the sm edge (issue #351)', () => {
 }
 
 test.describe('the Settings page on a laptop (issue #349)', () => {
-	test.use({ viewport: { width: 1536, height: 750 } });
+	test.use({ viewport: { width: 1280, height: 720 } });
 
 	test('Change password stands beside API key and Backup (story 118)', async ({ page }) => {
 		await login(page);
