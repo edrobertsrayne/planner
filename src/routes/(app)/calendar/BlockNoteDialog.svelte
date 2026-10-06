@@ -23,7 +23,13 @@
 		pick: (AvailableSlotLine & { date: string }) | null;
 	} = $props();
 
-	const label = $derived(pick ? `Block ${pick.classLabel}, P${pick.period}` : '');
+	// The last pick, kept while the dialog fades out: `pick` is nulled before bits-ui's exit
+	// animation ends, so the title and the field's name read from this instead of blanking.
+	let shown = $state<(AvailableSlotLine & { date: string }) | null>(null);
+	$effect(() => {
+		if (pick) shown = pick;
+	});
+	const label = $derived(shown ? `Block ${shown.classLabel}, P${shown.period}` : '');
 	// The server's refusal — a note of spaces only passes the browser's required check but not
 	// the seam's — named under the field, so the teacher can correct what they typed. A
 	// refusal must not outlive its form: the message dies when the next pick opens.
@@ -59,10 +65,10 @@
 						error = failureReason(result, 'The block was refused.');
 				}}
 		>
-			{#if pick}
-				<input type="hidden" name="classId" value={pick.classId} />
-				<input type="hidden" name="date" value={pick.date} />
-				<input type="hidden" name="slotId" value={pick.slotId} />
+			{#if shown}
+				<input type="hidden" name="classId" value={shown.classId} />
+				<input type="hidden" name="date" value={shown.date} />
+				<input type="hidden" name="slotId" value={shown.slotId} />
 			{/if}
 			<Input name="note" aria-label={label} required placeholder="Why (required)" />
 			{#if error}

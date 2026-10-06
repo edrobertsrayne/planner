@@ -420,18 +420,20 @@ test.describe.serial('the Calendar setup mode', () => {
 		await expect(cell.locator('a[href^="/sessions/"]')).toBeVisible();
 		const note = page.getByRole('textbox', { name: 'Block 9B/Sc1, P1' });
 
-		// A pick is for the week it was made in: walking to the neighbouring week and back
-		// must not reopen the note form by itself. The dialog is modal, so the walk starts by
-		// putting it away.
+		// A pick is for the week it was made in: a navigation to the neighbouring week while the
+		// note form is open drops it, and coming back must not reopen it (the effect on the
+		// week's data). The dialog is modal, so the walk clicks the week links from the page
+		// itself — a client-side navigation, with the dialog still open when it starts.
 		await openDayMenu('Mon');
 		await page.getByRole('menuitem', { name: '9B/Sc1, P1…' }).click();
 		await expect(note).toBeVisible();
-		await page.keyboard.press('Escape');
-		await expect(note).toHaveCount(0);
 		const here = page.url();
-		await page.getByLabel('Next Teaching Week').click();
+		await page
+			.locator('[aria-label="Next Teaching Week"]')
+			.evaluate((el) => (el as HTMLElement).click());
+		await expect(page).not.toHaveURL(here);
 		await expect(note).toHaveCount(0);
-		await page.getByLabel('Previous Teaching Week').click();
+		await page.goBack();
 		await expect(page).toHaveURL(here);
 		await expect(note).toHaveCount(0);
 
@@ -445,7 +447,7 @@ test.describe.serial('the Calendar setup mode', () => {
 		await expect(page.getByRole('alert')).toContainText('A Blocked Slot needs a note.');
 		await expect(note).toBeVisible();
 		await expect(note).toHaveValue('   ');
-		await expect(cell.locator('.hatched')).toHaveCount(0);
+		await expect(cell.locator('a[href^="/sessions/"]')).toHaveCount(1);
 
 		// The correction: a real note blocks, closes the form, and drains the tile.
 		await note.fill('Cover');
@@ -458,6 +460,27 @@ test.describe.serial('the Calendar setup mode', () => {
 		await page.getByRole('menuitem', { name: 'Unblock 9B/Sc1, P1' }).click();
 		await expect(cell).not.toContainText('Cover');
 		await expect(cell.locator('a[href^="/sessions/"]')).toHaveCount(1);
+	});
+
+	test('closing the note form by Escape hands focus back to the day menu', async () => {
+		const monday = mondayOf(new Date().toISOString().slice(0, 10));
+		const cell = page.locator('tbody tr').first().locator('td').first();
+		let landedMonday = monday;
+		for (const offset of [7, 14]) {
+			landedMonday = plusDays(monday, offset);
+			await page.goto(`/calendar?week=${landedMonday}`);
+			if ((await cell.locator('a[href^="/sessions/"]').count()) > 0) break;
+		}
+		await expect(cell.locator('a[href^="/sessions/"]')).toBeVisible();
+		const note = page.getByRole('textbox', { name: 'Block 9B/Sc1, P1' });
+
+		await openDayMenu('Mon');
+		await page.getByRole('menuitem', { name: '9B/Sc1, P1…' }).click();
+		await expect(note).toBeVisible();
+		await page.keyboard.press('Escape');
+		await expect(note).toHaveCount(0);
+		// bits-ui hands focus back to where the dialog found it — the day's menu trigger.
+		await expect(page.locator(`#day-menu-${landedMonday}`)).toBeFocused();
 	});
 
 	test('cancel returns to the week the teacher was on with nothing saved', async () => {
