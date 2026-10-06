@@ -226,7 +226,7 @@ and must collide.
 
 ### 3.7 The current date
 
-`createLesson`, `updateLesson`, `deleteLesson` and `moveLessonToTopic` all take a `today` argument
+`createLesson`, `editLesson` and `deleteLesson` all take a `today` argument
 and re-derive the schedule. Route handlers must supply it from the server clock, in the school's
 local date, exactly as the existing form actions do. It is never a request field. An agent must not
 be able to move the planner's idea of today.
@@ -434,7 +434,10 @@ its children, because a Lesson without its Links is not the plan.
 
 Accepts `title`, `body`, `length`, `status` and `topicId`. All optional. See section 3.4.
 
-→ 200, `Lesson` (without `links`). → 404 if the Lesson, or a named `topicId`, does not exist.
+→ 200, `{ "lesson": Lesson, "atRisk": [...], "placementsMoved": [...] }`. The `Lesson` has no
+`links`. `atRisk` and `placementsMoved` are the Rewind report of the change; both are empty when
+the change moves no date. A change that sets nothing is a no-op: it returns the stored Lesson and an
+empty report. → 404 if the Lesson, or a named `topicId`, does not exist.
 → **409** if `topicId` names a Topic and the Lesson's current `topicId` is `null` — Detach is
 one-way (ADR-0022), so a Standalone Lesson may never re-attach:
 
@@ -683,13 +686,13 @@ are used as they are:
 | `topicById`    | Same, for `GET /api/topics/:id`.                                                    |
 | `deleteCourse` | Does not exist. Must refuse when the Course holds Topics or a Class follows it.     |
 | `deleteTopic`  | Does not exist. Must refuse when the Topic holds Lessons or is assigned to a Class. |
-| `patchLesson`  | `updateLesson` requires `title`, `body` and `length` together. PATCH is partial.    |
+| `editLesson`   | One partial change to one Lesson, for the Lesson editor and PATCH alike (#356).     |
 | `importTopic`  | New. One transaction, direct inserts, one `rederiveTopic` at the end.               |
 
 ### 7.2 Signatures to change
 
-- **`moveLessonToTopic`** must accept `topicId: string | null`. It currently types it `string`.
-  With a null target it sets the column and re-derives the old Topic only.
+- **`editLesson`** accepts `topicId: string | null`. A null target is Detach: it sets the column
+  and re-derives every Class that reached the Lesson through its old Topic.
 - **`deleteLesson`** refuses a taught or placed Lesson by throwing `Refused('conflict', …)` — the
   message written at the seam, the status mapped by the door (`src/lib/server/planner/refused.ts`).
   An id the URL names but the database does not returns `undefined`, and the route answers its own 404.

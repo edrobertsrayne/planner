@@ -7,8 +7,8 @@ import {
 	createLink,
 	createTopic,
 	deleteLesson,
-	lessonDetail,
-	moveLessonToTopic
+	editLesson,
+	lessonDetail
 } from './authoring';
 import {
 	assignTopic,
@@ -400,13 +400,13 @@ describe("an Attachment's lifecycle follows its Lesson", () => {
 			atDir
 		);
 
-		moveLessonToTopic(db, { id: lesson.id, topicId: null, today: '2026-09-03' });
+		const [course] = db.select().from(schema.course).all();
+		const otherTopic = createTopic(db, { courseId: course.id, name: 'Waves' });
+		editLesson(db, { id: lesson.id, change: { topicId: otherTopic.id }, today: '2026-09-03' });
 		expect(attachmentsOf(db, lesson.id).map((a) => a.id)).toEqual([attachment.id]);
 		expect(existsSync(join(atDir, attachment.id))).toBe(true);
 
-		const [course] = db.select().from(schema.course).all();
-		const otherTopic = createTopic(db, { courseId: course.id, name: 'Waves' });
-		moveLessonToTopic(db, { id: lesson.id, topicId: otherTopic.id, today: '2026-09-03' });
+		editLesson(db, { id: lesson.id, change: { topicId: null }, today: '2026-09-03' });
 		expect(attachmentsOf(db, lesson.id).map((a) => a.id)).toEqual([attachment.id]);
 		expect(existsSync(join(atDir, attachment.id))).toBe(true);
 	});

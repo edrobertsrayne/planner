@@ -14,12 +14,11 @@ import {
 	classNextSessions,
 	classSchedule,
 	deleteLesson,
+	editLesson,
 	listClasses,
-	moveLessonToTopic,
 	planningStream,
 	recordContinuation,
 	sessionDetail,
-	setLessonStatus,
 	setReadiness,
 	teachingWeeks,
 	unassignTopic,
@@ -813,11 +812,11 @@ describe('Readiness', () => {
 		let rows = agenda(db, { today: '2026-09-03', horizonDays: 7 }).rows;
 		expect(rows[0].lesson?.ready).toBe(true);
 
-		setLessonStatus(db, l1.id, 'planned');
+		editLesson(db, { id: l1.id, change: { status: 'planned' }, today: '2026-09-03' });
 		rows = agenda(db, { today: '2026-09-03', horizonDays: 7 }).rows;
 		expect(rows[0].lesson?.ready).toBe(true);
 
-		setLessonStatus(db, l1.id, 'draft');
+		editLesson(db, { id: l1.id, change: { status: 'draft' }, today: '2026-09-03' });
 		rows = agenda(db, { today: '2026-09-03', horizonDays: 7 }).rows;
 		expect(rows[0].lesson?.ready).toBe(true);
 	});
@@ -989,25 +988,6 @@ describe('Readiness dies with its pairing', () => {
 			.all();
 		expect(l2Readiness).toHaveLength(1);
 		expect(l2Readiness[0].classId).toBe(classA.id);
-	});
-
-	test('moveLessonToTopic keeps a Lesson marks unchanged', () => {
-		const { db, course, classA } = setUp();
-		const topic1 = makeTopic(db, course.id, 'Forces');
-		const topic2 = makeTopic(db, course.id, 'Energy');
-		const [l1] = makeLessons(db, topic1.id, 1);
-		assignTopic(db, { classId: classA.id, topicId: topic1.id, today: '2026-09-03' });
-
-		setReadiness(db, l1.id, classA.id, true);
-
-		moveLessonToTopic(db, { id: l1.id, topicId: topic2.id, today: '2026-09-03' });
-
-		const marks = db
-			.select()
-			.from(schema.readiness)
-			.where(and(eq(schema.readiness.lessonId, l1.id), eq(schema.readiness.classId, classA.id)))
-			.all();
-		expect(marks).toHaveLength(1);
 	});
 });
 

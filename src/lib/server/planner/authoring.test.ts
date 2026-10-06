@@ -18,6 +18,7 @@ import {
 	deleteLink,
 	deleteTopic,
 	detachTag,
+	editLesson,
 	importTopic,
 	lessonDetail,
 	lessonsOf,
@@ -25,18 +26,14 @@ import {
 	listCourses,
 	listTagNames,
 	moveLesson,
-	moveLessonToTopic,
 	moveLink,
-	patchLesson,
 	placeLesson,
 	renameCourse,
-	renameLesson,
 	renameTopic,
-	setLessonStatus,
+	setReadiness,
 	tagsByLesson,
 	tagsOf,
 	topicsOf,
-	updateLesson,
 	updateLink
 } from './index';
 import * as schema from '../db/schema';
@@ -103,7 +100,7 @@ describe('the Course tiles', () => {
 		const forces = makeTopic(db, course.id, 'Forces');
 		makeTopic(db, course.id, 'Energy');
 		const [first] = makeLessons(db, forces.id, 3);
-		setLessonStatus(db, first.id, 'planned');
+		editLesson(db, { id: first.id, change: { status: 'planned' }, today: '2026-09-03' });
 		createClass(db, { label: '9B/Ph1', courseId: course.id });
 		createClass(db, { label: '9A/Ph1', courseId: course.id });
 
@@ -166,7 +163,11 @@ describe('authoring Courses, Topics and Lessons', () => {
 		expect(first.length).toBe(1);
 		expect(lessonsOf(db, topic.id)).toEqual([first, second]);
 
-		const renamed = renameLesson(db, { id: first.id, title: 'Newton I — inertia' });
+		const renamed = editLesson(db, {
+			id: first.id,
+			change: { title: 'Newton I — inertia' },
+			today: '2026-09-03'
+		})!.lesson;
 		expect(lessonsOf(db, topic.id).map((l) => l.title)).toEqual([renamed.title, second.title]);
 	});
 });
@@ -466,7 +467,7 @@ describe('field rules', () => {
 		refused(() => createCourse(db, { name: '  ' }), 'invalid', 'A Course needs a name.');
 		refused(() => renameTopic(db, { id: topic.id, name: '' }), 'invalid', 'A Topic needs a name.');
 		refused(
-			() => renameLesson(db, { id: lesson.id, title: ' \n ' }),
+			() => editLesson(db, { id: lesson.id, change: { title: ' \n ' }, today: '2026-09-03' }),
 			'invalid',
 			'A Lesson needs a title.'
 		);
@@ -524,12 +525,12 @@ describe('field rules', () => {
 		]);
 		expect(lesson.body).toBe('  - indented list\n');
 
-		const blanked = patchLesson(db, {
+		const blanked = editLesson(db, {
 			id: lesson.id,
-			fields: { body: ' \n ' },
+			change: { body: ' \n ' },
 			today: '2026-09-03'
 		});
-		expect(blanked?.body).toBeNull();
+		expect(blanked?.lesson.body).toBeNull();
 	});
 
 	test('a Length outside 1 to 20 Periods and an unknown status are refused at every writer', () => {
@@ -541,23 +542,21 @@ describe('field rules', () => {
 
 		refused(
 			() =>
-				updateLesson(db, {
+				editLesson(db, {
 					id: lesson.id,
-					title: 'Newton I',
-					body: null,
-					length: Number.NaN,
+					change: { title: 'Newton I', body: null, length: Number.NaN },
 					today: '2026-09-03'
 				}),
 			'invalid',
 			lengthRule
 		);
 		refused(
-			() => patchLesson(db, { id: lesson.id, fields: { length: 21 }, today: '2026-09-03' }),
+			() => editLesson(db, { id: lesson.id, change: { length: 21 }, today: '2026-09-03' }),
 			'invalid',
 			lengthRule
 		);
 		refused(
-			() => setLessonStatus(db, lesson.id, 'archived'),
+			() => editLesson(db, { id: lesson.id, change: { status: 'archived' }, today: '2026-09-03' }),
 			'invalid',
 			'A Lesson must be Draft or Planned.'
 		);
@@ -580,12 +579,20 @@ describe("a Lesson's planning status", () => {
 		expect(lesson.status).toBe('draft');
 		expect(lessonDetail(db, lesson.id)!.status).toBe('draft');
 
-		const planned = setLessonStatus(db, lesson.id, 'planned');
-		expect(planned?.status).toBe('planned');
+		const planned = editLesson(db, {
+			id: lesson.id,
+			change: { status: 'planned' },
+			today: '2026-09-03'
+		});
+		expect(planned?.lesson.status).toBe('planned');
 		expect(lessonDetail(db, lesson.id)!.status).toBe('planned');
 
-		const draft = setLessonStatus(db, lesson.id, 'draft');
-		expect(draft?.status).toBe('draft');
+		const draft = editLesson(db, {
+			id: lesson.id,
+			change: { status: 'draft' },
+			today: '2026-09-03'
+		});
+		expect(draft?.lesson.status).toBe('draft');
 		expect(lessonDetail(db, lesson.id)!.status).toBe('draft');
 	});
 
@@ -599,7 +606,7 @@ describe("a Lesson's planning status", () => {
 		expect(before.scheduled.length).toBeGreaterThan(0);
 		expect(before.scheduled[0].lessonId).toBe(lesson.id);
 
-		setLessonStatus(db, lesson.id, 'planned');
+		editLesson(db, { id: lesson.id, change: { status: 'planned' }, today: '2026-09-03' });
 		const after = classSchedule(db, { classId: classA.id, today: '2026-09-03' });
 
 		expect(after.scheduled).toEqual(before.scheduled);
@@ -646,11 +653,9 @@ describe('reordering and moving Lessons', () => {
 	test('a Lesson moves to a different Topic, keeping its body, links and Length', () => {
 		const { db, topic, otherTopic } = setUpTopics();
 		const lesson = createLesson(db, { topicId: topic.id, title: 'Newton I', today: '2026-09-03' });
-		updateLesson(db, {
+		editLesson(db, {
 			id: lesson.id,
-			title: 'Newton I',
-			body: 'Objectives: state the First Law.',
-			length: 2,
+			change: { body: 'Objectives: state the First Law.', length: 2 },
 			today: '2026-09-03'
 		});
 		const link = createLink(db, {
@@ -664,11 +669,11 @@ describe('reordering and moving Lessons', () => {
 			today: '2026-09-03'
 		});
 
-		const moved = moveLessonToTopic(db, {
+		const moved = editLesson(db, {
 			id: lesson.id,
-			topicId: otherTopic.id,
+			change: { topicId: otherTopic.id },
 			today: '2026-09-03'
-		});
+		})!.lesson;
 
 		expect(moved).toMatchObject({
 			topicId: otherTopic.id,
@@ -716,7 +721,7 @@ describe('reordering and moving Lessons', () => {
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 
 		// Detach the taught Lesson, then try again: no Topic now, so no detach hint.
-		patchLesson(db, { id: lessons[0].id, fields: { topicId: null }, today: '2026-09-10' });
+		editLesson(db, { id: lessons[0].id, change: { topicId: null }, today: '2026-09-10' });
 
 		refused(
 			() => deleteLesson(db, { id: lessons[0].id, today: '2026-09-10', dir }),
@@ -749,74 +754,110 @@ describe('reordering and moving Lessons', () => {
 	});
 });
 
-// A Standalone Lesson reaches a Class only through a Placement, never a Topic — the reverse of
-// Detach (giving a topicId-less Lesson a Topic) is retired (ADR-0022). Moving a Lesson between
-// two Topics it already sits between is untouched, and stays covered by moveLessonToTopic's own
-// tests.
-describe('the Standalone-to-Topic PATCH path', () => {
-	test('refuses to give a Standalone Lesson a Topic, Detach being one-way', () => {
-		const { db, client, course, classA } = setUp();
+// One Lesson edit owns every rule for a change to one Lesson, so the Lesson editor and the API
+// give the same answer to the same change (issue #356).
+describe('one Lesson edit', () => {
+	function placeStandalone(
+		db: ReturnType<typeof setUp>['db'],
+		client: ReturnType<typeof setUp>['client'],
+		classId: string
+	) {
 		const mondaySlot = db
 			.select()
 			.from(schema.slot)
 			.all()
-			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3)!;
-
-		const placed = placeLesson(db, client, {
-			classId: classA.id,
+			.find((s) => s.classId === classId && s.week === 'A' && s.day === 1 && s.period === 3)!;
+		return placeLesson(db, client, {
+			classId,
 			date: '2026-09-14',
 			slotId: mondaySlot.id,
 			title: 'Assembly',
 			today: '2026-09-03'
-		});
+		}).lesson;
+	}
 
+	test('a Standalone Lesson never rejoins a Topic, and the refused change writes nothing', () => {
+		const { db, client, course, classA } = setUp();
+		const placed = placeStandalone(db, client, classA.id);
 		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
 
 		refused(
 			() =>
-				patchLesson(db, {
-					id: placed.lesson.id,
-					fields: { topicId: topic.id },
+				editLesson(db, {
+					id: placed.id,
+					change: { title: 'Renamed', topicId: topic.id },
 					today: '2026-09-03'
 				}),
 			'conflict',
 			'A Standalone Lesson cannot rejoin a Topic.'
 		);
-
-		const [row] = db
-			.select()
-			.from(schema.lesson)
-			.where(eq(schema.lesson.id, placed.lesson.id))
-			.all();
-		expect(row.topicId).toBeNull();
+		expect(lessonDetail(db, placed.id)).toMatchObject({ topicId: null, title: 'Assembly' });
 	});
 
-	test('a topicId the body names but the database does not hold refuses as missing, ahead of the standalone conflict', () => {
-		const { db, client, classA } = setUp();
-		const mondaySlot = db
-			.select()
-			.from(schema.slot)
-			.all()
-			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3)!;
+	test('an unknown Topic is missing, from a Standalone Lesson and from a Topic Lesson alike', () => {
+		const { db, client, course, classA } = setUp();
+		const placed = placeStandalone(db, client, classA.id);
+		const [inTopic] = makeLessons(db, makeTopic(db, course.id, 'Forces').id, 1);
 
-		const placed = placeLesson(db, client, {
-			classId: classA.id,
-			date: '2026-09-14',
-			slotId: mondaySlot.id,
-			title: 'Assembly',
-			today: '2026-09-03'
+		for (const id of [placed.id, inTopic.id]) {
+			refused(
+				() => editLesson(db, { id, change: { topicId: 'does-not-exist' }, today: '2026-09-03' }),
+				'missing',
+				'Topic not found.'
+			);
+		}
+	});
+
+	test('a change that sets nothing returns the Lesson unchanged and an empty report', () => {
+		const { db, client, course, classA } = setUp();
+		const placed = placeStandalone(db, client, classA.id);
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [inTopic] = makeLessons(db, topic.id, 1);
+		const empty = { atRisk: [], placementsMoved: [] };
+
+		expect(editLesson(db, { id: inTopic.id, change: {}, today: '2026-09-03' })).toEqual({
+			lesson: inTopic,
+			...empty
 		});
+		expect(
+			editLesson(db, {
+				id: inTopic.id,
+				change: { topicId: topic.id, title: inTopic.title },
+				today: '2026-09-03'
+			})
+		).toEqual({ lesson: inTopic, ...empty });
+		expect(
+			editLesson(db, { id: placed.id, change: { topicId: null }, today: '2026-09-03' })
+		).toEqual({ lesson: placed, ...empty });
+	});
 
-		refused(
-			() =>
-				patchLesson(db, {
-					id: placed.lesson.id,
-					fields: { topicId: 'does-not-exist' },
-					today: '2026-09-03'
-				}),
-			'missing',
-			'Topic not found.'
-		);
+	test('a move ends the Readiness of every Class the new Topic does not reach, and a Detach keeps it', () => {
+		const { db, course, classA, classB } = setUp();
+		const forces = makeTopic(db, course.id, 'Forces');
+		const waves = makeTopic(db, course.id, 'Waves');
+		const [moved, detached] = makeLessons(db, forces.id, 2);
+		assignTopic(db, { classId: classA.id, topicId: forces.id, today: '2026-09-03' });
+		assignTopic(db, { classId: classB.id, topicId: forces.id, today: '2026-09-03' });
+		assignTopic(db, { classId: classB.id, topicId: waves.id, today: '2026-09-03' });
+		for (const lesson of [moved, detached]) {
+			setReadiness(db, lesson.id, classA.id, true);
+			setReadiness(db, lesson.id, classB.id, true);
+		}
+
+		editLesson(db, { id: moved.id, change: { topicId: waves.id }, today: '2026-09-03' });
+		editLesson(db, { id: detached.id, change: { topicId: null }, today: '2026-09-03' });
+
+		const readyFor = (lessonId: string) =>
+			db
+				.select()
+				.from(schema.readiness)
+				.where(eq(schema.readiness.lessonId, lessonId))
+				.all()
+				.map((r) => r.classId)
+				.sort();
+		expect(readyFor(moved.id)).toEqual([classB.id]);
+		// ADR-0015: a Detach deletes nothing, so the Standalone Lesson keeps its inert marks.
+		expect(readyFor(detached.id)).toEqual([classA.id, classB.id].sort());
 	});
 });
 
@@ -902,13 +943,7 @@ describe('content edits re-derive the schedule from today', () => {
 		const historyBefore = classSchedule(db, { classId: classA.id, today: later }).history;
 
 		const lastLesson = lessons[lessons.length - 1];
-		updateLesson(db, {
-			id: lastLesson.id,
-			title: lastLesson.title,
-			body: null,
-			length: 2,
-			today: later
-		});
+		editLesson(db, { id: lastLesson.id, change: { length: 2 }, today: later });
 
 		const after = classSchedule(db, { classId: classA.id, today: later });
 		expect(after.history).toEqual(historyBefore);
@@ -942,7 +977,7 @@ describe('content edits re-derive the schedule from today', () => {
 			.values({ classId: classB.id, date: '2026-09-14', slotId: classBMonday.id, lessonId })
 			.run();
 
-		updateLesson(db, { id: lessonId, title: 'Assembly', body: null, length: 2, today });
+		editLesson(db, { id: lessonId, change: { length: 2 }, today });
 
 		const afterA = classSchedule(db, { classId: classA.id, today });
 		const afterB = classSchedule(db, { classId: classB.id, today });
@@ -1011,11 +1046,9 @@ describe('the Lesson editor', () => {
 	test('a Lesson holds a markdown body and a Length in Periods', () => {
 		const { db, lesson } = setUpLesson();
 
-		const updated = updateLesson(db, {
+		const updated = editLesson(db, {
 			id: lesson.id,
-			title: 'Newton I — inertia',
-			body: 'Objectives: state the First Law.',
-			length: 2,
+			change: { title: 'Newton I — inertia', body: 'Objectives: state the First Law.', length: 2 },
 			today: '2026-09-03'
 		});
 
@@ -1326,7 +1359,7 @@ describe('deleting a Course or a Topic', () => {
 	test('refuses a Topic holding a Lesson taught elsewhere and later moved in, even confirmed', () => {
 		// unassignTopic refuses to unassign a Topic already reached, so the only way a Topic ends
 		// up holding an already-taught Lesson while itself unassigned is a Lesson moved in after
-		// the fact (moveLessonToTopic) — the loophole this guard exists for.
+		// the fact (a Lesson edit that moves it) — the loophole this guard exists for.
 		const { db, course, classA, atDir: dir } = setUp();
 		const taughtTopic = makeTopic(db, course.id, 'Forces');
 		const lessons = makeLessons(db, taughtTopic.id, 1);
@@ -1334,7 +1367,7 @@ describe('deleting a Course or a Topic', () => {
 
 		const otherCourse = createCourse(db, { name: 'Year 10 Physics' });
 		const targetTopic = createTopic(db, { courseId: otherCourse.id, name: 'Waves' });
-		moveLessonToTopic(db, { id: lessons[0].id, topicId: targetTopic.id, today: '2026-09-10' });
+		editLesson(db, { id: lessons[0].id, change: { topicId: targetTopic.id }, today: '2026-09-10' });
 
 		refused(
 			() => deleteTopic(db, targetTopic.id, { today: '2026-09-10', confirmed: true, dir }),

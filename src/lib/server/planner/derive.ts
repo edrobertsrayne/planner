@@ -277,9 +277,8 @@ export function rederive(db: Db, classId: string, boundary: string, cal?: Calend
 
 // Every Class currently assigned this Topic — the Classes whose schedule a change to one of the
 // Topic's Lessons touches. `placementsMoved` across every touched Class is folded into one
-// combined report, same as rederivePlacementLesson below: a Class holding both this Topic and a
-// Placement can have the Placement shift sideways when the Topic-Lesson stream in front of it
-// changes shape.
+// combined report: a Class holding both this Topic and a Placement can have the Placement shift
+// sideways when the Topic-Lesson stream in front of it changes shape.
 export function rederiveTopic(db: Db, topicId: string, today: string): WriteReport {
 	const classIds = db
 		.select({ classId: schema.assignedTopic.classId })
@@ -291,25 +290,9 @@ export function rederiveTopic(db: Db, topicId: string, today: string): WriteRepo
 	return combineReports(classIds.map((classId) => rederive(db, classId, today)));
 }
 
-// Every Class currently holding a Placement of this Lesson — the placement-keyed mirror of
-// rederiveTopic, for a Standalone Lesson a Length edit must still re-derive sideways (ADR-0022):
-// a Standalone Lesson reaches a Class only through a Placement, never through assignedTopic, so
-// there is no Topic to re-derive through. `placementsMoved` across every touched Class is folded
-// into one combined report, the same shape `rederive` itself returns for one Class.
-export function rederivePlacementLesson(db: Db, lessonId: string, today: string): WriteReport {
-	const classIds = db
-		.selectDistinct({ classId: schema.placement.classId })
-		.from(schema.placement)
-		.where(eq(schema.placement.lessonId, lessonId))
-		.all()
-		.map((row) => row.classId);
-
-	return combineReports(classIds.map((classId) => rederive(db, classId, today)));
-}
-
 // Folds one WriteReport per Class into the single combined report every multi-Class re-derive
-// (rederiveTopic, rederivePlacementLesson, rederiveAllClasses) returns.
-function combineReports(reports: WriteReport[]): WriteReport {
+// (rederiveTopic, rederiveAllClasses, editLesson) returns.
+export function combineReports(reports: WriteReport[]): WriteReport {
 	return {
 		atRisk: reports.flatMap((r) => r.atRisk),
 		placementsMoved: reports.flatMap((r) => r.placementsMoved)
