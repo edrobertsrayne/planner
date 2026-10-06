@@ -33,6 +33,22 @@ Disable the auth guard in a prototype, unless the prototype tests the authentica
 - Before you write a migration, read `docs/agents/migrations.md`.
 - Backlog: add ideas you put out of scope to `docs/backlog.md`. Read it before you propose a feature.
 
+## Attach files to issues and PRs
+
+Use `gh --attach` to upload local images and videos. Do not use other upload methods.
+
+- Commands: `gh issue create|edit|comment` and `gh pr create|edit|comment`.
+- You need push access to the repository.
+- Repeat the flag for more files. The limit is 50 files per command. Do not attach the same file twice.
+- Set alt text with `--attach 'path/to/image.png#Alt text'`. Videos do not support alt text.
+- To embed a file at a given place, write `![alt](path/to/image.png)` in the body.
+  Attach the same path. `gh` replaces the local path with the uploaded URL.
+  A video reference must be the only content in its paragraph.
+- `gh` appends each attached file that the body does not reference.
+- `--attach` supports images and videos only.
+
+Example: `gh pr create --title "..." --body-file body.md --attach screenshots/home.png`
+
 ## Communication style
 
 - Give brief context before the main point.
