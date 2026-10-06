@@ -98,9 +98,10 @@
 
 <div class="mx-auto max-w-6xl px-6 py-6">
 	<PageHeader>
-		<!-- The top bar names the screen on a phone, so below `md` the heading goes — the layout
-	     the prototype of issue #344 points to, as on the Agenda (issue #342). -->
-		<h1 class="hidden text-lg font-semibold tracking-tight md:block">Calendar</h1>
+		<!-- The top bar names the screen on a phone, so below `md` the heading is out of sight (a
+	     screen reader still reads it) — the layout the prototype of issue #344 points to, as on
+	     the Agenda (issue #342). -->
+		<h1 class="sr-only text-lg font-semibold tracking-tight md:not-sr-only">Calendar</h1>
 		{#snippet actions()}
 			<!-- Save year and Cancel sit in the setup mode's own header: the week controls here
 			     would read a year that is not saved yet. -->

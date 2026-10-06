@@ -467,8 +467,9 @@ test.describe('the Agenda on a phone', () => {
 		await login(page);
 		await expectNoHorizontalScroll(page);
 
-		// The top bar names the screen, so the page heading is hidden below `md` (story 81).
-		await expect(page.getByRole('heading', { level: 1 })).toHaveCount(0);
+		// The top bar names the screen, so the page heading is out of sight below `md` (story 81)
+		// — but it stays in the accessibility tree, so a screen reader still has one heading.
+		await expect(page.getByRole('heading', { level: 1 })).toHaveText('Agenda');
 
 		// Reading and ticking Ready is all the Agenda takes on a phone: nothing else writes.
 		await expect(page.getByRole('textbox')).toHaveCount(0);

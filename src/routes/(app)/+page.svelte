@@ -50,9 +50,9 @@
 
 <div class="mx-auto max-w-6xl px-6 py-6">
 	<PageHeader>
-		<!-- The top bar names the screen on a phone, so below `md` the heading goes and the
-		     days start near the top (issue #342). -->
-		<h1 class="hidden text-lg font-semibold tracking-tight md:block">Agenda</h1>
+		<!-- The top bar names the screen on a phone, so below `md` the heading is out of sight (a
+		     screen reader still reads it) and the days start near the top (issue #342). -->
+		<h1 class="sr-only text-lg font-semibold tracking-tight md:not-sr-only">Agenda</h1>
 		{#snippet actions()}
 			<!-- The horizon is tabs at the right of the heading (issue #341), the same tab style as
 			     Draft/Planned on Planning. Below `md` the heading is hidden (issue #342), so the
