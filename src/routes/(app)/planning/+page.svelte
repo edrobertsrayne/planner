@@ -10,6 +10,9 @@
 	import PlacementsMovedAlert from '$lib/components/placements-moved-alert.svelte';
 	import TagChips from '$lib/components/tag-chips.svelte';
 	import { Badge } from '$lib/components/ui/badge/index.js';
+	import { page } from '$app/state';
+	import { replaceQuery } from '$lib/client/enhance';
+	import { withParam } from '$lib/query';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import type { PageProps } from './$types';
 
@@ -29,7 +32,12 @@
 		{ key: 'draft', name: 'Draft' }
 	];
 
-	let filter = $state<Filter>('all');
+	// The status tab lives in the query string (`?status=draft`), like the Class chips (issue
+	// #338), so it survives a reload and a Back into the page. A value the tabs do not name is All.
+	const filter = $derived.by<Filter>(() => {
+		const value = page.url.searchParams.get('status');
+		return FILTERS.some((f) => f.key === value) ? (value as Filter) : 'all';
+	});
 
 	const tally = $derived({
 		all: data.stream.length,
@@ -94,7 +102,10 @@
 		{#snippet actions()}
 			{#if !noLessonsAnywhere}
 				<!-- All / Draft / Planned narrow the table below, and carry their counts. -->
-				<Tabs.Root value={filter} onValueChange={(v) => (filter = v as Filter)}>
+				<Tabs.Root
+					value={filter}
+					onValueChange={(v) => replaceQuery(withParam(page.url, 'status', v === 'all' ? null : v))}
+				>
 					<Tabs.List variant="line">
 						{#each FILTERS as f (f.key)}
 							<Tabs.Trigger value={f.key}>

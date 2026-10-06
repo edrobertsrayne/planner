@@ -429,9 +429,10 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expect(rows).toHaveCount(1);
 		await expect(rows.first()).toContainText('Motion');
 
-		// A click on the chip that is on returns to All Classes.
+		// A click on the chip that is on returns to All Classes; the Planned tab stays, since the
+		// two filters live in the address side by side.
 		await page.getByRole('button', { name: '9B/Sc1' }).click();
-		await page.waitForURL('/planning');
+		await page.waitForURL('/planning?status=planned');
 		await expect(allTab).toContainText('11');
 
 		// An unknown Class in the URL falls back to All Classes.
@@ -455,6 +456,28 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 			'aria-pressed',
 			'true'
 		);
+	});
+
+	test('the Draft/Planned tab lives in the query string', async () => {
+		await page.goto('/planning');
+		await page.getByRole('tab', { name: /^Draft/ }).click();
+		await expect(page).toHaveURL(/status=draft/);
+		await page.reload();
+		await expect(page.getByRole('tab', { name: /^Draft/ })).toHaveAttribute(
+			'aria-selected',
+			'true'
+		);
+		// Back from the Lesson editor remounts the page: the tab must survive it.
+		await page.getByRole('link', { name: 'Speed', exact: true }).click();
+		await expect(page).toHaveURL(/\/lessons\/[^/]+$/);
+		await page.getByRole('button', { name: 'Back' }).click();
+		await page.waitForURL(/status=draft/);
+		await expect(page.getByRole('tab', { name: /^Draft/ })).toHaveAttribute(
+			'aria-selected',
+			'true'
+		);
+		await page.getByRole('tab', { name: /^All/ }).click();
+		await expect(page).not.toHaveURL(/status=/);
 	});
 
 	test('a tagged Lesson shows its chip on the Agenda and Session page, and click-through from the Calendar', async () => {
