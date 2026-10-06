@@ -61,7 +61,7 @@
 								type="submit"
 								disabled={move.direction === 'up' ? i === 0 : i === assigned.length - 1}
 								aria-label="Move {a.topicName} {move.described}"
-								class="{move.rounding} px-1 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-20"
+								class="{move.rounding} px-1 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-20 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 							>
 								{#if move.direction === 'up'}
 									<ChevronUpIcon class="size-3" />

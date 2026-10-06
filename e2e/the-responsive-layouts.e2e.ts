@@ -114,6 +114,12 @@ test.describe('the tablet layout (touch, about 800×1180)', () => {
 		await expect(mondayCell.locator('a[href^="/sessions/"]')).toHaveCount(1);
 		await expect(mondayCell).not.toContainText('Assembly');
 	});
+
+	test('the Class tabs and the Topic reorder keep a 44 px target on touch', async ({ page }) => {
+		await openClassPage(page);
+		await expectHitArea44(page, 'Overview', 'tab');
+		await expectBox44(page.getByRole('button', { name: /^Move / }).first());
+	});
 });
 
 test.describe('the laptop layout (mouse)', () => {
@@ -918,7 +924,7 @@ async function expectBox44(control: Locator, wrapped = false) {
 async function expectHitArea44(
 	page: Page,
 	name: string | RegExp,
-	role: 'button' | 'link' | 'checkbox'
+	role: 'button' | 'link' | 'checkbox' | 'tab'
 ) {
 	await expectBox44(page.getByRole(role, { name }).first(), role === 'checkbox');
 }
