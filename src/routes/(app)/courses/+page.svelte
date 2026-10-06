@@ -66,6 +66,9 @@
 				</a>
 			</li>
 		{/each}
+		{#if !data.courses.length}
+			<li class="px-2 py-1.5 text-xs text-muted-foreground">No Courses yet.</li>
+		{/if}
 		{#if wide.current}
 			<li class="rounded-xl border border-dashed p-4">
 				<form

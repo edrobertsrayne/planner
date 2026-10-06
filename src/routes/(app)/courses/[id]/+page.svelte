@@ -27,11 +27,11 @@
 	let newTopicName = $state('');
 	let newLessonTitle = $state('');
 
-	// A delete always asks first. The dialog's form carries `confirmed`, so nothing is removed
-	// before it is answered.
 	// From `md` up the plan is written; below it, it is read: no rename, menu, reorder or create box.
 	const wide = new MediaQuery('min-width: 768px', true);
 
+	// A delete always asks first. The dialog's form carries `confirmed`, so nothing is removed
+	// before it is answered.
 	let pendingDelete = $state<{ kind: 'course' | 'topic'; id: string; name: string } | null>(null);
 </script>
 

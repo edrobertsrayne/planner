@@ -69,7 +69,8 @@ async function login(page: Page, email: string, password: string) {
 	await expect(page).toHaveURL('/');
 }
 
-// Opens a page and logs the one user in — the first step of every file's setup.
+// Opens a page and logs the one user in — for `apiKey` and 90-the-key.e2e.ts. The resource files
+// open an unauthenticated page and send the key.
 export async function openPage(browser: Browser): Promise<Page> {
 	const page = await browser.newPage();
 	await login(page, EMAIL, PASSWORD);
