@@ -31,10 +31,10 @@
 
 	// A Lesson created in place leaves `form` alone (see createInPlace), so its report is held
 	// here. Any later action answer replaces it.
-	let created = $state<WriteReport | null>(null);
+	let createdReport = $state<WriteReport | null>(null);
 	$effect(() => {
 		void form;
-		created = null;
+		createdReport = null;
 	});
 
 	// From `md` up the plan is written; below it, it is read: no rename, menu, reorder or create box.
@@ -114,7 +114,7 @@
 	{#if form?.error}
 		<p role="alert" class="mb-3 text-sm text-destructive">{form.error}</p>
 	{/if}
-	<RewindReport report={created ?? form?.report} />
+	<RewindReport report={createdReport ?? form?.report} />
 
 	<!-- From `xl` the Topics and the chosen Topic's Lessons sit side by side. Below it one column
 	     shows at a time: the Topic list until the address names a Topic, then its Lessons. -->
@@ -257,7 +257,7 @@
 						class="border-t px-4 py-3"
 						use:enhance={createInPlace(
 							() => (newLessonTitle = ''),
-							(report) => (created = report)
+							(report) => (createdReport = report)
 						)}
 					>
 						<input type="hidden" name="topicId" value={data.shown.id} />

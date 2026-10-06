@@ -80,15 +80,14 @@ export const actions: Actions = {
 		try {
 			if (!holder) {
 				const taken = takeSlot(db, { classId, week, day, period, from, today: today() });
-				return { slot: taken.slot, report: reportOf(taken) };
+				return { report: reportOf(taken) };
 			} else if (holder.classId === classId) {
 				const cleared = clearSlot(db, { classId, week, day, period, from, today: today() });
-				if (!cleared) return {};
-				return { slot: cleared.slot, report: reportOf(cleared) };
+				return { report: cleared && reportOf(cleared) };
 			}
 			// Held by another Class: no-op — the grid shows it hatched and unclickable, so this
 			// is only reached by a stale click racing an edit made elsewhere.
-			return {};
+			return { report: null };
 		} catch (error) {
 			return refusal(error);
 		}

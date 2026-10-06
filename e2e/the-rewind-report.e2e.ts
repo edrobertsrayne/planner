@@ -27,8 +27,8 @@ test.describe.serial('the Rewind report after a Lesson write', () => {
 		return response.json();
 	}
 
-	// The second Session the Class teaches, from its Next Sessions list.
-	async function openSecondSession() {
+	// The Class page of the fixture Class.
+	async function openFixtureClass() {
 		await page.goto('/classes');
 		await page
 			.getByRole('link', { name: new RegExp(FIXTURE_CLASS_LABEL) })
@@ -38,7 +38,7 @@ test.describe.serial('the Rewind report after a Lesson write', () => {
 	}
 
 	async function openNoteOfSecondSession() {
-		await openSecondSession();
+		await openFixtureClass();
 		const next = page
 			.locator('section')
 			.filter({ has: page.getByRole('heading', { name: 'Next Sessions' }) });
@@ -66,7 +66,7 @@ test.describe.serial('the Rewind report after a Lesson write', () => {
 			await post(`/api/topics/${topic.id}/lessons`, { title: lesson });
 		}
 
-		await openSecondSession();
+		await openFixtureClass();
 		for (const name of ['Rewind A', 'Rewind B']) {
 			await page.getByRole('button', { name: 'Assign next Topic' }).click();
 			await page.getByRole('option', { name }).click();
@@ -88,7 +88,7 @@ test.describe.serial('the Rewind report after a Lesson write', () => {
 		await page.keyboard.press('Delete');
 		await page.getByRole('button', { name: 'Back' }).click();
 
-		await openSecondSession();
+		await openFixtureClass();
 		for (const name of ['Rewind A', 'Rewind B']) {
 			await page.getByRole('button', { name: `Unassign ${name}` }).click();
 			await expect(page.getByRole('button', { name: `Unassign ${name}` })).toHaveCount(0);

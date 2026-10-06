@@ -115,7 +115,7 @@ export const lessonActions = {
 		try {
 			const result = deleteLesson(db, { id, today: today(), dir: attachmentsDir(DATABASE_URL) });
 			if (!result) return fail(404, { error: 'No such Lesson.' });
-			return edited(result);
+			return { report: reportOf(result) };
 		} catch (error) {
 			return refusal(error);
 		}

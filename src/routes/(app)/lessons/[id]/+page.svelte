@@ -491,7 +491,7 @@
 										toast.success('Lesson deleted.');
 										// This page goes with the Lesson, so the report outlives it as a toast.
 										const report = reportOfResult(result);
-										if (report && (report.atRisk.length || report.placementsMoved.length)) {
+										if (report) {
 											toast.custom(RewindReport, { componentProps: { report }, duration: 20000 });
 										}
 										await back();
