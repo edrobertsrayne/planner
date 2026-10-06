@@ -24,9 +24,11 @@
 	import AttachmentRow from './AttachmentRow.svelte';
 	import LinkRow from './LinkRow.svelte';
 	import type { SubmitFunction } from '@sveltejs/kit';
+	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
+	import PlacementsMovedAlert from '$lib/components/placements-moved-alert.svelte';
 	import type { PageProps } from './$types';
 
-	let { data }: PageProps = $props();
+	let { data, form }: PageProps = $props();
 	const lesson = $derived(data.lesson);
 
 	// A Standalone Lesson belongs to no Course, so Back with nowhere to go goes to Planning.
@@ -154,6 +156,16 @@
 			</div>
 		{/if}
 	</div>
+
+	{#if form?.error}
+		<p role="alert" class="mt-3 text-xs text-destructive">{form.error}</p>
+	{/if}
+	{#if form?.atRisk}
+		<AtRiskAlert atRisk={form.atRisk} />
+	{/if}
+	{#if form?.placementsMoved}
+		<PlacementsMovedAlert placementsMoved={form.placementsMoved} />
+	{/if}
 
 	<!-- Stepping reuses this page, so everything seeded from the Lesson starts afresh per Lesson. -->
 	{#key lesson.id}

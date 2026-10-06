@@ -666,6 +666,17 @@ test.describe('the Lesson editor on a laptop', () => {
 		await expect(page.getByRole('link', { name: 'Speed', exact: true })).toBeVisible();
 	});
 
+	test('a refused save names its reason on the page', async ({ page }) => {
+		// The save writes on blur and returns its refusal on `form`; the page must show it
+		// (the deleted Courses pane did).
+		await openLessonFromCourses(page);
+		const title = page.getByRole('textbox', { name: 'Lesson title' });
+		// Spaces pass the browser's required check; the server refuses them.
+		await title.fill('   ');
+		await title.blur();
+		await expect(page.getByRole('alert')).toContainText('A Lesson needs a title.');
+	});
+
 	test('the page bar steps through the Topic with the controls and [ ]', async ({ page }) => {
 		await openLessonFromCourses(page);
 		const previous = page.getByRole('button', { name: 'Previous Lesson' });
