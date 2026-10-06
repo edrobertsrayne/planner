@@ -34,3 +34,7 @@ recorded on the map, and this ADR is why. Existing Classes backfill once, in cre
 change lands with the production rebuild — whichever rebuild ticket owns `class-tone.ts` carries the
 column, the migration and backfill, the creation-time assignment, and the literal-Tailwind-to-token
 swap already owed by #59/#67, together.
+
+> **Amended 2026-10-06.** Courses carry a stored Tone too (`course.tone`): the same fixed walk,
+> assigned once at creation and walked over Courses only, so a new Course never moves a Class's
+> Tone. Existing Courses backfill in creation order (drizzle/20260905000000_course_tone).

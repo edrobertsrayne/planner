@@ -1,8 +1,8 @@
-// A Class's Tone is a fact stored on the Class and assigned once, at creation (ADR-0013): the
-// next unused position in a fixed farthest-point walk of the eight Tone positions, so consecutive
-// Classes land far apart on the hue wheel. A position freed by deletion is reused; past eight live
-// Classes the sequence wraps and duplicates appear, spaced apart. Nothing here ever moves an
-// existing Class's Tone.
+// A Class's or Course's Tone is a fact stored on its row and assigned once, at creation
+// (ADR-0013): a Class's next unused position in a fixed farthest-point walk of the eight Tone
+// positions, so consecutive Classes land far apart on the hue wheel. Courses take the same walk
+// separately from Classes. A position freed by deletion is reused; past eight live Classes the
+// sequence wraps and duplicates appear, spaced apart. Nothing here ever moves an existing Tone.
 //
 // The eight positions are the tone tokens defined in src/routes/layout.css
 // (`--tone-{0-7}-{bg|fg|ring}`, issue #83): position 0 indigo, then emerald, sky, violet, amber,
@@ -12,7 +12,8 @@
 
 export const TONE_SEQUENCE = [0, 4, 6, 7, 1, 2, 5, 3];
 
-// Pure: given the Tones the live Classes hold — a multiset once past eight — returns the next.
+// Pure: given the Tones the live rows hold (Classes, or Courses, walked separately) — a multiset
+// once past eight — returns the next.
 // The earliest position of the walk no live Class holds, or, when all eight are held, the
 // least-held position, earliest first, so wrapped duplicates stay spaced apart.
 export function nextTone(inUse: readonly number[]): number {
