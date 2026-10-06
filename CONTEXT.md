@@ -265,10 +265,10 @@ agree on what to call them.
 
 **App shell**:
 The frame around every screen except Login and Setup. On a laptop it is a sidebar on the left: the
-wordmark, room for a later search control, the five screens (Agenda, Calendar, Classes, Courses,
-Planning) with an icon and a name each, and at its foot Settings, the theme toggle, Log out and the
-build line. On a tablet the sidebar shows icons only. On a phone it is a top bar with a menu button,
-the current screen's name and the search room; the menu button opens the same list as a drawer.
+wordmark, the five screens (Agenda, Calendar, Classes, Courses, Planning) with an icon and a name
+each, and at its foot Settings, the theme toggle, Log out and the build line. On a tablet the
+sidebar shows icons only. On a phone it is a top bar with a menu button and the current screen's
+name; the menu button opens the same list as a drawer.
 There is no top header on a laptop or a tablet, so a screen starts at the top of the window. The
 window is the only thing that scrolls. The shell has no shortcut to the next Session: the teacher
 opens a Session from its row on the Agenda or the Calendar.

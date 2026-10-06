@@ -11,7 +11,6 @@
 	import * as Sheet from '$lib/components/ui/sheet';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { Toaster } from '$lib/components/ui/sonner';
-	import SearchRoom from './SearchRoom.svelte';
 	import { SCREENS, isActive, screenTitle, settingsOpen } from './nav';
 	import type { LayoutProps } from './$types';
 
@@ -139,8 +138,6 @@
 					</div>
 					<span class="hidden font-semibold lg:inline">Planner</span>
 				</div>
-				<SearchRoom class="hidden lg:flex" />
-				<SearchRoom compact class="mx-auto lg:hidden" />
 				{@render screens(true)}
 				{@render foot(true)}
 			</aside>
@@ -163,7 +160,6 @@
 					</Sheet.Content>
 				</Sheet.Root>
 				<span class="font-semibold">{screenTitle()}</span>
-				<SearchRoom compact class="ml-auto" />
 			</header>
 		{/if}
 

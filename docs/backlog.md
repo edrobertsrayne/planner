@@ -8,6 +8,10 @@ Add new entries at the top, dated:
 
 - YYYY-MM-DD: idea
 
+- 2026-10-06: A search control over Lessons and Sessions (#265). The dashed "Search" room in
+  the sidebar and top bar was removed as a no-op placeholder (PR #354 review); build the
+  control with the feature.
+
 - 2026-08-27: End-of-year rollover. A destructive control that clears the calendar model
   and wipes every Session for a fresh start in a new academic year. Ruled out of scope
   while charting the calendar-editing map (#152), which decided how Terms and Blocked
