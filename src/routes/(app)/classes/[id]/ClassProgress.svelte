@@ -28,14 +28,12 @@
 			<dd>
 				{#if lane.lastTaught}
 					{@const lt = lane.lastTaught}
-					<!-- eslint-disable svelte/no-navigation-without-resolve -- sessionHref resolves it -->
 					<a
 						href={sessionHref({ classId, date: lt.date, period: lt.period })}
 						class="text-left font-medium hover:underline"
 					>
 						{lt.title}
 					</a>
-					<!-- eslint-enable svelte/no-navigation-without-resolve -->
 					{#if lt.note}<Markdown
 							source={lt.note}
 							class="mt-0.5 text-xs text-muted-foreground"

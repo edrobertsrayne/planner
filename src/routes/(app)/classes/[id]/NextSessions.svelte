@@ -13,7 +13,6 @@
 	<ul class="divide-y divide-border overflow-hidden rounded-xl border">
 		{#each rows as r (r.date + r.periodFrom)}
 			<li>
-				<!-- eslint-disable svelte/no-navigation-without-resolve -- sessionHref resolves it -->
 				<a
 					href={sessionHref({ classId: r.classId, date: r.date, period: r.periodFrom })}
 					class="flex min-h-11 items-center gap-3 px-3 py-2 hover:bg-muted/40 {touchTarget} md:min-h-10"
@@ -31,7 +30,6 @@
 					</span>
 					<ChevronRightIcon class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
 				</a>
-				<!-- eslint-enable svelte/no-navigation-without-resolve -->
 			</li>
 		{/each}
 	</ul>

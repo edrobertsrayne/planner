@@ -115,7 +115,6 @@
 					     marked, from `xl` only, because only there is it the one shown. -->
 					{@const marked = data.topic ? topic.id === data.topic.id : i === 0}
 					<li>
-						<!-- eslint-disable svelte/no-navigation-without-resolve -- courseHref resolves it -->
 						<a
 							href={courseHref(data.course.id, topic.id)}
 							style:--tone={tone.bg}
@@ -131,7 +130,6 @@
 							</span>
 							<ChevronRightIcon class="mt-0.5 size-4 shrink-0 text-muted-foreground xl:hidden" />
 						</a>
-						<!-- eslint-enable svelte/no-navigation-without-resolve -->
 					</li>
 				{/each}
 				{#if !data.topics.length}

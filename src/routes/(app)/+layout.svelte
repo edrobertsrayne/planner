@@ -54,7 +54,6 @@
 			{#snippet child({ props })}
 				{#if href}
 					<!-- Every caller passes an href already run through resolve(). -->
-					<!-- eslint-disable svelte/no-navigation-without-resolve -->
 					<a
 						{...props}
 						{href}
@@ -65,7 +64,6 @@
 						<Icon class="size-4 shrink-0" />
 						<span class={inSidebar ? 'sr-only lg:not-sr-only' : ''}>{text}</span>
 					</a>
-					<!-- eslint-enable svelte/no-navigation-without-resolve -->
 				{:else}
 					<button {...props} {type} {onclick} aria-label={ariaLabel} class="{cls} w-full">
 						<Icon class="size-4 shrink-0" />

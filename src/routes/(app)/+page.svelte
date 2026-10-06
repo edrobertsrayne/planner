@@ -118,7 +118,6 @@
 				</span>
 			</span>
 
-			<!-- eslint-disable svelte/no-navigation-without-resolve -- sessionHref resolves it -->
 			<a
 				href={hrefOf(row)}
 				class="min-w-0 flex-1 py-3 text-left outline-none focus-visible:underline"
@@ -136,11 +135,9 @@
 					<span class="block text-sm text-muted-foreground italic">Open Slot</span>
 				{/if}
 			</a>
-			<!-- eslint-enable svelte/no-navigation-without-resolve -->
 
 			<!-- A past row carries no Ready tick: Readiness is written ahead only. -->
 			{#if !row.lesson}
-				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- sessionHref resolves it -->
 				<Button variant="ghost" size="sm" class="h-7 row-control" href={hrefOf(row)}>Plan</Button>
 			{:else if !past}
 				<ReadyTick

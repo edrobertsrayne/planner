@@ -45,7 +45,6 @@
 		(document.activeElement as HTMLElement | null)?.blur();
 		if (!saving || !to || willUnload) return;
 		cancel();
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- the address the move was already heading to
 		void saving.then(() => (type === 'popstate' ? history.go(delta) : goto(to.url)));
 	});
 	const saveLesson: SubmitFunction = () => {
@@ -119,7 +118,6 @@
 			Back
 		</Button>
 		{#if data.course && data.topic}
-			<!-- eslint-disable svelte/no-navigation-without-resolve -- courseHref resolves it -->
 			<a
 				href={courseHref(data.course.id, data.topic.id)}
 				class="flex min-w-0 items-center gap-1 text-xs text-muted-foreground hover:text-foreground pointer-coarse:min-h-11"
@@ -128,7 +126,6 @@
 				<ChevronRightIcon class="size-3 shrink-0" />
 				<span class="max-w-80 truncate">{data.topic.name}</span>
 			</a>
-			<!-- eslint-enable svelte/no-navigation-without-resolve -->
 		{:else}
 			<span class="text-xs text-muted-foreground">Standalone Lesson</span>
 		{/if}
@@ -581,7 +578,6 @@
 						<ul class="space-y-2">
 							{#each lesson.links as link (link.id)}
 								<li>
-									<!-- eslint-disable svelte/no-navigation-without-resolve -- an external address -->
 									<a
 										href={link.url}
 										target="_blank"
@@ -591,7 +587,6 @@
 										<LinkIcon class="size-4 shrink-0 text-muted-foreground" />
 										<span class="min-w-0 flex-1 truncate">{link.label}</span>
 									</a>
-									<!-- eslint-enable svelte/no-navigation-without-resolve -->
 								</li>
 							{/each}
 						</ul>

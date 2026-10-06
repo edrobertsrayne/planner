@@ -53,7 +53,6 @@
 	const weekHref = (weekCommencing: string) => resolve(`/calendar?week=${weekCommencing}`);
 
 	function openToPlace(classId: string, date: string, period: number) {
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- sessionHref resolves it
 		return goto(sessionHref({ classId, date, period }));
 	}
 
@@ -410,7 +409,6 @@
 											<!-- A past tile is the record of what happened, not a removal: it keeps
 											its Class Tone and text, and takes the hatch only to step back from the
 											upcoming tiles. Its Session page opens like any other. -->
-											<!-- eslint-disable svelte/no-navigation-without-resolve -- sessionHref resolves it -->
 											<a
 												href={sessionHref({
 													classId: cell.classId,
@@ -469,7 +467,6 @@
 													</span>
 												{/if}
 											</a>
-											<!-- eslint-enable svelte/no-navigation-without-resolve -->
 										{/if}
 									</td>
 								{/if}
