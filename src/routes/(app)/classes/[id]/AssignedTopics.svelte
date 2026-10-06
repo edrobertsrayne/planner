@@ -5,9 +5,6 @@
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import XIcon from '@lucide/svelte/icons/x';
 	import { onFail, submitWithValue } from '$lib/client/enhance';
-	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
-	import PlacementsMovedAlert from '$lib/components/placements-moved-alert.svelte';
-	import type { AtRiskSession, PlacementMoved } from '$lib/server/planner';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
 
@@ -18,19 +15,12 @@
 		classId,
 		classLabel,
 		assigned,
-		courseTopics,
-		atRisk,
-		placementsMoved
+		courseTopics
 	}: {
 		classId: string;
 		classLabel: string;
 		assigned: { id: string; topicName: string }[];
 		courseTopics: { id: string; name: string }[];
-		// Every write on this shelf — assign, unassign, reorder — can Rewind a noted Session, and
-		// this is where that report surfaces (ADR-0007).
-		atRisk?: AtRiskSession[];
-		// The same shelf's writes can push a Class's Placement off its anchor (ADR-0022).
-		placementsMoved?: PlacementMoved[];
 	} = $props();
 
 	let assignForm = $state<HTMLFormElement | undefined>();
@@ -48,13 +38,6 @@
 	<p class="mb-2 text-xs text-muted-foreground">
 		{classLabel} teaches these, in this order — decide the next one as you reach it.
 	</p>
-
-	{#if atRisk}
-		<AtRiskAlert {atRisk} />
-	{/if}
-	{#if placementsMoved}
-		<PlacementsMovedAlert {placementsMoved} />
-	{/if}
 
 	<ul class="divide-y rounded-lg border">
 		{#each assigned as a, i (a.id)}
