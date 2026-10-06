@@ -687,6 +687,16 @@ test.describe('the Lesson editor on a laptop', () => {
 		await expect(page.getByRole('alert')).toContainText('A Lesson needs a title.');
 	});
 
+	test('stepping from a directly-opened Lesson keeps Back on the fallback', async ({ page }) => {
+		// A full load has no in-app page behind it, and a same-route step must not tell Back
+		// otherwise: history.back() would leave the app or do nothing.
+		await openLesson(page);
+		await page.getByRole('button', { name: 'Next Lesson' }).click();
+		await expect(page.getByRole('textbox', { name: 'Lesson title' })).toHaveValue('Motion');
+		await page.getByRole('button', { name: 'Back' }).click();
+		await expect(page).toHaveURL(/\/courses\/[^/?]+\?topic=/);
+	});
+
 	test('the page bar steps through the Topic with the controls and [ ]', async ({ page }) => {
 		await openLessonFromCourses(page);
 		const previous = page.getByRole('button', { name: 'Previous Lesson' });
