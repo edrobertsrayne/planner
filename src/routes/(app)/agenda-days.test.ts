@@ -53,14 +53,25 @@ describe('filterByTag (issue #280)', () => {
 	});
 });
 
-describe('tagsIn (issue #280)', () => {
-	test('lists each distinct Tag once, in alphabetical order, and Open Slots add none', () => {
-		expect(tagsIn(rows)).toEqual(['Assessment', 'Practical']);
+describe('tagsIn (issue #280; counts issue #340)', () => {
+	test('lists each distinct Tag once, in alphabetical order, with the count of rows that carry it, and Open Slots add none', () => {
+		expect(tagsIn(rows)).toEqual([
+			{ name: 'Assessment', count: 1 },
+			{ name: 'Practical', count: 2 }
+		]);
+	});
+
+	test('the count is the rows that carry the Tag: a Lesson scheduled twice counts twice', () => {
+		const again = { date: '2026-09-10', lesson: { tags: ['Practical'] } };
+		expect(tagsIn([practical, again])).toEqual([{ name: 'Practical', count: 2 }]);
 	});
 
 	test('alphabetical order ignores case', () => {
 		const tagged = (tags: string[]) => ({ date: '2026-09-03', lesson: { tags } });
-		expect(tagsIn([tagged(['Practical']), tagged(['biology'])])).toEqual(['biology', 'Practical']);
+		expect(tagsIn([tagged(['Practical']), tagged(['biology'])])).toEqual([
+			{ name: 'biology', count: 1 },
+			{ name: 'Practical', count: 1 }
+		]);
 	});
 
 	test('an empty window has no Tags', () => {

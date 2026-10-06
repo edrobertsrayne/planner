@@ -1,21 +1,15 @@
 import { test, expect } from '@playwright/test';
-import { BEARER, standingKey, openPage, type Page } from './helpers.ts';
+import { BEARER, apiKey } from './helpers.ts';
 
 // Covers the one Import endpoint over real HTTP (issue #159): the whole-or-nothing transaction,
 // Course reuse by name, the ambiguity and collision refusals, the rejected Import that leaves
 // nothing behind, and the Lesson and Link caps. Brings its own Course and Topic, so it leans on
 // no other file in the directory.
 test.describe.serial('the Topic import', () => {
-	let page: Page;
 	let token = '';
 
 	test.beforeAll(async ({ browser }) => {
-		page = await openPage(browser);
-		token = await standingKey(page);
-	});
-
-	test.afterAll(async () => {
-		await page.close();
+		token = await apiKey(browser);
 	});
 
 	test('Import creates a whole Topic, reuses a Course by name, and refuses on collision', async ({

@@ -21,9 +21,10 @@ export default defineConfig({
 	use: {
 		launchOptions: chromiumPath ? { executablePath: chromiumPath } : {},
 		headless: true,
-		// A failed test leaves a trace to read (DOM, network, action timeline) in test-results/.
+		// A failed test leaves a trace to read (DOM snapshots, network, action timeline) in test-results/.
+		// The trace has no screenshot filmstrip: recording screenshots for every test slowed the suite.
 		// Traces for passing tests are deleted. No retries: a flake reports itself.
-		trace: 'retain-on-failure'
+		trace: { mode: 'retain-on-failure', screenshots: false }
 	},
 	webServer: {
 		// The scratch database and its attachment files are deleted before every run, so two

@@ -1,6 +1,6 @@
 // The Agenda's horizon: a window of calendar days from today, or 'all' to the end of the last Term
 // (issue #281). Shared between the load function (which validates the `?horizon=` param) and the
-// view (which renders the toggle).
+// view (which renders the horizon tabs).
 export const AGENDA_HORIZONS = [
 	[7, 'This Week'],
 	[14, 'Two Weeks'],

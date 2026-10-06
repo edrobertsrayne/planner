@@ -8,17 +8,18 @@ import {
 	createAttachment,
 	createLink,
 	deleteAttachment,
+	deleteLesson,
 	deleteLink,
 	detachTag,
 	moveLessonToTopic,
 	moveLink,
+	patchLesson,
 	setLessonStatus,
 	updateLesson,
 	updateLink
 } from '$lib/server/planner';
 
-// The lesson-editing actions the Courses view and the Planning board share — the Lesson editor
-// posts to the same eleven actions whichever screen opens it over.
+// The lesson-editing actions the Lesson editor and Planning share.
 export const lessonActions = {
 	updateLesson: async ({ request }) => {
 		const data = await request.formData();
@@ -62,6 +63,19 @@ export const lessonActions = {
 		return { lesson };
 	},
 
+	// One-way: the Lesson keeps its title, plan, Tags, Links and Attachments and leaves its Topic.
+	detachLesson: async ({ request }) => {
+		const data = await request.formData();
+		const id = trimmed(data, 'id');
+		try {
+			const lesson = patchLesson(db, { id, fields: { topicId: null }, today: today() });
+			if (!lesson) return fail(404, { error: 'No such Lesson.' });
+			return { lesson };
+		} catch (error) {
+			return refusal(error);
+		}
+	},
+
 	createLink: async ({ request }) => {
 		const data = await request.formData();
 		const lessonId = trimmed(data, 'lessonId');
@@ -83,6 +97,20 @@ export const lessonActions = {
 			const link = updateLink(db, { id, label, url });
 			if (!link) return fail(404, { error: 'No such Link.' });
 			return { link };
+		} catch (error) {
+			return refusal(error);
+		}
+	},
+
+	// The seam writes the reason: a Lesson a Class has already been taught refuses with the Detach
+	// hint, and one a Placement names with the Placement way out.
+	deleteLesson: async ({ request }) => {
+		const data = await request.formData();
+		const id = trimmed(data, 'id');
+		try {
+			const lesson = deleteLesson(db, { id, today: today(), dir: attachmentsDir(DATABASE_URL) });
+			if (!lesson) return fail(404, { error: 'No such Lesson.' });
+			return {};
 		} catch (error) {
 			return refusal(error);
 		}

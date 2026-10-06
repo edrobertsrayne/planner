@@ -5,9 +5,6 @@
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import XIcon from '@lucide/svelte/icons/x';
 	import { onFail, submitWithValue } from '$lib/client/enhance';
-	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
-	import PlacementsMovedAlert from '$lib/components/placements-moved-alert.svelte';
-	import type { AtRiskSession, PlacementMoved } from '$lib/server/planner';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
 
@@ -18,19 +15,12 @@
 		classId,
 		classLabel,
 		assigned,
-		courseTopics,
-		atRisk,
-		placementsMoved
+		courseTopics
 	}: {
 		classId: string;
 		classLabel: string;
 		assigned: { id: string; topicName: string }[];
 		courseTopics: { id: string; name: string }[];
-		// Every write on this shelf — assign, unassign, reorder — can Rewind a noted Session, and
-		// this is where that report surfaces (ADR-0007).
-		atRisk?: AtRiskSession[];
-		// The same shelf's writes can push a Class's Placement off its anchor (ADR-0022).
-		placementsMoved?: PlacementMoved[];
 	} = $props();
 
 	let assignForm = $state<HTMLFormElement | undefined>();
@@ -49,20 +39,15 @@
 		{classLabel} teaches these, in this order — decide the next one as you reach it.
 	</p>
 
-	{#if atRisk}
-		<AtRiskAlert {atRisk} />
-	{/if}
-	{#if placementsMoved}
-		<PlacementsMovedAlert {placementsMoved} />
-	{/if}
-
 	<ul class="divide-y rounded-lg border">
 		{#each assigned as a, i (a.id)}
 			<li class="group flex items-stretch gap-2 py-1 pr-1 pl-3">
 				<span class="self-center text-xs text-muted-foreground tabular-nums">{i + 1}</span>
 				<span class="min-w-0 flex-1 self-center truncate text-sm">{a.topicName}</span>
 
-				<div class="flex flex-col justify-center opacity-0 group-hover:opacity-100">
+				<!-- The reorder and Unassign sit in one column behind the row's hover rule (story
+				     113); a phone reads, so they go with the Assign row below `md` (story 116). -->
+				<div class="flex flex-col justify-center row-control max-md:hidden">
 					{#each MOVES as move (move.direction)}
 						<form
 							method="POST"
@@ -76,7 +61,7 @@
 								type="submit"
 								disabled={move.direction === 'up' ? i === 0 : i === assigned.length - 1}
 								aria-label="Move {a.topicName} {move.described}"
-								class="{move.rounding} px-1 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-20"
+								class="{move.rounding} px-1 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-20 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 							>
 								{#if move.direction === 'up'}
 									<ChevronUpIcon class="size-3" />
@@ -92,6 +77,7 @@
 					method="POST"
 					action="?/unassignTopic"
 					use:enhance={onFail('Could not unassign the Topic.')}
+					class="max-md:hidden"
 				>
 					<input type="hidden" name="classId" value={classId} />
 					<input type="hidden" name="id" value={a.id} />
@@ -99,7 +85,7 @@
 						type="submit"
 						variant="ghost"
 						size="icon-xs"
-						class="self-center opacity-0 group-hover:opacity-100"
+						class="self-center row-control"
 						aria-label="Unassign {a.topicName}"
 					>
 						<XIcon />
@@ -111,7 +97,7 @@
 		{/each}
 
 		{#if courseTopics.length}
-			<li class="p-1">
+			<li class="p-1 max-md:hidden">
 				<form
 					method="POST"
 					action="?/assignTopic"

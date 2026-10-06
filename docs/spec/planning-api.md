@@ -701,7 +701,7 @@ Making `lesson.topic_id` nullable breaks three inner joins. They must become **l
 
 - `lessonNames` in `derive.ts` — feeds the Agenda, the Calendar grid, the Class lanes, the at-risk
   report.
-- `sessionDetail` in `sessions.ts` — feeds the Session panel.
+- `sessionDetail` in `sessions.ts` — feeds the Session page.
 - `planningStream` in `views.ts` — feeds the Planning tab.
 
 The first two are load-bearing. Left unrepaired they drop a Standalone Lesson's title from exactly

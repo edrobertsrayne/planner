@@ -265,10 +265,10 @@ agree on what to call them.
 
 **App shell**:
 The frame around every screen except Login and Setup. On a laptop it is a sidebar on the left: the
-wordmark, room for a later search control, the five screens (Agenda, Calendar, Classes, Courses,
-Planning) with an icon and a name each, and at its foot Settings, the theme toggle, Log out and the
-build line. On a tablet the sidebar shows icons only. On a phone it is a top bar with a menu button,
-the current screen's name and the search room; the menu button opens the same list as a drawer.
+wordmark, the five screens (Agenda, Calendar, Classes, Courses, Planning) with an icon and a name
+each, and at its foot Settings, the theme toggle, Log out and the build line. On a tablet the
+sidebar shows icons only. On a phone it is a top bar with a menu button and the current screen's
+name; the menu button opens the same list as a drawer.
 There is no top header on a laptop or a tablet, so a screen starts at the top of the window. The
 window is the only thing that scrolls. The shell has no shortcut to the next Session: the teacher
 opens a Session from its row on the Agenda or the Calendar.
@@ -292,7 +292,8 @@ record, so ticking either moves both. The Agenda can be narrowed to one Tag with
 under the heading, the same control as the Class chips on Planning: while a Tag filter is on, it
 shows only the Lessons with that Tag and hides Open Slots, in the look-back and in the days ahead.
 The Agenda is one column at every size. On a phone it is the main screen, so the Ready tick and an
-Open Slot's Plan button show without a hover.
+Open Slot's Plan button show without a hover. On a phone the page heading is out of sight, because
+the top bar names the screen; a screen reader still reads it.
 
 **Calendar**:
 One Teaching Week as a grid of Periods against days, showing which Class is taught when and what
@@ -302,7 +303,7 @@ its Class's colour and shows no Lesson. A Blocked Day and a Blocked Slot drain t
 Present-but-empty and removed must never read alike. A position dated before today shows its
 recorded Session, or an Open Slot when no Lesson was recorded. It keeps its Class's Tone and lays
 a hatch over it, so past and upcoming tiles never read alike. A past tile is never a removal: it
-opens the Session panel on its occasion. A day with no teaching — a Blocked Day or a
+opens the Session page on its occasion. A day with no teaching — a Blocked Day or a
 School Holiday — drops its six Periods. The day reads as one panel spanning the column. The panel is
 told apart from an empty Period by a step in shade, never a hue. No block or unblock sits on a tile.
 Every block and unblock on a day starts in that day's menu. The menu offers Block day or Unblock
@@ -365,9 +366,11 @@ ordered by soonest next Scheduled occurrence, Lessons with no scheduled occurren
 Lesson rather than by Class, so it shows the shared plan and never shows Readiness: what the
 teacher has not yet written is one question, and whether one Class is set to be taught is another.
 The screen can be narrowed to one Class with a row of Class chips; it then lists only that Class's
-upcoming Lessons, ordered by that Class's Sessions. It is a table, one row per Lesson, holding the
-whole stream with no page size; the window scrolls it. Only the Lesson's title opens the Lesson
-editor. On a phone each row is a card, and Draft and Planned are shown but not changed.
+upcoming Lessons, ordered by that Class's Sessions. It can also be narrowed to Draft or Planned with
+tabs. Both filters live in the address, so a reload or a Back into the screen keeps them. It is a
+table, one row per Lesson, holding the whole stream with no page size; the window scrolls it. Only
+the Lesson's title opens the Lesson editor. On a phone each row is a card, and Draft and Planned
+are shown but not changed.
 Note that this names a _screen_; "planning" unqualified means the activity, and the Planning half
 of the Language above names its parts.
 

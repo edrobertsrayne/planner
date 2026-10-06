@@ -1,27 +1,11 @@
 import { test, expect, type Page } from '@playwright/test';
-import { execFileSync } from 'node:child_process';
+import { EMAIL, PASSWORD, isoDate, runFixture } from './helpers.ts';
 
 // Runs after sign-in-out.e2e.ts (issue #97), logging in as the one user the wizard test created,
 // rather than creating its own. File sorts after sign-in-out.e2e.ts and before
 // user-settings-password.e2e.ts for the suite's single-worker ordering (see isolation.e2e.ts).
-const EMAIL = 'teacher@example.com';
-const PASSWORD = 'a-very-long-password';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-
-function isoDate(offsetDays: number): string {
-	const d = new Date();
-	d.setUTCDate(d.getUTCDate() + offsetDays);
-	return d.toISOString().slice(0, 10);
-}
-
-function runFixture(...args: string[]): string {
-	return execFileSync('node', ['scripts/e2e-fixtures.ts', ...args], {
-		cwd: process.cwd(),
-		env: { ...process.env, DATABASE_URL: 'e2e.db' },
-		encoding: 'utf-8'
-	});
-}
 
 async function login(page: Page, email: string, password: string) {
 	await page.goto('/login');
@@ -32,15 +16,15 @@ async function login(page: Page, email: string, password: string) {
 }
 
 async function openSessionAndExpect(page: Page) {
-	await expect(page.getByRole('button', { name: 'Close Session' })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Back' })).toBeVisible();
 	await expect(page.getByLabel('How it went')).toBeVisible();
 }
 
 async function expectSessionClosed(page: Page) {
-	await expect(page.getByRole('button', { name: 'Close Session' })).toBeHidden();
+	await expect(page.getByRole('button', { name: 'Back' })).toBeHidden();
 }
 
-test.describe.serial('the rebuilt reading views and their Session panel', () => {
+test.describe.serial('the rebuilt reading views and their Session page', () => {
 	let page: Page;
 	let classAId = '';
 	let classBId = '';
@@ -102,6 +86,8 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		const letter = (await page.locator('[aria-current="true"]').first().innerText()).charAt(0);
 
 		await page.goto(`/classes/${classAId}`);
+		// The grid now lives on the Timetable tab (issue #347).
+		await page.getByRole('tab', { name: /^Timetable/ }).click();
 		// Three periods a week — Mon, Wed and Fri P1 — a realistic KS3 cadence, and enough future
 		// Available Slots for the Planning test to page against: one fortnightly Slot supplies only
 		// 8 before the fixture's Terms run out on a Saturday, leaving two of the ten Lessons
@@ -114,10 +100,13 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 				})
 				.click();
 		}
+		// The Assigned Topics shelf lives on the Overview tab (issue #347).
+		await page.getByRole('tab', { name: 'Overview' }).click();
 		await page.getByRole('button', { name: 'Assign next Topic' }).click();
 		await page.getByRole('option', { name: 'Forces' }).click();
 
 		await page.goto(`/classes/${classBId}`);
+		await page.getByRole('tab', { name: /^Timetable/ }).click();
 		// Tuesday P3 — a day classA leaves untouched — in BOTH letters, so whatever the run
 		// date, a Tuesday sits within the Agenda's This Week horizon, and the week the Calendar
 		// test loads always carries one. The cells are positions, not dates (see above).
@@ -155,84 +144,68 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		expect(toneA).not.toBe(toneB);
 	});
 
-	test('the Lesson editor traps focus and closes on Escape', async () => {
+	test('the Lesson editor stays open on Escape, and Back returns to the Courses screen', async () => {
 		await page.goto('/courses');
 		await page.getByRole('link', { name: 'KS3 Science' }).click();
 		await page.getByRole('link', { name: 'Forces' }).click();
 		await page.getByRole('link', { name: 'Speed', exact: true }).click();
 
-		const dialog = page.getByRole('dialog');
-		await expect(dialog).toBeVisible();
-
-		// Tabbing all the way round a Dialog with a focus trap never leaves it.
-		const tabStops = 12;
-		for (let i = 0; i < tabStops; i++) {
-			await page.keyboard.press('Tab');
-			await expect(dialog.locator(':focus')).toHaveCount(1);
-		}
+		await expect(page).toHaveURL(/\/lessons\//);
+		await expect(page.getByRole('dialog')).toHaveCount(0);
 
 		await page.keyboard.press('Escape');
-		await expect(dialog).toBeHidden();
+		await expect(page).toHaveURL(/\/lessons\//);
+
+		await page.getByRole('button', { name: 'Back' }).click();
+		await expect(page).toHaveURL(/\/courses\/[^/?]+\?topic=/);
 	});
 
-	test('opening a Session from the Agenda, and dismissing it by the close button', async () => {
+	test('opening a Session from the Agenda, and going Back to the Agenda', async () => {
 		await page.goto('/');
 		const row = page.locator('li').filter({ hasText: '9B/Sc1' }).first();
-		await row.getByRole('button').first().click();
+		await row.getByRole('link').first().click();
 
 		await openSessionAndExpect(page);
-		await expect(page.locator('[data-session-panel]')).toContainText('9B/Sc1');
+		await expect(page.locator('main')).toContainText('9B/Sc1');
 
-		await page.getByRole('button', { name: 'Close Session' }).click();
+		await page.getByRole('button', { name: 'Back' }).click();
 		await expectSessionClosed(page);
 	});
 
-	test('opening a Session from the Calendar, and dismissing it by Escape', async () => {
+	test('opening a Session from the Calendar, and going Back to the Calendar', async () => {
 		// An upcoming Open Slot, not a past one. 9C/Sc1's Slot is Tuesday P3 in both letters, so
 		// load the week of the next Tuesday: this week's grid early in the week, next week's from
 		// Wednesday on.
 		const tuesday = (2 - new Date().getUTCDay() + 7) % 7;
 		await page.goto(`/calendar?week=${isoDate(tuesday - 1)}`);
-		await page.getByRole('button', { name: '9C/Sc1 Open Slot' }).click();
+		await page.getByRole('link', { name: '9C/Sc1 Open Slot' }).click();
 		await openSessionAndExpect(page);
-		await expect(page.locator('[data-session-panel]')).toContainText('9C/Sc1');
+		await expect(page.locator('main')).toContainText('9C/Sc1');
 
-		await page.keyboard.press('Escape');
+		await page.getByRole('button', { name: 'Back' }).click();
 		await expectSessionClosed(page);
 	});
 
-	test('opening a Session from the Class page, and dismissing it by clicking away', async () => {
+	test('opening a Session from the Class page, and going Back to the Class page', async () => {
 		await page.goto(`/classes/${classAId}`);
-		await page.getByRole('button', { name: 'Speed' }).click();
+
+		// Overview leads with the next five Sessions (issue #348): 'Motion' on the next Slot,
+		// then the Open Slots the plan runs out into.
+		const nextSessions = page
+			.locator('section')
+			.filter({ has: page.getByRole('heading', { name: 'Next Sessions' }) });
+		await expect(nextSessions.locator('li')).toHaveCount(5);
+		await expect(nextSessions.locator('li').first()).toContainText('Motion');
+		await expect(nextSessions.locator('li').nth(1)).toContainText('Open Slot');
+
+		await nextSessions.locator('li').first().getByRole('link').click();
 
 		await openSessionAndExpect(page);
-		await expect(page.locator('[data-session-panel]')).toContainText('Speed');
+		await expect(page.locator('main')).toContainText('Motion');
 
-		await page.getByRole('heading', { name: '9B/Sc1' }).click();
+		await page.getByRole('button', { name: 'Back' }).click();
 		await expectSessionClosed(page);
-	});
-
-	test('clicking a second Agenda row switches the Session rather than closing and reopening it', async () => {
-		await page.goto('/');
-		await page
-			.locator('li')
-			.filter({ hasText: '9B/Sc1' })
-			.first()
-			.getByRole('button')
-			.first()
-			.click();
-		await expect(page.locator('[data-session-panel]')).toContainText('9B/Sc1');
-
-		await page
-			.locator('li')
-			.filter({ hasText: '9C/Sc1' })
-			.first()
-			.getByRole('button')
-			.first()
-			.click();
-		await expect(page.locator('[data-session-panel]')).toContainText('9C/Sc1');
-		// Never dropped out of view between the two clicks.
-		await expect(page.getByRole('button', { name: 'Close Session' })).toBeVisible();
+		await expect(page).toHaveURL(`/classes/${classAId}`);
 	});
 
 	test('a note typed and then dismissed is present on reopen', async () => {
@@ -243,7 +216,7 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 			.locator('li')
 			.filter({ hasText: '9C/Sc1' })
 			.first()
-			.getByRole('button')
+			.getByRole('link')
 			.first()
 			.click();
 		await openSessionAndExpect(page);
@@ -251,27 +224,30 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		await noteField.click();
 		await noteField.pressSequentially(note);
 
-		await page.keyboard.press('Escape');
+		await page.getByRole('button', { name: 'Back' }).click();
 		await expectSessionClosed(page);
 
 		await page
 			.locator('li')
 			.filter({ hasText: '9C/Sc1' })
 			.first()
-			.getByRole('button')
+			.getByRole('link')
 			.first()
 			.click();
 		await expect(page.getByLabel('How it went')).toHaveText(note);
 	});
 
-	test("the Agenda's horizon survives a reload via the URL", async () => {
+	test("the Agenda's horizon tabs change the horizon and survive a reload via the URL (issue #341)", async () => {
 		await page.goto('/');
-		await page.getByRole('radio', { name: 'Two Weeks' }).click();
+		await page.getByRole('tab', { name: 'Two Weeks' }).click();
 		await expect(page).toHaveURL(/horizon=14/);
 
 		await page.reload();
 		await expect(page).toHaveURL(/horizon=14/);
-		await expect(page.getByRole('radio', { name: 'Two Weeks' })).toBeChecked();
+		await expect(page.getByRole('tab', { name: 'Two Weeks' })).toHaveAttribute(
+			'aria-selected',
+			'true'
+		);
 	});
 
 	test("the Agenda's All horizon reaches past Four Weeks and survives a reload (issue #281)", async () => {
@@ -280,12 +256,12 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		await expect(days.first()).toBeVisible();
 		const fourWeeks = await days.count();
 
-		await page.getByRole('radio', { name: 'All' }).click();
+		await page.getByRole('tab', { name: 'All' }).click();
 		await expect(page).toHaveURL(/horizon=all/);
 		await expect.poll(() => days.count()).toBeGreaterThan(fourWeeks);
 
 		await page.reload();
-		await expect(page.getByRole('radio', { name: 'All' })).toBeChecked();
+		await expect(page.getByRole('tab', { name: 'All' })).toHaveAttribute('aria-selected', 'true');
 	});
 
 	test('the theme toggle persists across a reload', async () => {
@@ -300,8 +276,8 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		await expect.poll(isDark).toBe(!before);
 	});
 
-	test('the Planning tab filters, pages, and updates status with tones and counts', async () => {
-		// Create additional lessons in Courses to reach 11 total so stream trimming is testable.
+	test('the Planning tab shows the whole stream and updates status with tones and counts', async () => {
+		// Nine more Lessons in Courses: the stream then holds 11, and the counts below read 11.
 		await page.goto('/courses');
 		await page.getByRole('link', { name: 'KS3 Science' }).click();
 		await page.getByRole('link', { name: 'Forces' }).click();
@@ -330,51 +306,37 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 
 		await page.goto('/planning');
 
-		const speedRow = page.locator('li').filter({ hasText: 'Speed' });
-		const motionRow = page.locator('li').filter({ hasText: 'Motion' });
+		const speedRow = page.getByRole('row').filter({ hasText: 'Speed' });
+		const motionRow = page.getByRole('row').filter({ hasText: 'Motion' });
 
-		// Motion is scheduled next, so it sits in the top 10; Speed was taught in the past so it
-		// sits in the unscheduled tail past the initial 10-item limit.
+		// The whole stream shows at once: Speed was taught in the past and so sits in the
+		// unscheduled tail, and it is in view with no page size to trim it.
 		await expect(motionRow).toBeVisible();
-		await expect(speedRow).toBeHidden();
-
-		// Initial counts: 11 lessons, all Draft.
-		const allFilter = page.getByRole('button', { name: /^All\s+\d+$/ });
-		const draftFilter = page.getByRole('button', { name: /^Draft\s+\d+$/ });
-		const plannedFilter = page.getByRole('button', { name: /^Planned\s+\d+$/ });
-		await expect(allFilter).toContainText('11');
-		await expect(draftFilter).toContainText('11');
-		await expect(plannedFilter).toContainText('0');
-
-		// Trimming line is visible with default Show 10.
-		await expect(page.getByText('Showing 10 of 11')).toBeVisible();
-
-		// Paging controls: Show all reveals all 11 items (including Speed) and hides trimming line.
-		const showAllBtn = page.getByRole('button', { name: 'Show all' });
-		const show10Btn = page.getByRole('button', { name: 'Show 10' });
-		await showAllBtn.click();
-		await expect(showAllBtn).toHaveAttribute('aria-pressed', 'true');
-		await expect(page.getByText('Showing 10 of 11')).toBeHidden();
 		await expect(speedRow).toBeVisible();
+		await expect(page.getByRole('button', { name: /^(Show \d+|Show all)$/ })).toHaveCount(0);
+		await expect(page.getByText(/^Showing \d+ of \d+$/)).toHaveCount(0);
 
-		await show10Btn.click();
-		await expect(show10Btn).toHaveAttribute('aria-pressed', 'true');
-		await expect(page.getByText('Showing 10 of 11')).toBeVisible();
-		await expect(speedRow).toBeHidden();
+		// Initial counts: 11 lessons, all Draft. The tabs at the right of the title carry the
+		// counts and narrow the table.
+		const allTab = page.getByRole('tab', { name: /^All\s+\d+$/ });
+		const draftTab = page.getByRole('tab', { name: /^Draft\s+\d+$/ });
+		const plannedTab = page.getByRole('tab', { name: /^Planned\s+\d+$/ });
+		await expect(allTab).toContainText('11');
+		await expect(draftTab).toContainText('11');
+		await expect(plannedTab).toContainText('0');
 
-		// Filtering by Planned shows the dashed empty state.
-		await plannedFilter.click();
+		// The Planned tab narrows the table to Planned, and shows the dashed empty state with
+		// nothing Planned.
+		await plannedTab.click();
 		await expect(page.getByText('No Planned Lessons')).toBeVisible();
 		await expect(motionRow).toBeHidden();
-		await expect(plannedFilter).toHaveAttribute('style', /var\(--success-bg\)/);
 
-		// Filtering by Draft shows Draft tone on selected chip.
-		await draftFilter.click();
-		await expect(draftFilter).toHaveAttribute('style', /var\(--error-bg\)/);
+		// The Draft tab narrows the table to Draft.
+		await draftTab.click();
 		await expect(motionRow).toBeVisible();
 
 		// Switch back to All to update status.
-		await allFilter.click();
+		await allTab.click();
 
 		// Advance 'Motion' to Planned from its row's segmented control.
 		const motionPlannedBtn = motionRow.getByRole('button', { name: 'Planned' });
@@ -383,19 +345,17 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		await expect(motionPlannedBtn).toHaveAttribute('style', /var\(--success-bg\)/);
 
 		// Live counts update across the whole stream.
-		await expect(allFilter).toContainText('11');
-		await expect(draftFilter).toContainText('10');
-		await expect(plannedFilter).toContainText('1');
+		await expect(allTab).toContainText('11');
+		await expect(draftTab).toContainText('10');
+		await expect(plannedTab).toContainText('1');
 
 		// Filter to Planned — only 'Motion' shows.
-		await plannedFilter.click();
+		await plannedTab.click();
 		await expect(motionRow).toBeVisible();
-		await expect(page.getByText('Showing 10 of 11')).toBeHidden();
 
 		// Filter to Draft — 'Motion' is hidden.
-		await draftFilter.click();
+		await draftTab.click();
 		await expect(motionRow).toBeHidden();
-		await expect(page.getByText('Showing 10 of 10')).toBeHidden();
 	});
 
 	test('tagging a Lesson in the editor shows its chip on the Courses list and Planning', async () => {
@@ -407,71 +367,114 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		await page.getByRole('button', { name: '+ Add Tag' }).click();
 		await page.getByPlaceholder('Tag name').fill('Practical');
 		await page.getByPlaceholder('Tag name').press('Enter');
-		await expect(page.getByRole('dialog').getByText('Practical', { exact: true })).toBeVisible();
+		await expect(page.locator('main').getByText('Practical', { exact: true })).toBeVisible();
 
-		await page.keyboard.press('Escape');
-		await expect(page.getByRole('dialog')).toBeHidden();
+		await page.getByRole('button', { name: 'Back' }).click();
+		await expect(page).toHaveURL(/\/courses\/[^/?]+\?topic=/);
 
 		const courseRow = page.locator('li').filter({ hasText: 'Motion' });
 		await expect(courseRow.getByText('Practical', { exact: true })).toBeVisible();
 
 		await page.goto('/planning');
-		const motionRow = page.locator('li').filter({ hasText: 'Motion' });
-		await expect(motionRow.getByText('Practical', { exact: true })).toBeVisible();
+		const motionRow = page.getByRole('row').filter({ hasText: 'Motion' });
+		// The chip reads in the row at every size: in the Tags column, or folded under the title.
+		await expect(motionRow).toContainText('Practical');
 	});
 
-	test('the Planning tab narrows to one Class, kept in the URL across a reload', async () => {
+	test('a Class chip narrows Planning to one Class, and a click on the chip again clears the filter', async () => {
 		await page.goto('/planning');
-		const allFilter = page.getByRole('button', { name: /^All\s+\d+$/ });
-		const plannedFilter = page.getByRole('button', { name: /^Planned\s+\d+$/ });
-		await expect(allFilter).toContainText('11');
+		const allTab = page.getByRole('tab', { name: /^All\s+\d+$/ });
+		const plannedTab = page.getByRole('tab', { name: /^Planned\s+\d+$/ });
+		await expect(allTab).toContainText('11');
 
-		await page.getByRole('button', { name: 'Filter by Class' }).click();
-		await page.getByRole('option', { name: '9B/Sc1' }).click();
+		// A Class chip narrows the stream to that Class and puts it in the URL.
+		await page.getByRole('button', { name: '9B/Sc1' }).click();
 		await page.waitForURL(`/planning?class=${classAId}`);
 
 		// Only 9B/Sc1's upcoming Lessons, each dated by 9B/Sc1, with no unscheduled tail.
 		const rows = page
-			.locator('li')
+			.getByRole('row')
 			.filter({ has: page.getByRole('button', { name: 'Draft', exact: true }) });
-		await page.getByRole('button', { name: 'Show all' }).click();
 		await expect(rows.first()).toContainText('9B/Sc1');
 		await expect(rows.filter({ hasText: '9C/Sc1' })).toHaveCount(0);
-		await expect(rows.filter({ hasText: 'unscheduled' })).toHaveCount(0);
-		await expect(allFilter).not.toContainText('11');
+		await expect(rows.filter({ hasText: '—' })).toHaveCount(0);
+		await expect(allTab).not.toContainText('11');
 
+		// The chip is on, and the filter is in the URL across a reload.
 		await page.reload();
-		await expect(page.getByRole('button', { name: 'Filter by Class' })).toHaveText('9B/Sc1');
-		await expect(rows.filter({ hasText: 'unscheduled' })).toHaveCount(0);
+		await expect(page.getByRole('button', { name: '9B/Sc1' })).toHaveAttribute(
+			'aria-pressed',
+			'true'
+		);
+		await expect(rows.filter({ hasText: '—' })).toHaveCount(0);
 
-		// The status filter narrows the Class's list further: Motion is the one Planned Lesson.
-		await plannedFilter.click();
+		// The status tabs narrow the Class's list further: Motion is the one Planned Lesson.
+		await plannedTab.click();
 		await expect(rows).toHaveCount(1);
 		await expect(rows.first()).toContainText('Motion');
 
-		await page.getByRole('button', { name: 'Filter by Class' }).click();
-		await page.getByRole('option', { name: 'All classes' }).click();
-		await page.waitForURL('/planning');
-		await expect(allFilter).toContainText('11');
+		// A click on the chip that is on returns to All Classes; the Planned tab stays, since the
+		// two filters live in the address side by side.
+		await page.getByRole('button', { name: '9B/Sc1' }).click();
+		await page.waitForURL('/planning?status=planned');
+		await expect(allTab).toContainText('11');
 
+		// An unknown Class in the URL falls back to All Classes.
 		await page.goto('/planning?class=no-such-class');
-		await expect(allFilter).toContainText('11');
-		await expect(page.getByRole('button', { name: 'Filter by Class' })).toHaveText('All classes');
+		await expect(allTab).toContainText('11');
+		await expect(page.getByRole('button', { name: 'All Classes' })).toHaveAttribute(
+			'aria-pressed',
+			'true'
+		);
 	});
 
-	test('a tagged Lesson shows its chip on the Agenda and Session panel, and click-through from the Calendar', async () => {
+	test('Back from the Lesson editor keeps the Class filter', async () => {
+		await page.goto('/planning');
+		await page.getByRole('button', { name: '9B/Sc1' }).click();
+		await page.waitForURL(`/planning?class=${classAId}`);
+		await page.getByRole('link', { name: 'Motion', exact: true }).click();
+		await expect(page).toHaveURL(/\/lessons\/[^/]+$/);
+		await page.getByRole('button', { name: 'Back' }).click();
+		await page.waitForURL(`/planning?class=${classAId}`);
+		await expect(page.getByRole('button', { name: '9B/Sc1' })).toHaveAttribute(
+			'aria-pressed',
+			'true'
+		);
+	});
+
+	test('the Draft/Planned tab lives in the query string', async () => {
+		await page.goto('/planning');
+		await page.getByRole('tab', { name: /^Draft/ }).click();
+		await expect(page).toHaveURL(/status=draft/);
+		await page.reload();
+		await expect(page.getByRole('tab', { name: /^Draft/ })).toHaveAttribute(
+			'aria-selected',
+			'true'
+		);
+		// Back from the Lesson editor remounts the page: the tab must survive it.
+		await page.getByRole('link', { name: 'Speed', exact: true }).click();
+		await expect(page).toHaveURL(/\/lessons\/[^/]+$/);
+		await page.getByRole('button', { name: 'Back' }).click();
+		await page.waitForURL(/status=draft/);
+		await expect(page.getByRole('tab', { name: /^Draft/ })).toHaveAttribute(
+			'aria-selected',
+			'true'
+		);
+		await page.getByRole('tab', { name: /^All/ }).click();
+		await expect(page).not.toHaveURL(/status=/);
+	});
+
+	test('a tagged Lesson shows its chip on the Agenda and Session page, and click-through from the Calendar', async () => {
 		// Motion (9B/Sc1's next scheduled Lesson, carrying the Practical Tag attached above) is
 		// this Class's row both on the Agenda and on the current week's Calendar grid.
 		await page.goto('/');
 		const agendaRow = page.locator('li').filter({ hasText: '9B/Sc1' }).first();
 		await expect(agendaRow.getByText('Practical', { exact: true })).toBeVisible();
 
-		await agendaRow.getByRole('button').first().click();
+		await agendaRow.getByRole('link').first().click();
 		await openSessionAndExpect(page);
-		await expect(
-			page.locator('[data-session-panel]').getByText('Practical', { exact: true })
-		).toBeVisible();
-		await page.keyboard.press('Escape');
+		await expect(page.locator('main').getByText('Practical', { exact: true })).toBeVisible();
+		await page.getByRole('button', { name: 'Back' }).click();
 		await expectSessionClosed(page);
 
 		// The Calendar tile itself carries no Tag — only the click-through does. Pinned to the same
@@ -481,17 +484,12 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		const day = new Date().getUTCDay();
 		const mondayOffset = day === 0 ? 1 : day === 6 ? 2 : 1 - day;
 		await page.goto(`/calendar?week=${isoDate(mondayOffset)}`);
-		const tile = page
-			.getByRole('button')
-			.filter({ hasText: '9B/Sc1' })
-			.filter({ hasText: 'Motion' });
+		const tile = page.getByRole('link').filter({ hasText: '9B/Sc1' }).filter({ hasText: 'Motion' });
 		await expect(tile.getByText('Practical', { exact: true })).toBeHidden();
 		await tile.click();
 		await openSessionAndExpect(page);
-		await expect(
-			page.locator('[data-session-panel]').getByText('Practical', { exact: true })
-		).toBeVisible();
-		await page.keyboard.press('Escape');
+		await expect(page.locator('main').getByText('Practical', { exact: true })).toBeVisible();
+		await page.getByRole('button', { name: 'Back' }).click();
 		await expectSessionClosed(page);
 	});
 
@@ -516,11 +514,11 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		const reloadedCheckbox = reloadedRow.getByRole('checkbox', { name: /Ready to teach/ });
 		await expect(reloadedCheckbox).toBeChecked();
 
-		// Open the Session and verify that the Session panel shows Ready read-only
-		await reloadedRow.getByRole('button').first().click();
+		// Open the Session and verify that the Session page shows Ready read-only
+		await reloadedRow.getByRole('link').first().click();
 		await openSessionAndExpect(page);
-		await expect(page.locator('[data-session-panel]')).toContainText('Ready');
-		await page.getByRole('button', { name: 'Close Session' }).click();
+		await expect(page.locator('main')).toContainText('Ready');
+		await page.getByRole('button', { name: 'Back' }).click();
 		await expectSessionClosed(page);
 
 		// Untick Ready and verify
@@ -535,19 +533,30 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 
 	test('the Agenda filters to one Tag, kept in the URL with the horizon (issue #280)', async () => {
 		const rows = page.locator('main li');
-		const tagControl = page.getByRole('button', { name: 'Tag', exact: true });
 		const openSlots = rows.filter({ hasText: 'Open Slot' });
 
 		await page.goto('/?horizon=28');
 		await expect(openSlots.first()).toBeVisible();
 
-		await tagControl.click();
-		await page.getByRole('option', { name: 'Practical' }).click();
+		// The Tag chips (issue #340) replace the dropdown: each Tag's chip carries the count of
+		// rows it holds in the window, and the filter keeps exactly those rows.
+		const held = await rows.filter({ has: page.getByText('Practical', { exact: true }) }).count();
+		const practicalChip = page.getByRole('button', { name: new RegExp(`^Practical ${held}$`) });
+		await practicalChip.click();
 		await expect(page).toHaveURL(/horizon=28/);
 		await expect(page).toHaveURL(/tag=Practical/);
 		await expect(rows.filter({ hasText: '9B/Sc1' }).first()).toBeVisible();
 		await expect(openSlots).toHaveCount(0);
 		await expect(rows.filter({ hasNotText: 'Practical' })).toHaveCount(0);
+		await expect(rows).toHaveCount(held);
+
+		// The filter survives a Back from a Session.
+		await rows.first().getByRole('link').first().click();
+		await openSessionAndExpect(page);
+		await page.getByRole('button', { name: 'Back' }).click();
+		await expectSessionClosed(page);
+		await expect(page).toHaveURL(/tag=Practical/);
+		await expect(rows).toHaveCount(held);
 
 		// A filtered row keeps its Ready tick. Each tick waits for its write and a reload, because
 		// the write ends by reloading the page data, and that would cancel a navigation started first.
@@ -559,26 +568,35 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 			]);
 		await tick();
 		await page.reload();
-		await expect(tagControl).toHaveText('Practical');
+		await expect(practicalChip).toHaveAttribute('aria-pressed', 'true');
 		await expect(checkbox).toBeChecked();
 		await tick();
 		await page.reload();
 		await expect(checkbox).not.toBeChecked();
 
-		await page.getByRole('radio', { name: 'Two Weeks' }).click();
+		await page.getByRole('tab', { name: 'Two Weeks' }).click();
 		await expect(page).toHaveURL(/horizon=14/);
 		await expect(page).toHaveURL(/tag=Practical/);
 
-		await tagControl.click();
-		await page.getByRole('option', { name: 'All tags' }).click();
+		// A second click on the chip that is on goes back to All Lessons (issue #340).
+		await practicalChip.click();
 		await expect(page).not.toHaveURL(/tag=/);
 		await expect(page).toHaveURL(/horizon=14/);
-		await expect(tagControl).toHaveText('All tags');
+		await expect(practicalChip).toHaveAttribute('aria-pressed', 'false');
 
-		// A Tag with no Lesson in the window stays selected so it can be cleared.
+		// The All Lessons chip clears the filter the same way.
+		await practicalChip.click();
+		await expect(page).toHaveURL(/tag=Practical/);
+		await page.getByRole('button', { name: 'All Lessons' }).click();
+		await expect(page).not.toHaveURL(/tag=/);
+
+		// A Tag with no Lesson in the window keeps its chip at a count of zero, so it can be cleared.
 		await page.goto('/?horizon=7&tag=Nowhere');
-		await expect(tagControl).toHaveText('Nowhere');
+		const nowhereChip = page.getByRole('button', { name: 'Nowhere 0' });
+		await expect(nowhereChip).toHaveAttribute('aria-pressed', 'true');
 		await expect(page.getByText('No Lessons with the Tag “Nowhere”')).toBeVisible();
+		await nowhereChip.click();
+		await expect(page).not.toHaveURL(/tag=/);
 	});
 
 	test('a past Session on the Calendar keeps its tile on a hatch, never Blocked (issue #292)', async () => {
@@ -590,7 +608,7 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 
 		await page.goto(`/calendar?week=${monday}`);
 		// The beforeAll Session ten days back can fall in this week too: either tile is past.
-		const tile = page.locator('[data-session-trigger]').filter({ hasText: 'Speed' }).first();
+		const tile = page.locator('a[href^="/sessions/"]').filter({ hasText: 'Speed' }).first();
 		await expect(tile).toBeVisible();
 		await expect(tile).toContainText('9B/Sc1');
 		await expect(tile).toContainText('Forces');
@@ -599,23 +617,24 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 
 		await tile.click();
 		await openSessionAndExpect(page);
-		await expect(page.locator('[data-session-panel]')).toContainText('9B/Sc1');
-		await expect(page.locator('[data-session-panel]')).toContainText('Speed');
-		await page.keyboard.press('Escape');
+		await expect(page.locator('main')).toContainText('9B/Sc1');
+		await expect(page.locator('main')).toContainText('Speed');
+		await page.getByRole('button', { name: 'Back' }).click();
 		await expectSessionClosed(page);
 
 		runFixture('unmark-taught', classAId, monday, '4');
 	});
 
-	test('the Agenda shows the past seven days above today when turned on, read-only and fixed', async () => {
+	test('the look-back button above the first day shows and hides the past seven days (issue #341)', async () => {
 		const lookBack = page.getByRole('region', { name: 'Past seven days' });
 		const pastRows = lookBack.locator('li');
-		const pastToggle = page.getByRole('button', { name: 'Previous 7 days' });
-		const tagControl = page.getByRole('button', { name: 'Tag', exact: true });
+		const showPast = page.getByRole('button', { name: 'Show the previous 7 days' });
+		const hidePast = page.getByRole('button', { name: 'Hide the previous 7 days' });
 
 		// The only past Session so far is ten days old, outside the look-back.
 		await page.goto('/?past=1');
 		await expect(page.getByRole('heading', { name: 'Agenda' })).toBeVisible();
+		await expect(hidePast).toBeVisible();
 		await expect(lookBack).toHaveCount(0);
 
 		// Written last in the file: a past Session exists only through the fixture (see beforeAll).
@@ -632,17 +651,18 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		await page.getByRole('button', { name: '+ Add Tag' }).click();
 		await page.getByPlaceholder('Tag name').fill('Recap');
 		await page.getByPlaceholder('Tag name').press('Enter');
-		await expect(page.getByRole('dialog').getByText('Recap', { exact: true })).toBeVisible();
-		await page.keyboard.press('Escape');
-		await expect(page.getByRole('dialog')).toBeHidden();
+		await expect(page.locator('main').getByText('Recap', { exact: true })).toBeVisible();
+		await page.getByRole('button', { name: 'Back' }).click();
+		await expect(page).toHaveURL(/\/courses\/[^/?]+\?topic=/);
 
 		// The look-back is off by default.
 		await page.goto('/');
 		await expect(page.getByRole('heading', { name: 'Agenda' })).toBeVisible();
-		await expect(pastToggle).toHaveAttribute('aria-pressed', 'false');
+		await expect(showPast).toBeVisible();
+		await expect(hidePast).toHaveCount(0);
 		await expect(lookBack).toHaveCount(0);
 
-		await pastToggle.click();
+		await showPast.click();
 		await expect(page).toHaveURL(/past=1/);
 		// Oldest first: three days ago, then yesterday.
 		await expect(pastRows).toHaveCount(2);
@@ -650,34 +670,43 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		await expect(pastRows.nth(1)).toContainText('9C/Sc1');
 		await expect(lookBack.getByRole('heading')).toHaveCount(2);
 
+		// The button sits above the first day, where the look-back appears.
+		expect(
+			await hidePast.evaluate((button) => {
+				const firstDay = document.querySelector('main section');
+				return Boolean(
+					firstDay && button.compareDocumentPosition(firstDay) & Node.DOCUMENT_POSITION_FOLLOWING
+				);
+			})
+		).toBe(true);
+
 		// A past row carries no Ready tick; a future row still does.
 		await expect(lookBack.getByRole('checkbox')).toHaveCount(0);
 		await expect(
 			page.getByRole('checkbox', { name: 'Ready to teach Motion to 9B/Sc1' }).first()
 		).toBeVisible();
 
-		// The horizon moves only the forward window, and keeps the toggle on.
-		await page.getByRole('radio', { name: 'Four Weeks' }).click();
+		// The horizon moves only the forward window, and keeps the look-back on.
+		await page.getByRole('tab', { name: 'Four Weeks' }).click();
 		await expect(page).toHaveURL(/horizon=28/);
 		await expect(page).toHaveURL(/past=1/);
 		await expect(pastRows).toHaveCount(2);
 
 		// The look-back obeys the Tag filter: Speed does not carry Practical.
-		await tagControl.click();
-		await page.getByRole('option', { name: 'Practical' }).click();
+		await page.getByRole('button', { name: /^Practical \d+$/ }).click();
 		await expect(page).toHaveURL(/tag=Practical/);
 		await expect(page).toHaveURL(/past=1/);
 		await expect(lookBack).toHaveCount(0);
 
-		// A Tag found only in the look-back can be chosen.
-		await tagControl.click();
-		await page.getByRole('option', { name: 'Recap' }).click();
+		// A Tag found only in the look-back can be chosen, its chip counting the two past rows
+		// it holds in the window (issue #340).
+		await page.getByRole('button', { name: 'Recap 2' }).click();
 		await expect(page).toHaveURL(/tag=Recap/);
 		await expect(pastRows).toHaveCount(2);
 		await expect(page.getByRole('checkbox', { name: /Ready to teach/ })).toHaveCount(0);
 
-		// Turning the toggle off keeps the horizon and the Tag.
-		await pastToggle.click();
+		// Turning the button off keeps the horizon and the Tag.
+		await hidePast.click();
 		await expect(page).not.toHaveURL(/past=/);
 		await expect(page).toHaveURL(/horizon=28/);
 		await expect(page).toHaveURL(/tag=Recap/);
@@ -686,16 +715,17 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		// An unknown value is off.
 		await page.goto('/?past=yes');
 		await expect(page.getByRole('heading', { name: 'Agenda' })).toBeVisible();
-		await expect(pastToggle).toHaveAttribute('aria-pressed', 'false');
+		await expect(showPast).toBeVisible();
+		await expect(hidePast).toHaveCount(0);
 		await expect(lookBack).toHaveCount(0);
 
-		// A past row opens the Session panel on that occasion, with its note.
+		// A past row opens the Session page on that occasion, with its note.
 		await page.goto('/?past=1');
-		await pastRows.nth(0).getByRole('button').first().click();
+		await pastRows.nth(0).getByRole('link').first().click();
 		await openSessionAndExpect(page);
-		await expect(page.locator('[data-session-panel]')).toContainText('9B/Sc1');
+		await expect(page.locator('main')).toContainText('9B/Sc1');
 		await expect(page.getByLabel('How it went')).toHaveText(note);
-		await page.keyboard.press('Escape');
+		await page.getByRole('button', { name: 'Back' }).click();
 		await expectSessionClosed(page);
 
 		// A noted past Session left behind would show in the Term save report of the-calendar-setup.
@@ -706,6 +736,6 @@ test.describe.serial('the rebuilt reading views and their Session panel', () => 
 		await page.getByRole('link', { name: 'Forces' }).click();
 		await page.getByRole('link', { name: 'Speed', exact: true }).click();
 		await page.getByRole('button', { name: 'Remove Recap' }).click();
-		await expect(page.getByRole('dialog').getByText('Recap', { exact: true })).toBeHidden();
+		await expect(page.locator('main').getByText('Recap', { exact: true })).toBeHidden();
 	});
 });

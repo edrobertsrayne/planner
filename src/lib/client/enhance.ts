@@ -66,8 +66,8 @@ export function createInPlace(clear: () => void): SubmitFunction {
 		};
 }
 
-// Creating a Course, a Topic or a Lesson selects it: the three-pane Courses view is driven by the
-// query string, so the new row is opened by navigating to it. A failed create falls back to the
+// Creating a Course or a Topic selects it: the Course page is driven by its address, so the new
+// row is opened by navigating to it. A failed create falls back to the
 // ordinary action handling, which puts the error on the page.
 export function createThenSelect(
 	key: string,

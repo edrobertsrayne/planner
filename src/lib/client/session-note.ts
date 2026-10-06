@@ -6,8 +6,8 @@
 //
 // Deliberately framework-free: no Svelte, no DOM globals at import time. Storage is resolved
 // lazily so the module can be constructed during SSR and tested in plain node with a map.
-// Occasion repeats the shape in session-panel.svelte.ts rather than importing it — pulling that
-// module's $app/state dependency into this node-test seam would defeat the seam.
+// Occasion repeats the shape in session-href.ts rather than importing it — pulling that
+// module's $app/paths dependency into this node-test seam would defeat the seam.
 
 export interface Occasion {
 	classId: string;

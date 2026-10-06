@@ -269,3 +269,18 @@
 		@apply pointer-events-none float-left h-0 text-muted-foreground;
 	}
 }
+
+/* A control that belongs to a row: hidden until the row is hovered or holds focus with a mouse,
+   always shown (muted) on touch, where there is no hover. */
+@utility row-control {
+	opacity: 0;
+
+	:is(.group, .group\/row):hover &,
+	:is(.group, .group\/row):focus-within & {
+		opacity: 1;
+	}
+
+	@media (pointer: coarse) {
+		opacity: 0.6;
+	}
+}

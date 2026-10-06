@@ -6,9 +6,12 @@ import {
 	attachTag,
 	classSchedule,
 	classesTaughtLesson,
+	createClass,
 	createCourse,
 	createLesson,
 	createLink,
+	courseSummary,
+	courseTiles,
 	createTopic,
 	deleteCourse,
 	deleteLesson,
@@ -37,6 +40,89 @@ import {
 	updateLink
 } from './index';
 import * as schema from '../db/schema';
+import { TONE_SEQUENCE } from '$lib/class-tone';
+
+describe('a Course Tone', () => {
+	test('each new Course takes the next Tone of the walk, whatever the Classes hold', () => {
+		const { db } = setUpAuthoring();
+		const first = createCourse(db, { name: 'Year 9 Physics' });
+		const course = createCourse(db, { name: 'Year 10 Chemistry' });
+		// Classes take Tones from their own walk and do not move the Course walk.
+		createClass(db, { label: '9A/Ph1', courseId: first.id });
+		createClass(db, { label: '9A/Ph2', courseId: first.id });
+		const third = createCourse(db, { name: 'Year 11 Biology' });
+
+		expect([first.tone, course.tone, third.tone]).toEqual(TONE_SEQUENCE.slice(0, 3));
+	});
+
+	test('a rename keeps the Tone', () => {
+		const { db } = setUpAuthoring();
+		const course = createCourse(db, { name: 'Year 9 Physics' });
+		const renamed = renameCourse(db, { id: course.id, name: 'Year 9 Science' });
+		expect(renamed.tone).toBe(course.tone);
+	});
+
+	test('a Course made by importing a Topic takes the next Tone too', () => {
+		const { db, client } = setUpAuthoring();
+		createCourse(db, { name: 'Year 9 Physics' });
+		const { course } = importTopic(
+			db,
+			client,
+			{ courseName: 'Year 10 Chemistry', topicName: 'Moles', lessons: [{ title: 'Intro' }] },
+			'2026-09-03'
+		);
+		const imported = listCourses(db).find((c) => c.id === course.id);
+		expect(imported?.tone).toBe(TONE_SEQUENCE[1]);
+	});
+});
+
+describe('a Course summary', () => {
+	test('counts the Lessons of each Topic and names the Classes that follow the Course', () => {
+		const { db } = setUpAuthoring();
+		const course = createCourse(db, { name: 'Year 9 Physics' });
+		const other = createCourse(db, { name: 'Year 10 Chemistry' });
+		const forces = makeTopic(db, course.id, 'Forces');
+		const empty = makeTopic(db, course.id, 'Energy');
+		makeLessons(db, forces.id, 3);
+		createClass(db, { label: '9B/Ph1', courseId: course.id });
+		createClass(db, { label: '9A/Ph1', courseId: course.id });
+		createClass(db, { label: '10A/Ch1', courseId: other.id });
+
+		const summary = courseSummary(db, course.id);
+		expect(summary.lessonCounts.get(forces.id)).toBe(3);
+		expect(summary.lessonCounts.get(empty.id) ?? 0).toBe(0);
+		expect(summary.classes.map((c) => c.label)).toEqual(['9A/Ph1', '9B/Ph1']);
+	});
+});
+
+describe('the Course tiles', () => {
+	test('each Course carries its Topic, Lesson and Planned Lesson counts and its Classes', () => {
+		const { db } = setUpAuthoring();
+		const course = createCourse(db, { name: 'Year 9 Physics' });
+		const bare = createCourse(db, { name: 'Year 10 Chemistry' });
+		const forces = makeTopic(db, course.id, 'Forces');
+		makeTopic(db, course.id, 'Energy');
+		const [first] = makeLessons(db, forces.id, 3);
+		setLessonStatus(db, first.id, 'planned');
+		createClass(db, { label: '9B/Ph1', courseId: course.id });
+		createClass(db, { label: '9A/Ph1', courseId: course.id });
+
+		const tiles = courseTiles(db);
+		expect(tiles.map((t) => t.name)).toEqual(['Year 10 Chemistry', 'Year 9 Physics']);
+		expect(tiles.find((t) => t.id === bare.id)).toMatchObject({
+			topicCount: 0,
+			lessonCount: 0,
+			plannedCount: 0,
+			classes: []
+		});
+		expect(tiles.find((t) => t.id === course.id)).toMatchObject({
+			topicCount: 2,
+			lessonCount: 3,
+			plannedCount: 1,
+			classes: ['9A/Ph1', '9B/Ph1']
+		});
+	});
+});
 
 describe('authoring Courses, Topics and Lessons', () => {
 	test('a Course is created and can be renamed', () => {

@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import { failureReason } from '$lib/client/enhance';
+	import { touchTarget } from '$lib/components/ui/touch-target';
 	import { toast } from 'svelte-sonner';
 
 	let {
@@ -33,8 +34,9 @@
 	<input type="hidden" name="lessonId" value={lessonId} />
 	<input type="hidden" name="classId" value={classId} />
 	<!-- The padding widens the tick's click target; the negative margin keeps its footprint
-	     unchanged. As a label wrapping the input, a click anywhere here toggles it. -->
-	<label class="relative -m-2 inline-flex cursor-pointer items-center p-2">
+	     unchanged. As a label wrapping the input, a click anywhere here toggles it. On touch the
+	     shared invisible rule pads the target out to 44 px (issue #342). -->
+	<label class="relative -m-2 inline-flex cursor-pointer items-center p-2 {touchTarget}">
 		<!-- A real checkbox carrying `ready`, so the tick persists without JavaScript; the icon
 		     only paints it. Checked sends the field, unchecked sends nothing. -->
 		<input

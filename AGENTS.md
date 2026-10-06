@@ -18,6 +18,8 @@ When you find a simpler approach than the one agreed, say so before you build it
 Run e2e tests only as the whole suite: `bun run test`. The suite shares one database and one user,
 so each file depends on the files before it. One file alone starts on an empty database and stops at
 the first-run wizard, with an error about a duplicate "Password" field. That error is not a selector fault.
+Shared e2e helpers live in `e2e/helpers.ts`; import from there before you write a local copy.
+Playwright runs the e2e files in path order, so name a new file for the place it must take in that order.
 You can run a unit test file alone: `bun run test:unit -- --run <file>`.
 Install the test browser once per machine: `bunx playwright install chromium`.
 
@@ -32,6 +34,18 @@ Disable the auth guard in a prototype, unless the prototype tests the authentica
 - Domain: single context, `CONTEXT.md` and `docs/adr/`. See `docs/agents/domain.md`.
 - Before you write a migration, read `docs/agents/migrations.md`.
 - Backlog: add ideas you put out of scope to `docs/backlog.md`. Read it before you propose a feature.
+
+## Attach files to issues and PRs
+
+Use `gh issue|pr create|edit|comment --attach <file>` to upload a local image or video.
+
+- Set alt text with `--attach 'path/to/image.png#Alt text'`. Videos have no alt text.
+- To place a file inside the body, write `![alt](path/to/image.png)` and attach the same path.
+  `gh` replaces the local path with the uploaded URL.
+  A video reference must be the only content in its paragraph.
+- `gh` appends each attached file that the body does not reference.
+
+Example: `gh pr create --title "..." --body-file body.md --attach screenshots/home.png`
 
 ## Communication style
 

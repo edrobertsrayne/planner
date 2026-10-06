@@ -39,7 +39,11 @@ export default defineConfig(
 	// comment at each line: the reason is a property of the file, and it does not change per link.
 	{
 		// A URL the teacher typed. It leaves the app, so resolve() must not touch it.
-		files: ['src/lib/components/session-body.svelte', 'src/routes/(app)/courses/LinkRow.svelte'],
+		files: [
+			'src/lib/components/session-body.svelte',
+			'src/routes/(app)/lessons/*/LinkRow.svelte',
+			'src/routes/(app)/lessons/*/+page.svelte'
+		],
 		rules: {
 			'svelte/no-navigation-without-resolve': 'off'
 		}
@@ -57,10 +61,23 @@ export default defineConfig(
 	{
 		// Navigation helpers. Each is given a URL that is already built — by its caller, or from
 		// page.url — so there is nothing here for resolve() to be applied to.
+		files: ['src/lib/client/enhance.ts', 'src/lib/client/back.ts'],
+		rules: {
+			'svelte/no-navigation-without-resolve': 'off'
+		}
+	},
+	{
+		// A URL resolved at runtime: sessionHref and courseHref run resolve() inside them, the nav
+		// rows' hrefs come from nav.ts, and one address is the browser's own (to.url). The rule
+		// reads the href where it is written, so it cannot see through any of them.
 		files: [
-			'src/lib/client/enhance.ts',
-			'src/lib/client/session-panel.svelte.ts',
-			'src/routes/(app)/courses/LessonEditor.svelte'
+			'src/routes/(app)/+layout.svelte',
+			'src/routes/(app)/+page.svelte',
+			'src/routes/(app)/calendar/+page.svelte',
+			'src/routes/(app)/classes/*/ClassProgress.svelte',
+			'src/routes/(app)/classes/*/NextSessions.svelte',
+			'src/routes/(app)/courses/*/+page.svelte',
+			'src/routes/(app)/lessons/*/+page.svelte'
 		],
 		rules: {
 			'svelte/no-navigation-without-resolve': 'off'

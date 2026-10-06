@@ -5,6 +5,7 @@
 // step (issue #31).
 import { and, asc, eq, inArray, lt, sql } from 'drizzle-orm';
 import type { Database } from 'bun:sqlite';
+import { nextTone } from '$lib/class-tone';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import { rederivePlacementLesson, rederiveTopic, type Db, type WriteReport } from './derive';
@@ -104,10 +105,82 @@ export function lessonsOf(db: Db, topicId: string) {
 		.all();
 }
 
+// What the Course page shows beside the Topics: how many Lessons each Topic holds, and the
+// Classes that follow the Course, by label.
+export function courseSummary(db: Db, courseId: string) {
+	const counts = db
+		.select({ topicId: schema.lesson.topicId, count: sql<number>`count(*)` })
+		.from(schema.lesson)
+		.innerJoin(schema.topic, eq(schema.topic.id, schema.lesson.topicId))
+		.where(eq(schema.topic.courseId, courseId))
+		.groupBy(schema.lesson.topicId)
+		.all();
+	const classes = db
+		.select({ id: schema.classes.id, label: schema.classes.label })
+		.from(schema.classes)
+		.where(eq(schema.classes.courseId, courseId))
+		.orderBy(asc(schema.classes.label))
+		.all();
+	return { lessonCounts: new Map(counts.map((c) => [c.topicId, c.count])), classes };
+}
+
+// What the Courses screen shows for each Course: counts and the Classes that teach it.
+export function courseTiles(db: Db) {
+	const topicCounts = new Map(
+		db
+			.select({ courseId: schema.topic.courseId, n: sql<number>`count(*)` })
+			.from(schema.topic)
+			.groupBy(schema.topic.courseId)
+			.all()
+			.map((r) => [r.courseId, r.n])
+	);
+	const lessonCounts = new Map(
+		db
+			.select({
+				courseId: schema.topic.courseId,
+				n: sql<number>`count(*)`,
+				planned: sql<number>`sum(${schema.lesson.status} = 'planned')`
+			})
+			.from(schema.lesson)
+			.innerJoin(schema.topic, eq(schema.topic.id, schema.lesson.topicId))
+			.groupBy(schema.topic.courseId)
+			.all()
+			.map((r) => [r.courseId, r])
+	);
+	const classLabels = db
+		.select({ courseId: schema.classes.courseId, label: schema.classes.label })
+		.from(schema.classes)
+		.orderBy(asc(schema.classes.label))
+		.all();
+	return listCourses(db).map((course) => ({
+		...course,
+		topicCount: topicCounts.get(course.id) ?? 0,
+		lessonCount: lessonCounts.get(course.id)?.n ?? 0,
+		plannedCount: lessonCounts.get(course.id)?.planned ?? 0,
+		classes: classLabels.filter((c) => c.courseId === course.id).map((c) => c.label)
+	}));
+}
+
+// A Course's Tone is assigned once, at creation: the next unused position of the same walk a
+// Class uses (ADR-0013), walked over Courses only. Nothing else writes it.
+function nextCourseTone(db: Db) {
+	return nextTone(
+		db
+			.select({ tone: schema.course.tone })
+			.from(schema.course)
+			.all()
+			.map((row) => row.tone)
+	);
+}
+
 export function createCourse(db: Db, { name }: { name: string }) {
 	const trimmed = required(name, 'A Course needs a name.');
 	assertCourseNameAvailable(db, { name: trimmed });
-	const [row] = db.insert(schema.course).values({ name: trimmed }).returning().all();
+	const [row] = db
+		.insert(schema.course)
+		.values({ name: trimmed, tone: nextCourseTone(db) })
+		.returning()
+		.all();
 	return row;
 }
 
@@ -804,7 +877,11 @@ export function importTopic(
 			if (existing) {
 				resolvedCourseId = existing.id;
 			} else {
-				const [created] = db.insert(schema.course).values({ name: trimmed }).returning().all();
+				const [created] = db
+					.insert(schema.course)
+					.values({ name: trimmed, tone: nextCourseTone(db) })
+					.returning()
+					.all();
 				resolvedCourseId = created.id;
 				courseCreated = true;
 			}

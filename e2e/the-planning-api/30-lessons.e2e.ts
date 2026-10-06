@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { BEARER, standingKey, keysOf, openPage, type Page } from './helpers.ts';
+import { BEARER, apiKey, keysOf, type Page } from './helpers.ts';
 
 // Covers the two Lesson endpoints over real HTTP (issue #159): creation with its defaults, the
 // list order, PATCH's partial semantics, and the null-topicId detach that makes a Standalone
@@ -18,8 +18,8 @@ test.describe.serial('the Lesson endpoints', () => {
 	let lessonCId = '';
 
 	test.beforeAll(async ({ browser }) => {
-		page = await openPage(browser);
-		token = await standingKey(page);
+		page = await browser.newPage();
+		token = await apiKey(browser);
 
 		// The Course and Topic the earlier files left behind, found by the names they are known by.
 		const courses = await (

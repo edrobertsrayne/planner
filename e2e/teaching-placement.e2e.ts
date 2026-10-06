@@ -1,40 +1,19 @@
 import { test, expect, type Page } from '@playwright/test';
+import { EMAIL, PASSWORD, isoDate, mondayOf, plusDays, weekdayOf } from './helpers.ts';
 
 // Covers the two doors a teacher places and removes a Lesson from (issue #254): an Open Slot's
-// Session panel and the Calendar day menu, plus the Calendar tile's dashed-ring mark. Runs after
+// Session page and the Calendar day menu, plus the Calendar tile's dashed-ring mark. Runs after
 // teaching-flows.e2e.ts — the one user, the Terms and 9C/Sc1 (which never gets a Topic assigned,
 // so its Tuesday P3 Slot in every week stays an Open Slot) already exist — and before
 // the-attachments.e2e.ts, for the suite's single-worker ordering (see isolation.e2e.ts). Every
 // date here is chosen well clear of the dates teaching-flows.e2e.ts itself acts on, so this file
 // disturbs nothing the files after it depend on.
-const EMAIL = 'teacher@example.com';
-const PASSWORD = 'a-very-long-password';
-
-function isoDate(offsetDays: number): string {
-	const d = new Date();
-	d.setUTCDate(d.getUTCDate() + offsetDays);
-	return d.toISOString().slice(0, 10);
-}
-
-function plusDays(iso: string, days: number): string {
-	const date = new Date(`${iso}T00:00:00Z`);
-	date.setUTCDate(date.getUTCDate() + days);
-	return date.toISOString().slice(0, 10);
-}
-
-function weekdayOf(iso: string): number {
-	return new Date(`${iso}T00:00:00Z`).getUTCDay();
-}
 
 // The next Tuesday on or after `iso` — 9C/Sc1's one weekly Slot, in every Teaching Week letter.
 function nextTuesday(iso: string): string {
 	let date = iso;
 	while (weekdayOf(date) !== 2) date = plusDays(date, 1);
 	return date;
-}
-
-function mondayOf(iso: string): string {
-	return plusDays(iso, -((weekdayOf(iso) + 6) % 7));
 }
 
 async function login(page: Page, email: string, password: string) {
@@ -46,12 +25,12 @@ async function login(page: Page, email: string, password: string) {
 }
 
 async function openSessionAndExpect(page: Page) {
-	await expect(page.getByRole('button', { name: 'Close Session' })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Back' })).toBeVisible();
 	await expect(page.getByLabel('How it went')).toBeVisible();
 }
 
 async function expectSessionClosed(page: Page) {
-	await expect(page.getByRole('button', { name: 'Close Session' })).toBeHidden();
+	await expect(page.getByRole('button', { name: 'Back' })).toBeHidden();
 }
 
 test.describe.serial('Placing and removing a Lesson', () => {
@@ -85,7 +64,7 @@ test.describe.serial('Placing and removing a Lesson', () => {
 		await page.goto(`/calendar?week=${mondayOf(tuesday)}`);
 		const cell = page.locator('td').filter({ hasText: '9C/Sc1' });
 
-		await page.getByRole('button', { name: '9C/Sc1 Open Slot' }).click();
+		await page.getByRole('link', { name: '9C/Sc1 Open Slot' }).click();
 		await openSessionAndExpect(page);
 		await expect(page.getByRole('heading', { name: 'Place a Lesson' })).toBeVisible();
 		await expect(
@@ -97,57 +76,66 @@ test.describe.serial('Placing and removing a Lesson', () => {
 		await page.getByRole('textbox', { name: 'Lesson title' }).fill('Revision session');
 		await page.getByRole('button', { name: 'Place' }).click();
 
+		// The Session page shows the placed Lesson read-only: no title, plan, Length or
+		// Draft/Planned control (ADR-0022).
 		await expect(page.getByText('Standalone Lesson · Placed')).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Revision session' })).toBeVisible();
+		await expect(page.getByRole('textbox', { name: 'Lesson title' })).toHaveCount(0);
+		await expect(page.getByRole('radio', { name: 'Planned' })).toHaveCount(0);
+
+		// The plan is written in the Lesson editor.
+		await page.getByRole('link', { name: 'Open in Lesson editor' }).click();
 		await expect(page.getByRole('textbox', { name: 'Lesson title' })).toHaveValue(
 			'Revision session'
 		);
-
-		// A placed Standalone Lesson's plan has no editor anywhere else (ADR-0022) — this Session
-		// panel is it.
 		await page
-			.getByRole('textbox', { name: 'Plan' })
+			.getByRole('textbox', { name: 'Notes & objectives' })
 			.fill('Revise the whole unit, past paper Q1-6.');
-		await page.getByRole('textbox', { name: 'Plan' }).blur();
-		await page.getByRole('radio', { name: 'Planned' }).click();
+		// The plan saves on blur and the status posts on the toggle (ADR-0022). Each write ends
+		// by invalidating the page data, and Back clicked inside that patch is lost (the flake
+		// family in issue #352): each write waits for its response, and the page settles before
+		// Back leaves it.
+		await Promise.all([
+			page.waitForResponse((r) => r.url().includes('updateLesson')),
+			page.getByRole('textbox', { name: 'Notes & objectives' }).blur()
+		]);
+		await Promise.all([
+			page.waitForResponse((r) => r.url().includes('setLessonStatus')),
+			page.getByRole('radio', { name: 'Planned' }).click()
+		]);
 		await expect(page.getByRole('radio', { name: 'Planned' })).toHaveAttribute('data-state', 'on');
+		await page.waitForLoadState('networkidle');
 
-		await page.keyboard.press('Escape');
+		await page.getByRole('button', { name: 'Back' }).click();
+		await openSessionAndExpect(page);
+		await expect(page.getByText('Revise the whole unit, past paper Q1-6.')).toBeVisible();
+		await page.getByRole('button', { name: 'Back' }).click();
 		await expectSessionClosed(page);
 
 		await expect(cell).toContainText('9C/Sc1');
 		await expect(cell).toContainText('Revision session');
 		await expect(cell).toContainText('Standalone Lesson');
 		await expect(cell.locator('[data-standalone-ring]')).toBeVisible();
-
-		// Reopening reads the plan and the Planned mark back — not just the panel's own state.
-		await cell.getByRole('button').click();
-		await openSessionAndExpect(page);
-		await expect(page.getByRole('textbox', { name: 'Plan' })).toContainText(
-			'Revise the whole unit, past paper Q1-6.'
-		);
-		await expect(page.getByRole('radio', { name: 'Planned' })).toHaveAttribute('data-state', 'on');
-		await page.keyboard.press('Escape');
-		await expectSessionClosed(page);
 	});
 
 	test('opening the placed Lesson shows Standalone Lesson · Placed, and Remove placement returns the tile to an Open Slot', async () => {
 		const cell = page.locator('td').filter({ hasText: '9C/Sc1' });
 
-		await cell.getByRole('button').click();
+		await cell.getByRole('link').click();
 		await openSessionAndExpect(page);
 		await expect(page.getByText('Standalone Lesson · Placed')).toBeVisible();
 
 		await page.getByRole('button', { name: 'Remove placement' }).click();
 		await expect(page.getByRole('heading', { name: 'Open Slot' })).toBeVisible();
 
-		await page.keyboard.press('Escape');
+		await page.getByRole('button', { name: 'Back' }).click();
 		await expectSessionClosed(page);
 
-		await expect(page.getByRole('button', { name: '9C/Sc1 Open Slot' })).toBeVisible();
+		await expect(page.getByRole('link', { name: '9C/Sc1 Open Slot' })).toBeVisible();
 		await expect(cell.locator('[data-standalone-ring]')).toHaveCount(0);
 	});
 
-	test("placing from the Calendar day menu's Place a Lesson group lands on the Session panel's Place-a-Lesson card", async () => {
+	test("placing from the Calendar day menu's Place a Lesson group lands on the Session page's Place-a-Lesson card", async () => {
 		// A different week from the tile test above, so the two doors are proven independently.
 		const tuesday = nextTuesday(isoDate(35));
 		await page.goto(`/calendar?week=${mondayOf(tuesday)}`);
@@ -157,11 +145,11 @@ test.describe.serial('Placing and removing a Lesson', () => {
 		await page.getByRole('menuitem', { name: 'Open 9C/Sc1, P3 to place…' }).click();
 
 		await openSessionAndExpect(page);
-		await expect(page.locator('[data-session-panel]')).toContainText('9C/Sc1');
+		await expect(page.locator('main')).toContainText('9C/Sc1');
 		await expect(page.getByRole('heading', { name: 'Place a Lesson' })).toBeVisible();
 
 		// No Lesson was placed here — landing on the card is the whole of this door's contract.
-		await page.keyboard.press('Escape');
+		await page.getByRole('button', { name: 'Back' }).click();
 		await expectSessionClosed(page);
 	});
 
@@ -175,12 +163,12 @@ test.describe.serial('Placing and removing a Lesson', () => {
 		await page.goto(`/calendar?week=${mondayOf(tuesday)}`);
 		const cell = page.locator('td').filter({ hasText: '9C/Sc1' });
 
-		await page.getByRole('button', { name: '9C/Sc1 Open Slot' }).click();
+		await page.getByRole('link', { name: '9C/Sc1 Open Slot' }).click();
 		await openSessionAndExpect(page);
 		await page.getByRole('textbox', { name: 'Lesson title' }).fill('Forced-move rehearsal');
 		await page.getByRole('button', { name: 'Place' }).click();
 		await expect(page.getByText('Standalone Lesson · Placed')).toBeVisible();
-		await page.keyboard.press('Escape');
+		await page.getByRole('button', { name: 'Back' }).click();
 		await expectSessionClosed(page);
 
 		// Blocking the Placement's own day is the one input that can force it off its anchor
@@ -218,11 +206,11 @@ test.describe.serial('Placing and removing a Lesson', () => {
 		await page.getByRole('menuitem', { name: 'Unblock day' }).click();
 
 		await expect(cell).toContainText('Forced-move rehearsal');
-		await cell.getByRole('button').click();
+		await cell.getByRole('link').click();
 		await openSessionAndExpect(page);
 		await page.getByRole('button', { name: 'Remove placement' }).click();
 		await expect(page.getByRole('heading', { name: 'Open Slot' })).toBeVisible();
-		await page.keyboard.press('Escape');
+		await page.getByRole('button', { name: 'Back' }).click();
 		await expectSessionClosed(page);
 		await expect(cell.locator('[data-standalone-ring]')).toHaveCount(0);
 	});

@@ -4,29 +4,30 @@
  * app has no way to create one except letting real time pass. This writes that one row straight
  * into the database instead, against the suite's own scratch database:
  *
- *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts find-lesson-id <title>
- *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts mark-taught <classId> <date> <period> <lessonId> [note]
- *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts unmark-taught <classId> <date> <period>
- *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts set-terms '<terms JSON>'
- *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts assign-topic <classLabel> <topicId>
- *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts create-class <label> <courseId>
- *   DATABASE_URL=e2e.db node scripts/e2e-fixtures.ts clear-terms
+ *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts find-lesson-id <title>
+ *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts mark-taught <classId> <date> <period> <lessonId> [note]
+ *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts unmark-taught <classId> <date> <period>
+ *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts set-terms '<terms JSON>'
+ *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts assign-topic <classLabel> <topicId>
+ *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts create-class <label> <courseId>
+ *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts delete-class <label>
+ *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts clear-terms
+ *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts create-standalone-lesson <title>
+ *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts place-lesson <lessonId> <classLabel> <date>
+ *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts unplace-lesson <lessonId>
  */
-import { DatabaseSync } from 'node:sqlite';
-import { drizzle } from 'drizzle-orm/node-sqlite';
 import { and, eq } from 'drizzle-orm';
+import { openDatabase } from '../src/lib/server/db/index.ts';
 import * as schema from '../src/lib/server/db/schema.ts';
+import { rederive } from '../src/lib/server/planner/derive.ts';
+import { today } from '../src/lib/date.ts';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error('DATABASE_URL is not set');
 
 const [command, ...args] = process.argv.slice(2);
 
-const client = new DatabaseSync(databaseUrl);
-client.exec('PRAGMA foreign_keys = ON');
-client.exec('PRAGMA journal_mode = WAL');
-client.exec('PRAGMA busy_timeout = 5000');
-const db = drizzle({ client });
+const { db } = openDatabase(databaseUrl);
 
 switch (command) {
 	case 'find-lesson-id': {
@@ -49,6 +50,10 @@ switch (command) {
 		db.insert(schema.session)
 			.values({ classId, date, period: Number(periodRaw), lessonId, note })
 			.run();
+		// A taught Lesson is delivered: the queue from today relabels to match, as every
+		// scheduling write in the app rederives (ADR-0007). Without this the materialized
+		// Sessions ahead of today disagree with the derivation the Agenda reads.
+		rederive(db, classId, today());
 		break;
 	}
 	// Takes a past Session back out, so a later file's Term save has no noted Session to report.
@@ -66,6 +71,8 @@ switch (command) {
 				)
 			)
 			.run();
+		// The delivery it carried comes back: relabel the queue, as mark-taught does.
+		rederive(db, classId, today());
 		break;
 	}
 	case 'set-terms': {
@@ -97,10 +104,53 @@ switch (command) {
 		db.insert(schema.classes).values({ label, courseId }).run();
 		break;
 	}
+	// Takes a fixture Class back out by label, so a test that grows the Class list to make a
+	// chip row overflow leaves nothing behind. Deletes straight, without a re-derive: the
+	// make-shift fixture Classes carry no Slots, so they reach no derivation.
+	case 'delete-class': {
+		const [label] = args;
+		if (!label) throw new Error('Usage: delete-class <label>');
+		db.delete(schema.classes).where(eq(schema.classes.label, label)).run();
+		break;
+	}
 	// The planner with no year in it — the state the setup mode opens by itself on. There is no
 	// way to un-set the six Terms through the app once they are saved.
 	case 'clear-terms': {
 		db.delete(schema.term).run();
+		break;
+	}
+	// A Standalone Lesson with no Placement, for the Lesson editor's Standalone Lesson form. The
+	// app makes one only by placing a Lesson and removing the Placement again.
+	case 'create-standalone-lesson': {
+		const [title] = args;
+		if (!title) throw new Error('Usage: create-standalone-lesson <title>');
+		const [row] = db.insert(schema.lesson).values({ title, position: 0 }).returning().all();
+		process.stdout.write(row.id);
+		break;
+	}
+	// A Placement on the Class's first Slot, written without a re-derive: only the refusal to
+	// delete a placed Lesson is under test.
+	case 'place-lesson': {
+		const [lessonId, classLabel, date] = args;
+		if (!lessonId || !classLabel || !date) {
+			throw new Error('Usage: place-lesson <lessonId> <classLabel> <date>');
+		}
+		const [slot] = db
+			.select({ id: schema.slot.id, classId: schema.slot.classId })
+			.from(schema.slot)
+			.innerJoin(schema.classes, eq(schema.classes.id, schema.slot.classId))
+			.where(eq(schema.classes.label, classLabel))
+			.all();
+		if (!slot) throw new Error(`No Slot for Class ${classLabel}`);
+		db.insert(schema.placement)
+			.values({ classId: slot.classId, slotId: slot.id, date, lessonId })
+			.run();
+		break;
+	}
+	case 'unplace-lesson': {
+		const [lessonId] = args;
+		if (!lessonId) throw new Error('Usage: unplace-lesson <lessonId>');
+		db.delete(schema.placement).where(eq(schema.placement.lessonId, lessonId)).run();
 		break;
 	}
 	default:

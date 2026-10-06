@@ -131,6 +131,62 @@ test('the tone backfill walks existing Classes in creation order and wraps past 
 	expect(tones).toEqual([0, 4, 6, 7, 1, 2, 5, 3, 0, 4]);
 });
 
+test('the Course tone backfill walks existing Courses in creation order, apart from Classes', () => {
+	dir = mkdtempSync(join(tmpdir(), 'planner-db-'));
+	const { client } = openDatabase(join(dir, 'course-tone.db'));
+
+	client.exec(`CREATE TABLE __drizzle_migrations (
+		id INTEGER PRIMARY KEY,
+		hash TEXT NOT NULL,
+		created_at NUMERIC,
+		name TEXT,
+		applied_at TEXT
+	)`);
+	for (const earlier of ['20260814131415_pink_omega_red', '20260814200509_friendly_quicksilver'])
+		client.prepare('INSERT INTO __drizzle_migrations (hash, name) VALUES (?, ?)').run('x', earlier);
+
+	client.exec(`
+		CREATE TABLE course (id text PRIMARY KEY, name text NOT NULL);
+		CREATE TABLE topic (id text PRIMARY KEY, name text NOT NULL, course_id text NOT NULL);
+		CREATE TABLE class (
+			id text PRIMARY KEY,
+			label text NOT NULL,
+			course_id text NOT NULL
+		);
+		CREATE TABLE lesson (
+			id text PRIMARY KEY,
+			topic_id text,
+			title text NOT NULL,
+			body text,
+			planned_length integer DEFAULT 1 NOT NULL,
+			position integer NOT NULL
+		);
+		CREATE TABLE term (
+			id text PRIMARY KEY,
+			name text NOT NULL,
+			opens text NOT NULL,
+			closes text NOT NULL
+		);
+		CREATE TABLE teaching_week (
+			id text PRIMARY KEY,
+			week_commencing text NOT NULL,
+			letter text NOT NULL
+		);
+	`);
+	const insertCourse = client.prepare('INSERT INTO course (id, name) VALUES (?, ?)');
+	// Ids sort against creation order, so only rowid order can give the right answer.
+	for (let i = 10; i >= 1; i--) insertCourse.run(`c-${String.fromCharCode(96 + i)}`, `Course ${i}`);
+	client.prepare("INSERT INTO class (id, label, course_id) VALUES ('k1', '9A', 'c-j')").run();
+
+	runMigrations(client, 'drizzle');
+
+	const tones = client
+		.prepare('SELECT tone FROM course ORDER BY rowid')
+		.all()
+		.map((row) => (row as { tone: number }).tone);
+	expect(tones).toEqual([0, 4, 6, 7, 1, 2, 5, 3, 0, 4]);
+});
+
 test('the lesson status migration writes draft as default for existing lessons and enforces check constraint', () => {
 	dir = mkdtempSync(join(tmpdir(), 'planner-db-'));
 	const { client } = openDatabase(join(dir, 'status-migration.db'));

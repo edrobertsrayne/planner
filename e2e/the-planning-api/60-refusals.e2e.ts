@@ -1,13 +1,6 @@
 import { test, expect } from '@playwright/test';
-import {
-	BEARER,
-	FIXTURE_CLASS_LABEL,
-	FIXTURE_COURSE,
-	standingKey,
-	openPage,
-	runFixture,
-	type Page
-} from './helpers.ts';
+import { BEARER, FIXTURE_CLASS_LABEL, FIXTURE_COURSE, apiKey, type Page } from './helpers.ts';
+import { runFixture } from '../helpers.ts';
 
 // Covers the refusals that protect the record over real HTTP (issue #159): the deletes that
 // answer 409 because a Course still holds Topics, a Topic still holds Lessons or is assigned to
@@ -28,8 +21,8 @@ test.describe.serial('the refusals that protect the record', () => {
 	let lessonCId = '';
 
 	test.beforeAll(async ({ browser }) => {
-		page = await openPage(browser);
-		token = await standingKey(page);
+		page = await browser.newPage();
+		token = await apiKey(browser);
 
 		// The state the earlier files left behind, found by the names it is known by.
 		const courses = await (

@@ -186,6 +186,28 @@ export function agenda(
 
 const LOOK_BACK_DAYS = 7;
 
+// The Class page's next Sessions (issue #348): the same derivation as the Agenda rows —
+// `scheduleFor` and `agendaRows` — narrowed to one Class and truncated to `limit`, so a cell,
+// an Agenda row and this list can never disagree about one occasion. An Open Slot is a row
+// like any other, so the list reads honestly when the plan runs out. No Readiness is asked:
+// the Agenda is the only screen on which it is written, and this list carries no tick.
+export function classNextSessions(
+	db: Db,
+	{ classId, today, limit }: { classId: string; today: string; limit: number }
+): AgendaEntry[] {
+	const cls = listClasses(db).find((c) => c.id === classId);
+	if (!cls) return [];
+
+	return toEntries(
+		db,
+		agendaRows(classId, scheduleFor(db, { classId, boundary: today, cal: loadCalendar(db) }))
+			.map((r) => ({ cls, ...r, lessonId: r.lesson?.lessonId ?? null }))
+			.sort((a, b) => a.date.localeCompare(b.date) || a.periodFrom - b.periodFrom)
+			.slice(0, limit),
+		() => false
+	);
+}
+
 // The Sessions of the seven calendar days before `today`, across every Class (issue #273). Read
 // straight from the record: a Session dated before `today` is history, and nothing re-derives it.
 // A weekend, a Blocked Day or a holiday inside the window has no Session, so it gives no row. An

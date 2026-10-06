@@ -1,14 +1,17 @@
 <script lang="ts">
+	import { page } from '$app/state';
+	import HistoryIcon from '@lucide/svelte/icons/history';
 	import { classTone } from '$lib/class-tone';
 	import { formatWeekday } from '$lib/date';
 	import { replaceQuery } from '$lib/client/enhance';
-	import { openSession } from '$lib/client/session-panel.svelte';
+	import { sessionHref } from '$lib/client/session-href';
+	import { withParam } from '$lib/query';
+	import { touchTarget } from '$lib/components/ui/touch-target';
+	import FilterChips from '$lib/components/filter-chips.svelte';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import TagChips from '$lib/components/tag-chips.svelte';
 	import { Button } from '$lib/components/ui/button';
-	import * as Select from '$lib/components/ui/select/index.js';
-	import { Toggle } from '$lib/components/ui/toggle';
-	import { ToggleGroup, ToggleGroupItem } from '$lib/components/ui/toggle-group';
+	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import { AGENDA_HORIZONS } from './agenda-horizons';
 	import { filterByTag, groupByDay, horizonEndsOn, tagsIn } from './agenda-days';
 	import ReadyTick from './ready-tick.svelte';
@@ -16,72 +19,80 @@
 
 	let { data }: PageProps = $props();
 
-	// The horizon, the Tag and the look-back share the query string, so a change to one keeps the others.
-	function setQuery({
-		horizon = data.horizon,
-		tag = data.tag,
-		lookBackOn = data.lookBackOn
-	}: {
-		horizon?: string | number;
-		tag?: string | null;
-		lookBackOn?: boolean;
-	}) {
-		const tagPart = tag ? `&tag=${encodeURIComponent(tag)}` : '';
-		return replaceQuery(`?horizon=${horizon}${tagPart}${lookBackOn ? '&past=1' : ''}`);
+	// Each filter sets one parameter and keeps the rest, so a change to the horizon or the
+	// look-back keeps the Tag in the address (withParam, issue #338).
+	function setHorizon(horizon: string | number) {
+		return replaceQuery(withParam(page.url, 'horizon', String(horizon)));
 	}
 
-	function openOccasion(row: (typeof data.rows)[number]) {
-		openSession({ classId: row.classId, date: row.date, period: row.periodFrom });
+	function toggleLookBack() {
+		return replaceQuery(withParam(page.url, 'past', data.lookBackOn ? null : '1'));
+	}
+
+	function hrefOf(row: (typeof data.rows)[number]) {
+		return sessionHref({ classId: row.classId, date: row.date, period: row.periodFrom });
 	}
 
 	const days = $derived(groupByDay(filterByTag(data.rows, data.tag)));
 	const pastDays = $derived(groupByDay(filterByTag(data.lookBack, data.tag)));
+
+	// One chip per Tag in the window with its count (issue #340). A Tag with no Lesson in the
+	// window keeps its chip at a count of zero, so a filter on it can still be cleared.
+	const tagOption = (name: string, count: number) => ({ value: name, label: name, count });
 	const tags = $derived(tagsIn([...data.lookBack, ...data.rows]));
+	const tagOptions = $derived([
+		...tags.map((t) => tagOption(t.name, t.count)),
+		...(data.tag && !tags.some((t) => t.name === data.tag) ? [tagOption(data.tag, 0)] : [])
+	]);
 </script>
 
 <svelte:head><title>Agenda</title></svelte:head>
 
-<div class="mx-auto max-w-3xl px-6 py-6">
-	<PageHeader title="Agenda" description="What is coming up, in order.">
+<div class="mx-auto max-w-6xl px-6 py-6">
+	<PageHeader>
+		<!-- The top bar names the screen on a phone, so below `md` the heading is out of sight (a
+		     screen reader still reads it) and the days start near the top (issue #342). -->
+		<h1 class="sr-only text-lg font-semibold tracking-tight md:not-sr-only">Agenda</h1>
 		{#snippet actions()}
-			<Select.Root
-				type="single"
-				value={data.tag ?? ''}
-				onValueChange={(v) => setQuery({ tag: v || null })}
-			>
-				<Select.Trigger size="sm" aria-label="Tag" class="w-40">
-					{data.tag ?? 'All tags'}
-				</Select.Trigger>
-				<Select.Content>
-					<Select.Item value="" label="All tags" />
-					{#each tags as tag (tag)}
-						<Select.Item value={tag} label={tag} />
-					{/each}
-				</Select.Content>
-			</Select.Root>
-			<ToggleGroup
-				type="single"
-				variant="outline"
-				size="sm"
+			<!-- The horizon is tabs at the right of the heading (issue #341), the same tab style as
+			     Draft/Planned on Planning. Below `md` the heading is hidden (issue #342), so the
+			     tabs sit where the heading would. -->
+			<Tabs.Root
 				value={String(data.horizon)}
 				onValueChange={(v) => {
-					if (v) setQuery({ horizon: v });
+					if (v) setHorizon(v);
 				}}
 			>
-				{#each AGENDA_HORIZONS as [n, label] (n)}
-					<ToggleGroupItem value={String(n)}>{label}</ToggleGroupItem>
-				{/each}
-			</ToggleGroup>
-			<Toggle
-				variant="outline"
-				size="sm"
-				pressed={data.lookBackOn}
-				onPressedChange={(lookBackOn) => setQuery({ lookBackOn })}
-			>
-				Previous 7 days
-			</Toggle>
+				<Tabs.List variant="line">
+					{#each AGENDA_HORIZONS as [n, label] (n)}
+						<Tabs.Trigger value={String(n)}>{label}</Tabs.Trigger>
+					{/each}
+				</Tabs.List>
+			</Tabs.Root>
 		{/snippet}
 	</PageHeader>
+
+	<!-- The Tag chips under the heading, the same control as the Class chips on Planning (issue
+	     #340): the value lives in the query string, so a Back from a Session keeps the filter. -->
+	<FilterChips
+		param="tag"
+		value={data.tag}
+		allLabel="All Lessons"
+		label="Filter by Tag"
+		options={tagOptions}
+		class="-mx-6 mt-4 px-6 md:mx-0 md:px-0"
+	/>
+
+	<!-- The look-back sits where it appears (issue #341): this full-width button above the first
+	     day replaces the "Previous 7 days" toggle in the header. -->
+	<button
+		type="button"
+		class="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-dashed text-xs font-medium text-muted-foreground hover:bg-muted md:h-8 {touchTarget}"
+		onclick={toggleLookBack}
+	>
+		<HistoryIcon class="size-3.5" />
+		{data.lookBackOn ? 'Hide the previous 7 days' : 'Show the previous 7 days'}
+	</button>
 
 	{#snippet agendaRow(row: (typeof data.rows)[number], past: boolean)}
 		{@const tone = classTone(row.tone)}
@@ -96,23 +107,25 @@
 				P{row.periodFrom}{#if row.periodTo !== row.periodFrom}–P{row.periodTo}{/if}
 			</span>
 
-			<span
-				class="h-fit shrink-0 rounded-2xl px-2 py-0.5 text-xs font-medium"
-				style:background-color={tone.bg}
-				style:color={tone.fg}
-			>
-				{row.classLabel}
+			<!-- The Class chip sits in a fixed-width column, so the titles line up (issue #341). -->
+			<span class="w-16 shrink-0">
+				<span
+					class="rounded-2xl px-2 py-0.5 text-xs font-medium whitespace-nowrap"
+					style:background-color={tone.bg}
+					style:color={tone.fg}
+				>
+					{row.classLabel}
+				</span>
 			</span>
 
-			<button
-				type="button"
-				data-session-trigger
+			<a
+				href={hrefOf(row)}
 				class="min-w-0 flex-1 py-3 text-left outline-none focus-visible:underline"
-				onclick={() => openOccasion(row)}
 			>
 				{#if row.lesson}
-					<span class="block truncate text-sm font-medium">{row.lesson.title}</span>
-					<span class="block truncate text-xs text-muted-foreground">
+					<!-- A title or a Topic name wraps in full, never truncates (issue #341). -->
+					<span class="block text-sm font-medium">{row.lesson.title}</span>
+					<span class="block text-xs text-muted-foreground">
 						{#if row.lesson.topicName}
 							{row.lesson.topicName}
 						{/if}
@@ -121,19 +134,11 @@
 				{:else}
 					<span class="block text-sm text-muted-foreground italic">Open Slot</span>
 				{/if}
-			</button>
+			</a>
 
 			<!-- A past row carries no Ready tick: Readiness is written ahead only. -->
 			{#if !row.lesson}
-				<Button
-					variant="ghost"
-					size="sm"
-					class="h-7 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
-					data-session-trigger
-					onclick={() => openOccasion(row)}
-				>
-					Plan
-				</Button>
+				<Button variant="ghost" size="sm" class="h-7 row-control" href={hrefOf(row)}>Plan</Button>
 			{:else if !past}
 				<ReadyTick
 					lessonId={row.lesson.id}

@@ -11,6 +11,7 @@ import {
 	blockDay,
 	blockSlot,
 	calendarWeek,
+	classNextSessions,
 	classSchedule,
 	deleteLesson,
 	listClasses,
@@ -125,6 +126,52 @@ describe('the Agenda', () => {
 		// The three Lessons run out in September; the Open Slots after them reach the last Term.
 		expect(classARows.filter((r) => r.lesson !== null)).toHaveLength(3);
 		expect(classARows.some((r) => r.date >= '2027-06-07' && r.lesson === null)).toBe(true);
+	});
+});
+
+describe("the Class page's next Sessions (issue #348)", () => {
+	// classA's first Available Slots from 2026-09-03: the Thursday double (P5, P6), then Week B
+	// Tue P2 and Fri P4, then Week A Mon P3 and Wed P1.
+	test('lists one Class next Sessions in order, Open Slots among them', () => {
+		const { db, course, classA, classB } = setUp();
+		const forces = makeTopic(db, course.id, 'Forces');
+		const [l1, l2, l3] = makeLessons(db, forces.id, 3);
+		assignTopic(db, { classId: classA.id, topicId: forces.id, today: '2026-09-03' });
+
+		const rows = classNextSessions(db, { classId: classA.id, today: '2026-09-03', limit: 5 });
+
+		expect(rows.map((r) => [r.date, r.periodFrom, r.lesson?.title ?? null])).toEqual([
+			['2026-09-03', 5, l1.title],
+			['2026-09-03', 6, l2.title],
+			['2026-09-08', 2, l3.title],
+			['2026-09-11', 4, null],
+			['2026-09-14', 3, null]
+		]);
+		expect(rows.every((r) => r.classId === classA.id && r.classLabel === '9B/Sc1')).toBe(true);
+
+		// A Class with no Assigned Topics: every row is an Open Slot of its own. Its Slots are
+		// Week A Mon P1 and Week B Wed P4.
+		const open = classNextSessions(db, { classId: classB.id, today: '2026-09-03', limit: 5 });
+		expect(open.map((r) => [r.date, r.periodFrom])).toEqual([
+			['2026-09-09', 4],
+			['2026-09-14', 1],
+			['2026-09-23', 4],
+			['2026-09-28', 1],
+			['2026-10-07', 4]
+		]);
+	});
+
+	test('a Length 2 Lesson is one row spanning its Periods, and the limit truncates', () => {
+		const { db, course, classA } = setUp();
+		const forces = makeTopic(db, course.id, 'Forces');
+		const [wide] = makeLessons(db, forces.id, 1, 2);
+		assignTopic(db, { classId: classA.id, topicId: forces.id, today: '2026-09-03' });
+
+		const rows = classNextSessions(db, { classId: classA.id, today: '2026-09-03', limit: 1 });
+
+		expect(rows).toHaveLength(1);
+		expect(rows[0].lesson?.id).toBe(wide.id);
+		expect([rows[0].periodFrom, rows[0].periodTo]).toEqual([5, 6]);
 	});
 });
 

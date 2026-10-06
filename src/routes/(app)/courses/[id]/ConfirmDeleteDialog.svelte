@@ -3,9 +3,10 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 
-	// A Course or a Topic that still holds children — the confirm step deleteLesson never needed,
-	// because a Lesson never holds anything of its own. `target` is null when no delete is
-	// pending; setting it opens the dialog, and confirming or cancelling clears it back to null.
+	// The delete ask for a Course or a Topic, shown before any delete runs. Its form posts
+	// `confirmed`, so the seam cascades into the children at once; the API keeps its own unconfirmed
+	// 409 question. `target` is null when no delete is pending; setting it opens the dialog, and
+	// confirming or cancelling clears it back to null.
 	let {
 		target = $bindable(null),
 		action,

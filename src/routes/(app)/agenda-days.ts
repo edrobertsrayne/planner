@@ -26,10 +26,15 @@ export function filterByTag<Row extends TaggedRow>(rows: readonly Row[], tag: st
 	return tag === null ? rows : rows.filter((row) => row.lesson?.tags.includes(tag));
 }
 
-// The distinct Tag names on the Lessons in the window, in alphabetical order, for the filter control.
-export function tagsIn(rows: readonly TaggedRow[]): string[] {
-	const tags = new Set(rows.flatMap((row) => row.lesson?.tags ?? []));
-	return [...tags].sort((a, b) => a.localeCompare(b));
+// The distinct Tag names on the Lessons in the window with the count of rows that carry each, in
+// alphabetical order, for the filter control (issue #340).
+export function tagsIn(rows: readonly TaggedRow[]): { name: string; count: number }[] {
+	const counts = new Map<string, number>();
+	for (const row of rows)
+		for (const tag of row.lesson?.tags ?? []) counts.set(tag, (counts.get(tag) ?? 0) + 1);
+	return [...counts]
+		.map(([name, count]) => ({ name, count }))
+		.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 // The last day a horizon of `horizonDays` covers, today counting as the first — the same
