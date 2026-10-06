@@ -222,6 +222,25 @@ describe('the Session panel', () => {
 		await expect.element(button).not.toBeDisabled();
 	});
 
+	test('an occasion that names no Session says so', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => new Response('', { status: 404 }))
+		);
+		const screen = await render(SessionBody, { occasion });
+		await expect.element(screen.getByText('No such Session.')).toBeVisible();
+	});
+
+	test('a load that failed says so, not that the Session is missing', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => new Response('', { status: 500 }))
+		);
+		const screen = await render(SessionBody, { occasion });
+		await expect.element(screen.getByText("Couldn't load this Session.")).toBeVisible();
+		await expect.element(screen.getByText('No such Session.')).not.toBeInTheDocument();
+	});
+
 	test('a failed Place surfaces the error and leaves the card usable again', async () => {
 		const fetchMock = vi
 			.fn()

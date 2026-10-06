@@ -47,6 +47,7 @@
 
 	let detail = $state<SessionDetail | null>(null);
 	let missing = $state(false);
+	let loadFailed = $state(false);
 	let note = $state('');
 	let continuing = $state(false);
 	let continuationError = $state<string | null>(null);
@@ -63,6 +64,7 @@
 		let current = true;
 		detail = null;
 		missing = false;
+		loadFailed = false;
 		continuing = false;
 		continuationError = null;
 		continuationAtRisk = [];
@@ -74,7 +76,7 @@
 		removeError = null;
 		fetch(`/session?classId=${encodeURIComponent(classId)}&date=${date}&period=${period}`)
 			.then((r) => {
-				if (!r.ok) throw new Error(`Load failed: ${r.status}`);
+				if (!r.ok) throw r.status;
 				return r.json();
 			})
 			.then((d: SessionDetail) => {
@@ -84,10 +86,13 @@
 				detail = d;
 				note = notes.open(occasion, d.note);
 			})
-			.catch(() => {
-				// Nothing to show without the Session. Any draft still waits in storage for a
-				// better reconnect.
-				if (current) missing = true;
+			.catch((status) => {
+				// 400/404 mean the occasion names no Session (a period that is not a whole number,
+				// an unknown Class). Anything else is a load that failed — a dropped connection, a
+				// server fault — and a draft note still waits in storage for the next load.
+				if (!current) return;
+				if (status === 400 || status === 404) missing = true;
+				else loadFailed = true;
 			});
 		return () => {
 			current = false;
@@ -364,6 +369,10 @@
 	</div>
 {:else if missing}
 	<p class="mt-4 text-sm text-muted-foreground">No such Session.</p>
+{:else if loadFailed}
+	<p class="mt-4 text-sm text-muted-foreground">
+		Couldn't load this Session. Check your connection and reload.
+	</p>
 {/if}
 
 <svelte:window onpagehide={() => notes.flush()} />
