@@ -161,7 +161,7 @@ describe('assigning Topics to a Class', () => {
 
 		expect(() =>
 			assignTopic(db, { classId: classA.id, topicId: foreignTopic.id, today: '2026-09-03' })
-		).toThrow();
+		).toThrow(/does not belong to the Class/);
 
 		const ownTopic = makeTopic(db, course.id, 'Forces');
 		expect(() =>
@@ -234,7 +234,7 @@ describe('assigning Topics to a Class', () => {
 
 		expect(() =>
 			unassignTopic(db, { classId: classA.id, id: row.id, today: '2026-09-10' })
-		).toThrow();
+		).toThrow(/already been taught/);
 	});
 });
 

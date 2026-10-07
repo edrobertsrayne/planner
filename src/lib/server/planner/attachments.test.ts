@@ -248,7 +248,7 @@ describe('attachment storage', () => {
 				},
 				atDir
 			)
-		).toThrow();
+		).toThrow(/Failed query/);
 
 		expect(readdirSync(atDir)).toEqual([]);
 	});

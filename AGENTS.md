@@ -22,6 +22,7 @@ Shared e2e helpers live in `e2e/helpers.ts`; import from there before you write 
 Playwright runs the e2e files in path order, so name a new file for the place it must take in that order.
 You can run a unit test file alone: `bun run test:unit -- --run <file>`.
 Install the test browser once per machine: `bunx playwright install chromium`.
+A fresh worktree has no `node_modules`. Run `bun install` there before any check or test.
 
 ## Prototyping
 

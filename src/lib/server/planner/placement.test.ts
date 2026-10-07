@@ -64,7 +64,7 @@ describe('placing a Lesson', () => {
 				title: 'Fire drill',
 				today: '2026-09-03'
 			})
-		).toThrow();
+		).toThrow(/Failed query: insert into "placement"/);
 
 		const lessons = db.select().from(schema.lesson).all();
 		expect(lessons).toHaveLength(1);

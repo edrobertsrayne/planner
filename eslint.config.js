@@ -5,6 +5,7 @@ import svelte from 'eslint-plugin-svelte';
 import { defineConfig, includeIgnoreFile } from 'eslint/config';
 import globals from 'globals';
 import ts from 'typescript-eslint';
+import vitest from '@vitest/eslint-plugin';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 
@@ -65,6 +66,12 @@ export default defineConfig(
 		rules: {
 			'svelte/no-navigation-without-resolve': 'off'
 		}
+	},
+	{
+		// A bare toThrow() passes on any error, including a TypeError from a broken test.
+		files: ['**/*.test.ts'],
+		plugins: { vitest },
+		rules: { 'vitest/require-to-throw-message': 'error' }
 	},
 	{
 		// A URL resolved at runtime: sessionHref and courseHref run resolve() inside them, the nav

@@ -21,7 +21,9 @@ describe('Slot uniqueness is window-aware, enforced in the server module', () =>
 		const classC = createClass(db, { label: '9C/Sc2', courseId: course.id })!;
 
 		// classA already holds Week A Mon P3 for the whole year (setUp).
-		expect(() => addSlot(db, { classId: classC.id, week: 'A', day: 1, period: 3 })).toThrow();
+		expect(() => addSlot(db, { classId: classC.id, week: 'A', day: 1, period: 3 })).toThrow(
+			/already belongs to/
+		);
 
 		// Still clashes even when the new Slot only partially overlaps the existing one.
 		expect(() =>
@@ -32,7 +34,7 @@ describe('Slot uniqueness is window-aware, enforced in the server module', () =>
 				period: 3,
 				holdsFrom: '2027-01-04'
 			})
-		).toThrow();
+		).toThrow(/already belongs to/);
 	});
 
 	test('replacing a Slot mid-year — ending one, starting another the next day — is accepted', () => {
@@ -103,7 +105,7 @@ describe('Slot uniqueness is window-aware, enforced in the server module', () =>
 				from: '2027-01-04',
 				today: '2026-11-01'
 			})
-		).toThrow();
+		).toThrow(/already belongs to/);
 	});
 
 	test('takeSlot on a position already held by the clicking Class is a no-op', () => {
@@ -151,7 +153,7 @@ describe('Slot uniqueness is window-aware, enforced in the server module', () =>
 				from: null,
 				today: '2026-11-01'
 			})
-		).toThrow();
+		).toThrow(/already belongs to/);
 	});
 
 	test('clearSlot ends the Class own Slot at the position, from the chosen date', () => {
