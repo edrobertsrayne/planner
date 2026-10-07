@@ -54,12 +54,15 @@ export function createdId(result: ActionResult, key: string): string | null {
 	return typeof id === 'string' ? id : null;
 }
 
-// The Rewind report a successful action answered with, when it carried one under `report` and
-// the Rewind changed something. An empty report has nothing to show.
+// The Rewind report a successful action answered with, when it carried one under `report`.
 export function reportOfResult(result: ActionResult): WriteReport | null {
 	if (result.type !== 'success') return null;
-	const report = result.data?.report as WriteReport | null | undefined;
-	return report && (report.atRisk.length || report.placementsMoved.length) ? report : null;
+	return (result.data?.report as WriteReport | null | undefined) ?? null;
+}
+
+// Whether a report has anything to show. A toast for an empty report would be blank.
+export function hasReport(report: WriteReport | null): report is WriteReport {
+	return !!report && (report.atRisk.length > 0 || report.placementsMoved.length > 0);
 }
 
 // A create box that stays where it is: the new row appears in the list above it, and the box is

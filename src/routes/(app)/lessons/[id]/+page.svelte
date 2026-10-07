@@ -3,7 +3,7 @@
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { courseHref, useBack } from '$lib/client/back';
-	import { failureReason, onFail, reportOfResult } from '$lib/client/enhance';
+	import { failureReason, hasReport, onFail, reportOfResult } from '$lib/client/enhance';
 	import { toast } from 'svelte-sonner';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
@@ -491,7 +491,7 @@
 										toast.success('Lesson deleted.');
 										// This page goes with the Lesson, so the report outlives it as a toast.
 										const report = reportOfResult(result);
-										if (report) {
+										if (hasReport(report)) {
 											toast.custom(RewindReport, { componentProps: { report }, duration: 20000 });
 										}
 										await back();
