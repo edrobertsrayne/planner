@@ -87,7 +87,7 @@ describe('Continuation', () => {
 				period: stillToTeach.period,
 				today
 			})
-		).toThrow();
+		).toThrow(/not been taught/);
 	});
 
 	test('a Rewind onto a continued Session drops the Continuation instead of orphaning it', () => {

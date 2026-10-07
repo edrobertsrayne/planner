@@ -302,7 +302,7 @@ describe('name collisions', () => {
 		// Raw insert — the application's collision check is skipped.
 		expect(() =>
 			db.insert(schema.course).values({ id: 'bypass', name: 'YEAR 9 PHYSICS' }).run()
-		).toThrow();
+		).toThrow(/Failed query: insert into "course"/);
 	});
 });
 
@@ -644,7 +644,7 @@ describe("a Lesson's planning status", () => {
 			db.run(
 				sql`INSERT INTO lesson (id, topic_id, title, length, position, status) VALUES ('bad', ${topic.id}, 'Bad', 1, 1, 'invalid')`
 			)
-		).toThrow();
+		).toThrow(/Failed query: INSERT INTO lesson/);
 	});
 });
 
