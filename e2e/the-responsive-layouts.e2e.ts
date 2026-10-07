@@ -493,7 +493,9 @@ test.describe('the Calendar grid on a phone', () => {
 			expect(await label.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
 		}
 
-		await tiles.filter({ hasText: '9C/Sc1' }).first().click();
+		// Any tile will do. 9C/Sc1 has one Slot a week, on Tuesday, so its tile is not a link once
+		// that Tuesday is past.
+		await tiles.first().click();
 		await expect(page).toHaveURL(/\/sessions\//);
 	});
 
