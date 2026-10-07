@@ -143,7 +143,7 @@ describe('Continuation', () => {
 
 		expect(() =>
 			removeContinuation(db, { classId: classA.id, date: '2026-09-03', period: 5, today })
-		).toThrow();
+		).toThrow(/No Continuation on 2026-09-03 P5 to remove/);
 	});
 
 	test('a Rewind onto a continued Session drops the Continuation instead of orphaning it', () => {
