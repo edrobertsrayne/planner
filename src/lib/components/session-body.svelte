@@ -49,6 +49,7 @@
 	let loadFailed = $state(false);
 	let note = $state('');
 	let continuing = $state(false);
+	let removingContinuation = $state(false);
 	let continuationError = $state<string | null>(null);
 	let continuationReport = $state<WriteReport | null>(null);
 	let placeTitle = $state('');
@@ -64,6 +65,7 @@
 		missing = false;
 		loadFailed = false;
 		continuing = false;
+		removingContinuation = false;
 		continuationError = null;
 		continuationReport = null;
 		placing = false;
@@ -116,10 +118,39 @@
 				detail = d;
 				continuing = false;
 				continuationReport = d.report;
+				toast.success('Lesson continued onto the next Available Slot.');
 			})
 			.catch((e: Error) => {
 				if (target !== occasion) return;
 				continuing = false;
+				continuationError = e.message;
+			});
+	}
+
+	function removeContinuationNow() {
+		const target = occasion;
+		removingContinuation = true;
+		continuationError = null;
+		continuationReport = null;
+		fetch('/session/continuation', {
+			method: 'DELETE',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify(target)
+		})
+			.then(async (r) => {
+				if (!r.ok) throw new Error((await r.json().catch(() => null))?.message ?? 'Failed.');
+				return r.json() as Promise<SessionDetail & { report: WriteReport }>;
+			})
+			.then((d) => {
+				if (target !== occasion) return;
+				detail = d;
+				removingContinuation = false;
+				continuationReport = d.report;
+				toast.success('Continuation removed.');
+			})
+			.catch((e: Error) => {
+				if (target !== occasion) return;
+				removingContinuation = false;
 				continuationError = e.message;
 			});
 	}
@@ -297,14 +328,37 @@
 				/>
 			</section>
 
-			{#if detail.lesson}
+			{#if detail.lesson && started}
 				<div>
-					<Button variant="outline" size="sm" disabled={continuing} onclick={markContinuation}>
+					<Button
+						variant="outline"
+						size="sm"
+						disabled={continuing || removingContinuation}
+						onclick={markContinuation}
+					>
 						{continuing ? 'Marking…' : 'Needs more time'}
 					</Button>
 					<p class="mt-1.5 text-xs text-muted-foreground">
 						Widens this Lesson onto the Class's next Available Slot.
 					</p>
+					{#if detail.continuations > 0}
+						<div class="mt-2 flex items-center justify-between gap-2">
+							<p class="text-xs" role="status">
+								Continued onto {detail.continuations} more {detail.continuations === 1
+									? 'Session'
+									: 'Sessions'}.
+							</p>
+							<Button
+								variant="ghost"
+								size="sm"
+								class="h-6 px-2 text-xs"
+								disabled={continuing || removingContinuation}
+								onclick={removeContinuationNow}
+							>
+								{removingContinuation ? 'Removing…' : 'Remove one'}
+							</Button>
+						</div>
+					{/if}
 					{#if continuationError}
 						<p class="mt-1 text-xs text-destructive">{continuationError}</p>
 					{/if}

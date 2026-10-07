@@ -23,7 +23,8 @@ const baseDetail: SessionDetail = {
 	ready: null,
 	lesson: null,
 	placement: null,
-	canPlace: false
+	canPlace: false,
+	continuations: 0
 };
 
 describe('the Session panel', () => {

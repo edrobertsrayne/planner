@@ -7,7 +7,8 @@ import {
 	openLesson,
 	openLessonFromCourses,
 	openSessionWithLesson,
-	runFixture
+	runFixture,
+	todayIso
 } from './helpers.ts';
 
 // The structure-editing tests of the responsive work (issue #320): the Course, Topic and Lesson
@@ -304,6 +305,43 @@ test.describe('the Session page on a laptop', () => {
 		await page.goto(path);
 		await page.getByRole('button', { name: 'Back' }).click();
 		await expect(page).toHaveURL('/');
+	});
+});
+
+test.describe('Continuations on the Session page', () => {
+	test.use({ viewport: { width: 1280, height: 720 } });
+
+	test('Needs more time confirms and counts each click, and Remove one undoes it', async ({
+		page
+	}) => {
+		await login(page);
+		// The first Agenda row with a Lesson that has already started: a Continuation needs one.
+		const hrefs = await page
+			.locator('li')
+			.filter({ hasNotText: 'Open Slot' })
+			.locator('a[href^="/sessions/"]')
+			.evaluateAll((links) => links.map((a) => a.getAttribute('href')!));
+		const started = hrefs.find((href) => href.split('/')[3] <= todayIso());
+		expect(started, 'the Agenda holds a started Session with a Lesson').toBeDefined();
+		await page.goto(started!);
+
+		const status = page.getByRole('status').filter({ hasText: /^Continued onto/ });
+		const more = page.getByRole('button', { name: 'Needs more time' });
+		await expect(status).toHaveCount(0);
+
+		await more.click();
+		await expectToast(page, 'Lesson continued onto the next Available Slot.');
+		await expect(status).toHaveText('Continued onto 1 more Session.');
+		await more.click();
+		await expect(status).toHaveText('Continued onto 2 more Sessions.');
+
+		const remove = page.getByRole('button', { name: 'Remove one' });
+		await remove.click();
+		await expectToast(page, 'Continuation removed.');
+		await expect(status).toHaveText('Continued onto 1 more Session.');
+		await remove.click();
+		await expect(status).toHaveCount(0);
+		await expect(remove).toHaveCount(0);
 	});
 });
 

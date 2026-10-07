@@ -238,7 +238,9 @@ _Avoid_: Warning, at-risk list, change log
 
 **Continuation**:
 A Session marked as needing more time, so that its Lesson also occupies the following Available
-Slot. The Course is unchanged; only that Class's Sessions shift.
+Slot. The Course is unchanged; only that Class's Sessions shift. A Continuation can be removed
+(**Remove a Continuation**); the Lesson's later Sessions then move back one Available Slot. A
+Session can be marked once it has started — that day or later.
 _Avoid_: Split, extend, carry over, overrun
 
 ### Readiness
@@ -413,9 +415,10 @@ displays. No other screen shows Readiness.
 A page of its own, like the Lesson editor, addressed by its occasion: the Class, the date and the
 Period. It does not step to another Session. Leaving it by Back returns the teacher to the view
 they came from, or, when there is none, to the Agenda. On a laptop the plan is on the left and a
-rail on the right holds the note and the acts on the occasion — Needs more time, Place a Lesson
-and Remove placement. Below a laptop it is one column, and once the Session has started the note
-comes before the plan, because on a phone the teacher opens it after the lesson to write the note.
+rail on the right holds the note and the acts on the occasion — Needs more time, Remove a
+Continuation, Place a Lesson and Remove placement. Below a laptop it is one column, and once the
+Session has started the note comes before the plan, because on a phone the teacher opens it after
+the lesson to write the note.
 _Avoid_: Session panel
 
 **Settings**:
