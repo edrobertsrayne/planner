@@ -12,6 +12,9 @@
 	import QuoteIcon from '@lucide/svelte/icons/quote';
 	import CodeIcon from '@lucide/svelte/icons/code';
 	import LinkIcon from '@lucide/svelte/icons/link';
+	import SigmaIcon from '@lucide/svelte/icons/sigma';
+	import SquareSigmaIcon from '@lucide/svelte/icons/square-sigma';
+	import 'katex/dist/katex.min.css';
 
 	let {
 		value,
@@ -47,13 +50,20 @@
 		// Imported here rather than at the top: ProseMirror is a browser editor, so this keeps it
 		// out of the server render and out of the first load of every page that hosts one.
 		(async () => {
-			const [{ Editor: TiptapEditor }, { default: StarterKit }, { Markdown }, { Placeholder }] =
-				await Promise.all([
-					import('@tiptap/core'),
-					import('@tiptap/starter-kit'),
-					import('@tiptap/markdown'),
-					import('@tiptap/extensions')
-				]);
+			const [
+				{ Editor: TiptapEditor },
+				{ default: StarterKit },
+				{ Markdown },
+				{ Placeholder },
+				{ InlineMath, BlockMath }
+			] = await Promise.all([
+				import('@tiptap/core'),
+				import('@tiptap/starter-kit'),
+				import('@tiptap/markdown'),
+				import('@tiptap/extensions'),
+				import('@tiptap/extension-mathematics'),
+				import('katex/contrib/mhchem')
+			]);
 			if (!host) return;
 			instance = new TiptapEditor({
 				element: host,
@@ -65,7 +75,15 @@
 						link: { openOnClick: false }
 					}),
 					Markdown,
-					Placeholder.configure({ placeholder })
+					Placeholder.configure({ placeholder }),
+					InlineMath.configure({
+						katexOptions: { throwOnError: false, trust: false },
+						onClick: (node, pos) => editFormula('inline', node.attrs.latex, pos)
+					}),
+					BlockMath.configure({
+						katexOptions: { throwOnError: false, trust: false, displayMode: true },
+						onClick: (node, pos) => editFormula('block', node.attrs.latex, pos)
+					})
 				],
 				content: value,
 				contentType: 'markdown',
@@ -94,10 +112,19 @@
 						orderedList: e.isActive('orderedList'),
 						blockquote: e.isActive('blockquote'),
 						code: e.isActive('code'),
-						link: e.isActive('link')
+						link: e.isActive('link'),
+						inlineMath: e.isActive('inlineMath'),
+						blockMath: e.isActive('blockMath')
 					};
 				}
 			});
+			// @tiptap/markdown escapes \ ` * _ [ ] ~ in text but not $, so a typed "$5 and $10" would reload
+			// as a formula. Code marks and code blocks bypass this method, so `$` stays raw there.
+			const manager = instance.markdown as unknown as {
+				escapeMarkdownSyntax(text: string): string;
+			};
+			const escapeText = manager.escapeMarkdownSyntax.bind(manager);
+			manager.escapeMarkdownSyntax = (text) => escapeText(text).replace(/\$/g, '\\$');
 			editor = instance;
 		})();
 		return () => {
@@ -122,6 +149,32 @@
 			return;
 		}
 		editor.chain().focus().setLink({ href: url }).run();
+	}
+
+	function insertFormula(kind: 'inline' | 'block') {
+		if (!editor) return;
+		const latex = window.prompt('LaTeX formula', '');
+		if (!latex) return;
+		const chain = editor.chain().focus();
+		(kind === 'inline'
+			? chain.insertInlineMath({ latex })
+			: chain.insertBlockMath({ latex })
+		).run();
+	}
+
+	function editFormula(kind: 'inline' | 'block', current: string, pos: number) {
+		if (!editor) return;
+		const latex = window.prompt('LaTeX formula', current);
+		if (latex === null) return;
+		const chain = editor.chain().focus();
+		if (latex === '') {
+			(kind === 'inline' ? chain.deleteInlineMath({ pos }) : chain.deleteBlockMath({ pos })).run();
+			return;
+		}
+		(kind === 'inline'
+			? chain.updateInlineMath({ latex, pos })
+			: chain.updateBlockMath({ latex, pos })
+		).run();
 	}
 </script>
 
@@ -168,6 +221,8 @@
 			editor?.chain().focus().toggleBlockquote().run()
 		)}
 		{@render tool('code', 'Code', CodeIcon, () => editor?.chain().focus().toggleCode().run())}
+		{@render tool('inlineMath', 'Formula', SigmaIcon, () => insertFormula('inline'))}
+		{@render tool('blockMath', 'Display formula', SquareSigmaIcon, () => insertFormula('block'))}
 		{@render tool('link', 'Link', LinkIcon, editLink)}
 	</div>
 	<div

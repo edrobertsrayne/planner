@@ -1,4 +1,5 @@
 <script lang="ts">
+	import 'katex/dist/katex.min.css';
 	import { cn } from '$lib/utils.js';
 	import { renderMarkdown } from '$lib/markdown';
 
