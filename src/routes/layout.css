@@ -268,6 +268,13 @@
 		content: attr(data-placeholder);
 		@apply pointer-events-none float-left h-0 text-muted-foreground;
 	}
+	.markdown .math-block,
+	.markdown [data-type='block-math'] {
+		@apply my-2 overflow-x-auto;
+	}
+	.markdown .tiptap-mathematics-render--editable {
+		@apply cursor-pointer rounded hover:bg-muted;
+	}
 }
 
 /* A control that belongs to a row: hidden until the row is hovered or holds focus with a mouse,
