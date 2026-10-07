@@ -49,6 +49,8 @@ export interface SessionDetail extends Occasion {
 	// Lesson and every Lesson after it shift right. A Placement already anchored here is the one
 	// refusal — a second one on the same anchor collides on `placement_anchor`.
 	canPlace: boolean;
+	// Continuations recorded on this occasion — what the rail's status line counts and "Remove one" removes.
+	continuations: number;
 }
 
 // The Session panel's one read (issue #35) — the only place a Session is read or written. A
@@ -63,7 +65,11 @@ export function sessionDetail(
 	if (!cls) return null;
 
 	const [row] = db
-		.select({ lessonId: schema.session.lessonId, note: schema.session.note })
+		.select({
+			id: schema.session.id,
+			lessonId: schema.session.lessonId,
+			note: schema.session.note
+		})
 		.from(schema.session)
 		.where(atOccasion(occasion))
 		.all();
@@ -124,6 +130,13 @@ export function sessionDetail(
 		lesson,
 		ready,
 		note: row?.note ?? null,
+		continuations: row
+			? db
+					.select({ id: schema.continuation.id })
+					.from(schema.continuation)
+					.where(eq(schema.continuation.sessionId, row.id))
+					.all().length
+			: 0,
 		placement,
 		canPlace: occasion.date >= today && placement === null
 	};
@@ -147,7 +160,7 @@ export function writeSessionNote(
 }
 
 // A Session marked as needing more time: its Lesson widens to occupy the next Available Slot too.
-// The Session must already be taught (dated before today), since a Continuation is a reaction to
+// The Session must already have started (dated today or earlier), since a Continuation is a reaction to
 // how teaching actually went, not a plan. Both refusals are `invalid`: an occasion with no
 // Session to continue, and an occasion that has not happened yet, are each bad input to this
 // write — the occasion comes from the request body, not the URL.
@@ -165,7 +178,7 @@ export function recordContinuation(
 			'invalid',
 			`No Session on ${occasion.date} P${occasion.period} for this Class.`
 		);
-	if (occasion.date >= today) {
+	if (occasion.date > today) {
 		throw new Refused(
 			'invalid',
 			`The ${occasion.date} P${occasion.period} Session has not been taught yet.`
@@ -174,5 +187,36 @@ export function recordContinuation(
 
 	db.insert(schema.continuation).values({ sessionId: existing.id }).run();
 
+	return rederive(db, occasion.classId, today);
+}
+
+// Remove a Continuation: undoes one "Needs more time" on this occasion, so the Lesson's later
+// Sessions move back one Available Slot. No date rule — a past extra Session stays in the record.
+export function removeContinuation(
+	db: Db,
+	{ today, ...occasion }: Occasion & { today: string }
+): WriteReport {
+	const [existing] = db
+		.select({ id: schema.session.id })
+		.from(schema.session)
+		.where(atOccasion(occasion))
+		.all();
+	if (!existing)
+		throw new Refused(
+			'invalid',
+			`No Session on ${occasion.date} P${occasion.period} for this Class.`
+		);
+	const [row] = db
+		.select({ id: schema.continuation.id })
+		.from(schema.continuation)
+		.where(eq(schema.continuation.sessionId, existing.id))
+		.limit(1)
+		.all();
+	if (!row)
+		throw new Refused(
+			'invalid',
+			`No Continuation on ${occasion.date} P${occasion.period} to remove.`
+		);
+	db.delete(schema.continuation).where(eq(schema.continuation.id, row.id)).run();
 	return rederive(db, occasion.classId, today);
 }

@@ -60,6 +60,7 @@ export { replaceTerms } from './terms';
 
 export {
 	recordContinuation,
+	removeContinuation,
 	sessionDetail,
 	writeSessionNote,
 	type Occasion,

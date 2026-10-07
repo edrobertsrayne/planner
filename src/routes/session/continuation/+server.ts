@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
-import { recordContinuation, sessionDetail } from '$lib/server/planner';
+import { recordContinuation, removeContinuation, sessionDetail } from '$lib/server/planner';
 import { occasionOf, refusal } from '../occasion';
 import type { RequestHandler } from './$types';
 
@@ -13,6 +13,18 @@ export const POST: RequestHandler = async ({ request }) => {
 
 	try {
 		const report = recordContinuation(db, { ...occasion, today: today() });
+		return json({ ...sessionDetail(db, { ...occasion, today: today() }), report });
+	} catch (e) {
+		refusal(e);
+	}
+};
+
+// Remove one: undoes one Continuation recorded on this occasion.
+export const DELETE: RequestHandler = async ({ request }) => {
+	const occasion = occasionOf(await request.json());
+
+	try {
+		const report = removeContinuation(db, { ...occasion, today: today() });
 		return json({ ...sessionDetail(db, { ...occasion, today: today() }), report });
 	} catch (e) {
 		refusal(e);

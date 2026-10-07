@@ -610,7 +610,7 @@ test.describe('the Session page on a phone', () => {
 
 		await expectHitArea44(page, 'Back', 'button');
 		await expectHitArea44(page, 'Open in Lesson editor', 'link');
-		await expectHitArea44(page, 'Needs more time', 'button');
+		if (started) await expectHitArea44(page, 'Needs more time', 'button');
 	});
 
 	test('Open in Lesson editor shows the read view, and Back returns to the Session page', async ({
