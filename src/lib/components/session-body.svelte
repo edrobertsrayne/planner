@@ -352,7 +352,7 @@
 								variant="ghost"
 								size="sm"
 								class="h-6 px-2 text-xs"
-								disabled={removingContinuation}
+								disabled={continuing || removingContinuation}
 								onclick={removeContinuationNow}
 							>
 								{removingContinuation ? 'Removing…' : 'Remove one'}

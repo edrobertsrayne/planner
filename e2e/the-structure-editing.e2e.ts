@@ -325,7 +325,7 @@ test.describe('Continuations on the Session page', () => {
 		expect(started, 'the Agenda holds a started Session with a Lesson').toBeDefined();
 		await page.goto(started!);
 
-		const status = page.getByRole('status').filter({ hasText: 'Continued onto' });
+		const status = page.getByRole('status').filter({ hasText: /^Continued onto/ });
 		const more = page.getByRole('button', { name: 'Needs more time' });
 		await expect(status).toHaveCount(0);
 

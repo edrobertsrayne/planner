@@ -75,19 +75,20 @@ describe('Continuation', () => {
 	test('refuses to continue a Session that has not been taught yet', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
-		makeLessons(db, topic.id, 1);
+		makeLessons(db, topic.id, 3);
 
 		const today = '2026-09-03';
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today });
 		const stillToTeach = classSchedule(db, { classId: classA.id, today }).scheduled.find(
 			(s) => s.date > today
-		)!;
+		);
+		expect(stillToTeach).toBeDefined();
 
 		expect(() =>
 			recordContinuation(db, {
 				classId: classA.id,
-				date: stillToTeach.date,
-				period: stillToTeach.period,
+				date: stillToTeach!.date,
+				period: stillToTeach!.period,
 				today
 			})
 		).toThrow(/not been taught/);
@@ -107,6 +108,9 @@ describe('Continuation', () => {
 		);
 		expect(parts.length).toBeGreaterThan(0);
 		expect(parts.every((p) => p.of === 2)).toBe(true);
+		expect(
+			sessionDetail(db, { classId: classA.id, date: '2026-09-03', period: 5, today })!.continuations
+		).toBe(1);
 	});
 
 	test('removing one of two Continuations leaves the Lesson at two parts', () => {

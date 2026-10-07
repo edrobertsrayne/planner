@@ -415,9 +415,10 @@ displays. No other screen shows Readiness.
 A page of its own, like the Lesson editor, addressed by its occasion: the Class, the date and the
 Period. It does not step to another Session. Leaving it by Back returns the teacher to the view
 they came from, or, when there is none, to the Agenda. On a laptop the plan is on the left and a
-rail on the right holds the note and the acts on the occasion — Needs more time, Remove a Continuation, Place a Lesson
-and Remove placement. Below a laptop it is one column, and once the Session has started the note
-comes before the plan, because on a phone the teacher opens it after the lesson to write the note.
+rail on the right holds the note and the acts on the occasion — Needs more time, Remove a
+Continuation, Place a Lesson and Remove placement. Below a laptop it is one column, and once the
+Session has started the note comes before the plan, because on a phone the teacher opens it after
+the lesson to write the note.
 _Avoid_: Session panel
 
 **Settings**:
