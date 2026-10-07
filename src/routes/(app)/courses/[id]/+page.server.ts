@@ -14,6 +14,7 @@ import {
 	moveLesson,
 	renameCourse,
 	renameTopic,
+	reportOf,
 	tagsByLesson,
 	topicsOf
 } from '$lib/server/planner';
@@ -124,7 +125,8 @@ export const actions: Actions = {
 		const topicId = trimmed(data, 'topicId');
 		const title = String(data.get('title') ?? '');
 		try {
-			return { lesson: createLesson(db, { topicId, title, today: today() }) };
+			const created = createLesson(db, { topicId, title, today: today() });
+			return { lesson: created.lesson, report: reportOf(created) };
 		} catch (error) {
 			return refusal(error);
 		}
@@ -136,7 +138,6 @@ export const actions: Actions = {
 		const id = trimmed(data, 'id');
 		const direction = trimmed(data, 'direction');
 		if (direction !== 'up' && direction !== 'down') return fail(400, { error: 'Bad direction.' });
-		moveLesson(db, { topicId, id, direction, today: today() });
-		return {};
+		return { report: moveLesson(db, { topicId, id, direction, today: today() }) };
 	}
 };

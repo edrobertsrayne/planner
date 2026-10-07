@@ -73,7 +73,8 @@ export const POST: RequestHandler = async (event) => {
 				course: created.course,
 				courseCreated: created.courseCreated,
 				topic: created.topic,
-				lessons: created.lessons
+				lessons: created.lessons,
+				report: created.report
 			},
 			{ status: 201 }
 		);

@@ -343,6 +343,13 @@ export interface PlacementMoved {
 // `atRisk`, since a Placement carries no note to make silence safe.
 export type WriteReport = { atRisk: AtRiskSession[]; placementsMoved: PlacementMoved[] };
 
+// A write that answers with more than its report (`{ lesson, ...WriteReport }`, `{ slot, ... }`)
+// hands the doors this one way to take the report out, so no door names the two parts.
+export const reportOf = ({ atRisk, placementsMoved }: WriteReport): WriteReport => ({
+	atRisk,
+	placementsMoved
+});
+
 export interface LessonName {
 	title: string;
 	topicName: string | null;

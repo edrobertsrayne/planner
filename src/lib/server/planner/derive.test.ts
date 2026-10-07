@@ -5,7 +5,10 @@ import {
 	assignedTopicsOf,
 	assignTopic,
 	classSchedule,
+	createLesson,
+	deleteLesson,
 	moveAssignedTopic,
+	moveLesson,
 	recordContinuation,
 	sessionDetail,
 	unassignTopic,
@@ -152,6 +155,103 @@ describe('every scheduling write answers with its Rewind report', () => {
 			date: '2026-09-14',
 			period: 3,
 			lessonTitle: 'Lesson 5'
+		});
+	});
+});
+
+// A Lesson write in front of a noted future Session changes the Lesson that Session carries, so
+// the write must answer with it (ADR-0007).
+describe('a Lesson write in front of a noted Session reports that Session', () => {
+	const today = '2026-09-01';
+
+	test('createLesson', () => {
+		const { db, course, classA } = setUp();
+		const forces = makeTopic(db, course.id, 'Forces');
+		makeLessons(db, forces.id, 1);
+		const waves = makeTopic(db, course.id, 'Waves');
+		const [wavesLesson] = makeLessons(db, waves.id, 1);
+		db.update(schema.lesson)
+			.set({ title: 'Waves intro' })
+			.where(eq(schema.lesson.id, wavesLesson.id))
+			.run();
+		assignTopic(db, { classId: classA.id, topicId: forces.id, today });
+		assignTopic(db, { classId: classA.id, topicId: waves.id, today });
+		const noted = classSchedule(db, { classId: classA.id, today }).scheduled[1];
+		writeSessionNote(db, {
+			classId: classA.id,
+			date: noted.date,
+			period: noted.period,
+			note: 'ripple tank'
+		});
+
+		const { lesson, atRisk } = createLesson(db, { topicId: forces.id, title: 'Extra', today });
+
+		expect(lesson.title).toBe('Extra');
+		expect(atRisk).toHaveLength(1);
+		expect(atRisk[0]).toMatchObject({
+			classId: classA.id,
+			date: noted.date,
+			period: noted.period,
+			lessonTitle: 'Waves intro'
+		});
+	});
+
+	test('moveLesson', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const lessons = makeLessons(db, topic.id, 2);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today });
+		const noted = classSchedule(db, { classId: classA.id, today }).scheduled[1];
+		writeSessionNote(db, {
+			classId: classA.id,
+			date: noted.date,
+			period: noted.period,
+			note: 'equipment'
+		});
+
+		const report = moveLesson(db, {
+			topicId: topic.id,
+			id: lessons[1].id,
+			direction: 'up',
+			today
+		});
+
+		expect(report.atRisk).toHaveLength(1);
+		expect(report.atRisk[0]).toMatchObject({
+			date: noted.date,
+			period: noted.period,
+			lessonTitle: 'Lesson 2'
+		});
+	});
+
+	test('deleteLesson', () => {
+		const { db, course, classA, atDir } = setUp();
+		const forces = makeTopic(db, course.id, 'Forces');
+		const forcesLessons = makeLessons(db, forces.id, 2);
+		const waves = makeTopic(db, course.id, 'Waves');
+		const [wavesLesson] = makeLessons(db, waves.id, 1);
+		db.update(schema.lesson)
+			.set({ title: 'Waves intro' })
+			.where(eq(schema.lesson.id, wavesLesson.id))
+			.run();
+		assignTopic(db, { classId: classA.id, topicId: forces.id, today });
+		assignTopic(db, { classId: classA.id, topicId: waves.id, today });
+		const noted = classSchedule(db, { classId: classA.id, today }).scheduled[2];
+		writeSessionNote(db, {
+			classId: classA.id,
+			date: noted.date,
+			period: noted.period,
+			note: 'ripple tank'
+		});
+
+		const result = deleteLesson(db, { id: forcesLessons[1].id, today, dir: atDir });
+
+		expect(result?.lesson.title).toBe('Lesson 2');
+		expect(result?.atRisk).toHaveLength(1);
+		expect(result?.atRisk[0]).toMatchObject({
+			date: noted.date,
+			period: noted.period,
+			lessonTitle: 'Waves intro'
 		});
 	});
 });

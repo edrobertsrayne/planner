@@ -38,11 +38,7 @@ export const PUT: RequestHandler = async (event) => {
 
 	try {
 		const report = replaceTerms(db, client, { terms, today: today() });
-		return json({
-			terms: termsInYearOrder(),
-			atRisk: report.atRisk,
-			placementsMoved: report.placementsMoved
-		});
+		return json({ terms: termsInYearOrder(), report });
 	} catch (error) {
 		return refusalJson(error);
 	}

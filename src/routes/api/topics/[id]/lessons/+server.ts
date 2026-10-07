@@ -5,6 +5,7 @@ import { topic } from '$lib/server/db/schema';
 import { requireApiKey } from '$lib/server/api-key';
 import { refusalJson, requireExisting, stringField } from '$lib/server/api-helpers';
 import { lessonsOf, createLesson } from '$lib/server/planner/authoring';
+import { reportOf } from '$lib/server/planner';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async (event) => {
@@ -48,7 +49,7 @@ export const POST: RequestHandler = async (event) => {
 			status,
 			today: today()
 		});
-		return json({ ...created, links: [] }, { status: 201 });
+		return json({ ...created.lesson, links: [], report: reportOf(created) }, { status: 201 });
 	} catch (error) {
 		return refusalJson(error);
 	}

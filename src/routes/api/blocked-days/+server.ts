@@ -46,14 +46,7 @@ export const POST: RequestHandler = async (event) => {
 			.from(blockedDay)
 			.where(eq(blockedDay.date, data.date))
 			.all();
-		return json(
-			{
-				blockedDay: stored,
-				atRisk: report.atRisk,
-				placementsMoved: report.placementsMoved
-			},
-			{ status: 201 }
-		);
+		return json({ blockedDay: stored, report }, { status: 201 });
 	} catch (error) {
 		return refusalJson(error);
 	}

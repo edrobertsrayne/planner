@@ -32,7 +32,11 @@ function setUpLesson() {
 	const atDir = attachmentsDir(join(dir, 'test.db'));
 	const course = createCourse(db, { name: 'Year 9 Physics' });
 	const topic = makeTopic(db, course.id, 'Forces');
-	const lesson = createLesson(db, { topicId: topic.id, title: 'Newton I', today: '2026-09-03' });
+	const { lesson } = createLesson(db, {
+		topicId: topic.id,
+		title: 'Newton I',
+		today: '2026-09-03'
+	});
 	return { db, lesson, atDir };
 }
 
@@ -382,7 +386,7 @@ describe("an Attachment's lifecycle follows its Lesson", () => {
 
 		const result = deleteLesson(db, { id: lesson.id, today: '2026-09-03', dir: atDir });
 
-		expect(result).toMatchObject({ id: lesson.id });
+		expect(result?.lesson).toMatchObject({ id: lesson.id });
 		expect(existsSync(join(atDir, first.id))).toBe(false);
 		expect(existsSync(join(atDir, second.id))).toBe(false);
 	});

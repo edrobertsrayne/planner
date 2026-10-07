@@ -4,10 +4,9 @@
 	import { classTone } from '$lib/class-tone';
 	import { formatShortWeekday } from '$lib/date';
 	import { statusTone, type PlanningStatus } from '$lib/feedback-tone';
-	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
 	import FilterChips from '$lib/components/filter-chips.svelte';
 	import PageHeader from '$lib/components/page-header.svelte';
-	import PlacementsMovedAlert from '$lib/components/placements-moved-alert.svelte';
+	import RewindReport from '$lib/components/rewind-report.svelte';
 	import TagChips from '$lib/components/tag-chips.svelte';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { page } from '$app/state';
@@ -118,12 +117,7 @@
 		{/snippet}
 	</PageHeader>
 
-	{#if form?.atRisk}
-		<AtRiskAlert atRisk={form.atRisk} />
-	{/if}
-	{#if form?.placementsMoved}
-		<PlacementsMovedAlert placementsMoved={form.placementsMoved} />
-	{/if}
+	<RewindReport report={form?.report} />
 
 	{#if noLessonsAnywhere}
 		<div class="mt-6 rounded-xl border border-dashed px-6 py-12 text-center">

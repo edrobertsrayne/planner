@@ -8,6 +8,10 @@ Add new entries at the top, dated:
 
 - YYYY-MM-DD: idea
 
+- 2026-10-06: Show the Rewind report of placing a Lesson on the Session page. `POST
+/session/placement` sends `report`, but `session-body.svelte` ignores it, so a Placement
+  that shifts a noted Session or another Placement stays silent (found in #357).
+
 - 2026-10-06: A search control over Lessons and Sessions (#265). The dashed "Search" room in
   the sidebar and top bar was removed as a no-op placeholder (PR #354 review); build the
   control with the feature.

@@ -37,7 +37,7 @@ export const actions: Actions = {
 		if (!topicId) return fail(400, { error: 'Pick a Topic to assign.' });
 		try {
 			const report = assignTopic(db, { classId, topicId, today: today() });
-			return { atRisk: report.atRisk, placementsMoved: report.placementsMoved };
+			return { report };
 		} catch (error) {
 			return refusal(error);
 		}

@@ -9,6 +9,7 @@ import {
 	lessonDetail,
 	deleteLesson,
 	editLesson,
+	reportOf,
 	type LessonChange
 } from '$lib/server/planner';
 import type { RequestHandler } from './$types';
@@ -69,7 +70,7 @@ export const PATCH: RequestHandler = async (event) => {
 
 		// An unknown lesson id is a URL miss — the route's own 404, not the seam's.
 		if (!result) return json({ error: 'Lesson not found.' }, { status: 404 });
-		return json(result);
+		return json({ lesson: result.lesson, report: reportOf(result) });
 	} catch (error) {
 		return refusalJson(error);
 	}

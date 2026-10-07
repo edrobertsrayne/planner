@@ -5,9 +5,8 @@
 	import { formatSize } from '$lib/format-size';
 	import type { Occasion } from '$lib/client/session-href';
 	import { createSessionNotes } from '$lib/client/session-note';
-	import type { AtRiskSession, PlacementMoved, SessionDetail } from '$lib/server/planner';
-	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
-	import PlacementsMovedAlert from '$lib/components/placements-moved-alert.svelte';
+	import type { SessionDetail, WriteReport } from '$lib/server/planner';
+	import RewindReport from '$lib/components/rewind-report.svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import TagChips from '$lib/components/tag-chips.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -51,8 +50,7 @@
 	let note = $state('');
 	let continuing = $state(false);
 	let continuationError = $state<string | null>(null);
-	let continuationAtRisk = $state<AtRiskSession[]>([]);
-	let continuationPlacementsMoved = $state<PlacementMoved[]>([]);
+	let continuationReport = $state<WriteReport | null>(null);
 	let placeTitle = $state('');
 	let placing = $state(false);
 	let placeError = $state<string | null>(null);
@@ -67,8 +65,7 @@
 		loadFailed = false;
 		continuing = false;
 		continuationError = null;
-		continuationAtRisk = [];
-		continuationPlacementsMoved = [];
+		continuationReport = null;
 		placing = false;
 		placeTitle = '';
 		placeError = null;
@@ -104,8 +101,7 @@
 		const target = occasion;
 		continuing = true;
 		continuationError = null;
-		continuationAtRisk = [];
-		continuationPlacementsMoved = [];
+		continuationReport = null;
 		fetch('/session/continuation', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
@@ -113,16 +109,13 @@
 		})
 			.then(async (r) => {
 				if (!r.ok) throw new Error((await r.json().catch(() => null))?.message ?? 'Failed.');
-				return r.json() as Promise<
-					SessionDetail & { atRisk: AtRiskSession[]; placementsMoved: PlacementMoved[] }
-				>;
+				return r.json() as Promise<SessionDetail & { report: WriteReport }>;
 			})
 			.then((d) => {
 				if (target !== occasion) return;
 				detail = d;
 				continuing = false;
-				continuationAtRisk = d.atRisk;
-				continuationPlacementsMoved = d.placementsMoved;
+				continuationReport = d.report;
 			})
 			.catch((e: Error) => {
 				if (target !== occasion) return;
@@ -315,16 +308,9 @@
 					{#if continuationError}
 						<p class="mt-1 text-xs text-destructive">{continuationError}</p>
 					{/if}
-					{#if continuationAtRisk.length > 0}
-						<div class="mt-3">
-							<AtRiskAlert atRisk={continuationAtRisk} />
-						</div>
-					{/if}
-					{#if continuationPlacementsMoved.length > 0}
-						<div class="mt-3">
-							<PlacementsMovedAlert placementsMoved={continuationPlacementsMoved} />
-						</div>
-					{/if}
+					<div class="mt-3 empty:hidden">
+						<RewindReport report={continuationReport} />
+					</div>
 				</div>
 			{/if}
 

@@ -8,8 +8,7 @@
 	import { formatDate } from '$lib/date';
 	import { withParam } from '$lib/query';
 	import RenameableRow from '$lib/components/renameable-row.svelte';
-	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
-	import PlacementsMovedAlert from '$lib/components/placements-moved-alert.svelte';
+	import RewindReport from '$lib/components/rewind-report.svelte';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
@@ -72,12 +71,7 @@
 	{#if form?.error}
 		<p role="alert" class="mt-3 text-xs text-destructive">{form.error}</p>
 	{/if}
-	{#if form?.atRisk}
-		<AtRiskAlert atRisk={form.atRisk} />
-	{/if}
-	{#if form?.placementsMoved}
-		<PlacementsMovedAlert placementsMoved={form.placementsMoved} />
-	{/if}
+	<RewindReport report={form?.report} />
 
 	<div class="mt-3 flex items-start gap-3">
 		<span

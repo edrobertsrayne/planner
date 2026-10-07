@@ -152,8 +152,12 @@ describe('authoring Courses, Topics and Lessons', () => {
 		const course = createCourse(db, { name: 'Year 9 Physics' });
 		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
 
-		const first = createLesson(db, { topicId: topic.id, title: 'Newton I', today: '2026-09-03' });
-		const second = createLesson(db, {
+		const { lesson: first } = createLesson(db, {
+			topicId: topic.id,
+			title: 'Newton I',
+			today: '2026-09-03'
+		});
+		const { lesson: second } = createLesson(db, {
 			topicId: topic.id,
 			title: 'Newton II',
 			today: '2026-09-03'
@@ -462,7 +466,11 @@ describe('field rules', () => {
 		const { db } = setUpAuthoring();
 		const course = createCourse(db, { name: 'Year 9 Physics' });
 		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
-		const lesson = createLesson(db, { topicId: topic.id, title: 'Newton I', today: '2026-09-03' });
+		const { lesson } = createLesson(db, {
+			topicId: topic.id,
+			title: 'Newton I',
+			today: '2026-09-03'
+		});
 
 		refused(() => createCourse(db, { name: '  ' }), 'invalid', 'A Course needs a name.');
 		refused(() => renameTopic(db, { id: topic.id, name: '' }), 'invalid', 'A Topic needs a name.');
@@ -487,7 +495,11 @@ describe('field rules', () => {
 		const { db } = setUpAuthoring();
 		const course = createCourse(db, { name: 'Year 9 Physics' });
 		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
-		const lesson = createLesson(db, { topicId: topic.id, title: 'Newton I', today: '2026-09-03' });
+		const { lesson } = createLesson(db, {
+			topicId: topic.id,
+			title: 'Newton I',
+			today: '2026-09-03'
+		});
 		const link = createLink(db, { lessonId: lesson.id, url: 'https://example.com', label: 'A' });
 
 		for (const url of ['javascript:alert(1)', 'ftp://example.com/file', 'not a url']) {
@@ -504,7 +516,7 @@ describe('field rules', () => {
 		const { db } = setUpAuthoring();
 		const course = createCourse(db, { name: '  Year 9 Physics ' });
 		const topic = createTopic(db, { courseId: course.id, name: ' Forces ' });
-		const lesson = createLesson(db, {
+		const { lesson } = createLesson(db, {
 			topicId: topic.id,
 			title: ' Newton I ',
 			body: '  - indented list\n',
@@ -537,7 +549,11 @@ describe('field rules', () => {
 		const { db } = setUpAuthoring();
 		const course = createCourse(db, { name: 'Year 9 Physics' });
 		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
-		const lesson = createLesson(db, { topicId: topic.id, title: 'Newton I', today: '2026-09-03' });
+		const { lesson } = createLesson(db, {
+			topicId: topic.id,
+			title: 'Newton I',
+			today: '2026-09-03'
+		});
 		const lengthRule = 'A Length must be a whole number of Periods from 1 to 20.';
 
 		refused(
@@ -569,7 +585,11 @@ describe("a Lesson's planning status", () => {
 		const { db } = setUpAuthoring();
 		const course = createCourse(db, { name: 'Year 9 Physics' });
 		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
-		const lesson = createLesson(db, { topicId: topic.id, title: 'Newton I', today: '2026-09-03' });
+		const { lesson } = createLesson(db, {
+			topicId: topic.id,
+			title: 'Newton I',
+			today: '2026-09-03'
+		});
 		return { db, topic, lesson };
 	}
 
@@ -599,7 +619,11 @@ describe("a Lesson's planning status", () => {
 	test("setting a Lesson's planning status moves no date", () => {
 		const { db, course, classA } = setUp();
 		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
-		const lesson = createLesson(db, { topicId: topic.id, title: 'Newton I', today: '2026-09-03' });
+		const { lesson } = createLesson(db, {
+			topicId: topic.id,
+			title: 'Newton I',
+			today: '2026-09-03'
+		});
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 
 		const before = classSchedule(db, { classId: classA.id, today: '2026-09-03' });
@@ -635,9 +659,21 @@ describe('reordering and moving Lessons', () => {
 
 	test('Lessons are reordered up and down within the Topic', () => {
 		const { db, topic } = setUpTopics();
-		const first = createLesson(db, { topicId: topic.id, title: 'A', today: '2026-09-03' });
-		const second = createLesson(db, { topicId: topic.id, title: 'B', today: '2026-09-03' });
-		const third = createLesson(db, { topicId: topic.id, title: 'C', today: '2026-09-03' });
+		const { lesson: first } = createLesson(db, {
+			topicId: topic.id,
+			title: 'A',
+			today: '2026-09-03'
+		});
+		const { lesson: second } = createLesson(db, {
+			topicId: topic.id,
+			title: 'B',
+			today: '2026-09-03'
+		});
+		const { lesson: third } = createLesson(db, {
+			topicId: topic.id,
+			title: 'C',
+			today: '2026-09-03'
+		});
 
 		moveLesson(db, { topicId: topic.id, id: third.id, direction: 'up', today: '2026-09-03' });
 		expect(lessonsOf(db, topic.id).map((l) => l.id)).toEqual([first.id, third.id, second.id]);
@@ -652,7 +688,11 @@ describe('reordering and moving Lessons', () => {
 
 	test('a Lesson moves to a different Topic, keeping its body, links and Length', () => {
 		const { db, topic, otherTopic } = setUpTopics();
-		const lesson = createLesson(db, { topicId: topic.id, title: 'Newton I', today: '2026-09-03' });
+		const { lesson } = createLesson(db, {
+			topicId: topic.id,
+			title: 'Newton I',
+			today: '2026-09-03'
+		});
 		editLesson(db, {
 			id: lesson.id,
 			change: { body: 'Objectives: state the First Law.', length: 2 },
@@ -663,7 +703,7 @@ describe('reordering and moving Lessons', () => {
 			label: 'Slides',
 			url: 'https://example.com/slides'
 		});
-		const existingLesson = createLesson(db, {
+		const { lesson: existingLesson } = createLesson(db, {
 			topicId: otherTopic.id,
 			title: 'Existing',
 			today: '2026-09-03'
@@ -687,12 +727,16 @@ describe('reordering and moving Lessons', () => {
 
 	test('a Lesson is deleted, and its Links go with it', () => {
 		const { db, topic, dir } = setUpTopics();
-		const lesson = createLesson(db, { topicId: topic.id, title: 'Newton I', today: '2026-09-03' });
+		const { lesson } = createLesson(db, {
+			topicId: topic.id,
+			title: 'Newton I',
+			today: '2026-09-03'
+		});
 		const link = createLink(db, { lessonId: lesson.id, label: 'Slides', url: 'https://a.example' });
 
 		const result = deleteLesson(db, { id: lesson.id, today: '2026-09-03', dir });
 
-		expect(result).toMatchObject({ id: lesson.id });
+		expect(result?.lesson).toMatchObject({ id: lesson.id });
 		expect(lessonsOf(db, topic.id)).toEqual([]);
 		expect(lessonDetail(db, lesson.id)).toBeNull();
 		expect(() =>
@@ -874,7 +918,7 @@ describe('content edits re-derive the schedule from today', () => {
 		const before = classSchedule(db, { classId: classA.id, today });
 		const historyBefore = before.history;
 
-		const inserted = createLesson(db, { topicId: topic.id, title: 'Inserted', today });
+		const { lesson: inserted } = createLesson(db, { topicId: topic.id, title: 'Inserted', today });
 		// Slot it in at the front of the order to prove insertion, not just append, still holds the
 		// boundary — reordering is exercised by the "reordering" test below, this one only needs a
 		// content change that ripples forward.
@@ -1033,7 +1077,11 @@ describe('the Lesson editor', () => {
 		const { db } = setUpAuthoring();
 		const course = createCourse(db, { name: 'Year 9 Physics' });
 		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
-		const lesson = createLesson(db, { topicId: topic.id, title: 'Newton I', today: '2026-09-03' });
+		const { lesson } = createLesson(db, {
+			topicId: topic.id,
+			title: 'Newton I',
+			today: '2026-09-03'
+		});
 		return { db, topic, lesson };
 	}
 
@@ -1136,7 +1184,11 @@ describe('Tags on a Lesson', () => {
 		const { db, atDir: dir } = setUpAuthoring();
 		const course = createCourse(db, { name: 'Year 9 Physics' });
 		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
-		const lesson = createLesson(db, { topicId: topic.id, title: 'Newton I', today: '2026-09-03' });
+		const { lesson } = createLesson(db, {
+			topicId: topic.id,
+			title: 'Newton I',
+			today: '2026-09-03'
+		});
 		return { db, topic, lesson, dir };
 	}
 
@@ -1145,7 +1197,7 @@ describe('Tags on a Lesson', () => {
 
 		expect(attachTag(db, { lessonId: lesson.id, name: 'Practical' })).toEqual(['Practical']);
 
-		const other = createLesson(db, {
+		const { lesson: other } = createLesson(db, {
 			topicId: lesson.topicId!,
 			title: 'Newton II',
 			today: '2026-09-03'
@@ -1198,7 +1250,7 @@ describe('Tags on a Lesson', () => {
 
 	test('detaching removes only the one lesson_tag row, leaving the Tag and other attachments', () => {
 		const { db, lesson } = setUpLesson();
-		const other = createLesson(db, {
+		const { lesson: other } = createLesson(db, {
 			topicId: lesson.topicId!,
 			title: 'Newton II',
 			today: '2026-09-03'
@@ -1247,12 +1299,12 @@ describe('Tags on a Lesson', () => {
 
 	test('tagsByLesson resolves several Lessons in one batch, some tagged, some not', () => {
 		const { db, lesson } = setUpLesson();
-		const other = createLesson(db, {
+		const { lesson: other } = createLesson(db, {
 			topicId: lesson.topicId!,
 			title: 'Newton II',
 			today: '2026-09-03'
 		});
-		const untagged = createLesson(db, {
+		const { lesson: untagged } = createLesson(db, {
 			topicId: lesson.topicId!,
 			title: 'Newton III',
 			today: '2026-09-03'
@@ -1291,7 +1343,11 @@ describe('deleting a Course or a Topic', () => {
 		const { db, atDir: dir } = setUpAuthoring();
 		const course = createCourse(db, { name: 'Year 9 Physics' });
 		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
-		const lesson = createLesson(db, { topicId: topic.id, title: 'Newton I', today: '2026-09-03' });
+		const { lesson } = createLesson(db, {
+			topicId: topic.id,
+			title: 'Newton I',
+			today: '2026-09-03'
+		});
 
 		expect(deleteTopic(db, topic.id, { today: '2026-09-03', dir })).toEqual({
 			needsConfirm: true,
@@ -1310,7 +1366,11 @@ describe('deleting a Course or a Topic', () => {
 		const { db, atDir: dir } = setUpAuthoring();
 		const course = createCourse(db, { name: 'Year 9 Physics' });
 		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
-		const lesson = createLesson(db, { topicId: topic.id, title: 'Newton I', today: '2026-09-03' });
+		const { lesson } = createLesson(db, {
+			topicId: topic.id,
+			title: 'Newton I',
+			today: '2026-09-03'
+		});
 
 		expect(deleteCourse(db, course.id, { today: '2026-09-03', dir })).toEqual({
 			needsConfirm: true,

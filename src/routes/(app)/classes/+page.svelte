@@ -6,8 +6,7 @@
 	import { onFail, submitWithValue } from '$lib/client/enhance';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import PlusIcon from '@lucide/svelte/icons/plus';
-	import AtRiskAlert from '$lib/components/at-risk-alert.svelte';
-	import PlacementsMovedAlert from '$lib/components/placements-moved-alert.svelte';
+	import RewindReport from '$lib/components/rewind-report.svelte';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Select from '$lib/components/ui/select/index.js';
@@ -28,12 +27,7 @@
 <div class="mx-auto max-w-6xl px-6 py-6">
 	<PageHeader title="Classes" />
 
-	{#if form?.atRisk}
-		<AtRiskAlert atRisk={form.atRisk} />
-	{/if}
-	{#if form?.placementsMoved}
-		<PlacementsMovedAlert placementsMoved={form.placementsMoved} />
-	{/if}
+	<RewindReport report={form?.report} />
 
 	{#if !data.courses.length}
 		<div class="mt-6 rounded-xl border border-dashed px-6 py-12 text-center">

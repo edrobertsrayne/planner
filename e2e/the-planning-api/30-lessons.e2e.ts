@@ -54,7 +54,8 @@ test.describe.serial('the Lesson endpoints', () => {
 			status: 'draft',
 			length: 1,
 			position: 0,
-			links: []
+			links: [],
+			report: { atRisk: [], placementsMoved: [] }
 		});
 
 		const full = await request.post(`/api/topics/${topicOneId}/lessons`, {
@@ -152,7 +153,7 @@ test.describe.serial('the Lesson endpoints', () => {
 		});
 		expect(titleOnly.status()).toBe(200);
 		const renamed = await titleOnly.json();
-		expect(keysOf(renamed)).toEqual(['atRisk', 'lesson', 'placementsMoved']);
+		expect(keysOf(renamed)).toEqual(['lesson', 'report']);
 		expect(keysOf(renamed.lesson)).toEqual([
 			'body',
 			'id',
@@ -201,8 +202,7 @@ test.describe.serial('the Lesson endpoints', () => {
 			expect(noop.status()).toBe(200);
 			expect(await noop.json()).toMatchObject({
 				lesson: { body: 'Rewritten', length: 2, status: 'planned', topicId: topicOneId },
-				atRisk: [],
-				placementsMoved: []
+				report: { atRisk: [], placementsMoved: [] }
 			});
 		}
 

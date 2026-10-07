@@ -371,7 +371,7 @@ export function createLesson(
 		status?: string;
 		today: string;
 	}
-) {
+): { lesson: typeof schema.lesson.$inferSelect } & WriteReport {
 	const [row] = db
 		.insert(schema.lesson)
 		.values({
@@ -384,8 +384,7 @@ export function createLesson(
 		})
 		.returning()
 		.all();
-	rederiveTopic(db, topicId, today);
-	return row;
+	return { lesson: row, ...rederiveTopic(db, topicId, today) };
 }
 
 export type LessonStatus = 'draft' | 'planned';
@@ -617,7 +616,7 @@ export function editLesson(
 export function deleteLesson(
 	db: Db,
 	{ id, today, dir }: { id: string; today: string; dir: string }
-): typeof schema.lesson.$inferSelect | undefined {
+): ({ lesson: typeof schema.lesson.$inferSelect } & WriteReport) | undefined {
 	const [row] = db.select().from(schema.lesson).where(eq(schema.lesson.id, id)).all();
 	if (!row) return undefined;
 
@@ -659,8 +658,10 @@ export function deleteLesson(
 	deleteAttachmentsOfLesson(db, id, dir);
 	db.delete(schema.lesson).where(eq(schema.lesson.id, id)).run();
 
-	if (row.topicId) rederiveTopic(db, row.topicId, today);
-	return row;
+	const report = row.topicId
+		? rederiveTopic(db, row.topicId, today)
+		: { atRisk: [], placementsMoved: [] };
+	return { lesson: row, ...report };
 }
 
 // Swaps position with the previous or next Lesson in the same Topic, and re-derives every Class
@@ -673,15 +674,15 @@ export function moveLesson(
 		direction,
 		today
 	}: { topicId: string; id: string; direction: Direction; today: string }
-) {
+): WriteReport {
 	const swap = swapTargets(lessonsOf(db, topicId), id, direction);
-	if (!swap) return;
+	if (!swap) return { atRisk: [], placementsMoved: [] };
 
 	const [a, b] = swap;
 	db.update(schema.lesson).set({ position: b.position }).where(eq(schema.lesson.id, a.id)).run();
 	db.update(schema.lesson).set({ position: a.position }).where(eq(schema.lesson.id, b.id)).run();
 
-	rederiveTopic(db, topicId, today);
+	return rederiveTopic(db, topicId, today);
 }
 
 // Which Classes have already been taught this Lesson, before `today` — the taught-by block in
@@ -788,6 +789,7 @@ export function importTopic(
 		position: number;
 		links: Array<{ id: string; url: string; label: string; position: number }>;
 	}>;
+	report: WriteReport;
 } {
 	if (courseId && courseName) {
 		throw new Refused('invalid', 'The "course" field must carry exactly one of "id" or "name".');
@@ -905,13 +907,14 @@ export function importTopic(
 			});
 		}
 
-		rederiveTopic(db, topicRow.id, today);
+		const report = rederiveTopic(db, topicRow.id, today);
 
 		return {
 			course: { id: courseRecord.id, name: courseRecord.name },
 			courseCreated,
 			topic: { id: topicRow.id, name: topicRow.name, courseId: topicRow.courseId },
-			lessons: lessonResults
+			lessons: lessonResults,
+			report
 		};
 	});
 }
