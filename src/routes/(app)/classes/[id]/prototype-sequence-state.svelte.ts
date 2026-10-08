@@ -1,5 +1,6 @@
-// PROTOTYPE, throwaway (issue #372). One Class's Sequence held in the browser. Every change is
-// in memory; only the dates come from the server, which runs the real engine over the order.
+// PROTOTYPE, throwaway (issue #372). One Class's Sequence held in the browser. Every change to
+// the order is in memory; the dates come from the server, which runs the real engine over the
+// order. The one write is a Lesson's Draft/Planned status, through Planning's own action.
 import { deserialize } from '$app/forms';
 import { formatShortWeekday } from '$lib/date';
 import type { ProtoEntry, ProtoLayout, ProtoTopic } from './prototype-sequence.server';
