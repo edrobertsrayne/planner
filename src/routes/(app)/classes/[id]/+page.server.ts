@@ -140,9 +140,10 @@ export const actions: Actions = {
 	},
 
 	// PROTOTYPE (#372): lays out a proposed order. Never writes.
-	prototypeLayout: async ({ request, params }) => {
+	prototypeLayout: async ({ request }) => {
 		const data = await request.formData();
+		const classId = trimmed(data, 'classId');
 		const lessons = JSON.parse(String(data.get('lessons'))) as { id: string; length: number }[];
-		return { layout: prototypeLayout(db, { classId: params.id, today: today(), lessons }) };
+		return { layout: prototypeLayout(db, { classId, today: today(), lessons }) };
 	}
 };

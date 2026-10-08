@@ -29,12 +29,18 @@ export class ProtoSequence {
 	topics: ProtoTopic[];
 	private nextNew = 1;
 
-	constructor(entries: ProtoEntry[], layout: ProtoLayout, topics: ProtoTopic[]) {
+	// Where to ask for a layout: the host page's `?/prototypeLayout` action.
+	classId: string;
+	// The newest request wins: quick taps must not let an older answer overwrite a newer layout.
+	private sent = 0;
+
+	constructor(entries: ProtoEntry[], layout: ProtoLayout, topics: ProtoTopic[], classId: string) {
 		this.entries = entries;
 		this.saved = entries;
 		this.layout = layout;
 		this.baseline = layout;
 		this.topics = topics;
+		this.classId = classId;
 	}
 
 	isLocked = (id: string) => this.layout.locked.includes(id);
@@ -190,7 +196,9 @@ export class ProtoSequence {
 	}
 
 	async relayout() {
+		const mine = ++this.sent;
 		const body = new FormData();
+		body.set('classId', this.classId);
 		body.set('lessons', JSON.stringify(this.entries.map((e) => ({ id: e.id, length: e.length }))));
 		const response = await fetch('?/prototypeLayout', {
 			method: 'POST',
@@ -198,6 +206,8 @@ export class ProtoSequence {
 			headers: { 'x-sveltekit-action': 'true' }
 		});
 		const result = deserialize(await response.text());
+		// An older answer must not overwrite the layout a newer request already set.
+		if (mine !== this.sent) return;
 		if (result.type !== 'success' || !result.data || !('layout' in result.data)) return;
 		// Our own action's answer, shaped by `prototypeLayout`.
 		const layout = result.data.layout as ProtoLayout;

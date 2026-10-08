@@ -38,7 +38,12 @@
 	];
 	const variant = $derived(page.url.searchParams.get('variant') ?? 'A');
 	// svelte-ignore state_referenced_locally
-	const seq = new ProtoSequence(data.proto.sequence, data.protoLayout, data.proto.topics);
+	const seq = new ProtoSequence(
+		data.proto.sequence,
+		data.protoLayout,
+		data.proto.topics,
+		data.class.id
+	);
 
 	// The "Timetable as at" date sets one parameter and keeps the rest, like every filter
 	// (withParam, issue #338).

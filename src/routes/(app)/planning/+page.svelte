@@ -13,6 +13,9 @@
 	import { replaceQuery } from '$lib/client/enhance';
 	import { withParam } from '$lib/query';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
+	// PROTOTYPE (#372): one Class's Sequence as a reorder draft, when `?variant=C` picks it out.
+	import PrototypeSequenceC from '../classes/[id]/PrototypeSequenceC.svelte';
+	import { ProtoSequence } from '../classes/[id]/prototype-sequence-state.svelte';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -55,6 +58,18 @@
 	// Each Class chip is filled with its Class's Tone (ADR-0013).
 	const classOptions = $derived(
 		data.classes.map((c) => ({ value: c.id, label: c.label, tone: classTone(c.tone) }))
+	);
+
+	// PROTOTYPE (#372): `?class=<id>&variant=C` turns the list below into a reorder draft for
+	// that Class, so the surface can be judged with Planning's own chrome around it.
+	const variant = $derived(page.url.searchParams.get('variant'));
+	const classLabel = $derived(data.classes.find((c) => c.id === data.classId)?.label ?? '');
+	// svelte-ignore state_referenced_locally
+	const seq = new ProtoSequence(
+		data.proto?.sequence ?? [],
+		data.protoLayout ?? { parts: {}, unplaced: {}, locked: [], lastSlot: null },
+		data.proto?.topics ?? [],
+		data.classId ?? ''
 	);
 </script>
 
@@ -138,7 +153,9 @@
 			class="-mx-6 mt-4 px-6 md:mx-0 md:px-0"
 		/>
 
-		{#if filtered.length > 0}
+		{#if variant === 'C' && data.classId && data.proto}
+			<PrototypeSequenceC {seq} {classLabel} />
+		{:else if filtered.length > 0}
 			<!-- Below `md` one card per Lesson (issue #339): date, Period, Class chip, title, Topic
 			     and Course, with Draft/Planned as a read-only badge. Only the title opens the Lesson
 			     editor, so a tap on the rest of the card opens nothing. -->
