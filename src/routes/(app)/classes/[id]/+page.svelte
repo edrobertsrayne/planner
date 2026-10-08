@@ -16,6 +16,11 @@
 	import ClassProgress from './ClassProgress.svelte';
 	import NextSessions from './NextSessions.svelte';
 	import TimetableGrid from './TimetableGrid.svelte';
+	import PrototypeSwitcher from '$lib/components/prototype-switcher.svelte';
+	import PrototypeSequenceA from './PrototypeSequenceA.svelte';
+	import PrototypeSequenceB from './PrototypeSequenceB.svelte';
+	import PrototypeSequenceC from './PrototypeSequenceC.svelte';
+	import { ProtoSequence } from './prototype-sequence-state.svelte';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -23,7 +28,17 @@
 	// The Timetable reads and writes from a tablet up; on a phone Overview is the only view, so
 	// the rename pencil — the page's other edit — follows the Course page's rule.
 	const md = new MediaQuery('min-width: 768px', true);
-	let tab = $state<'overview' | 'timetable'>('overview');
+	let tab = $state<'overview' | 'timetable' | 'sequence'>('sequence');
+
+	// PROTOTYPE (#372): three ways to order this Class's Sequence, on a Sequence tab.
+	const VARIANTS = [
+		{ key: 'A', name: 'List, buttons, applies at once' },
+		{ key: 'B', name: 'Weeks, drag' },
+		{ key: 'C', name: 'Planning table, select, save' }
+	];
+	const variant = $derived(page.url.searchParams.get('variant') ?? 'A');
+	// svelte-ignore state_referenced_locally
+	const seq = new ProtoSequence(data.proto.sequence, data.protoLayout, data.proto.topics);
 
 	// The "Timetable as at" date sets one parameter and keeps the rest, like every filter
 	// (withParam, issue #338).
@@ -100,6 +115,9 @@
 			<Tabs.Trigger value="overview">Overview</Tabs.Trigger>
 			<Tabs.Trigger value="timetable">
 				Timetable <span class="text-xs tabular-nums opacity-60">{slotCount}</span>
+			</Tabs.Trigger>
+			<Tabs.Trigger value="sequence">
+				Sequence <span class="text-xs tabular-nums opacity-60">{seq.entries.length}</span>
 			</Tabs.Trigger>
 		</Tabs.List>
 	</Tabs.Root>
@@ -194,4 +212,17 @@
 			</div>
 		</section>
 	</div>
+
+	{#if tab === 'sequence'}
+		{#key variant}
+			{#if variant === 'B'}
+				<PrototypeSequenceB {seq} />
+			{:else if variant === 'C'}
+				<PrototypeSequenceC {seq} classLabel={data.class.label} />
+			{:else}
+				<PrototypeSequenceA {seq} />
+			{/if}
+		{/key}
+		<PrototypeSwitcher variants={VARIANTS} current={variant} />
+	{/if}
 </div>

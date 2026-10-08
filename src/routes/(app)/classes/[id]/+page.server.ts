@@ -21,6 +21,7 @@ import {
 	topicsOf,
 	unassignTopic
 } from '$lib/server/planner';
+import { prototypeLayout, prototypeSequence } from './prototype-sequence.server';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ params, url }) => {
@@ -33,7 +34,17 @@ export const load: PageServerLoad = ({ params, url }) => {
 	// as at" control offers, never the fallback, or the grid would default to reading history.
 	const on = effectiveFrom ?? today();
 
+	// PROTOTYPE (#372): the Sequence and its layout from the real engine.
+	const proto = prototypeSequence(db, selected.id, selected.courseId);
+	const protoLayout = prototypeLayout(db, {
+		classId: selected.id,
+		today: today(),
+		lessons: proto.sequence.map((l) => ({ id: l.id, length: l.length }))
+	});
+
 	return {
+		proto,
+		protoLayout,
 		class: selected,
 		lane: classLanes(db, { today: today(), classId: selected.id })[0] ?? null,
 		// The next five Sessions lead Overview (issue #348), from the same derivation as the
@@ -126,5 +137,12 @@ export const actions: Actions = {
 		if (direction !== 'up' && direction !== 'down') return fail(400, { error: 'Bad direction.' });
 		const report = moveAssignedTopic(db, { classId, id, direction, today: today() });
 		return { report };
+	},
+
+	// PROTOTYPE (#372): lays out a proposed order. Never writes.
+	prototypeLayout: async ({ request, params }) => {
+		const data = await request.formData();
+		const lessons = JSON.parse(String(data.get('lessons'))) as { id: string; length: number }[];
+		return { layout: prototypeLayout(db, { classId: params.id, today: today(), lessons }) };
 	}
 };

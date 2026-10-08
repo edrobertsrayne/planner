@@ -49,7 +49,8 @@ const handleGuard: Handle = async ({ event, resolve }) => {
 		signedIn: Boolean(event.locals.user)
 	});
 
-	if (target) redirect(303, target);
+	// PROTOTYPE (#372): the login redirect is off, so the prototype opens without a login.
+	if (target && !target.startsWith('/login')) redirect(303, target);
 
 	return resolve(event);
 };
