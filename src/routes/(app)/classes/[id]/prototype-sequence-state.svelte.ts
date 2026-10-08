@@ -125,19 +125,24 @@ export class ProtoSequence {
 	// in order, onto the fixed stream of Slots), run in the browser so a drag can show its result
 	// before the drop.
 	fill(order: ProtoEntry[]) {
-		const owed = (e: ProtoEntry) => {
+		// Parts come from the layout, not from Length: a Continuation adds a part (engine `demandFor`).
+		const count = (e: ProtoEntry) => {
 			const known = e.id in this.layout.parts || e.id in this.layout.unplaced;
-			if (!known) return e.length;
-			const streamParts = (this.layout.parts[e.id] ?? []).filter((p) =>
+			if (!known) return { done: 0, owed: e.length };
+			const parts = this.layout.parts[e.id] ?? [];
+			const inStream = parts.filter((p) =>
 				this.layout.stream.some((s) => s.date === p.date && s.period === p.period)
 			).length;
-			return streamParts + (this.layout.unplaced[e.id] ?? 0);
+			return {
+				done: parts.length - inStream,
+				owed: inStream + (this.layout.unplaced[e.id] ?? 0)
+			};
 		};
 		const queue: { lessonId: string; part: number; of: number }[] = [];
 		for (const e of order) {
-			const n = owed(e);
-			const done = e.length - n;
-			for (let i = 0; i < n; i++) queue.push({ lessonId: e.id, part: done + i + 1, of: e.length });
+			const { done, owed } = count(e);
+			for (let i = 0; i < owed; i++)
+				queue.push({ lessonId: e.id, part: done + i + 1, of: done + owed });
 		}
 		const cells: ProtoCell[] = this.layout.stream.map((s, i) => ({
 			...s,

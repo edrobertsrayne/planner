@@ -104,9 +104,11 @@
 		const out: ProtoCell[] = [];
 		for (const e of seq.entries) {
 			if (!seq.isLocked(e.id)) continue;
-			(seq.layout.parts[e.id] ?? []).forEach((p, i) => {
+			const parts = seq.layout.parts[e.id] ?? [];
+			const of = parts.length + (seq.layout.unplaced[e.id] ?? 0);
+			parts.forEach((p, i) => {
 				if (!inStream.has(`${p.date}|${p.period}`))
-					out.push({ ...p, lessonId: e.id, part: i + 1, of: e.length });
+					out.push({ ...p, lessonId: e.id, part: i + 1, of });
 			});
 		}
 		return out;
