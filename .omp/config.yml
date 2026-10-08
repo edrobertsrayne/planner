@@ -1,6 +1,0 @@
-# Agents drive the dev server in omp's own headless Chromium, never the teacher's Chrome.
-browser:
-  relay: false
-  headless: true
-  tern: false
-  cmux: false
