@@ -1,13 +1,12 @@
-// PROTOTYPE, throwaway (#372). The four switches, read from and written to the URL, shared by
-// the Class page and Planning so both surfaces offer the same combinations.
+// PROTOTYPE, throwaway (#372). Decided: the Class page shows By week, Planning shows List, a
+// Lesson moves only by drag, and every change waits for Save. One switch is left: the surface.
 export type Layout = 'list' | 'weeks';
 export type Control = 'buttons' | 'drag' | 'tick';
 
-export function prototypeSwitches(url: URL, classId: string, surface: 'class' | 'planning') {
-	const layout: Layout = url.searchParams.get('layout') === 'weeks' ? 'weeks' : 'list';
-	const c = url.searchParams.get('move');
-	const control: Control = c === 'drag' || c === 'tick' ? c : 'buttons';
-	const draft = url.searchParams.get('keep') === 'draft';
+export function prototypeSwitches(classId: string, surface: 'class' | 'planning') {
+	const layout: Layout = surface === 'class' ? 'weeks' : 'list';
+	const control: Control = 'drag';
+	const draft = true;
 
 	return {
 		layout,
@@ -19,36 +18,12 @@ export function prototypeSwitches(url: URL, classId: string, surface: 'class' | 
 				label: 'Surface',
 				current: surface,
 				options: [
-					{ value: 'class', name: 'Class page', href: `/classes/${classId}` },
-					{ value: 'planning', name: 'Planning', href: `/planning?class=${classId}&proto=1` }
-				]
-			},
-			{
-				param: 'layout',
-				label: 'Layout',
-				current: layout,
-				options: [
-					{ value: 'list', name: 'List' },
-					{ value: 'weeks', name: 'By week' }
-				]
-			},
-			{
-				param: 'move',
-				label: 'Move',
-				current: control,
-				options: [
-					{ value: 'buttons', name: 'Buttons' },
-					{ value: 'drag', name: 'Drag' },
-					{ value: 'tick', name: 'Tick + move' }
-				]
-			},
-			{
-				param: 'keep',
-				label: 'Keep',
-				current: draft ? 'draft' : 'now',
-				options: [
-					{ value: 'now', name: 'At once' },
-					{ value: 'draft', name: 'Draft + Save' }
+					{ value: 'class', name: 'Class page (By week)', href: `/classes/${classId}` },
+					{
+						value: 'planning',
+						name: 'Planning (List)',
+						href: `/planning?class=${classId}&proto=1`
+					}
 				]
 			}
 		]

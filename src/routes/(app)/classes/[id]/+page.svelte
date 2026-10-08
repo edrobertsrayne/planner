@@ -29,9 +29,9 @@
 	const md = new MediaQuery('min-width: 768px', true);
 	let tab = $state<'overview' | 'timetable' | 'sequence'>('sequence');
 
-	// PROTOTYPE (#372): one Class's Sequence on a Sequence tab, with switches for the layout,
-	// the move control and whether a change waits for Save.
-	const proto = $derived(prototypeSwitches(page.url, data.class.id, 'class'));
+	// PROTOTYPE (#372): one Class's Sequence on a Sequence tab, By week, moved by drag, kept by
+	// Save.
+	const proto = $derived(prototypeSwitches(data.class.id, 'class'));
 	// svelte-ignore state_referenced_locally
 	const seq = new ProtoSequence(
 		data.proto.sequence,

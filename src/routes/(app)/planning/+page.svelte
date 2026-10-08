@@ -66,7 +66,7 @@
 	// PROTOTYPE (#372): `?class=<id>&proto=1` turns the list below into that Class's Sequence,
 	// so the surface can be judged with Planning's own chrome around it.
 	const showProto = $derived(page.url.searchParams.has('proto') && !!data.classId && !!data.proto);
-	const proto = $derived(prototypeSwitches(page.url, data.classId ?? '', 'planning'));
+	const proto = $derived(prototypeSwitches(data.classId ?? '', 'planning'));
 	// One Sequence per Class picked; a switch change keeps the edits made so far. Keyed on a
 	// derived id, so a new `data` with the same Class does not rebuild it.
 	const protoClassId = $derived(data.classId ?? '');
