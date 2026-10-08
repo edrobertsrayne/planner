@@ -184,6 +184,23 @@ export class ProtoSequence {
 			this.entries.findIndex((e) => e.id === targetId)
 		);
 
+	// Draft or Planned belongs to the Lesson, shared by every Class, so it is kept at once and is
+	// no part of the order's draft. This one writes, through Planning's own action.
+	setStatus(id: string, status: ProtoEntry['status']) {
+		const set = (list: ProtoEntry[]) => list.map((e) => (e.id === id ? { ...e, status } : e));
+		this.entries = set(this.entries);
+		this.saved = set(this.saved);
+		if (id.startsWith('new-')) return;
+		const body = new FormData();
+		body.set('id', id);
+		body.set('status', status);
+		void fetch('?/setLessonStatus', {
+			method: 'POST',
+			body,
+			headers: { 'x-sveltekit-action': 'true' }
+		});
+	}
+
 	remove(ids: string[]) {
 		const taught = this.entries.find((e) => ids.includes(e.id) && this.isLocked(e.id));
 		if (taught) return this.refuse(`“${taught.title}” was taught, so it stays in this Sequence.`);

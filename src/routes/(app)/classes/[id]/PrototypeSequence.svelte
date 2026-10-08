@@ -9,6 +9,7 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import { Button } from '$lib/components/ui/button';
 	import { addDays, formatDayMonth, formatShortWeekday, weekday } from '$lib/date';
+	import { statusTone } from '$lib/feedback-tone';
 	import {
 		dateLabel,
 		topicColour,
@@ -315,8 +316,28 @@
 				>{/if}
 		</span>
 		<span class="hidden shrink-0 sm:block">{@render topicChip(e)}</span>
+		{@render statusToggle(e)}
 		{@render controls(e)}
 	</li>
+{/snippet}
+
+<!-- The same Draft/Planned toggle as Planning's stream. -->
+{#snippet statusToggle(e: ProtoEntry)}
+	<div class="flex shrink-0 overflow-hidden rounded-md border text-xs" role="group">
+		{#each [{ key: 'planned', name: 'Planned' }, { key: 'draft', name: 'Draft' }] as const as rung (rung.key)}
+			{@const on = e.status === rung.key}
+			{@const tone = statusTone(rung.key)}
+			<button
+				aria-pressed={on}
+				class="px-2 py-1.5 font-medium transition-colors {on
+					? ''
+					: 'text-muted-foreground hover:bg-muted'}"
+				style:background-color={on ? tone.bg : undefined}
+				style:color={on ? tone.fg : undefined}
+				onclick={() => seq.setStatus(e.id, rung.key)}>{rung.name}</button
+			>
+		{/each}
+	</div>
 {/snippet}
 
 {#snippet slotCard(c: Card)}

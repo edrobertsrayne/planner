@@ -135,8 +135,9 @@
 <div class="mx-auto max-w-6xl px-6 py-6">
 	<PageHeader title="Planning">
 		{#snippet actions()}
-			{#if !noLessonsAnywhere}
-				<!-- All / Draft / Planned narrow the table below, and carry their counts. -->
+			{#if !noLessonsAnywhere && !showProto}
+				<!-- All / Draft / Planned narrow the table below, and carry their counts. A Class's
+				     Sequence (PROTOTYPE #372) shows every Lesson, so the filter is not there. -->
 				<Tabs.Root
 					value={filter}
 					onValueChange={(v) => replaceQuery(withParam(page.url, 'status', v === 'all' ? null : v))}
