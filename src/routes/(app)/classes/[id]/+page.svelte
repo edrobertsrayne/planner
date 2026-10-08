@@ -17,10 +17,9 @@
 	import NextSessions from './NextSessions.svelte';
 	import TimetableGrid from './TimetableGrid.svelte';
 	import PrototypeSwitcher from '$lib/components/prototype-switcher.svelte';
-	import PrototypeSequenceA from './PrototypeSequenceA.svelte';
-	import PrototypeSequenceB from './PrototypeSequenceB.svelte';
-	import PrototypeSequenceC from './PrototypeSequenceC.svelte';
+	import PrototypeSequence from './PrototypeSequence.svelte';
 	import { ProtoSequence } from './prototype-sequence-state.svelte';
+	import { prototypeSwitches } from './prototype-switches';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -30,13 +29,9 @@
 	const md = new MediaQuery('min-width: 768px', true);
 	let tab = $state<'overview' | 'timetable' | 'sequence'>('sequence');
 
-	// PROTOTYPE (#372): three ways to order this Class's Sequence, on a Sequence tab.
-	const VARIANTS = [
-		{ key: 'A', name: 'List, buttons, applies at once' },
-		{ key: 'B', name: 'Weeks, drag' },
-		{ key: 'C', name: 'Planning table, select, save' }
-	];
-	const variant = $derived(page.url.searchParams.get('variant') ?? 'A');
+	// PROTOTYPE (#372): one Class's Sequence on a Sequence tab, with switches for the layout,
+	// the move control and whether a change waits for Save.
+	const proto = $derived(prototypeSwitches(page.url, data.class.id, 'class'));
 	// svelte-ignore state_referenced_locally
 	const seq = new ProtoSequence(
 		data.proto.sequence,
@@ -44,6 +39,9 @@
 		data.proto.topics,
 		data.class.id
 	);
+	$effect(() => {
+		seq.draft = proto.draft;
+	});
 
 	// The "Timetable as at" date sets one parameter and keeps the rest, like every filter
 	// (withParam, issue #338).
@@ -219,15 +217,7 @@
 	</div>
 
 	{#if tab === 'sequence'}
-		{#key variant}
-			{#if variant === 'B'}
-				<PrototypeSequenceB {seq} />
-			{:else if variant === 'C'}
-				<PrototypeSequenceC {seq} classLabel={data.class.label} />
-			{:else}
-				<PrototypeSequenceA {seq} />
-			{/if}
-		{/key}
-		<PrototypeSwitcher variants={VARIANTS} current={variant} />
+		<PrototypeSequence {seq} layout={proto.layout} control={proto.control} />
+		<PrototypeSwitcher switches={proto.switches} />
 	{/if}
 </div>

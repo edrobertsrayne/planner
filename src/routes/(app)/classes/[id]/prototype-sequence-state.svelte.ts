@@ -9,28 +9,31 @@ export type { ProtoEntry, ProtoLayout, ProtoTopic };
 export const dateLabel = (p: { date: string; period: number } | undefined) =>
 	p ? `${formatShortWeekday(p.date)} P${p.period}` : '';
 
-// A steady pale colour per Topic, so interleaved Topics read apart at a glance.
-export function topicColour(topicId: string | null) {
-	if (!topicId) return 'hsl(0 0% 92%)';
+// A steady tint per Topic, so interleaved Topics read apart at a glance. Translucent, so the
+// text keeps the theme's own colour in light and dark alike.
+export function topicColour(topicId: string | null, strength = 0.22) {
+	if (!topicId) return `hsl(0 0% 50% / ${strength})`;
 	let h = 0;
 	for (const c of topicId) h = (h * 31 + c.charCodeAt(0)) % 360;
-	return `hsl(${h} 70% 90%)`;
+	return `hsl(${h} 75% 55% / ${strength})`;
 }
+
+const EMPTY: ProtoLayout = { parts: {}, unplaced: {}, locked: [], lastSlot: null };
 
 export class ProtoSequence {
 	entries = $state<ProtoEntry[]>([]);
-	layout = $state<ProtoLayout>({ parts: {}, unplaced: {}, locked: [], lastSlot: null });
-	// The layout the "was" dates compare with: the one before the last change, or (draft mode)
-	// the last saved one.
-	baseline = $state<ProtoLayout>({ parts: {}, unplaced: {}, locked: [], lastSlot: null });
+	layout = $state<ProtoLayout>(EMPTY);
+	// The layout the "was" dates compare with: the one before the last change (at once), or the
+	// last saved one (draft).
+	baseline = $state<ProtoLayout>(EMPTY);
 	saved = $state<ProtoEntry[]>([]);
 	message = $state<{ tone: 'ok' | 'refused'; text: string } | null>(null);
-	lastMoved = $state<string | null>(null);
+	lastMoved = $state<string[]>([]);
+	// Draft: changes wait for Save order. At once: every change is kept as it is made.
+	draft = $state(false);
 	topics: ProtoTopic[];
-	private nextNew = 1;
-
-	// Where to ask for a layout: the host page's `?/prototypeLayout` action.
 	classId: string;
+	private nextNew = 1;
 	// The newest request wins: quick taps must not let an older answer overwrite a newer layout.
 	private sent = 0;
 
@@ -54,25 +57,23 @@ export class ProtoSequence {
 		return last + 1;
 	}
 
-	firstAny = (id: string) => this.layout.parts[id]?.[0];
+	first = (id: string) => this.layout.parts[id]?.[0];
 	was = (id: string) => this.baseline.parts[id]?.[0];
 	pastEnd = (id: string) => (this.layout.unplaced[id] ?? 0) > 0;
-	wasPastEnd = (id: string) => (this.baseline.unplaced[id] ?? 0) > 0;
 	changed = (id: string) => {
-		const now = this.firstAny(id);
+		if (this.isLocked(id)) return false;
+		const now = this.first(id);
 		const before = this.was(id);
-		if (!before && !now) return this.pastEnd(id) !== this.wasPastEnd(id);
+		if (!now && !before) return false;
 		return now?.date !== before?.date || now?.period !== before?.period;
 	};
 
 	get dirty() {
 		return this.entries.map((e) => e.id).join() !== this.saved.map((e) => e.id).join();
 	}
-
 	get changedCount() {
 		return this.entries.filter((e) => this.changed(e.id)).length;
 	}
-
 	get pastEndCount() {
 		return this.entries.filter((e) => this.pastEnd(e.id)).length;
 	}
@@ -83,17 +84,16 @@ export class ProtoSequence {
 	}
 
 	// Moves `ids` (in their present order) so they sit at index `to` of the list without them.
-	moveTo(ids: string[], to: number, { draft = false } = {}) {
+	moveTo(ids: string[], to: number) {
 		if (ids.some(this.isLocked)) return this.refuse('A taught Lesson cannot move.');
 		const rest = this.entries.filter((e) => !ids.includes(e.id));
 		const moving = this.entries.filter((e) => ids.includes(e.id));
-		const lockedInRest = rest.filter((e) => this.isLocked(e.id)).length;
-		if (to < lockedInRest) return this.refuse('Nothing can move in front of a taught Lesson.');
+		if (to < rest.filter((e) => this.isLocked(e.id)).length)
+			return this.refuse('Nothing can move in front of a taught Lesson.');
 		this.entries = [...rest.slice(0, to), ...moving, ...rest.slice(to)];
-		this.lastMoved = ids.length === 1 ? ids[0] : null;
+		this.lastMoved = ids;
 		return this.commit(
-			ids.length === 1 ? `Moved “${moving[0].title}”.` : `Moved ${ids.length} Lessons.`,
-			draft
+			moving.length === 1 ? `Moved “${moving[0].title}”.` : `Moved ${moving.length} Lessons.`
 		);
 	}
 
@@ -103,27 +103,38 @@ export class ProtoSequence {
 	}
 
 	// `afterId` null means the start of the untaught part.
-	moveAfter(ids: string[], afterId: string | null, opts: { draft?: boolean } = {}) {
+	moveAfter(ids: string[], afterId: string | null) {
 		const rest = this.entries.filter((e) => !ids.includes(e.id));
 		const to =
 			afterId === null
 				? rest.filter((e) => this.isLocked(e.id)).length
 				: rest.findIndex((e) => e.id === afterId) + 1;
-		return this.moveTo(ids, to, opts);
+		return this.moveTo(ids, to);
 	}
 
-	remove(id: string, opts: { draft?: boolean } = {}) {
-		const entry = this.entries.find((e) => e.id === id)!;
-		if (this.isLocked(id))
-			return this.refuse(`“${entry.title}” was taught, so it stays in this Class's Sequence.`);
-		this.entries = this.entries.filter((e) => e.id !== id);
-		return this.commit(
-			`Removed “${entry.title}” from this Class. The Lesson itself stays.`,
-			opts.draft
+	// Drop `id` in front of `beforeId`.
+	moveBefore(id: string, beforeId: string) {
+		const rest = this.entries.filter((e) => e.id !== id);
+		return this.moveTo(
+			[id],
+			rest.findIndex((e) => e.id === beforeId)
 		);
 	}
 
-	addLesson(title: string, afterId: string | null, opts: { draft?: boolean } = {}) {
+	remove(ids: string[]) {
+		const taught = this.entries.find((e) => ids.includes(e.id) && this.isLocked(e.id));
+		if (taught) return this.refuse(`“${taught.title}” was taught, so it stays in this Sequence.`);
+		const gone = this.entries.filter((e) => ids.includes(e.id));
+		this.entries = this.entries.filter((e) => !ids.includes(e.id));
+		this.lastMoved = [];
+		return this.commit(
+			gone.length === 1
+				? `Removed “${gone[0].title}” from this Class. The Lesson itself stays.`
+				: `Removed ${gone.length} Lessons from this Class. The Lessons themselves stay.`
+		);
+	}
+
+	addLesson(title: string, afterId: string | null) {
 		const entry: ProtoEntry = {
 			id: `new-${this.nextNew++}`,
 			title: title || 'Untitled Lesson',
@@ -137,8 +148,8 @@ export class ProtoSequence {
 			afterId === null ? this.firstMovable : this.entries.findIndex((e) => e.id === afterId) + 1;
 		if (at < this.firstMovable) return this.refuse('A new Lesson goes after the taught part.');
 		this.entries = [...this.entries.slice(0, at), entry, ...this.entries.slice(at)];
-		this.lastMoved = entry.id;
-		return this.commit(`Added the Standalone Lesson “${entry.title}”.`, opts.draft);
+		this.lastMoved = [entry.id];
+		return this.commit(`Added the Standalone Lesson “${entry.title}”.`);
 	}
 
 	overlap(topicId: string) {
@@ -150,17 +161,16 @@ export class ProtoSequence {
 		};
 	}
 
-	assignTopic(topicId: string, opts: { draft?: boolean } = {}) {
+	assignTopic(topicId: string) {
 		const topic = this.topics.find((t) => t.id === topicId)!;
 		const ids = this.entries.map((e) => e.id);
 		const added = topic.lessons.filter((l) => !ids.includes(l.id));
 		const skipped = topic.lessons.length - added.length;
 		this.entries = [...this.entries, ...added];
-		this.lastMoved = null;
+		this.lastMoved = added.map((l) => l.id);
 		return this.commit(
 			`Assigned ${topic.name}: added ${added.length} Lesson${added.length === 1 ? '' : 's'} at the end` +
-				(skipped ? `, skipped ${skipped} already in this Sequence.` : '.'),
-			opts.draft
+				(skipped ? `, skipped ${skipped} already in this Sequence.` : '.')
 		);
 	}
 
@@ -172,23 +182,24 @@ export class ProtoSequence {
 
 	discard() {
 		this.entries = this.saved;
+		this.lastMoved = [];
 		this.message = null;
-		void this.relayout().then(() => (this.baseline = this.layout));
+		void this.relayout();
 	}
 
-	private commit(text: string, draft = false) {
-		if (!draft) {
+	private commit(text: string) {
+		if (!this.draft) {
 			this.baseline = this.layout;
 			this.saved = this.entries;
 		}
 		void this.relayout().then(() => {
-			const later = this.changedCount;
+			const n = this.changedCount;
 			const past = this.pastEndCount;
 			this.message = {
 				tone: 'ok',
 				text:
 					text +
-					(later ? ` ${later} Lesson${later === 1 ? '' : 's'} change date.` : ' No dates change.') +
+					(n ? ` ${n} Lesson${n === 1 ? '' : 's'} change date.` : ' No dates change.') +
 					(past ? ` ${past} past the end of the year.` : '')
 			};
 		});
@@ -206,7 +217,6 @@ export class ProtoSequence {
 			headers: { 'x-sveltekit-action': 'true' }
 		});
 		const result = deserialize(await response.text());
-		// An older answer must not overwrite the layout a newer request already set.
 		if (mine !== this.sent) return;
 		if (result.type !== 'success' || !result.data || !('layout' in result.data)) return;
 		// Our own action's answer, shaped by `prototypeLayout`.

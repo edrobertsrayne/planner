@@ -13,9 +13,12 @@
 	import { replaceQuery } from '$lib/client/enhance';
 	import { withParam } from '$lib/query';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
-	// PROTOTYPE (#372): one Class's Sequence as a reorder draft, when `?variant=C` picks it out.
-	import PrototypeSequenceC from '../classes/[id]/PrototypeSequenceC.svelte';
+	// PROTOTYPE (#372): one Class's Sequence, when `?class=<id>&proto=1` picks it out.
+	import { untrack } from 'svelte';
+	import PrototypeSwitcher from '$lib/components/prototype-switcher.svelte';
+	import PrototypeSequence from '../classes/[id]/PrototypeSequence.svelte';
 	import { ProtoSequence } from '../classes/[id]/prototype-sequence-state.svelte';
+	import { prototypeSwitches } from '../classes/[id]/prototype-switches';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -60,17 +63,28 @@
 		data.classes.map((c) => ({ value: c.id, label: c.label, tone: classTone(c.tone) }))
 	);
 
-	// PROTOTYPE (#372): `?class=<id>&variant=C` turns the list below into a reorder draft for
-	// that Class, so the surface can be judged with Planning's own chrome around it.
-	const variant = $derived(page.url.searchParams.get('variant'));
-	const classLabel = $derived(data.classes.find((c) => c.id === data.classId)?.label ?? '');
-	// svelte-ignore state_referenced_locally
-	const seq = new ProtoSequence(
-		data.proto?.sequence ?? [],
-		data.protoLayout ?? { parts: {}, unplaced: {}, locked: [], lastSlot: null },
-		data.proto?.topics ?? [],
-		data.classId ?? ''
-	);
+	// PROTOTYPE (#372): `?class=<id>&proto=1` turns the list below into that Class's Sequence,
+	// so the surface can be judged with Planning's own chrome around it.
+	const showProto = $derived(page.url.searchParams.has('proto') && !!data.classId && !!data.proto);
+	const proto = $derived(prototypeSwitches(page.url, data.classId ?? '', 'planning'));
+	// One Sequence per Class picked; a switch change keeps the edits made so far. Keyed on a
+	// derived id, so a new `data` with the same Class does not rebuild it.
+	const protoClassId = $derived(data.classId ?? '');
+	const seq = $derived.by(() => {
+		const classId = protoClassId;
+		return untrack(
+			() =>
+				new ProtoSequence(
+					data.proto?.sequence ?? [],
+					data.protoLayout ?? { parts: {}, unplaced: {}, locked: [], lastSlot: null },
+					data.proto?.topics ?? [],
+					classId
+				)
+		);
+	});
+	$effect(() => {
+		seq.draft = proto.draft;
+	});
 </script>
 
 {#snippet classChip(occurrence: NonNullable<Entry['occurrence']>)}
@@ -153,8 +167,9 @@
 			class="-mx-6 mt-4 px-6 md:mx-0 md:px-0"
 		/>
 
-		{#if variant === 'C' && data.classId && data.proto}
-			<PrototypeSequenceC {seq} {classLabel} />
+		{#if showProto}
+			<PrototypeSequence {seq} layout={proto.layout} control={proto.control} />
+			<PrototypeSwitcher switches={proto.switches} />
 		{:else if filtered.length > 0}
 			<!-- Below `md` one card per Lesson (issue #339): date, Period, Class chip, title, Topic
 			     and Course, with Draft/Planned as a read-only badge. Only the title opens the Lesson

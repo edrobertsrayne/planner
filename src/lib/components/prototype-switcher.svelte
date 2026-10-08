@@ -1,48 +1,47 @@
 <script lang="ts">
-	// PROTOTYPE, throwaway. Cycles `?variant=` on the current page. Never shown in a production build.
+	// PROTOTYPE, throwaway. A floating bar of independent switches, each one URL parameter, so
+	// every combination is a link. Never shown in a production build.
 	import { dev } from '$app/environment';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { replaceQuery } from '$lib/client/enhance';
-	import { withParam } from '$lib/query';
 
-	let { variants, current }: { variants: { key: string; name: string }[]; current: string } =
-		$props();
-
-	const index = $derived(
-		Math.max(
-			0,
-			variants.findIndex((v) => v.key === current)
-		)
-	);
-	const go = (delta: number) => {
-		const next = variants[(index + delta + variants.length) % variants.length];
-		void replaceQuery(withParam(page.url, 'variant', next.key));
+	type Switch = {
+		param: string;
+		label: string;
+		options: { value: string; name: string; href?: string }[];
+		current: string;
 	};
+	let { switches }: { switches: Switch[] } = $props();
 
-	function onkeydown(e: KeyboardEvent) {
-		const t = e.target as HTMLElement | null;
-		if (t?.closest('input, textarea, select, [contenteditable]')) return;
-		if (e.key === 'ArrowLeft') go(-1);
-		if (e.key === 'ArrowRight') go(1);
+	function pick(s: Switch, o: Switch['options'][number]) {
+		const url = new URL(o.href ?? page.url.href, page.url.origin);
+		if (!o.href) url.searchParams.set(s.param, o.value);
+		else
+			for (const [k, v] of page.url.searchParams)
+				if (!url.searchParams.has(k)) url.searchParams.set(k, v);
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- prototype: path built at runtime
+		void goto(url.pathname + url.search, { replaceState: true, noScroll: true, keepFocus: true });
 	}
 </script>
 
-<svelte:window {onkeydown} />
-
 {#if dev}
 	<div
-		class="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black px-2 py-1.5 text-sm text-white shadow-xl ring-2 ring-fuchsia-400"
+		class="fixed bottom-4 left-1/2 z-50 flex max-w-[96vw] -translate-x-1/2 flex-wrap items-center justify-center gap-x-4 gap-y-1.5 rounded-2xl bg-zinc-950 px-4 py-2 text-xs text-white shadow-xl ring-2 ring-fuchsia-500"
 	>
-		<button
-			class="rounded-full px-2 hover:bg-white/20"
-			onclick={() => go(-1)}
-			aria-label="Previous variant">←</button
-		>
-		<span class="font-medium">{variants[index].key} ({variants[index].name})</span>
-		<button
-			class="rounded-full px-2 hover:bg-white/20"
-			onclick={() => go(1)}
-			aria-label="Next variant">→</button
-		>
+		{#each switches as s (s.param)}
+			<div class="flex items-center gap-1.5">
+				<span class="text-zinc-400">{s.label}</span>
+				<div class="flex overflow-hidden rounded-md ring-1 ring-zinc-700">
+					{#each s.options as o (o.value)}
+						<button
+							class="px-2 py-1 {s.current === o.value
+								? 'bg-fuchsia-500 font-medium text-white'
+								: 'text-zinc-300 hover:bg-zinc-800'}"
+							onclick={() => pick(s, o)}>{o.name}</button
+						>
+					{/each}
+				</div>
+			</div>
+		{/each}
 	</div>
 {/if}
