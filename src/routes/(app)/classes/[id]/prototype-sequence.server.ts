@@ -30,6 +30,11 @@ export interface ProtoLayout {
 	// Lessons with a Session on or before today: locked (#371).
 	locked: string[];
 	lastSlot: string | null;
+	// Every Slot from today to the end of the year, in order. The order of the Lessons never
+	// changes this stream; a move only changes which Lesson each Slot holds.
+	stream: { date: string; period: number }[];
+	// Teaching Weeks with their letter. A week missing here is a holiday.
+	weeks: { weekCommencing: string; letter: 'A' | 'B' }[];
 }
 
 export interface ProtoTopic {
@@ -152,8 +157,10 @@ export function prototypeLayout(
 		.filter(([, ps]) => ps.some((p) => p.date <= today))
 		.map(([id]) => id);
 
-	const all = [...result.scheduled, ...result.openSlots];
-	const lastSlot = all.reduce<string | null>((m, s) => (!m || s.date > m ? s.date : m), null);
+	const stream = [...result.scheduled, ...result.openSlots]
+		.map((s) => ({ date: s.date, period: s.period }))
+		.sort((a, b) => a.date.localeCompare(b.date) || a.period - b.period);
+	const lastSlot = stream.at(-1)?.date ?? null;
 
-	return { parts, unplaced, locked, lastSlot };
+	return { parts, unplaced, locked, lastSlot, stream, weeks: cal.teachingWeeks };
 }

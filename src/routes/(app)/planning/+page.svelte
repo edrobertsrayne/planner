@@ -76,7 +76,14 @@
 			() =>
 				new ProtoSequence(
 					data.proto?.sequence ?? [],
-					data.protoLayout ?? { parts: {}, unplaced: {}, locked: [], lastSlot: null },
+					data.protoLayout ?? {
+						parts: {},
+						unplaced: {},
+						locked: [],
+						lastSlot: null,
+						stream: [],
+						weeks: []
+					},
 					data.proto?.topics ?? [],
 					classId
 				)

@@ -18,7 +18,23 @@ export function topicColour(topicId: string | null, strength = 0.22) {
 	return `hsl(${h} 75% 55% / ${strength})`;
 }
 
-const EMPTY: ProtoLayout = { parts: {}, unplaced: {}, locked: [], lastSlot: null };
+const EMPTY: ProtoLayout = {
+	parts: {},
+	unplaced: {},
+	locked: [],
+	lastSlot: null,
+	stream: [],
+	weeks: []
+};
+
+// One Slot of the stream and the Lesson it holds, if any.
+export interface ProtoCell {
+	date: string;
+	period: number;
+	lessonId: string | null;
+	part: number;
+	of: number;
+}
 
 export class ProtoSequence {
 	entries = $state<ProtoEntry[]>([]);
@@ -83,18 +99,55 @@ export class ProtoSequence {
 		return false;
 	}
 
-	// Moves `ids` (in their present order) so they sit at index `to` of the list without them.
-	moveTo(ids: string[], to: number) {
-		if (ids.some(this.isLocked)) return this.refuse('A taught Lesson cannot move.');
+	// The order with `ids` put at index `to` of the list without them, or the reason it cannot be.
+	reorder(ids: string[], to: number): ProtoEntry[] | string {
+		if (ids.some(this.isLocked)) return 'A taught Lesson cannot move.';
 		const rest = this.entries.filter((e) => !ids.includes(e.id));
 		const moving = this.entries.filter((e) => ids.includes(e.id));
 		if (to < rest.filter((e) => this.isLocked(e.id)).length)
-			return this.refuse('Nothing can move in front of a taught Lesson.');
-		this.entries = [...rest.slice(0, to), ...moving, ...rest.slice(to)];
+			return 'Nothing can move in front of a taught Lesson.';
+		return [...rest.slice(0, to), ...moving, ...rest.slice(to)];
+	}
+
+	// Moves `ids` (in their present order) so they sit at index `to` of the list without them.
+	moveTo(ids: string[], to: number) {
+		const order = this.reorder(ids, to);
+		if (typeof order === 'string') return this.refuse(order);
+		const moving = order.filter((e) => ids.includes(e.id));
+		this.entries = order;
 		this.lastMoved = ids;
 		return this.commit(
 			moving.length === 1 ? `Moved “${moving[0].title}”.` : `Moved ${moving.length} Lessons.`
 		);
+	}
+
+	// The Slots each Lesson's parts fill, for any order. This is the engine's own rule (owed parts,
+	// in order, onto the fixed stream of Slots), run in the browser so a drag can show its result
+	// before the drop.
+	fill(order: ProtoEntry[]) {
+		const owed = (e: ProtoEntry) => {
+			const known = e.id in this.layout.parts || e.id in this.layout.unplaced;
+			if (!known) return e.length;
+			const streamParts = (this.layout.parts[e.id] ?? []).filter((p) =>
+				this.layout.stream.some((s) => s.date === p.date && s.period === p.period)
+			).length;
+			return streamParts + (this.layout.unplaced[e.id] ?? 0);
+		};
+		const queue: { lessonId: string; part: number; of: number }[] = [];
+		for (const e of order) {
+			const n = owed(e);
+			const done = e.length - n;
+			for (let i = 0; i < n; i++) queue.push({ lessonId: e.id, part: done + i + 1, of: e.length });
+		}
+		const cells: ProtoCell[] = this.layout.stream.map((s, i) => ({
+			...s,
+			...(queue[i] ?? { lessonId: null, part: 0, of: 0 })
+		}));
+		const pastEnd = queue
+			.slice(cells.length)
+			.map((q) => q.lessonId)
+			.filter((id, i, all) => all.indexOf(id) === i);
+		return { cells, pastEnd };
 	}
 
 	moveBy(id: string, delta: number) {
@@ -112,14 +165,19 @@ export class ProtoSequence {
 		return this.moveTo(ids, to);
 	}
 
-	// Drop `id` in front of `beforeId`.
-	moveBefore(id: string, beforeId: string) {
-		const rest = this.entries.filter((e) => e.id !== id);
-		return this.moveTo(
+	// A drop on a Lesson takes its place: the dragged Lesson ends at the target's index, and the
+	// Lessons between shift one place towards where the dragged one came from. In the list without
+	// the dragged Lesson, the target's own index puts it after a target below and before one above.
+	takePlaceOrder = (id: string, targetId: string) =>
+		this.reorder(
 			[id],
-			rest.findIndex((e) => e.id === beforeId)
+			this.entries.findIndex((e) => e.id === targetId)
 		);
-	}
+	takePlace = (id: string, targetId: string) =>
+		this.moveTo(
+			[id],
+			this.entries.findIndex((e) => e.id === targetId)
+		);
 
 	remove(ids: string[]) {
 		const taught = this.entries.find((e) => ids.includes(e.id) && this.isLocked(e.id));

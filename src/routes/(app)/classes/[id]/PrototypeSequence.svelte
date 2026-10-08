@@ -5,12 +5,14 @@
 	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import LockIcon from '@lucide/svelte/icons/lock';
+	import PlusIcon from '@lucide/svelte/icons/plus';
 	import XIcon from '@lucide/svelte/icons/x';
 	import { Button } from '$lib/components/ui/button';
 	import { addDays, formatDayMonth, formatShortWeekday, weekday } from '$lib/date';
 	import {
 		dateLabel,
 		topicColour,
+		type ProtoCell,
 		type ProtoEntry,
 		type ProtoSequence
 	} from './prototype-sequence-state.svelte';
@@ -35,28 +37,8 @@
 	const visible = $derived(showTaught ? seq.entries : untaught);
 	const indexOf = (id: string) => seq.entries.findIndex((e) => e.id === id) + 1;
 
-	// Rows grouped for the "weeks" layout: by the week of each Lesson's first part.
-	const weeks = $derived.by(() => {
-		const rows: { key: string; label: string; entries: ProtoEntry[] }[] = [];
-		for (const e of visible) {
-			const first = seq.first(e.id);
-			const key =
-				seq.pastEnd(e.id) || !first ? 'past-end' : addDays(first.date, 1 - weekday(first.date));
-			let row = rows.find((r) => r.key === key);
-			if (!row) {
-				row = {
-					key,
-					label: key === 'past-end' ? 'Past the end of the year' : `w/c ${formatDayMonth(key)}`,
-					entries: []
-				};
-				rows.push(row);
-			}
-			row.entries.push(e);
-		}
-		return rows;
-	});
-
-	// Pointer drag, for a mouse or a finger. A drop on an entry puts the dragged one in front of it.
+	// Pointer drag, for a mouse or a finger. A drop target is "l:<id>" (a Lesson in the list or
+	// past the end), "s:<index>" (a Slot in the By week grid) or "end".
 	let dragId = $state<string | null>(null);
 	let overId = $state<string | null>(null);
 	let pointer = $state({ x: 0, y: 0 });
@@ -68,17 +50,128 @@
 	function dragMove(ev: PointerEvent) {
 		if (!dragId) return;
 		pointer = { x: ev.clientX, y: ev.clientY };
-		const el = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('[data-drop]');
-		overId = el?.getAttribute('data-drop') ?? null;
+		const el = document
+			.elementFromPoint(ev.clientX, ev.clientY)
+			?.closest<HTMLElement>('[data-drop]');
+		const drop = el?.dataset.drop ?? null;
+		if (el && drop?.startsWith('s:')) {
+			// A card over two Slots (a double): the half under the pointer is the Slot.
+			const span = Number(el.dataset.span ?? 1);
+			const r = el.getBoundingClientRect();
+			const k = Math.min(span - 1, Math.floor(((ev.clientX - r.left) / r.width) * span));
+			overId = `s:${Number(drop.slice(2)) + k}`;
+		} else overId = drop;
 	}
+
+	// The Slots as the present order fills them. A Slot target means the Lesson in that Slot now,
+	// so the target never changes while the preview moves cards around under the pointer.
+	const committed = $derived(seq.fill(seq.entries));
+	const target = $derived.by(() => {
+		if (!overId) return null;
+		if (overId === 'end') return 'end';
+		if (overId.startsWith('l:')) return overId.slice(2);
+		return committed.cells[Number(overId.slice(2))]?.lessonId ?? 'end';
+	});
+	const proposal = $derived.by(() => {
+		if (!dragId || !target || target === dragId) return null;
+		return target === 'end'
+			? seq.reorder([dragId], seq.entries.length - 1)
+			: seq.takePlaceOrder(dragId, target);
+	});
+	const refusal = $derived(typeof proposal === 'string' ? proposal : null);
+	const preview = $derived(Array.isArray(proposal) ? proposal : null);
+	const shown = $derived(preview ? seq.fill(preview) : committed);
+
 	function dragEnd() {
-		if (dragId && overId && overId !== dragId) {
-			if (overId === 'end') seq.moveTo([dragId], seq.entries.length - 1);
-			else seq.moveBefore(dragId, overId);
+		if (dragId && preview) {
+			if (target === 'end') seq.moveTo([dragId], seq.entries.length - 1);
+			else if (target) seq.takePlace(dragId, target);
 		}
 		dragId = null;
 		overId = null;
 	}
+
+	// The By week grid: every Teaching Week with its Slots in fixed positions. A double that sits
+	// in two touching Periods of one day is one card over two Slots.
+	type Card = { lessonId: string | null; cells: ProtoCell[]; first: number };
+	type Row =
+		| { kind: 'week'; key: string; letter: 'A' | 'B'; cards: Card[]; slots: number }
+		| { kind: 'holiday'; key: string }
+		| { kind: 'past-end'; key: string; ids: string[] };
+	const mondayOf = (d: string) => addDays(d, 1 - weekday(d));
+	const taughtCells = $derived.by(() => {
+		const inStream = new Set(seq.layout.stream.map((s) => `${s.date}|${s.period}`));
+		const out: ProtoCell[] = [];
+		for (const e of seq.entries) {
+			if (!seq.isLocked(e.id)) continue;
+			(seq.layout.parts[e.id] ?? []).forEach((p, i) => {
+				if (!inStream.has(`${p.date}|${p.period}`))
+					out.push({ ...p, lessonId: e.id, part: i + 1, of: e.length });
+			});
+		}
+		return out;
+	});
+	const grid = $derived.by(() => {
+		const stream = shown.cells.map((c, i) => ({ c, i }));
+		const lastFilled = stream.findLast(({ c }) => c.lessonId)?.c.date ?? stream[0]?.c.date;
+		const start = mondayOf(
+			showTaught && taughtCells.length
+				? taughtCells.reduce((m, c) => (c.date < m ? c.date : m), taughtCells[0].date)
+				: (stream[0]?.c.date ?? '9999')
+		);
+		const weeks = seq.layout.weeks.filter((w) => w.weekCommencing >= start);
+		// One week of free Slots after the last Lesson, so there is room to drop at the end.
+		const lastIndex = weeks.findIndex((w) => lastFilled && w.weekCommencing > lastFilled);
+		const showWeeks = lastIndex === -1 ? weeks : weeks.slice(0, lastIndex + 1);
+		const rows: Row[] = [];
+		for (const [n, w] of showWeeks.entries()) {
+			const prev = showWeeks[n - 1];
+			if (prev && addDays(prev.weekCommencing, 7) < w.weekCommencing)
+				rows.push({ kind: 'holiday', key: `h-${w.weekCommencing}` });
+			const cells = [
+				...taughtCells
+					.filter((c) => mondayOf(c.date) === w.weekCommencing)
+					.map((c) => ({ c, i: -1 })),
+				...stream.filter(({ c }) => mondayOf(c.date) === w.weekCommencing)
+			].sort((a, b) => a.c.date.localeCompare(b.c.date) || a.c.period - b.c.period);
+			const cards: Card[] = [];
+			for (const { c, i } of cells) {
+				const last = cards.at(-1);
+				const prevCell = last?.cells.at(-1);
+				if (
+					last &&
+					prevCell &&
+					c.lessonId &&
+					last.lessonId === c.lessonId &&
+					prevCell.date === c.date &&
+					prevCell.period + 1 === c.period
+				)
+					last.cells.push(c);
+				else cards.push({ lessonId: c.lessonId, cells: [c], first: i });
+			}
+			rows.push({
+				kind: 'week',
+				key: w.weekCommencing,
+				letter: w.letter,
+				cards,
+				slots: cells.length
+			});
+		}
+		if (shown.pastEnd.length) rows.push({ kind: 'past-end', key: 'past-end', ids: shown.pastEnd });
+		const hiddenFree =
+			showWeeks.length < weeks.length
+				? stream.filter(({ c }) => c.date >= addDays(showWeeks.at(-1)!.weekCommencing, 7)).length
+				: 0;
+		return {
+			rows,
+			columns: Math.max(1, ...rows.map((r) => (r.kind === 'week' ? r.slots : 1))),
+			hiddenFree
+		};
+	});
+	const entryOf = (id: string) => seq.entries.find((e) => e.id === id)!;
+	const cellLabel = (cells: ProtoCell[]) =>
+		dateLabel(cells[0]) + (cells.length > 1 ? `–${cells.at(-1)!.period}` : '');
+	let addingWeek = $state<string | null>(null);
 	const dragged = $derived(seq.entries.find((e) => e.id === dragId));
 
 	const toggle = (id: string) =>
@@ -194,14 +287,19 @@
 
 {#snippet row(e: ProtoEntry)}
 	{@const locked = seq.isLocked(e.id)}
+	{@const down = indexOf(e.id) > indexOf(dragId ?? '')}
 	<li
-		data-drop={locked ? undefined : e.id}
+		data-drop={locked ? undefined : `l:${e.id}`}
 		class="flex items-center gap-3 border-b px-2 py-2 text-sm transition-colors
 			{locked ? 'text-muted-foreground' : ''}
 			{seq.lastMoved.includes(e.id) ? 'bg-amber-500/10' : ''}
 			{selected.includes(e.id) ? 'bg-primary/5' : ''}
 			{dragId === e.id ? 'opacity-40' : ''}
-			{overId === e.id && dragId !== e.id ? 'border-t-2 border-t-primary' : ''}"
+			{preview && target === e.id
+			? down
+				? 'border-b-2 border-b-primary'
+				: 'border-t-2 border-t-primary'
+			: ''}"
 	>
 		{@render lead(e)}
 		<span class="w-6 shrink-0 text-right text-xs text-muted-foreground tabular-nums"
@@ -219,31 +317,79 @@
 	</li>
 {/snippet}
 
-{#snippet card(e: ProtoEntry)}
-	{@const locked = seq.isLocked(e.id)}
-	<div
-		data-drop={locked ? undefined : e.id}
-		class="flex w-60 shrink-0 gap-2 rounded-lg border p-2 text-xs transition
-			{locked ? 'opacity-60' : ''}
-			{seq.lastMoved.includes(e.id) ? 'ring-2 ring-amber-500' : ''}
-			{selected.includes(e.id) ? 'ring-2 ring-primary' : ''}
-			{dragId === e.id ? 'opacity-40' : ''}
-			{overId === e.id && dragId !== e.id ? 'border-l-4 border-l-primary' : ''}"
-		style:background-color={topicColour(e.topicId, 0.14)}
-	>
-		<div class="pt-0.5">{@render lead(e)}</div>
-		<div class="min-w-0 flex-1">
-			<div class="tabular-nums">{@render dates(e)}</div>
-			<div class="mt-0.5 line-clamp-2 text-sm font-medium">{e.title}</div>
-			<div class="mt-1">{@render topicChip(e)}</div>
-			{#if control !== 'tick'}<div class="mt-1 -ml-2 flex justify-start">
-					{@render controls(e)}
-				</div>{/if}
-			{#if e.note}<div class="mt-1 truncate text-amber-700 dark:text-amber-400">
-					✎ {e.note}
-				</div>{/if}
+{#snippet slotCard(c: Card)}
+	{#if c.lessonId === null}
+		<div
+			data-drop="s:{c.first}"
+			class="flex min-h-16 items-start rounded-lg border border-dashed p-2 text-xs text-muted-foreground"
+		>
+			<span class="tabular-nums">{cellLabel(c.cells)}</span>
+			<span class="ml-auto">Free</span>
 		</div>
-	</div>
+	{:else}
+		{@const e = entryOf(c.lessonId)}
+		{@const locked = seq.isLocked(e.id)}
+		{@const isDragged = dragId === e.id}
+		{@const shifted =
+			!!preview &&
+			!isDragged &&
+			!locked &&
+			(c.first >= 0
+				? committed.cells[c.first]?.lessonId !== e.id
+				: !committed.pastEnd.includes(e.id))}
+		{@const now = seq.first(e.id)}
+		{@const showWas =
+			!preview &&
+			seq.changed(e.id) &&
+			(c.cells.length === 0 ||
+				(now?.date === c.cells[0].date && now?.period === c.cells[0].period))}
+		<div
+			data-drop={locked ? undefined : c.first >= 0 ? `s:${c.first}` : `l:${e.id}`}
+			data-span={Math.max(1, c.cells.length)}
+			class="relative flex min-h-16 min-w-0 rounded-lg border text-xs transition
+				{c.first === -2 ? 'w-56' : ''}
+				{locked ? 'opacity-60' : ''}
+				{isDragged ? (preview ? 'ring-2 ring-primary' : 'opacity-40') : ''}
+				{shifted ? 'outline-2 outline-amber-500 outline-dashed' : ''}
+				{!dragId && seq.lastMoved.includes(e.id) ? 'ring-2 ring-amber-500' : ''}
+				{selected.includes(e.id) ? 'ring-2 ring-primary' : ''}"
+			style:grid-column="span {Math.max(1, c.cells.length)}"
+			style:background-color={topicColour(e.topicId)}
+		>
+			{#if locked}
+				<span class="flex w-5 shrink-0 items-start justify-center pt-2"
+					><LockIcon class="size-3 text-muted-foreground" aria-label="Taught, fixed" /></span
+				>
+			{:else}
+				<div class="flex pt-1.5 pl-0.5">{@render lead(e)}</div>
+			{/if}
+			<div class="min-w-0 flex-1 py-1.5 pr-5">
+				<div class="truncate text-muted-foreground tabular-nums">
+					{c.cells.length
+						? cellLabel(c.cells)
+						: 'No Slot left'}{#if c.cells.length && c.cells[0].of > 1 && c.cells.length < c.cells[0].of}&nbsp;·
+						part
+						{c.cells[0].part} of {c.cells[0].of}{/if}
+				</div>
+				{#if showWas}
+					<div class="truncate text-amber-700 tabular-nums dark:text-amber-400">
+						was {seq.was(e.id) ? dateLabel(seq.was(e.id)) : 'past the end'}
+					</div>
+				{/if}
+				<div class="truncate font-medium">{e.title}</div>
+				<div class="truncate opacity-70">{e.topicName ?? 'Standalone Lesson'}</div>
+				{#if e.note}<div class="truncate text-amber-700 dark:text-amber-400">✎ {e.note}</div>{/if}
+				{#if control === 'buttons' && !locked}<div class="-ml-2">{@render controls(e)}</div>{/if}
+			</div>
+			{#if !locked && control !== 'buttons'}
+				<button
+					class="absolute top-0.5 right-0.5 rounded p-0.5 text-muted-foreground hover:bg-foreground/10"
+					onclick={() => seq.remove([e.id])}
+					aria-label="Remove {e.title} from this Class"><XIcon class="size-3" /></button
+				>
+			{/if}
+		</div>
+	{/if}
 {/snippet}
 
 <section class="mt-4 pb-32">
@@ -353,24 +499,79 @@
 		</ul>
 	{:else}
 		<div class="mt-2 space-y-1.5">
-			{#each weeks as w (w.key)}
-				<div
-					class="flex gap-3 rounded-lg p-1.5 {w.key === 'past-end'
-						? 'bg-destructive/10'
-						: 'bg-muted/40'}"
-				>
-					<div
-						class="w-20 shrink-0 pt-2 text-xs font-medium {w.key === 'past-end'
-							? 'text-destructive'
-							: 'text-muted-foreground'}"
-					>
-						{w.label}
+			{#each grid.rows as r (r.key)}
+				{#if r.kind === 'holiday'}
+					<div class="px-2 text-xs text-muted-foreground">Holiday</div>
+				{:else if r.kind === 'past-end'}
+					<div class="flex gap-3 rounded-lg bg-destructive/10 p-1.5">
+						<div class="w-24 shrink-0 pt-2 text-xs font-medium text-destructive">
+							Past the end of the year
+						</div>
+						<div class="flex min-w-0 flex-1 flex-wrap gap-1.5">
+							{#each r.ids as id (id)}{@render slotCard({
+									lessonId: id,
+									cells: [],
+									first: -2
+								})}{/each}
+						</div>
 					</div>
-					<div class="flex min-w-0 flex-1 flex-wrap gap-1.5">
-						{#each w.entries as e (e.id)}{@render card(e)}{/each}
+				{:else}
+					<div class="flex gap-3 rounded-lg bg-muted/40 p-1.5">
+						<div class="w-24 shrink-0 pt-2 text-xs text-muted-foreground">
+							<div class="font-medium">w/c {formatDayMonth(r.key)}</div>
+							<div>Week {r.letter} · {r.slots} {r.slots === 1 ? 'Slot' : 'Slots'}</div>
+							<button
+								class="mt-1 flex items-center gap-0.5 rounded px-1 hover:bg-foreground/10 hover:text-foreground"
+								onclick={() => (addingWeek = addingWeek === r.key ? null : r.key)}
+								aria-label="Add a Lesson in the week of {formatDayMonth(r.key)}"
+								><PlusIcon class="size-3" />Add</button
+							>
+						</div>
+						{#if r.cards.length}
+							<div
+								class="grid min-w-0 flex-1 gap-1.5"
+								style:grid-template-columns="repeat({grid.columns}, minmax(0, 1fr))"
+							>
+								{#each r.cards as c (c.cells[0].date + c.cells[0].period)}{@render slotCard(
+										c
+									)}{/each}
+							</div>
+						{:else}
+							<div class="flex-1 pt-2 text-xs text-muted-foreground">No Slots this week</div>
+						{/if}
 					</div>
-				</div>
+					{#if addingWeek === r.key}
+						<form
+							class="ml-28 flex gap-2"
+							onsubmit={(ev) => {
+								ev.preventDefault();
+								const end = addDays(r.key, 7);
+								const after =
+									committed.cells.findLast(
+										(x) => x.lessonId && x.date < end && !seq.isLocked(x.lessonId)
+									)?.lessonId ?? null;
+								seq.addLesson(newTitle, after);
+								newTitle = '';
+								addingWeek = null;
+							}}
+						>
+							<input
+								class="h-8 flex-1 rounded border bg-background px-2 text-sm"
+								placeholder="New Standalone Lesson title"
+								bind:value={newTitle}
+							/>
+							<Button size="sm" type="submit">Add</Button>
+							<Button size="sm" variant="ghost" onclick={() => (addingWeek = null)}>Cancel</Button>
+						</form>
+					{/if}
+				{/if}
 			{/each}
+			{#if grid.hiddenFree}
+				<p class="px-2 text-xs text-muted-foreground">
+					{grid.hiddenFree} more free Slots to the end of the year{#if seq.layout.lastSlot}. The
+						last Slot is {formatShortWeekday(seq.layout.lastSlot)}{/if}.
+				</p>
+			{/if}
 			{#if control === 'drag'}
 				<div
 					data-drop="end"
@@ -442,5 +643,6 @@
 		style:top="{pointer.y + 12}px"
 	>
 		{dragged.title}
+		{#if refusal}<span class="block font-normal text-destructive">{refusal}</span>{/if}
 	</div>
 {/if}
