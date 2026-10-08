@@ -426,8 +426,8 @@
 		{#if seq.draft && seq.dirty}
 			{#if control === 'tick' && selected.length}<span class="mx-1 h-5 w-px bg-border"></span>{/if}
 			<span class="text-xs text-muted-foreground"
-				>Not saved · {seq.changedCount} dates change{#if seq.pastEndCount}
-					· {seq.pastEndCount} past the end{/if}</span
+				>Not saved · {seq.changedCount} dates change{#if seq.pastEndCount}&nbsp;· {seq.pastEndCount} past
+					the end{/if}</span
 			>
 			<Button size="sm" variant="ghost" onclick={() => seq.discard()}>Discard</Button>
 			<Button size="sm" onclick={() => seq.save()}>Save order</Button>
