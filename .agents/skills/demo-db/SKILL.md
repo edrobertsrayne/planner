@@ -12,8 +12,8 @@ description: Seeded demo database and a running, logged-in app. Use for a UI pro
 1. **Seed.** `bun scripts/demo-db.ts seed /tmp/demo.db`. The file must not exist.
 2. **Serve.** Start a named service: `DATABASE_URL=/tmp/demo.db bun run dev --port 5173 --strictPort`, ready on log `ready in`. Port 5173 is required: `ORIGIN` and `BETTER_AUTH_URL` in `.env` name it, and auth fails on any other port.
 3. **User.** `bun scripts/demo-db.ts user http://localhost:5173`. It creates the user `EMAIL` / `PASSWORD` from `e2e/helpers.ts` through `/setup`.
-4. **Drive.** Use a throwaway Playwright script in `/tmp` that imports `node_modules/playwright/index.mjs`. Log in at `/login` with the labels `Email` and `Password` and the button `Log in`.
-5. **Clean up.** Stop the service and delete `/tmp/demo.db*`, the script and any worktree. Done when `git status` shows only the change you mean to ship.
+4. **Drive.** Use omp's managed browser; `.omp/config.yml` keeps it headless and off the teacher's Chrome. Log in at `/login` with the labels `Email` and `Password` and the button `Log in`.
+5. **Clean up.** Stop the service, close the browser tabs and delete `/tmp/demo.db*` and any worktree. Done when `git status` shows only the change you mean to ship.
 
 ## Before and after screenshots
 
