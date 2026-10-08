@@ -212,3 +212,16 @@ export function datedSlotsOf(db: Db, classId: string) {
 		.orderBy(asc(schema.slot.holdsFrom))
 		.all();
 }
+
+// Sets the Room a Slot is taught in, or clears it when blank. A Room is display only: the
+// engine never reads it, so nothing re-derives. Edited in place, so every Session in the Slot,
+// past ones included, shows the new Room.
+export function setSlotRoom(db: Db, { id, room }: { id: string; room: string }) {
+	const [row] = db
+		.update(schema.slot)
+		.set({ room: room.trim() || null })
+		.where(eq(schema.slot.id, id))
+		.returning()
+		.all();
+	return row ?? null;
+}

@@ -11,6 +11,7 @@ import {
 	datedSlotsOf,
 	endSlot,
 	holderAt,
+	setSlotRoom,
 	takeSlot
 } from './index';
 import * as schema from '../db/schema';
@@ -224,5 +225,20 @@ describe('Slot uniqueness is window-aware, enforced in the server module', () =>
 		expect(
 			scheduledAfter.some((s) => s.date >= '2027-05-15' && s.period === 1 && s.week === 'A')
 		).toBe(false);
+	});
+});
+
+describe('a Slot’s Room', () => {
+	test('is trimmed, blank clears it, and an unknown Slot gives null', () => {
+		const { db, classA } = setUp();
+		const slot = activeSlots(db, '2026-09-03').find((s) => s.classId === classA.id)!;
+
+		setSlotRoom(db, { id: slot.id, room: '  S12 ' });
+		expect(activeSlots(db, '2026-09-03').find((s) => s.id === slot.id)?.room).toBe('S12');
+
+		setSlotRoom(db, { id: slot.id, room: '   ' });
+		expect(activeSlots(db, '2026-09-03').find((s) => s.id === slot.id)?.room).toBeNull();
+
+		expect(setSlotRoom(db, { id: 'nope', room: 'S12' })).toBeNull();
 	});
 });

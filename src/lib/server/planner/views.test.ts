@@ -2,7 +2,9 @@ import { and, eq, sql } from 'drizzle-orm';
 import { describe, expect, test } from 'vitest';
 import { makeLessons, makeTopic, setUp } from './fixtures';
 import {
+	activeSlots,
 	addSlot,
+	setSlotRoom,
 	agenda,
 	agendaLookBack,
 	assignedTopicsOf,
@@ -721,7 +723,8 @@ describe('the Planning stream', () => {
 			label: '10C/Ph2',
 			tone: classB.tone,
 			date: '2026-09-09',
-			period: 4
+			period: 4,
+			room: null
 		});
 	});
 
@@ -1056,5 +1059,58 @@ describe('a Standalone Lesson', () => {
 		const result = classSchedule(db, { classId: classA.id, today: '2026-09-05' });
 		const l1Scheduled = result.scheduled.filter((s) => s.lessonId === l1.id);
 		expect(l1Scheduled).toHaveLength(0);
+	});
+});
+
+describe('the Room', () => {
+	// classA's Thu double is Week A Thu P5 and P6.
+	function withRooms(rooms: { p5?: string; p6?: string }) {
+		const ctx = setUp();
+		const { db, course, classA } = ctx;
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [lesson] = makeLessons(db, topic.id, 1, 2);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+		const slotAt = (period: number) =>
+			activeSlots(db, '2026-09-03').find(
+				(s) => s.classId === classA.id && s.week === 'A' && s.day === 4 && s.period === period
+			)!;
+		if (rooms.p5) setSlotRoom(db, { id: slotAt(5).id, room: rooms.p5 });
+		if (rooms.p6) setSlotRoom(db, { id: slotAt(6).id, room: rooms.p6 });
+		return { ...ctx, lesson };
+	}
+	const cellAt = (db: ReturnType<typeof setUp>['db'], today: string, classId: string) =>
+		calendarWeek(db, { weekCommencing: '2026-08-31', today })?.cells.find(
+			(c) => c.date === '2026-09-03' && c.periodFrom === 5 && c.classId === classId
+		);
+
+	test('a double across two Rooms reads both, on the Agenda and the Calendar; the Planning stream gives the first Period', () => {
+		const { db, classA, lesson } = withRooms({ p5: 'S12', p6: 'Lab 3' });
+
+		expect(agenda(db, { today: '2026-09-03', horizonDays: 14 }).rows[0].room).toBe('S12 / Lab 3');
+		expect(cellAt(db, '2026-09-03', classA.id)?.room).toBe('S12 / Lab 3');
+		const entry = planningStream(db, '2026-09-03').find((e) => e.id === lesson.id);
+		expect(entry?.occurrence?.room).toBe('S12');
+	});
+
+	test('the same Room on both Periods reads once', () => {
+		const { db } = withRooms({ p5: 'S12', p6: 'S12' });
+		expect(agenda(db, { today: '2026-09-03', horizonDays: 14 }).rows[0].room).toBe('S12');
+	});
+
+	test('a Slot with no Room gives null', () => {
+		const { db, classA } = withRooms({});
+		expect(agenda(db, { today: '2026-09-03', horizonDays: 14 }).rows[0].room).toBeNull();
+		expect(cellAt(db, '2026-09-03', classA.id)?.room).toBeNull();
+	});
+
+	test('a past Session shows its Slots’ current Rooms in the look-back and the past Calendar cell', () => {
+		const { db, classA } = withRooms({ p5: 'S12', p6: 'Lab 3' });
+
+		const past = cellAt(db, '2026-09-10', classA.id);
+		expect(past?.past).toBe(true);
+		expect(past?.room).toBe('S12 / Lab 3');
+		expect(
+			agendaLookBack(db, { today: '2026-09-10' }).find((r) => r.date === '2026-09-03')?.room
+		).toBe('S12 / Lab 3');
 	});
 });

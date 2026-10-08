@@ -7,14 +7,7 @@ import { and, eq, gte, lt } from 'drizzle-orm';
 import { addDays, weekday } from '$lib/date';
 import * as schema from '../db/schema';
 import { tagsByLesson, type LessonStatus } from './authoring';
-import {
-	lessonNames,
-	loadCalendar,
-	scheduleFor,
-	teachingWeeks,
-	type Db,
-	type LessonName
-} from './derive';
+import { lessonNames, loadCalendar, scheduleFor, type Db, type LessonName } from './derive';
 import {
 	agendaRows,
 	inAnyTerm,
@@ -88,6 +81,7 @@ export interface AgendaEntry {
 	week: 'A' | 'B';
 	periodFrom: number;
 	periodTo: number;
+	room: string | null;
 	lesson: {
 		id: string;
 		title: string;
@@ -105,6 +99,7 @@ type Occasion = {
 	periodFrom: number;
 	periodTo: number;
 	lessonId: string | null;
+	slotIds: string[];
 };
 
 // Title, Topic and Tags for every Lesson in one query each, then sorted by date and Period.
@@ -117,6 +112,7 @@ function toEntries(
 	const names = lessonNames(db, lessonIds);
 	const tags = tagsByLesson(db, lessonIds);
 
+	const rooms = roomsBySlot(db);
 	return occasions
 		.map(({ cls, lessonId, ...o }) => {
 			const lessonInfo = lessonId ? names.get(lessonId) : undefined;
@@ -128,6 +124,7 @@ function toEntries(
 				week: o.week,
 				periodFrom: o.periodFrom,
 				periodTo: o.periodTo,
+				room: roomOf(rooms, o.slotIds),
 				lesson:
 					lessonId && lessonInfo
 						? {
@@ -214,7 +211,8 @@ export function classNextSessions(
 // Open Slot has no Session either. Readiness is never read for a past day, so every row is not ready.
 export function agendaLookBack(db: Db, { today }: { today: string }): AgendaEntry[] {
 	const classes = new Map(listClasses(db).map((c) => [c.id, c]));
-	const letters = new Map(teachingWeeks(db).map((w) => [w.weekCommencing, w.letter]));
+	const cal = loadCalendar(db);
+	const letters = new Map(cal.teachingWeeks.map((w) => [w.weekCommencing, w.letter]));
 	const sessions = db
 		.select({
 			classId: schema.session.classId,
@@ -233,7 +231,7 @@ export function agendaLookBack(db: Db, { today }: { today: string }): AgendaEntr
 	const occasions = sessionRuns(sessions).flatMap(({ classId, ...run }): Occasion[] => {
 		const cls = classes.get(classId);
 		const week = letters.get(addDays(run.date, 1 - weekday(run.date)));
-		return cls && week ? [{ cls, week, ...run }] : [];
+		return cls && week ? [{ cls, week, ...run, slotIds: runSlotIds(cal, week, classId, run) }] : [];
 	});
 
 	return toEntries(db, occasions, () => false);
@@ -248,6 +246,7 @@ export interface CalendarCell {
 	classId: string;
 	classLabel: string;
 	tone: number;
+	room: string | null;
 	kind: 'lesson' | 'open' | 'blocked';
 	lesson: LessonName | null;
 	blockedNote: string | null;
@@ -295,6 +294,40 @@ const slotsAt = (cal: Calendar, letter: 'A' | 'B', date: string, period: number)
 		(s) => s.week === letter && s.day === weekday(date) && s.period === period && slotHolds(s, date)
 	);
 
+// Each Slot's Room, for the Slots that have one. Read here, not in loadCalendar: the engine
+// never needs a Room.
+function roomsBySlot(db: Db): Map<string, string> {
+	const map = new Map<string, string>();
+	for (const { id, room } of db
+		.select({ id: schema.slot.id, room: schema.slot.room })
+		.from(schema.slot)
+		.all()) {
+		if (room) map.set(id, room);
+	}
+	return map;
+}
+
+// An occasion's Room: the Rooms of its Slots in Period order, each once, joined " / ", or null
+// when none of its Slots has one. A double taught across two rooms reads "S12 / Lab 3".
+function roomOf(rooms: Map<string, string>, slotIds: readonly string[]): string | null {
+	const found = [...new Set(slotIds.flatMap((id) => rooms.get(id) ?? []))];
+	return found.length ? found.join(' / ') : null;
+}
+
+// The Slots a recorded run sat in, one per Period in order. The list is empty when a Period's
+// position no longer has a Slot that holds it.
+function runSlotIds(
+	cal: Calendar,
+	letter: 'A' | 'B',
+	classId: string,
+	run: { date: string; periodFrom: number; periodTo: number }
+): string[] {
+	const slots = Array.from({ length: run.periodTo - run.periodFrom + 1 }, (_, i) =>
+		slotsAt(cal, letter, run.date, run.periodFrom + i).find((s) => s.classId === classId)
+	);
+	return slots.every((s) => s !== undefined) ? slots.map((s) => s.id) : [];
+}
+
 // The positions that the schedule and the record leave out, but that a Class still holds on the
 // raw Timetable. A Blocked Day, a Blocked Slot or a date outside every Term makes a removed cell.
 // The cell carries the note of its block. The grid then shows whose position it is. Any other
@@ -308,7 +341,8 @@ function uncoveredCells(
 		letter,
 		cal,
 		classes,
-		covered
+		covered,
+		rooms
 	}: {
 		dates: string[];
 		today: string;
@@ -316,6 +350,7 @@ function uncoveredCells(
 		cal: Calendar;
 		classes: ClassRow[];
 		covered: Set<string>;
+		rooms: Map<string, string>;
 	}
 ): CalendarCell[] {
 	const byId = new Map(classes.map((c) => [c.id, c]));
@@ -354,6 +389,7 @@ function uncoveredCells(
 				classId: cls.id,
 				classLabel: cls.label,
 				tone: cls.tone,
+				room: roomOf(rooms, [slot.id]),
 				kind: blocked ? 'blocked' : 'open',
 				lesson: null,
 				blockedNote: dayBlock?.note ?? slotBlock?.note ?? null,
@@ -382,20 +418,14 @@ export function calendarWeek(
 	const batches = derivedRows(db, { classes, cal, today, keep: (r) => dateSet.has(r.date) });
 
 	// Before `today` the engine lays nothing: those positions come from its `history`, the record.
-	const slotAt = (classId: string, date: string, period: number) =>
-		slotsAt(cal, week.letter, date, period).find((s) => s.classId === classId);
+	const rooms = roomsBySlot(db);
 	const occupied = batches.map(({ cls, rows, history }) => ({
 		cls,
 		rows: [
-			...sessionRuns(history.filter((s) => dateSet.has(s.date))).map((run) => {
-				const slots = Array.from({ length: run.periodTo - run.periodFrom + 1 }, (_, i) =>
-					slotAt(cls.id, run.date, run.periodFrom + i)
-				);
-				return {
-					...run,
-					slotIds: slots.every((s) => s !== undefined) ? slots.map((s) => s.id) : []
-				};
-			}),
+			...sessionRuns(history.filter((s) => dateSet.has(s.date))).map((run) => ({
+				...run,
+				slotIds: runSlotIds(cal, week.letter, cls.id, run)
+			})),
 			...rows.map((r) => ({ ...r, lessonId: r.lesson?.lessonId ?? null }))
 		]
 	}));
@@ -415,6 +445,7 @@ export function calendarWeek(
 				classId: cls.id,
 				classLabel: cls.label,
 				tone: cls.tone,
+				room: roomOf(rooms, r.slotIds),
 				kind: r.lessonId ? 'lesson' : 'open',
 				lesson: r.lessonId ? (names.get(r.lessonId) ?? null) : null,
 				blockedNote: null,
@@ -425,7 +456,9 @@ export function calendarWeek(
 		})
 	);
 
-	cells.push(...uncoveredCells(db, { dates, today, letter: week.letter, cal, classes, covered }));
+	cells.push(
+		...uncoveredCells(db, { dates, today, letter: week.letter, cal, classes, covered, rooms })
+	);
 
 	const dayBlocks = blockedDaysByDate(db);
 	return {
@@ -449,6 +482,7 @@ export interface PlanningOccurrence {
 	tone: number;
 	date: string;
 	period: number;
+	room: string | null;
 }
 
 export interface PlanningEntry {
@@ -486,6 +520,7 @@ export function planningStream(db: Db, today: string, classId?: string): Plannin
 	const classes = listClasses(db).filter((c) => !classId || c.id === classId);
 
 	const soonestByLesson = new Map<string, PlanningOccurrence>();
+	const rooms = roomsBySlot(db);
 
 	for (const cls of classes) {
 		const result = scheduleFor(db, { classId: cls.id, boundary: today, cal });
@@ -500,7 +535,8 @@ export function planningStream(db: Db, today: string, classId?: string): Plannin
 					label: cls.label,
 					tone: cls.tone,
 					date: s.date,
-					period: s.period
+					period: s.period,
+					room: rooms.get(s.slotId) ?? null
 				});
 			}
 		}

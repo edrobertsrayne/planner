@@ -152,6 +152,7 @@
 									>{formatShortWeekday(s.date)}</span
 								>
 								<span class="tabular-nums">P{s.period}</span>
+								{#if s.room}<span>{s.room}</span>{/if}
 								{@render classChip(s)}
 							{:else}
 								<span>Not scheduled</span>
@@ -188,7 +189,7 @@
 			>
 				<thead class="sticky top-0 z-10 bg-background text-left text-xs text-muted-foreground">
 					<tr>
-						<th scope="col" class="w-28 border-b py-2 pr-3 font-medium">Next taught</th>
+						<th scope="col" class="w-36 border-b py-2 pr-3 font-medium">Next taught</th>
 						<th scope="col" class="w-20 border-b py-2 pr-3 font-medium">Class</th>
 						<th scope="col" class="border-b py-2 pr-3 font-medium">Lesson</th>
 						<th scope="col" class="hidden w-44 border-b py-2 pr-3 font-medium xl:table-cell">
@@ -211,6 +212,7 @@
 								{#if s}
 									{formatShortWeekday(s.date)}
 									<span class="text-muted-foreground">P{s.period}</span>
+									{#if s.room}<span class="text-muted-foreground"> · {s.room}</span>{/if}
 								{:else}
 									<span class="text-muted-foreground">—</span>
 								{/if}

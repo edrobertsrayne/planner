@@ -35,6 +35,7 @@ export {
 	datedSlotsOf,
 	endSlot,
 	holderAt,
+	setSlotRoom,
 	takeSlot
 } from './timetable';
 
