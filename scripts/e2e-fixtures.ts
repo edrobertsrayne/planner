@@ -5,6 +5,7 @@
  * into the database instead, against the suite's own scratch database:
  *
  *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts find-lesson-id <title>
+ *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts find-class-id <label>
  *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts mark-taught <classId> <date> <period> <lessonId> [note]
  *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts unmark-taught <classId> <date> <period>
  *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts set-terms '<terms JSON>'
@@ -30,6 +31,18 @@ const [command, ...args] = process.argv.slice(2);
 const { db } = openDatabase(databaseUrl);
 
 switch (command) {
+	case 'find-class-id': {
+		const [label] = args;
+		if (!label) throw new Error('Usage: find-class-id <label>');
+		const [row] = db
+			.select({ id: schema.classes.id })
+			.from(schema.classes)
+			.where(eq(schema.classes.label, label))
+			.all();
+		if (!row) throw new Error(`No Class labelled ${label}`);
+		process.stdout.write(row.id);
+		break;
+	}
 	case 'find-lesson-id': {
 		const [title] = args;
 		if (!title) throw new Error('Usage: find-lesson-id <title>');

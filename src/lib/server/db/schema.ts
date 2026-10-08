@@ -153,7 +153,8 @@ export const slot = sqliteTable(
 		day: integer('day').notNull(),
 		period: integer('period').notNull(),
 		holdsFrom: text('holds_from'),
-		holdsTo: text('holds_to')
+		holdsTo: text('holds_to'),
+		room: text('room')
 	},
 	(table) => [
 		check('slot_day_range', sql`${table.day} between 1 and 5`),

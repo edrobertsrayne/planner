@@ -406,6 +406,9 @@
 											>
 												<span class="truncate text-xs font-semibold" style:color={tone.fg}>
 													{cell.classLabel}
+													{#if cell.room}<span class="hidden font-normal opacity-80 sm:inline">
+															· {cell.room}</span
+														>{/if}
 												</span>
 												{#if cell.kind === 'lesson'}
 													<!-- The tiles give way, not the grid (issue #343): below `sm` a tile shows

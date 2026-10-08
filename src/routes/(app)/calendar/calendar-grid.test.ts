@@ -11,6 +11,7 @@ function cell(overrides: Partial<CalendarCell> = {}): CalendarCell {
 		classId: 'c1',
 		classLabel: '9A/Ph1',
 		tone: 0,
+		room: null,
 		kind: 'lesson',
 		lesson: { title: 'Measuring speed', topicName: 'Forces' },
 		blockedNote: null,

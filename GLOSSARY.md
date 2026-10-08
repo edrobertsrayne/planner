@@ -135,6 +135,12 @@ range of dates, and no two Slots may share a position over dates where both hold
 two consecutive Periods occupies two Slots, never one longer one.
 _Avoid_: Lesson, session, booking, double
 
+**Room**:
+Where a Slot is taught, such as "S12" or "Lab 3", typed by the teacher and optional. A Room
+belongs to the Slot, so every Session in that Slot shows it, past ones included. To change the
+Room from a date, end the Slot and take the position again from that date.
+_Avoid_: Classroom, location, venue
+
 **Session**:
 A single dated occasion on which a Lesson is taught to a Class, occupying one Slot on one date.
 The place where anything class-specific lives, including notes on how the teaching actually went.

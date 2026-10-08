@@ -107,6 +107,7 @@ test('the tone backfill walks existing Classes in creation order and wraps past 
 			opens text NOT NULL,
 			closes text NOT NULL
 		);
+		CREATE TABLE slot (id text PRIMARY KEY);
 		CREATE TABLE teaching_week (
 			id text PRIMARY KEY,
 			week_commencing text NOT NULL,
@@ -167,6 +168,7 @@ test('the Course tone backfill walks existing Courses in creation order, apart f
 			opens text NOT NULL,
 			closes text NOT NULL
 		);
+		CREATE TABLE slot (id text PRIMARY KEY);
 		CREATE TABLE teaching_week (
 			id text PRIMARY KEY,
 			week_commencing text NOT NULL,
@@ -224,6 +226,7 @@ test('the lesson status migration writes draft as default for existing lessons a
 			opens text NOT NULL,
 			closes text NOT NULL
 		);
+		CREATE TABLE slot (id text PRIMARY KEY);
 		CREATE TABLE teaching_week (
 			id text PRIMARY KEY,
 			week_commencing text NOT NULL,

@@ -18,6 +18,7 @@ import {
 	clearSlot,
 	renameClass,
 	reportOf,
+	setSlotRoom,
 	topicsOf,
 	unassignTopic
 } from '$lib/server/planner';
@@ -104,6 +105,13 @@ export const actions: Actions = {
 		} catch (error) {
 			return refusal(error);
 		}
+	},
+
+	setSlotRoom: async ({ request }) => {
+		const data = await request.formData();
+		const slot = setSlotRoom(db, { id: trimmed(data, 'id'), room: String(data.get('room') ?? '') });
+		if (!slot) return fail(404, { error: 'No such Slot.' });
+		return { slot };
 	},
 
 	unassignTopic: async ({ request }) => {

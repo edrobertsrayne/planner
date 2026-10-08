@@ -7,6 +7,7 @@ import {
 	openLesson,
 	openLessonFromCourses,
 	openSessionWithLesson,
+	isoDate,
 	runFixture,
 	todayIso
 } from './helpers.ts';
@@ -315,14 +316,28 @@ test.describe('Continuations on the Session page', () => {
 		page
 	}) => {
 		await login(page);
-		// The first Agenda row with a Lesson that has already started: a Continuation needs one.
+		// A started Session is not on the Agenda every run date: 9B/Sc1 teaches Mon, Wed and Fri P1
+		// and 9C/Sc1 Tuesday P3, so on a Thursday or a weekend no row ahead is dated today or earlier.
+		// Record one in the past seven days — scripts/e2e-fixtures.ts writes what the app has no way
+		// to make — and take it from the look-back, where the teacher opens a past Session. P6 is a
+		// Period 9B/Sc1 never holds, so the row can never collide with a scheduled one; teaching-flows
+		// writes its past Session the same way.
+		const classAId = runFixture('find-class-id', '9B/Sc1').trim();
+		runFixture(
+			'mark-taught',
+			classAId,
+			isoDate(-1),
+			'6',
+			runFixture('find-lesson-id', 'Speed').trim()
+		);
+		await page.goto('/?past=1');
 		const hrefs = await page
 			.locator('li')
 			.filter({ hasNotText: 'Open Slot' })
 			.locator('a[href^="/sessions/"]')
 			.evaluateAll((links) => links.map((a) => a.getAttribute('href')!));
 		const started = hrefs.find((href) => href.split('/')[3] <= todayIso());
-		expect(started, 'the Agenda holds a started Session with a Lesson').toBeDefined();
+		expect(started, 'the look-back holds a started Session with a Lesson').toBeDefined();
 		await page.goto(started!);
 
 		const status = page.getByRole('status').filter({ hasText: /^Continued onto/ });
@@ -342,6 +357,7 @@ test.describe('Continuations on the Session page', () => {
 		await remove.click();
 		await expect(status).toHaveCount(0);
 		await expect(remove).toHaveCount(0);
+		runFixture('unmark-taught', classAId, isoDate(-1), '6');
 	});
 });
 

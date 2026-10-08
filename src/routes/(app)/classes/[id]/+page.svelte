@@ -15,6 +15,7 @@
 	import AssignedTopics from './AssignedTopics.svelte';
 	import ClassProgress from './ClassProgress.svelte';
 	import NextSessions from './NextSessions.svelte';
+	import SlotRooms from './SlotRooms.svelte';
 	import TimetableGrid from './TimetableGrid.svelte';
 	import type { PageProps } from './$types';
 
@@ -174,6 +175,8 @@
 					A Period held by another Class carries its label. A double is two Periods, ticked
 					separately.
 				</p>
+
+				<SlotRooms classId={data.class.id} readOnly={isPast} slots={data.grid} />
 
 				{#if data.datedSlots.length}
 					<div class="mt-4 rounded-lg bg-muted/40 px-3 py-2">

@@ -105,6 +105,7 @@
 
 			<span class="w-14 shrink-0 text-xs text-muted-foreground tabular-nums">
 				P{row.periodFrom}{#if row.periodTo !== row.periodFrom}–P{row.periodTo}{/if}
+				{#if row.room}<span class="block truncate" title={row.room}>{row.room}</span>{/if}
 			</span>
 
 			<!-- The Class chip sits in a fixed-width column, so the titles line up (issue #341). -->
