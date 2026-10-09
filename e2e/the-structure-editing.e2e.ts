@@ -361,6 +361,51 @@ test.describe('Continuations on the Session page', () => {
 	});
 });
 
+test.describe('Rooms on the Class page', () => {
+	test.use({ viewport: { width: 1280, height: 720 } });
+
+	test('a saved Room leaves the caret in the next Room box', async ({ page }) => {
+		await login(page);
+		const classId = runFixture('find-class-id', '9B/Sc1').trim();
+		const openTimetable = async () => {
+			await page.goto(`/classes/${classId}`);
+			await page.waitForLoadState('networkidle');
+			await page.getByRole('tab', { name: /^Timetable/ }).click();
+		};
+		await openTimetable();
+		const rooms = page.getByLabel(/^Room for Week/);
+		const saved = () => page.waitForResponse((r) => r.url().includes('setSlotRoom'));
+
+		await rooms.nth(0).fill('S12');
+		const first = saved();
+		await rooms.nth(0).press('Tab');
+		await first;
+		await page.waitForLoadState('networkidle');
+		await expect(rooms.nth(1)).toBeFocused();
+
+		await page.keyboard.type('S14');
+		const second = saved();
+		await page.keyboard.press('Tab');
+		await second;
+		await page.waitForLoadState('networkidle');
+
+		await openTimetable();
+		await expect(rooms.nth(0)).toHaveValue('S12');
+		await expect(rooms.nth(1)).toHaveValue('S14');
+
+		// Clear them, so later files see no Rooms on the Agenda.
+		for (const i of [0, 1]) {
+			await rooms.nth(i).fill('');
+			const cleared = saved();
+			await rooms.nth(i).press('Tab');
+			await cleared;
+		}
+		await openTimetable();
+		await expect(rooms.nth(0)).toHaveValue('');
+		await expect(rooms.nth(1)).toHaveValue('');
+	});
+});
+
 test.describe('the Planning table', () => {
 	test.use({ viewport: { width: 1280, height: 560 } });
 

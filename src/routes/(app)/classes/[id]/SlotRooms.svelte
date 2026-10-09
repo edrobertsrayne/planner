@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { applyAction, enhance } from '$app/forms';
+	import { invalidateAll } from '$app/navigation';
 	import { toast } from 'svelte-sonner';
 	import { failureReason } from '$lib/client/enhance';
 	import { Input } from '$lib/components/ui/input/index.js';
@@ -40,10 +41,14 @@
 							method="POST"
 							action="?/setSlotRoom"
 							use:enhance={() =>
-								async ({ result, update }) => {
+								async ({ result }) => {
+									// `update` ends a success in `applyAction`, whose `reset_focus` takes the caret out of
+									// the Room box Ed has just tabbed or clicked into. Refresh the data and nothing else.
+									if (result.type === 'redirect' || result.type === 'error')
+										return applyAction(result);
 									if (result.type === 'failure')
 										toast.error(failureReason(result, 'Could not save the Room.'));
-									await update({ invalidateAll: true, reset: false });
+									await invalidateAll();
 								}}
 						>
 							<input type="hidden" name="id" value={s.id} />
