@@ -6,9 +6,15 @@ import { execFileSync } from 'node:child_process';
 export const EMAIL = 'teacher@example.com';
 export const PASSWORD = 'a-very-long-password';
 
-// The form login runs once per worker. Later tests reuse its session cookies, so each test opens
-// its page at once. sign-in-out.e2e.ts tests the form itself. If the stored session no longer
-// works (the guard sends the page to /login), the form runs again.
+// A scratch database, never the developer's own local.db (see issue #40), and the server's
+// address. playwright.config.ts deletes the database before every run, so the suite starts with
+// migrations applied and no user.
+export const DATABASE_URL = 'e2e.db';
+export const ORIGIN = 'http://localhost:4173';
+
+// The form login runs once after each reset. Later tests reuse its session cookies, so each test
+// opens its page at once. sign-in-out.e2e.ts tests the form itself. If the stored session no
+// longer works (the guard sends the page to /login), the form runs again.
 let session: Awaited<ReturnType<BrowserContext['cookies']>> | undefined;
 
 export async function login(page: Page, path = '/') {
@@ -26,10 +32,19 @@ export async function login(page: Page, path = '/') {
 	if (path !== '/') await page.goto(path);
 }
 
+// Clears e2e.db and its Attachments, then writes one known state, so a file runs alone or in
+// any order. Each e2e file calls this first, in a top-level beforeAll. 'empty' has no user (the
+// first-run wizard). 'standard' is the user, six Terms, KS3 Science > Forces > Speed, Motion,
+// 9B/Sc1 and 9C/Sc1 with Slots, and one past Session (see `reset` in scripts/e2e-fixtures.ts).
+export function resetTo(state: 'empty' | 'standard') {
+	runFixture('reset', state, ORIGIN);
+	session = undefined;
+}
+
 export function runFixture(...args: string[]): string {
 	return execFileSync('bun', ['scripts/e2e-fixtures.ts', ...args], {
 		cwd: process.cwd(),
-		env: { ...process.env, DATABASE_URL: 'e2e.db' },
+		env: { ...process.env, DATABASE_URL },
 		encoding: 'utf-8'
 	});
 }
