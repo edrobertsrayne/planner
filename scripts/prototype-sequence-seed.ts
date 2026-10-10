@@ -86,6 +86,12 @@ const b = classId('9B/Sc1');
 for (const name of ['Waves', 'Energy'])
 	assignTopic(db, { classId: b, topicId: topicId(name), today: now });
 
+// Ready marks on three Waves Lessons for 9B/Sc1, so a bulk Remove (#382) names what it loses.
+for (const title of ['Wave speed', 'Reflection', 'Refraction']) {
+	const [l] = db.select().from(schema.lesson).where(eq(schema.lesson.title, title)).all();
+	db.insert(schema.readiness).values({ lessonId: l.id, classId: b }).run();
+}
+
 const c = classId('9C/Sc2');
 for (const name of ['Chemical reactions', 'Waves', 'Energy', 'Atomic structure', 'Space']) {
 	assignTopic(db, { classId: c, topicId: topicId(name), today: now });

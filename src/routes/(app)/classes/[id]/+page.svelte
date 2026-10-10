@@ -29,9 +29,9 @@
 	const md = new MediaQuery('min-width: 768px', true);
 	let tab = $state<'overview' | 'timetable' | 'sequence'>('sequence');
 
-	// PROTOTYPE (#372): one Class's Sequence on a Sequence tab, By week, moved by drag, kept by
-	// Save.
-	const proto = $derived(prototypeSwitches(data.class.id, 'class'));
+	// PROTOTYPE (#372, #382): one Class's Sequence on a Sequence tab, moved by drag, kept by Save,
+	// with select mode.
+	const proto = $derived(prototypeSwitches(data.class.id, 'class', page.url.searchParams));
 	// svelte-ignore state_referenced_locally
 	const seq = new ProtoSequence(
 		data.proto.sequence,
@@ -217,7 +217,13 @@
 	</div>
 
 	{#if tab === 'sequence'}
-		<PrototypeSequence {seq} layout={proto.layout} control={proto.control} />
+		<PrototypeSequence
+			{seq}
+			layout={proto.layout}
+			control={proto.control}
+			classLabel={data.class.label}
+			topicPanel={proto.topicPanel}
+		/>
 		<PrototypeSwitcher switches={proto.switches} />
 	{/if}
 </div>

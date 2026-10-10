@@ -1,6 +1,9 @@
 <script lang="ts">
-	// PROTOTYPE, throwaway (#372). One Class's Sequence, with the layout and the move control as
-	// independent switches. Whether a change is kept at once or waits for Save is `seq.draft`.
+	// PROTOTYPE, throwaway (#372, #382). One Class's Sequence, By week or List, moved by drag and
+	// kept by Save. #382 adds select mode: a toggle; on, a tap selects and a drag on a selected
+	// Lesson moves the whole selection; a bar offers bulk Remove.
+	import CheckIcon from '@lucide/svelte/icons/check';
+	import ListChecksIcon from '@lucide/svelte/icons/list-checks';
 	import GripVerticalIcon from '@lucide/svelte/icons/grip-vertical';
 	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
@@ -8,6 +11,7 @@
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import XIcon from '@lucide/svelte/icons/x';
 	import { Button } from '$lib/components/ui/button';
+	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import { addDays, formatDayMonth, formatShortWeekday, weekday } from '$lib/date';
 	import { statusTone } from '$lib/feedback-tone';
 	import {
@@ -21,14 +25,26 @@
 	let {
 		seq,
 		layout,
-		control
-	}: { seq: ProtoSequence; layout: 'list' | 'weeks'; control: 'buttons' | 'drag' | 'tick' } =
-		$props();
+		control,
+		classLabel,
+		topicPanel
+	}: {
+		seq: ProtoSequence;
+		layout: 'list' | 'weeks';
+		control: 'buttons' | 'drag' | 'tick';
+		classLabel: string;
+		topicPanel: 'remove' | 'select';
+	} = $props();
+
+	// Select mode (#382). Off: a tap opens the Lesson, a drag moves one Lesson. On: a tap selects
+	// or clears a Lesson; a drag on a selected Lesson moves the selection. Done or Esc ends it.
+	let selectMode = $state(false);
+	// A Remove waiting for the teacher to confirm: the Lessons and what the dialog calls them.
+	let confirm = $state<{ ids: string[]; title: string } | null>(null);
 
 	let showTaught = $state(false);
 	let movingId = $state<string | null>(null);
 	let selected = $state<string[]>([]);
-	let tickTarget = $state('');
 	let adding = $state(false);
 	let newTitle = $state('');
 	let newAfter = $state('start');
@@ -41,11 +57,18 @@
 	// Pointer drag, for a mouse or a finger. A drop target is "l:<id>" (a Lesson in the list or
 	// past the end), "s:<index>" (a Slot in the By week grid) or "end".
 	let dragId = $state<string | null>(null);
+	// The Lessons a drag carries: the selection, when the grabbed Lesson is in it.
+	let dragIds = $state<string[]>([]);
 	let overId = $state<string | null>(null);
 	let pointer = $state({ x: 0, y: 0 });
 	function dragStart(ev: PointerEvent, id: string) {
 		ev.preventDefault();
+		ev.stopPropagation();
 		dragId = id;
+		dragIds =
+			selectMode && selected.includes(id)
+				? seq.entries.filter((e) => selected.includes(e.id)).map((e) => e.id)
+				: [id];
 		pointer = { x: ev.clientX, y: ev.clientY };
 	}
 	function dragMove(ev: PointerEvent) {
@@ -74,21 +97,17 @@
 		return committed.cells[Number(overId.slice(2))]?.lessonId ?? 'end';
 	});
 	const proposal = $derived.by(() => {
-		if (!dragId || !target || target === dragId) return null;
-		return target === 'end'
-			? seq.reorder([dragId], seq.entries.length - 1)
-			: seq.takePlaceOrder(dragId, target);
+		if (!dragId || !target || dragIds.includes(target)) return null;
+		return seq.groupOrder(dragIds, dragId, target);
 	});
 	const refusal = $derived(typeof proposal === 'string' ? proposal : null);
 	const preview = $derived(Array.isArray(proposal) ? proposal : null);
 	const shown = $derived(preview ? seq.fill(preview) : committed);
 
 	function dragEnd() {
-		if (dragId && preview) {
-			if (target === 'end') seq.moveTo([dragId], seq.entries.length - 1);
-			else if (target) seq.takePlace(dragId, target);
-		}
+		if (dragId && preview && target) seq.moveGroup(dragIds, dragId, target);
 		dragId = null;
+		dragIds = [];
 		overId = null;
 	}
 
@@ -179,9 +198,52 @@
 
 	const toggle = (id: string) =>
 		(selected = selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id]);
+
+	// A tap on a Lesson: in select mode it selects or clears; otherwise it opens the Lesson.
+	function tap(e: ProtoEntry) {
+		if (!selectMode) {
+			seq.message = { tone: 'ok', text: `A tap opens “${e.title}” in the Lesson editor.` };
+			return;
+		}
+		if (seq.isLocked(e.id)) {
+			seq.message = { tone: 'refused', text: `“${e.title}” was taught, so it cannot be selected.` };
+			return;
+		}
+		toggle(e.id);
+	}
+	function endSelect() {
+		selectMode = false;
+		selected = [];
+	}
+
+	// The Topics this Sequence holds, in order of their first Lesson, with their untaught Lessons.
+	const topicsHere = $derived.by(() => {
+		const out: { id: string; name: string; untaught: string[]; total: number }[] = [];
+		for (const [i, e] of seq.entries.entries()) {
+			if (!e.topicId) continue;
+			let t = out.find((x) => x.id === e.topicId);
+			if (!t) out.push((t = { id: e.topicId, name: e.topicName ?? '', untaught: [], total: 0 }));
+			t.total++;
+			if (i >= seq.firstMovable) t.untaught.push(e.id);
+		}
+		return out;
+	});
+	function selectTopic(ids: string[]) {
+		selectMode = true;
+		selected = [...selected, ...ids.filter((id) => !selected.includes(id))];
+	}
+	const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+	const confirmLoss = $derived(confirm ? seq.loss(confirm.ids) : null);
 </script>
 
-<svelte:window onpointermove={dragMove} onpointerup={dragEnd} onpointercancel={dragEnd} />
+<svelte:window
+	onpointermove={dragMove}
+	onpointerup={dragEnd}
+	onpointercancel={dragEnd}
+	onkeydown={(ev) => {
+		if (ev.key === 'Escape' && selectMode && !confirm) endSelect();
+	}}
+/>
 
 {#snippet dates(e: ProtoEntry)}
 	{@const changed = seq.changed(e.id)}
@@ -254,15 +316,20 @@
 				>
 			</div>
 		{/if}
-	{:else if control === 'drag'}
+	{:else if control === 'drag' && !selectMode}
 		<div class="flex shrink-0 items-center">
 			<Button
 				variant="ghost"
 				size="icon-sm"
-				onclick={() => seq.remove([e.id])}
+				onclick={(ev) => {
+					ev.stopPropagation();
+					seq.remove([e.id]);
+				}}
 				aria-label="Remove {e.title} from this Class"><XIcon class="size-3.5" /></Button
 			>
 		</div>
+	{:else if control === 'drag'}
+		<span class="w-8 shrink-0"></span>
 	{/if}
 {/snippet}
 
@@ -273,6 +340,7 @@
 		<button
 			class="flex w-5 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground"
 			onpointerdown={(ev) => dragStart(ev, e.id)}
+			onclick={(ev) => ev.stopPropagation()}
 			aria-label="Drag {e.title}"><GripVerticalIcon class="size-4" /></button
 		>
 	{:else if control === 'tick'}
@@ -288,16 +356,30 @@
 	{/if}
 {/snippet}
 
+{#snippet check(e: ProtoEntry)}
+	{#if selectMode && !seq.isLocked(e.id)}
+		<span
+			class="flex size-5 shrink-0 items-center justify-center rounded-full {selected.includes(e.id)
+				? 'bg-primary text-primary-foreground'
+				: ''}"
+			>{#if selected.includes(e.id)}<CheckIcon class="size-3.5" />{/if}</span
+		>
+	{/if}
+{/snippet}
+
 {#snippet row(e: ProtoEntry)}
 	{@const locked = seq.isLocked(e.id)}
 	{@const down = indexOf(e.id) > indexOf(dragId ?? '')}
+	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
 	<li
 		data-drop={locked ? undefined : `l:${e.id}`}
-		class="flex items-center gap-3 border-b px-2 py-2 text-sm transition-colors
+		onclick={() => tap(e)}
+		class="flex items-center gap-3 border-b px-2 py-2 text-sm transition-colors select-none
 			{locked ? 'text-muted-foreground' : ''}
-			{seq.lastMoved.includes(e.id) ? 'bg-amber-500/10' : ''}
-			{selected.includes(e.id) ? 'bg-primary/5' : ''}
-			{dragId === e.id ? 'opacity-40' : ''}
+			{selectMode ? (locked ? 'cursor-not-allowed' : 'cursor-pointer') : 'cursor-pointer'}
+			{seq.lastMoved.includes(e.id) && !selected.includes(e.id) ? 'bg-amber-500/10' : ''}
+			{selected.includes(e.id) ? 'bg-primary/15' : ''}
+			{dragIds.includes(e.id) ? 'opacity-40' : ''}
 			{preview && target === e.id
 			? down
 				? 'border-b-2 border-b-primary'
@@ -305,6 +387,7 @@
 			: ''}"
 	>
 		{@render lead(e)}
+		{@render check(e)}
 		<span class="w-6 shrink-0 text-right text-xs text-muted-foreground tabular-nums"
 			>{indexOf(e.id)}</span
 		>
@@ -323,7 +406,12 @@
 
 <!-- The same Draft/Planned toggle as Planning's stream. -->
 {#snippet statusToggle(e: ProtoEntry)}
-	<div class="flex shrink-0 overflow-hidden rounded-md border text-xs" role="group">
+	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+	<div
+		class="flex shrink-0 overflow-hidden rounded-md border text-xs"
+		role="group"
+		onclick={(ev) => ev.stopPropagation()}
+	>
 		{#each [{ key: 'planned', name: 'Planned' }, { key: 'draft', name: 'Draft' }] as const as rung (rung.key)}
 			{@const on = e.status === rung.key}
 			{@const tone = statusTone(rung.key)}
@@ -352,7 +440,8 @@
 	{:else}
 		{@const e = entryOf(c.lessonId)}
 		{@const locked = seq.isLocked(e.id)}
-		{@const isDragged = dragId === e.id}
+		{@const isDragged = dragIds.includes(e.id)}
+		{@const isSelected = selected.includes(e.id)}
 		{@const shifted =
 			!!preview &&
 			!isDragged &&
@@ -366,18 +455,21 @@
 			seq.changed(e.id) &&
 			(c.cells.length === 0 ||
 				(now?.date === c.cells[0].date && now?.period === c.cells[0].period))}
+		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 		<div
 			data-drop={locked ? undefined : c.first >= 0 ? `s:${c.first}` : `l:${e.id}`}
 			data-span={Math.max(1, c.cells.length)}
-			class="relative flex min-h-16 min-w-0 rounded-lg border text-xs transition
+			onclick={() => tap(e)}
+			class="relative flex min-h-16 min-w-0 rounded-lg border text-xs transition select-none
 				{c.first === -2 ? 'w-56' : ''}
 				{locked ? 'opacity-60' : ''}
+				{selectMode ? (locked ? 'cursor-not-allowed' : 'cursor-pointer') : 'cursor-pointer'}
 				{isDragged ? (preview ? 'ring-2 ring-primary' : 'opacity-40') : ''}
 				{shifted ? 'outline-2 outline-amber-500 outline-dashed' : ''}
-				{!dragId && seq.lastMoved.includes(e.id) ? 'ring-2 ring-amber-500' : ''}
-				{selected.includes(e.id) ? 'ring-2 ring-primary' : ''}"
+				{!dragId && !isSelected && seq.lastMoved.includes(e.id) ? 'ring-2 ring-amber-500' : ''}
+				{isSelected && !dragId ? 'border-primary ring-2 ring-primary' : ''}"
 			style:grid-column="span {Math.max(1, c.cells.length)}"
-			style:background-color={topicColour(e.topicId)}
+			style:background-color={topicColour(e.topicId, isSelected ? 0.45 : 0.22)}
 		>
 			{#if locked}
 				<span class="flex w-5 shrink-0 items-start justify-center pt-2"
@@ -404,11 +496,19 @@
 				{#if e.note}<div class="truncate text-amber-700 dark:text-amber-400">✎ {e.note}</div>{/if}
 				{#if control === 'buttons' && !locked}<div class="-ml-2">{@render controls(e)}</div>{/if}
 			</div>
-			{#if !locked && control !== 'buttons'}
+			{#if !locked && control !== 'buttons' && !selectMode}
 				<button
 					class="absolute top-0.5 right-0.5 rounded p-0.5 text-muted-foreground hover:bg-foreground/10"
-					onclick={() => seq.remove([e.id])}
+					onclick={(ev) => {
+						ev.stopPropagation();
+						seq.remove([e.id]);
+					}}
 					aria-label="Remove {e.title} from this Class"><XIcon class="size-3" /></button
+				>
+			{:else if selectMode && isSelected}
+				<span
+					class="absolute top-1 right-1 flex size-4 items-center justify-center rounded-full bg-primary text-primary-foreground"
+					><CheckIcon class="size-3" /></span
 				>
 			{/if}
 		</div>
@@ -421,6 +521,13 @@
 			Sequence <span class="font-normal text-muted-foreground">{seq.entries.length} Lessons</span>
 		</h2>
 		<div class="relative flex gap-2">
+			<Button
+				size="sm"
+				variant={selectMode ? 'default' : 'outline'}
+				aria-pressed={selectMode}
+				onclick={() => (selectMode ? endSelect() : (selectMode = true))}
+				><ListChecksIcon class="size-4" />{selectMode ? 'Done' : 'Select'}</Button
+			>
 			<Button size="sm" variant="outline" onclick={() => (adding = !adding)}>Add Lesson</Button>
 			<Button size="sm" variant="outline" onclick={() => (assignOpen = !assignOpen)}
 				>Assign Topic ▾</Button
@@ -452,6 +559,38 @@
 			{/if}
 		</div>
 	</div>
+
+	<!-- The Topic panel (#382): (a) Remove Topic, or (c) Select, which turns select mode on. -->
+	{#if topicsHere.length}
+		<div class="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+			<span class="text-muted-foreground">Topics in this Sequence</span>
+			{#each topicsHere as t (t.id)}
+				<span
+					class="flex items-center gap-1.5 rounded-full border py-0.5 pr-0.5 pl-2"
+					style:background-color={topicColour(t.id, 0.15)}
+				>
+					<span class="size-2 rounded-full" style:background-color={topicColour(t.id, 0.8)}></span>
+					<span class="font-medium">{t.name}</span>
+					<span class="text-muted-foreground">{t.untaught.length} untaught</span>
+					{#if topicPanel === 'remove'}
+						<button
+							class="rounded-full px-2 py-0.5 hover:bg-destructive/15 hover:text-destructive disabled:opacity-40"
+							disabled={!t.untaught.length}
+							onclick={() =>
+								(confirm = { ids: t.untaught, title: `Remove ${t.name} from ${classLabel}?` })}
+							>Remove Topic</button
+						>
+					{:else}
+						<button
+							class="rounded-full px-2 py-0.5 hover:bg-primary/15 disabled:opacity-40"
+							disabled={!t.untaught.length}
+							onclick={() => selectTopic(t.untaught)}>Select</button
+						>
+					{/if}
+				</span>
+			{/each}
+		</div>
+	{/if}
 
 	{#if adding}
 		<form
@@ -610,45 +749,29 @@
 	{/if}
 </section>
 
-{#if (control === 'tick' && selected.length) || (seq.draft && seq.dirty)}
+{#if selectMode || (seq.draft && seq.dirty)}
 	<div
 		class="fixed inset-x-0 bottom-28 z-40 mx-auto flex w-fit max-w-[95vw] flex-wrap items-center gap-2 rounded-xl border bg-background px-3 py-2 text-sm shadow-xl"
 	>
-		{#if control === 'tick' && selected.length}
-			<span class="font-medium">{selected.length} selected</span>
-			<select
-				class="h-8 max-w-56 rounded border bg-background px-1 text-xs"
-				bind:value={tickTarget}
-			>
-				<option value="">Move after…</option>
-				<option value="start">First untaught</option>
-				{#each untaught.filter((o) => !selected.includes(o.id)) as o (o.id)}
-					<option value={o.id}>{indexOf(o.id)}. {o.title}</option>
-				{/each}
-			</select>
-			<Button
-				size="sm"
-				disabled={!tickTarget}
-				onclick={() => {
-					seq.moveAfter(
-						seq.entries.filter((e) => selected.includes(e.id)).map((e) => e.id),
-						tickTarget === 'start' ? null : tickTarget
-					);
-					selected = [];
-					tickTarget = '';
-				}}>Move</Button
+		{#if selectMode}
+			<span class="font-medium"
+				>{selected.length ? `${selected.length} selected` : 'Tap Lessons to select'}</span
 			>
 			<Button
 				size="sm"
 				variant="outline"
-				onclick={() => {
-					seq.remove(selected);
-					selected = [];
-				}}>Remove</Button
+				class="text-destructive"
+				disabled={!selected.length}
+				onclick={() =>
+					(confirm = {
+						ids: seq.entries.filter((e) => selected.includes(e.id)).map((e) => e.id),
+						title: `Remove ${plural(selected.length, 'Lesson')} from ${classLabel}?`
+					})}>Remove</Button
 			>
+			<Button size="sm" onclick={endSelect}>Done</Button>
 		{/if}
 		{#if seq.draft && seq.dirty}
-			{#if control === 'tick' && selected.length}<span class="mx-1 h-5 w-px bg-border"></span>{/if}
+			{#if selectMode}<span class="mx-1 h-5 w-px bg-border"></span>{/if}
 			<span class="text-xs text-muted-foreground"
 				>Not saved · {seq.changedCount} dates change{#if seq.pastEndCount}&nbsp;· {seq.pastEndCount} past
 					the end{/if}</span
@@ -659,13 +782,53 @@
 	</div>
 {/if}
 
+<!-- Bulk Remove and Remove Topic ask first: the count, then the notes and Ready marks lost. -->
+<Dialog.Root
+	open={confirm !== null}
+	onOpenChange={(open) => {
+		if (!open) confirm = null;
+	}}
+>
+	<Dialog.Content class="sm:max-w-md">
+		<Dialog.Header>
+			<Dialog.Title>{confirm?.title}</Dialog.Title>
+			<Dialog.Description>
+				{#if confirmLoss && (confirmLoss.notes || confirmLoss.ready)}
+					{[
+						confirmLoss.notes ? plural(confirmLoss.notes, 'note') : '',
+						confirmLoss.ready ? plural(confirmLoss.ready, 'Ready mark') : ''
+					]
+						.filter(Boolean)
+						.join(' and ')} will be lost.
+				{:else}
+					No notes or Ready marks will be lost.
+				{/if}
+				Later Lessons move up into the free Slots. The Lessons themselves stay in their Topics.
+			</Dialog.Description>
+		</Dialog.Header>
+		<Dialog.Footer>
+			<Button variant="outline" size="sm" onclick={() => (confirm = null)}>Cancel</Button>
+			<Button
+				variant="destructive"
+				size="sm"
+				onclick={() => {
+					if (!confirm) return;
+					seq.remove(confirm.ids);
+					selected = selected.filter((id) => !confirm!.ids.includes(id));
+					confirm = null;
+				}}>Remove {confirmLoss ? plural(confirmLoss.lessons, 'Lesson') : ''}</Button
+			>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
+
 {#if dragged}
 	<div
 		class="pointer-events-none fixed z-50 rounded-lg border bg-background px-2 py-1 text-xs font-medium shadow-lg"
 		style:left="{pointer.x + 12}px"
 		style:top="{pointer.y + 12}px"
 	>
-		{dragged.title}
+		{dragIds.length > 1 ? `${dragIds.length} Lessons, from “${dragged.title}”` : dragged.title}
 		{#if refusal}<span class="block font-normal text-destructive">{refusal}</span>{/if}
 	</div>
 {/if}

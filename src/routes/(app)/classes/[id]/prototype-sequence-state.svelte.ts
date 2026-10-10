@@ -185,6 +185,38 @@ export class ProtoSequence {
 			this.entries.findIndex((e) => e.id === targetId)
 		);
 
+	// Select mode (#382): a drop of a selection takes the target's place. The selected Lessons go
+	// together, in their present order. Dropped below the grabbed Lesson, they go after the target;
+	// above it, before the target. With one Lesson this is `takePlaceOrder`.
+	groupOrder(ids: string[], grabbedId: string, targetId: string | 'end') {
+		const rest = this.entries.filter((e) => !ids.includes(e.id));
+		if (targetId === 'end') return this.reorder(ids, rest.length);
+		const down =
+			this.entries.findIndex((e) => e.id === targetId) >
+			this.entries.findIndex((e) => e.id === grabbedId);
+		const at = rest.findIndex((e) => e.id === targetId);
+		return this.reorder(ids, down ? at + 1 : at);
+	}
+	moveGroup(ids: string[], grabbedId: string, targetId: string | 'end') {
+		const order = this.groupOrder(ids, grabbedId, targetId);
+		if (typeof order === 'string') return this.refuse(order);
+		// The group sits together in `order`, so its first index is its index in the rest.
+		return this.moveTo(
+			ids,
+			order.findIndex((e) => ids.includes(e.id))
+		);
+	}
+
+	// What a Remove of `ids` loses: the notes and Ready marks of those pairings.
+	loss(ids: string[]) {
+		const gone = this.entries.filter((e) => ids.includes(e.id));
+		return {
+			lessons: gone.length,
+			notes: gone.filter((e) => e.note).length,
+			ready: gone.filter((e) => e.ready).length
+		};
+	}
+
 	// Draft or Planned belongs to the Lesson, shared by every Class, so it is kept at once and is
 	// no part of the order's draft. This one writes, through Planning's own action.
 	setStatus(id: string, status: ProtoEntry['status']) {
@@ -223,7 +255,8 @@ export class ProtoSequence {
 			topicName: null,
 			length: 1,
 			status: 'draft',
-			note: null
+			note: null,
+			ready: false
 		};
 		const at =
 			afterId === null ? this.firstMovable : this.entries.findIndex((e) => e.id === afterId) + 1;

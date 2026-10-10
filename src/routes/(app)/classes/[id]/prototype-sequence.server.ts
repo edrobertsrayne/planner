@@ -15,6 +15,8 @@ export interface ProtoEntry {
 	status: 'draft' | 'planned';
 	// Keyed (Class, Lesson), as decided in #371: the note rides with its Lesson through a move.
 	note: string | null;
+	// Readiness is keyed (Class, Lesson) too: a Remove loses it (#379).
+	ready: boolean;
 }
 
 export interface ProtoPart {
@@ -59,7 +61,7 @@ function lessonsOf(db: Db, classId: string): ProtoEntry[] {
 		.where(eq(schema.assignedTopic.classId, classId))
 		.orderBy(asc(schema.assignedTopic.position), asc(schema.lesson.position))
 		.all()
-		.map((l) => ({ ...l, note: null }));
+		.map((l) => ({ ...l, note: null, ready: false }));
 }
 
 // Today's notes live on the Session; the prototype gathers them onto the (Class, Lesson) entry.
@@ -74,9 +76,25 @@ function notesOf(db: Db, classId: string): Map<string, string> {
 	return notes;
 }
 
+function readyOf(db: Db, classId: string): Set<string> {
+	return new Set(
+		db
+			.select({ lessonId: schema.readiness.lessonId })
+			.from(schema.readiness)
+			.where(eq(schema.readiness.classId, classId))
+			.all()
+			.map((r) => r.lessonId)
+	);
+}
+
 export function prototypeSequence(db: Db, classId: string, courseId: string) {
 	const notes = notesOf(db, classId);
-	const sequence = lessonsOf(db, classId).map((l) => ({ ...l, note: notes.get(l.id) ?? null }));
+	const ready = readyOf(db, classId);
+	const sequence = lessonsOf(db, classId).map((l) => ({
+		...l,
+		note: notes.get(l.id) ?? null,
+		ready: ready.has(l.id)
+	}));
 
 	// To show the overlap mark, the last untaught Lesson of the last Topic starts "removed", as
 	// if the teacher had taken it out of this Class's Sequence earlier.
@@ -106,7 +124,7 @@ export function prototypeSequence(db: Db, classId: string, courseId: string) {
 				.where(eq(schema.lesson.topicId, t.id))
 				.orderBy(asc(schema.lesson.position))
 				.all()
-				.map((l) => ({ ...l, topicName: t.name, note: null }))
+				.map((l) => ({ ...l, topicName: t.name, note: null, ready: false }))
 		}));
 
 	return { sequence: kept, topics };

@@ -66,7 +66,7 @@
 	// PROTOTYPE (#372): `?class=<id>&proto=1` turns the list below into that Class's Sequence,
 	// so the surface can be judged with Planning's own chrome around it.
 	const showProto = $derived(page.url.searchParams.has('proto') && !!data.classId && !!data.proto);
-	const proto = $derived(prototypeSwitches(data.classId ?? '', 'planning'));
+	const proto = $derived(prototypeSwitches(data.classId ?? '', 'planning', page.url.searchParams));
 	// One Sequence per Class picked; a switch change keeps the edits made so far. Keyed on a
 	// derived id, so a new `data` with the same Class does not rebuild it.
 	const protoClassId = $derived(data.classId ?? '');
@@ -176,7 +176,13 @@
 		/>
 
 		{#if showProto}
-			<PrototypeSequence {seq} layout={proto.layout} control={proto.control} />
+			<PrototypeSequence
+				{seq}
+				layout={proto.layout}
+				control={proto.control}
+				classLabel={data.classes.find((c) => c.id === data.classId)?.label ?? ''}
+				topicPanel={proto.topicPanel}
+			/>
 			<PrototypeSwitcher switches={proto.switches} />
 		{:else if filtered.length > 0}
 			<!-- Below `md` one card per Lesson (issue #339): date, Period, Class chip, title, Topic
