@@ -27,6 +27,8 @@ A fresh worktree has no `node_modules`. Run `bun install` there before any check
 ## Prototyping
 
 Disable the auth guard in a prototype, unless the prototype tests the authentication pages.
+Before you ask the teacher about a prototype, serve it and open it in the teacher's browser (`xdg-open <url>`).
+Check first that the URL reaches your own server and that the login works.
 
 ## Agent skills
 
