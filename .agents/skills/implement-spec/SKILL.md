@@ -18,6 +18,8 @@ Communication to and from subagents should be sparse. Communicate primarily thro
 
 One **implementer subagent per ticket, dispatched serially**. Implementers never run in parallel: one ticket at a time, each implementing directly in the parent checkout and committing to the integration branch.
 
+While an implementer is active, the parent runs **no build, no test, and no code review**: it does not touch the tree the implementer is working in. Wait for the implementer's report before the parent runs anything that reads or builds the tree.
+
 A **reviewer subagent** reviews each ticket's diff (base recorded before the dispatch) for spec compliance and quality. A capped fix loop revisits. Implementers never spawn subagents.
 
 ## Continuous execution
@@ -81,7 +83,7 @@ Create the `todo` list and the ledger before ticket 1 dispatches.
 
 ## Handling the report
 
-7. **DONE** — proceed to review. **DONE_WITH_CONCERNS** — read the concerns before review; if they touch correctness or scope, resolve them before review; observations (e.g. "this file is getting large") are noted and deferred. **NEEDS_CONTEXT** — supply the missing information and re-dispatch (steer the same agent with `write agent://implement-T<N>`, or dispatch fresh if it is parked). **BLOCKED** — rule on the blocker in the ledger and carry the ruling into the next dispatch. Never force a retry without change: more context, split the ticket, or rule on a ticket defect.
+7. **DONE** — proceed to review. **DONE_WITH_CONCERNS** — read the concerns before review; if they touch correctness or scope, resolve them before review; observations (e.g. "this file is getting large") are noted and deferred. **NEEDS_CONTEXT** — supply the missing information (steer the same agent with `write agent://implement-T<N>`, or dispatch fresh if it is parked). **BLOCKED** — rule on the blocker in the ledger. A re-dispatch after NEEDS_CONTEXT or BLOCKED is a new `task` call that carries the ruling and the missing context — not the earlier agent's history. Never force a retry without change: more context, split the ticket, or rule on a ticket defect.
 
 ## Reviewing a ticket
 
@@ -123,4 +125,4 @@ Before you report out:
 - The integration branch is pushed, and the PR (if any) reflects the ledger's completion lines.
 - The "Rulings I made" list is present, in order, and complete against the ledger.
 
-Every tick must trace to a tool result you saw. If you cannot show it, do not claim it — say what remains and why.
+Every claim in the final message must trace to a tool result you saw. If you cannot show it, say what remains.
