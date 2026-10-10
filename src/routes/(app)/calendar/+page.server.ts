@@ -1,6 +1,6 @@
 import { fail } from '@sveltejs/kit';
 import { TERM_NAMES } from '$lib/calendar/generate-teaching-weeks';
-import { addDays, today } from '$lib/date';
+import { today } from '$lib/date';
 import { client, db } from '$lib/server/db/client';
 import { refusal } from '$lib/server/form';
 import { asc } from 'drizzle-orm';
@@ -9,26 +9,13 @@ import {
 	blockDay,
 	blockSlot,
 	calendarWeek,
+	defaultWeek,
 	replaceTerms,
 	teachingWeeks,
 	unblockDay,
 	unblockSlot
 } from '$lib/server/planner';
 import type { Actions, PageServerLoad } from './$types';
-
-// The week "now" names: the Teaching Week today falls inside, or — during a break, when no
-// Teaching Week covers today — the next one to come, or the last of the year once even that
-// has run out. A bare load opens on it; the Today button returns to it.
-function defaultWeek(weeks: { weekCommencing: string }[], on: string): string | null {
-	if (weeks.length === 0) return null;
-	const containing = weeks.find(
-		(w) => on >= w.weekCommencing && on <= addDays(w.weekCommencing, 4)
-	);
-	if (containing) return containing.weekCommencing;
-	const upcoming = weeks.find((w) => w.weekCommencing > on);
-	if (upcoming) return upcoming.weekCommencing;
-	return weeks[weeks.length - 1].weekCommencing;
-}
 
 // The ribbon shows the selected week and two Teaching Weeks either side (issue #293).
 const RIBBON_RADIUS = 2;
