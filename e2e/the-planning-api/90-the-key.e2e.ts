@@ -1,12 +1,13 @@
 import { test, expect, type Page } from '@playwright/test';
 import { BEARER, standingKey, openPage } from './helpers.ts';
+import { resetTo } from '../helpers.ts';
 
 // Covers the API key card's two controls — Copy, and Regenerate behind its confirmation (issue
 // #184): copy puts the exact token on the clipboard, cancelling the confirmation leaves the key
-// untouched, and confirming replaces it. The replace runs last, as the regeneration did in the
-// single file this directory replaced, so the revocation cannot pull the key out from under the
-// files before it. It is the one file allowed to replace the standing key the others read (see
-// helpers.ts).
+// untouched, and confirming replaces it.
+
+test.beforeAll(() => resetTo('standard'));
+
 test.describe.serial('the API key', () => {
 	let page: Page;
 	let token = '';

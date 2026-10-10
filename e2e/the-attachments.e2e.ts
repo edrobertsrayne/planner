@@ -1,11 +1,11 @@
 import { test, expect, type Page } from '@playwright/test';
 import { readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { EMAIL, PASSWORD, expectToast } from './helpers.ts';
+import { EMAIL, PASSWORD, expectToast, resetTo } from './helpers.ts';
 
-// Runs after teaching-flows.e2e.ts — the one user and the KS3 Science course already exist —
-// and before the-calendar-setup.e2e.ts, for the suite's single-worker ordering (see
-// isolation.e2e.ts). Adds its own Topic and Lesson, so no earlier fixture changes.
+test.beforeAll(() => resetTo('standard'));
+
+// Adds its own Topic and Lesson, so the Attachments section starts empty.
 
 const MB = 1024 * 1024;
 
@@ -160,7 +160,7 @@ test.describe.serial('Attachments on Lessons', () => {
 		expect(response.status()).toBe(500);
 		expect(await response.text()).not.toContain('ENOENT');
 
-		// Put the file back: a Backup refuses a row with no file, and later specs back up this data.
+		// Put the file back: a Backup refuses a row with no file.
 		await writeFile(join('attachments', id), Buffer.alloc(5, 0x67));
 	});
 

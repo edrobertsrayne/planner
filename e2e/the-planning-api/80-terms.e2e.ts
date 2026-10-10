@@ -1,12 +1,14 @@
 import { test, expect } from '@playwright/test';
 import { BEARER, apiKey, keysOf } from './helpers.ts';
-import { plusDays, runFixture, todayIso } from '../helpers.ts';
+import { plusDays, resetTo, runFixture, todayIso } from '../helpers.ts';
 
 // Covers the two Term endpoints over real HTTP (issue #164): reading the year back and replacing
 // it as one document, with every refusal the seam owns — the wrong count, an unreal date, a Term
 // opening after it closes, and two that touch. Clears the year itself in beforeAll, so the first
-// read is empty, and runs after the Blocked Day file as it did before the split, so the at-risk
-// report reads the same.
+// read is empty.
+
+test.beforeAll(() => resetTo('standard'));
+
 test.describe.serial('the Term endpoints', () => {
 	let token = '';
 

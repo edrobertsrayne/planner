@@ -15,11 +15,11 @@ When you find a simpler approach than the one agreed, say so before you build it
 
 ## Tests
 
-Run e2e tests only as the whole suite: `bun run test`. The suite shares one database and one user,
-so each file depends on the files before it. One file alone starts on an empty database and stops at
-the first-run wizard, with an error about a duplicate "Password" field. That error is not a selector fault.
+Run every check with `bun run test`. You can run one e2e file alone: `bun run test:e2e -- e2e/the-backup.e2e.ts`.
+Each e2e file starts with `test.beforeAll(() => resetTo('standard'))`, or `resetTo('empty')` for the first-run wizard.
+`resetTo` in `e2e/helpers.ts` clears the e2e database and writes a known state. No file depends on another file.
+Put this call first in each new e2e file. If a file needs more data, make that data in the file.
 Shared e2e helpers live in `e2e/helpers.ts`; import from there before you write a local copy.
-Playwright runs the e2e files in path order, so name a new file for the place it must take in that order.
 You can run a unit test file alone: `bun run test:unit -- --run <file>`.
 Install the test browser once per machine: `bunx playwright install chromium`.
 A fresh worktree has no `node_modules`. Run `bun install` there before any check or test.

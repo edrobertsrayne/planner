@@ -1,10 +1,13 @@
 import { test, expect } from '@playwright/test';
 import { BEARER, apiKey, keysOf } from './helpers.ts';
-import { nextSaturday, nextWeekday, plusDays, todayIso } from '../helpers.ts';
+import { nextSaturday, nextWeekday, plusDays, resetTo, todayIso } from '../helpers.ts';
 
 // Covers the three Blocked Day endpoints over real HTTP (issues #159 and #165): the key check,
 // the Rewind's at-risk report beside each write, the weekend and duplicate refusals, and removal
-// by date. Needs no Course or Topic state, so it leans on no other file in the directory.
+// by date.
+
+test.beforeAll(() => resetTo('standard'));
+
 test.describe.serial('the Blocked Day endpoints', () => {
 	let token = '';
 

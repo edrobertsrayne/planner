@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { expectToast } from './helpers.ts';
+import { expectToast, resetTo } from './helpers.ts';
 import {
 	BEARER,
 	FIXTURE_CLASS_LABEL,
@@ -9,11 +9,11 @@ import {
 } from './the-planning-api/helpers.ts';
 
 // A Lesson written in front of a noted future Session reaches the teacher as one Rewind report
-// (issue #357). Runs after the-responsive-layouts.e2e.ts and before the-structure-editing.e2e.ts,
-// for the suite's single-worker ordering (see isolation.e2e.ts). It gives 9C/Sc1 — whose Tuesday
-// P3 Slot teaching-flows.e2e.ts made, and whose Open Slots teaching-placement.e2e.ts has
-// finished with — two Topics of one Lesson each in KS3 Science, notes the Session that the second
-// Topic's Lesson fills, and undoes all of it at the end.
+// (issue #357). It gives 9C/Sc1 from the standard state (Tuesday P3, Open Slots) two Topics of
+// one Lesson each in KS3 Science, notes the Session that the second Topic's Lesson fills, and
+// undoes all of it at the end.
+
+test.beforeAll(() => resetTo('standard'));
 
 test.describe.serial('the Rewind report after a Lesson write', () => {
 	let page: Page;
@@ -49,7 +49,6 @@ test.describe.serial('the Rewind report after a Lesson write', () => {
 	}
 
 	test.beforeAll(async ({ browser }) => {
-		// Read afresh: 90-the-key.e2e.ts has since replaced the key the earlier files cached.
 		page = await openPage(browser);
 		token = await standingKey(page);
 

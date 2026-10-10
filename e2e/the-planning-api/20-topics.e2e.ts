@@ -1,11 +1,13 @@
 import { test, expect } from '@playwright/test';
-import { BEARER, FIXTURE_COURSE, apiKey, keysOf, type Page } from './helpers.ts';
+import { BEARER, FIXTURE_COURSE, apiKey, createdId, keysOf, type Page } from './helpers.ts';
+import { resetTo } from '../helpers.ts';
 
 // Covers the two Topic endpoints over real HTTP (issue #159): the per-Course, case-insensitive
 // collision rule, the list's sort, the rename collision, and the courseId refusal. The routes
-// hang off a Course — a Topic is created under its Course — and the file runs directly after the
-// Courses file, whose "API Test Course" holds these Topics; the Lessons file after it reads the
-// Topics this one creates.
+// hang off a Course — a Topic is created under its Course.
+
+test.beforeAll(() => resetTo('standard'));
+
 test.describe.serial('the Topic endpoints', () => {
 	let page: Page;
 	let token = '';
@@ -21,14 +23,15 @@ test.describe.serial('the Topic endpoints', () => {
 		page = await browser.newPage();
 		token = await apiKey(browser);
 
-		// The Courses the earlier files left behind: the fixture Course the wizard data left, and
-		// the two the Course file created for these Topics.
+		// The standard state's Course, and two Courses of this file's own.
 		const courses = await (
 			await page.request.get('/api/courses', { headers: BEARER(token) })
 		).json();
 		ks3CourseId = courses.find((c: { name: string }) => c.name === FIXTURE_COURSE).id;
-		courseId = courses.find((c: { name: string }) => c.name === 'API Test Course').id;
-		emptyCourseId = courses.find((c: { name: string }) => c.name === 'API Empty Course').id;
+		courseId = await createdId(page.request, token, '/api/courses', { name: 'API Test Course' });
+		emptyCourseId = await createdId(page.request, token, '/api/courses', {
+			name: 'API Empty Course'
+		});
 	});
 
 	test.afterAll(async () => {

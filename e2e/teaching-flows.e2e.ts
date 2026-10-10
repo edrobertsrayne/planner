@@ -1,11 +1,9 @@
 import { test, expect, type Page } from '@playwright/test';
-import { EMAIL, PASSWORD, isoDate, runFixture } from './helpers.ts';
+import { EMAIL, PASSWORD, isoDate, resetTo, runFixture } from './helpers.ts';
 
-// Runs after sign-in-out.e2e.ts (issue #97), logging in as the one user the wizard test created,
-// rather than creating its own. File sorts after sign-in-out.e2e.ts and before
-// user-settings-password.e2e.ts for the suite's single-worker ordering (see isolation.e2e.ts).
-
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+// Logs in as the one user that resetTo('standard') creates, and reads the standard state (see
+// `reset` in scripts/e2e-fixtures.ts).
+test.beforeAll(() => resetTo('standard'));
 
 async function login(page: Page, email: string, password: string) {
 	await page.goto('/login');
@@ -32,97 +30,8 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 	test.beforeAll(async ({ browser }) => {
 		page = await browser.newPage();
 		await login(page, EMAIL, PASSWORD);
-
-		// A calendar spanning well before and after whatever real date this suite happens to run
-		// on, written straight into the scratch database each run — so the suite never depends on
-		// which real date it runs on. Six Terms; only the second one, straddling today, is
-		// load-bearing. The Week letters are derived from these dates, so this is the whole
-		// calendar the app needs.
-		const terms = [
-			{ opens: isoDate(-84), closes: isoDate(-21) },
-			{ opens: isoDate(-14), closes: isoDate(56) },
-			{ opens: isoDate(70), closes: isoDate(84) },
-			{ opens: isoDate(98), closes: isoDate(112) },
-			{ opens: isoDate(126), closes: isoDate(140) },
-			{ opens: isoDate(154), closes: isoDate(168) }
-		];
-		runFixture('set-terms', JSON.stringify(terms));
-
-		// Course content: two Lessons, so the historical fixture below can consume the first and
-		// leave the second queued as Next Up.
-		await page.goto('/courses');
-		await page.getByPlaceholder('New Course name — press Enter').fill('KS3 Science');
-		await page.getByPlaceholder('New Course name — press Enter').press('Enter');
-		await page.getByPlaceholder('New Topic name — press Enter').fill('Forces');
-		await page.getByPlaceholder('New Topic name — press Enter').press('Enter');
-		await page.getByPlaceholder('New Lesson title — press Enter').fill('Speed');
-		await page.getByPlaceholder('New Lesson title — press Enter').press('Enter');
-		await expect(page.getByRole('link', { name: 'Speed', exact: true })).toBeVisible();
-		await page.getByPlaceholder('New Lesson title — press Enter').fill('Motion');
-		await page.getByPlaceholder('New Lesson title — press Enter').press('Enter');
-		await expect(page.getByRole('link', { name: 'Motion', exact: true })).toBeVisible();
-
-		const speedLessonId = runFixture('find-lesson-id', 'Speed');
-
-		// Two Classes from the Classes dialog.
-		await page.goto('/classes');
-		await page.getByRole('button', { name: 'New Class' }).first().click();
-		await page.getByLabel('Label').fill('9B/Sc1');
-		await page.getByRole('button', { name: 'Create Class' }).click();
-		await page.waitForURL(/\/classes\/[^/]+$/);
-		classAId = new URL(page.url()).pathname.split('/').pop()!;
-
-		await page.goto('/classes');
-		await page.getByRole('button', { name: 'New Class' }).first().click();
-		await page.getByLabel('Label').fill('9C/Sc1');
-		await page.getByRole('button', { name: 'Create Class' }).click();
-		await page.waitForURL(/\/classes\/[^/]+$/);
-		classBId = new URL(page.url()).pathname.split('/').pop()!;
-
-		// The Teaching Week letter the Calendar opens on by default (the one covering today), so
-		// the Slots given to both Classes land on a Calendar cell visible without navigating the
-		// ribbon.
-		await page.goto('/calendar');
-		const letter = (await page.locator('[aria-current="true"]').first().innerText()).charAt(0);
-
-		await page.goto(`/classes/${classAId}`);
-		// The grid now lives on the Timetable tab (issue #347).
-		await page.getByRole('tab', { name: /^Timetable/ }).click();
-		// Three periods a week — Mon, Wed and Fri P1 — a realistic KS3 cadence, and enough future
-		// Available Slots for the Planning test to page against: one fortnightly Slot supplies only
-		// 8 before the fixture's Terms run out on a Saturday, leaving two of the ten Lessons
-		// unscheduled inside the first page. The cells are positions, not dates — the grid is dated
-		// today, so Monday's is clickable on a Wednesday too.
-		for (const day of [1, 3, 5]) {
-			await page
-				.getByRole('button', {
-					name: new RegExp(`^Week ${letter} ${DAYS[day - 1]} P1 — empty`)
-				})
-				.click();
-		}
-		// The Assigned Topics shelf lives on the Overview tab (issue #347).
-		await page.getByRole('tab', { name: 'Overview' }).click();
-		await page.getByRole('button', { name: 'Assign next Topic' }).click();
-		await page.getByRole('option', { name: 'Forces' }).click();
-
-		await page.goto(`/classes/${classBId}`);
-		await page.getByRole('tab', { name: /^Timetable/ }).click();
-		// Tuesday P3 — a day classA leaves untouched — in BOTH letters, so whatever the run
-		// date, a Tuesday sits within the Agenda's This Week horizon, and the week the Calendar
-		// test loads always carries one. The cells are positions, not dates (see above).
-		for (const week of ['A', 'B'] as const) {
-			await page
-				.getByRole('button', {
-					name: new RegExp(`^Week ${week} Tue P3 — empty`)
-				})
-				.click();
-		}
-
-		// A Session dated before today — the only way "Last taught" is ever populated (there is
-		// no way to create one through the UI, since the Class page refuses to edit the
-		// Timetable in the past). Written last so no later rederive (triggered by the toggles and
-		// the Topic assignment above) sweeps it away as an orphan.
-		runFixture('mark-taught', classAId, isoDate(-10), '6', speedLessonId);
+		classAId = runFixture('find-class-id', '9B/Sc1');
+		classBId = runFixture('find-class-id', '9C/Sc1');
 	});
 
 	test.afterAll(async () => {
@@ -479,7 +388,7 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 
 		// The Calendar tile itself carries no Tag — only the click-through does. Pinned to the same
 		// week `defaultWeek` resolves today's date to (the week containing today, or the next one
-		// during a weekend) — the week beforeAll's setup used to letter 9B/Sc1's Slots, so a bare
+		// during a weekend) — the week the standard state letters 9B/Sc1's Slots, so a bare
 		// load would already agree, but pinning removes any doubt on a Saturday/Sunday run.
 		const day = new Date().getUTCDay();
 		const mondayOffset = day === 0 ? 1 : day === 6 ? 2 : 1 - day;
@@ -607,7 +516,7 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		runFixture('mark-taught', classAId, monday, '4', speedLessonId);
 
 		await page.goto(`/calendar?week=${monday}`);
-		// The beforeAll Session ten days back can fall in this week too: either tile is past.
+		// The standard state's Session ten days back can fall in this week too: either tile is past.
 		const tile = page.locator('a[href^="/sessions/"]').filter({ hasText: 'Speed' }).first();
 		await expect(tile).toBeVisible();
 		await expect(tile).toContainText('9B/Sc1');
@@ -637,7 +546,7 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expect(hidePast).toBeVisible();
 		await expect(lookBack).toHaveCount(0);
 
-		// Written last in the file: a past Session exists only through the fixture (see beforeAll).
+		// Written last in the file: a past Session exists only through the fixture (see the standard state).
 		const speedLessonId = runFixture('find-lesson-id', 'Speed');
 		const note = `Ran out of time — ${Date.now()}`;
 		runFixture('mark-taught', classBId, isoDate(-1), '5', speedLessonId);
@@ -737,5 +646,14 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await page.getByRole('link', { name: 'Speed', exact: true }).click();
 		await page.getByRole('button', { name: 'Remove Recap' }).click();
 		await expect(page.locator('main').getByText('Recap', { exact: true })).toBeHidden();
+	});
+
+	test('the New Class dialog creates a Class and opens its page', async () => {
+		await page.goto('/classes');
+		await page.getByRole('button', { name: 'New Class' }).first().click();
+		await page.getByLabel('Label').fill('9D/Sc1');
+		await page.getByRole('button', { name: 'Create Class' }).click();
+		await page.waitForURL(/\/classes\/[^/]+$/);
+		await expect(page.getByRole('heading', { level: 1, name: '9D/Sc1' })).toBeVisible();
 	});
 });

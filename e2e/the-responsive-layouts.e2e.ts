@@ -10,14 +10,14 @@ import {
 	openLessonFromCourses,
 	openSessionWithLesson,
 	runFixture,
+	resetTo,
 	todayIso
 } from './helpers.ts';
 
-// Runs after the-planning-api/ and before the-structure-editing.e2e.ts, for the suite's
-// single-worker ordering (see isolation.e2e.ts). Reads the one user and the KS3 Science course
-// that earlier files built. It leaves `Tile Course <timestamp>` (the New Course tile test) and a
-// `Phone note <timestamp>` note on the first Agenda Session; everything else it makes (the
-// Filler Classes, the Blocked Slot, the titles it edits) it undoes.
+test.beforeAll(() => resetTo('standard'));
+
+// Reads the standard state. It leaves `Tile Course <timestamp>` and a `Phone note <timestamp>`
+// note; everything else it makes it undoes.
 //
 // Touch mode: Playwright's Chromium matches `(pointer: coarse)` as soon as `hasTouch` is true;
 // `isMobile` is not needed. Each describe sets its size and pointer with `test.use`.
@@ -86,7 +86,7 @@ test.describe('the tablet layout (touch, about 800×1180)', () => {
 		await expect(mondayCell.locator('a[href^="/sessions/"]')).toHaveCount(0);
 		await expect(mondayCell).toContainText('Assembly');
 
-		// The same touch menu unblocks, leaving nothing behind for later files.
+		// The same touch menu unblocks, leaving nothing behind for later tests.
 		await menu.tap();
 		await page.getByRole('menuitem', { name: 'Unblock 9B/Sc1, P1' }).tap();
 		await expect(mondayCell.locator('a[href^="/sessions/"]')).toHaveCount(1);
@@ -125,7 +125,7 @@ test.describe('the laptop layout (mouse)', () => {
 		await expect(shown).toBeVisible();
 		expect(await shown.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
 
-		// Put the title back for the files that follow.
+		// Put the title back for the tests that follow.
 		await page.goto(lessonUrl);
 		await title.fill(original);
 		await page
@@ -404,7 +404,7 @@ test.describe('the Agenda on a phone', () => {
 		await page.reload();
 		await expect(tickOf()).toBeChecked();
 
-		// Put the tick back for the files that follow.
+		// Put the tick back for the tests that follow.
 		await tick();
 		await page.reload();
 		await expect(tickOf()).not.toBeChecked();
@@ -579,7 +579,7 @@ test.describe('the Lesson editor on a laptop', () => {
 		await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
 		await expect(page.getByRole('button', { name: 'Bold' })).toBeInViewport();
 
-		// Leave the plan as it was for the files that follow, and wait for the save before Back:
+		// Leave the plan as it was for the tests that follow, and wait for the save before Back:
 		// a write ends by invalidating the page data, and Back clicked inside that patch is lost
 		// (the flake family in issue #352).
 		await plan.click();
@@ -729,8 +729,18 @@ test.describe('the Planning table on a laptop', () => {
 	test.use({ viewport: { width: 1280, height: 560 } });
 
 	test('the column headings stay in view as the window scrolls', async ({ page }) => {
-		await login(page, '/planning');
-		// The files before have built Lessons: the whole stream is longer than the window.
+		// Enough Lessons that the whole stream is longer than the window.
+		await openCourse(page);
+		await page.getByRole('link', { name: 'Forces' }).click();
+		const newLesson = page.getByPlaceholder('New Lesson title — press Enter');
+		for (let i = 1; i <= 9; i++) {
+			await newLesson.fill(`Extra Lesson ${i}`);
+			await newLesson.press('Enter');
+			await expect(
+				page.getByRole('link', { name: `Extra Lesson ${i}`, exact: true })
+			).toBeVisible();
+		}
+		await page.goto('/planning');
 		expect(
 			await page.evaluate(
 				() => document.documentElement.scrollHeight > document.documentElement.clientHeight
@@ -923,7 +933,7 @@ for (const [name, use] of [
 			await page.getByRole('tab', { name: /^Timetable/ }).click();
 
 			// A free cell — Tuesday P1 in Week A. The take is reversible, so this test leaves
-			// the Timetable exactly as it found it for the files that follow.
+			// the Timetable exactly as it found it for the tests that follow.
 			await expect(page.getByRole('button', { name: /^Week A Tue P1 — empty/ })).toBeVisible();
 			await page.getByRole('button', { name: /^Week A Tue P1 — empty/ }).click();
 			await expect(

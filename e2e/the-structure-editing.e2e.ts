@@ -8,16 +8,17 @@ import {
 	openLessonFromCourses,
 	openSessionWithLesson,
 	isoDate,
+	resetTo,
 	runFixture,
 	todayIso
 } from './helpers.ts';
 
 // The structure-editing tests of the responsive work (issue #320): the Course, Topic and Lesson
-// editors and the Session page, at a laptop size, with writes. Runs after
-// the-responsive-layouts.e2e.ts and before user-settings-password.e2e.ts, for the suite's
-// single-worker ordering (see isolation.e2e.ts). Reads the one user, the KS3 Science course and
-// the Classes earlier files built; leaves `Revision carousel` (with its Tag, Link and
-// Attachment) behind, and undoes everything else it makes.
+// editors and the Session page, at a laptop size, with writes. Reads the standard state; leaves
+// `Revision carousel` (with its Tag, Link and Attachment) behind, and undoes everything else it
+// makes.
+
+test.beforeAll(() => resetTo('standard'));
 
 test.describe('the Course and Topic editors', () => {
 	test.use({ viewport: { width: 1280, height: 720 } });
@@ -144,7 +145,7 @@ test.describe('the Lesson editor on a laptop', () => {
 		await page.getByRole('link', { name: /KS3 Science/ }).click();
 		await expect(page.getByRole('link', { name: 'Speed up', exact: true })).toBeVisible();
 
-		// Put the title back for the files that follow.
+		// Put the title back for the tests that follow.
 		await page.getByRole('link', { name: 'Speed up', exact: true }).click();
 		await page.getByRole('textbox', { name: 'Lesson title' }).fill('Speed');
 		await page.getByRole('button', { name: 'Back' }).click();
@@ -152,6 +153,13 @@ test.describe('the Lesson editor on a laptop', () => {
 	});
 
 	test('a Topic move keeps the page and the breadcrumb follows the new Topic', async ({ page }) => {
+		// A second Topic to move the Lesson to.
+		await openCourse(page);
+		await page.getByPlaceholder('New Topic name — press Enter').fill('Materials');
+		await page.getByPlaceholder('New Topic name — press Enter').press('Enter');
+		await expect(
+			page.getByRole('region', { name: 'Lessons' }).getByRole('heading', { name: 'Materials' })
+		).toBeVisible();
 		await openLessonFromCourses(page);
 		const url = page.url();
 		const breadcrumb = page.getByRole('link', { name: /KS3 Science/ });
@@ -275,7 +283,7 @@ test.describe('Detach on the Lesson editor', () => {
 		await expect(page.getByLabel('Topic', { exact: true })).toHaveCount(0);
 		await expect(page.getByRole('button', { name: 'Detach from Topic' })).toHaveCount(0);
 
-		// Leave nothing behind for the files that follow. It was opened from the Courses screen,
+		// Leave nothing behind for the tests that follow. It was opened from the Courses screen,
 		// so Back after the delete returns there.
 		await page.getByRole('button', { name: 'Delete Lesson' }).click();
 		await expect(page).toHaveURL(/\/courses\/[^/?]+\?topic=/);
@@ -393,7 +401,7 @@ test.describe('Rooms on the Class page', () => {
 		await expect(rooms.nth(0)).toHaveValue('S12');
 		await expect(rooms.nth(1)).toHaveValue('S14');
 
-		// Clear them, so later files see no Rooms on the Agenda.
+		// Clear them, so the tests that follow see no Rooms on the Agenda.
 		for (const i of [0, 1]) {
 			await rooms.nth(i).fill('');
 			const cleared = saved();

@@ -1,13 +1,23 @@
 import { test, expect } from '@playwright/test';
-import { BEARER, FIXTURE_CLASS_LABEL, FIXTURE_COURSE, apiKey, type Page } from './helpers.ts';
-import { runFixture } from '../helpers.ts';
+import {
+	BEARER,
+	FIXTURE_CLASS_LABEL,
+	FIXTURE_COURSE,
+	apiKey,
+	createdId,
+	type Page
+} from './helpers.ts';
+import { resetTo, runFixture } from '../helpers.ts';
 
 // Covers the refusals that protect the record over real HTTP (issue #159): the deletes that
 // answer 409 because a Course still holds Topics, a Topic still holds Lessons or is assigned to
 // a Class, or a Class follows the Course — and the clean deletes that answer 204. Spans three
-// resources, so it has a file of its own, after the files whose state it reads. The one Topic it
-// needs assigned to a Class is assigned here, by fixture: the API cannot make that assignment
-// itself.
+// resources, so it has a file of its own, and creates the records it refuses to delete. The one
+// Topic it needs assigned to a Class is assigned here, by fixture: the API cannot make that
+// assignment itself.
+
+test.beforeAll(() => resetTo('standard'));
+
 test.describe.serial('the refusals that protect the record', () => {
 	let page: Page;
 	let token = '';
@@ -24,21 +34,21 @@ test.describe.serial('the refusals that protect the record', () => {
 		page = await browser.newPage();
 		token = await apiKey(browser);
 
-		// The state the earlier files left behind, found by the names it is known by.
+		// Records of this file's own: a Course with a Topic that holds a Lesson, and an empty Course.
 		const courses = await (
 			await page.request.get('/api/courses', { headers: BEARER(token) })
 		).json();
 		ks3CourseId = courses.find((c: { name: string }) => c.name === FIXTURE_COURSE).id;
-		courseId = courses.find((c: { name: string }) => c.name === 'API Test Course').id;
-		emptyCourseId = courses.find((c: { name: string }) => c.name === 'API Empty Course').id;
-		const topics = await (
-			await page.request.get(`/api/courses/${courseId}/topics`, { headers: BEARER(token) })
-		).json();
-		topicOneId = topics.find((t: { name: string }) => t.name === 'API Topic One').id;
-		const lessons = await (
-			await page.request.get(`/api/topics/${topicOneId}/lessons`, { headers: BEARER(token) })
-		).json();
-		lessonCId = lessons.find((l: { title: string }) => l.title === 'API Lesson C').id;
+		courseId = await createdId(page.request, token, '/api/courses', { name: 'API Test Course' });
+		emptyCourseId = await createdId(page.request, token, '/api/courses', {
+			name: 'API Empty Course'
+		});
+		topicOneId = await createdId(page.request, token, `/api/courses/${courseId}/topics`, {
+			name: 'API Topic One'
+		});
+		lessonCId = await createdId(page.request, token, `/api/topics/${topicOneId}/lessons`, {
+			title: 'API Lesson C'
+		});
 
 		// A Topic in the fixture Course, assigned to the fixture Class — the fixture writes the
 		// row the delete refusal needs.

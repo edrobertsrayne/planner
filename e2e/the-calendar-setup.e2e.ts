@@ -6,15 +6,16 @@ import {
 	nextSaturday,
 	nextWeekday,
 	plusDays,
+	resetTo,
 	runFixture,
 	todayIso
 } from './helpers.ts';
 
 // Covers the Calendar's setup mode (issue #166): opening it, the six fixed Term rows, the live
 // preview, saving through the Terms seam, Cancel, and the empty planner opening it by itself.
-// Runs after teaching-flows.e2e.ts, whose set-terms fixture gives the mode a saved year to edit,
-// and before the-planning-api/ (the planning API files), which need no Terms — so ending with the
-// year cleared disturbs nothing that runs later.
+// The standard state gives the mode a saved year to edit.
+
+test.beforeAll(() => resetTo('standard'));
 
 const TERM_NAMES = ['Autumn 1', 'Autumn 2', 'Spring 1', 'Spring 2', 'Summer 1', 'Summer 2'];
 
@@ -60,7 +61,7 @@ test.describe.serial('the Calendar setup mode', () => {
 	}
 
 	// Unblocks one day through its own day head menu, and returns only when the head is back
-	// to its teaching kind — the cleanup every later file in the suite depends on.
+	// to its teaching kind — the cleanup the later tests in this file depend on.
 	async function unblockDayFromHeader(day: string) {
 		await openDayMenu(day);
 		await page.getByRole('menuitem', { name: 'Unblock day' }).click();
