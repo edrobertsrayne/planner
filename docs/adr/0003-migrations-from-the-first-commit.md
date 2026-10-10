@@ -36,4 +36,4 @@ this decision protects.
 > to per-Class Sequences resets the plan and drops `session.note`. The teacher accepted the loss,
 > because almost no notes existed. The rule above still stands. The history stays append-only, and
 > the way back is the old build with a Backup taken before the upgrade. Notes now live as
-> **Teaching notes** in `lesson_note`, and they are what this decision protects from here on.
+> **Teaching notes** in `teaching_note`, and they are what this decision protects from here on.

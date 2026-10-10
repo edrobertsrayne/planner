@@ -32,7 +32,7 @@ that holds its detail.
   rewinds. So a later Rewind lays the past again in the order it was taught.
   ([#371](https://github.com/edrobertsrayne/planner/issues/371))
 - **A note belongs to the Sequence entry**, not to the occasion: one **Teaching note** per (Class,
-  Lesson), in `lesson_note`, shared by every part and every Placement of that Lesson on that Class.
+  Lesson), in `teaching_note`, shared by every part and every Placement of that Lesson on that Class.
   It follows its Lesson through a reorder or a Rewind, and it dies with the pairing, like Readiness.
   The Rewind report loses `atRisk`. ([#371](https://github.com/edrobertsrayne/planner/issues/371))
 - **Standalone Lessons may be in a Sequence.** Add Lesson on a Class's Sequence makes a new
