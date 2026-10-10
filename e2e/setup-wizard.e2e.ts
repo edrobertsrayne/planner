@@ -1,9 +1,11 @@
 import { test, expect, devices, type Page } from '@playwright/test';
-import { expectBox44, expectNoHorizontalScroll } from './helpers.ts';
+import { expectBox44, expectNoHorizontalScroll, resetTo } from './helpers.ts';
 
 // The wizard can only ever run once — this app has exactly one user (ADR-0001) — so these tests
 // share a single browser context and run in a fixed order: the refusals first, because they must
 // not be the thing that creates the user, then the successful run, then the post-setup redirects.
+test.beforeAll(() => resetTo('empty'));
+
 test.describe.serial('the first-run wizard', () => {
 	let page: Page;
 

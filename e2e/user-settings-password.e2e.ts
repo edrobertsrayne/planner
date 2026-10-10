@@ -1,8 +1,8 @@
 import { test, expect, type Page, type BrowserContext } from '@playwright/test';
+import { resetTo } from './helpers.ts';
 
-// This changes the one user's password, so it must be the last file the suite runs — every
-// earlier file relies on the credentials the wizard test (issue #41) set up. File named to sort
-// after sign-in-out.e2e.ts for the same single-worker ordering reason documented there.
+test.beforeAll(() => resetTo('standard'));
+
 const EMAIL = 'teacher@example.com';
 const PASSWORD = 'a-very-long-password';
 const NEW_PASSWORD = 'a-different-very-long-password';

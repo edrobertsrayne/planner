@@ -1,11 +1,14 @@
 import { test, expect } from '@playwright/test';
-import { BEARER, apiKey, keysOf, type Page } from './helpers.ts';
+import { BEARER, apiKey, createdId, keysOf, type Page } from './helpers.ts';
+import { resetTo } from '../helpers.ts';
 
 // Covers the two Lesson endpoints over real HTTP (issue #159): creation with its defaults, the
 // list order, PATCH's partial semantics, and the null-topicId detach that makes a Standalone
-// Lesson (ADR-0015). Reads the Course the Course file created and the Topic the Topic file left
-// in it; the Link file after it reads the Lessons this one leaves. Detach is one-way (ADR-0022):
+// Lesson (ADR-0015). Detach is one-way (ADR-0022):
 // re-attaching a Standalone Lesson to a Topic is refused, never a 200.
+
+test.beforeAll(() => resetTo('standard'));
+
 test.describe.serial('the Lesson endpoints', () => {
 	let page: Page;
 	let token = '';
@@ -21,15 +24,10 @@ test.describe.serial('the Lesson endpoints', () => {
 		page = await browser.newPage();
 		token = await apiKey(browser);
 
-		// The Course and Topic the earlier files left behind, found by the names they are known by.
-		const courses = await (
-			await page.request.get('/api/courses', { headers: BEARER(token) })
-		).json();
-		courseId = courses.find((c: { name: string }) => c.name === 'API Test Course').id;
-		const topics = await (
-			await page.request.get(`/api/courses/${courseId}/topics`, { headers: BEARER(token) })
-		).json();
-		topicOneId = topics.find((t: { name: string }) => t.name === 'API Topic One').id;
+		courseId = await createdId(page.request, token, '/api/courses', { name: 'API Test Course' });
+		topicOneId = await createdId(page.request, token, `/api/courses/${courseId}/topics`, {
+			name: 'API Topic One'
+		});
 	});
 
 	test.afterAll(async () => {

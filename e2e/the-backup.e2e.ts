@@ -3,9 +3,11 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { resetTo, runFixture } from './helpers.ts';
 
-// Runs after the-attachments.e2e.ts — the one user, the KS3 Science course and its Attachments
-// exist — and before the-calendar-setup.e2e.ts. The suite's server is instance A. This file starts
+test.beforeAll(() => resetTo('standard'));
+
+// The suite's server is instance A. This file starts
 // a second, empty planner (instance B) from the same build on its own port and folder, because a
 // Restore needs an empty instance and the suite shares one database. B runs the built adapter with
 // the container's BODY_SIZE_LIMIT, which `bun run preview` never exercises.
@@ -64,6 +66,10 @@ test.describe.serial('Back up and Restore', () => {
 	test.beforeAll(async ({ browser }) => {
 		test.setTimeout(60_000);
 		page = await browser.newPage();
+		// Two Attachments, so the Restore has files to compare byte for byte.
+		const speedId = runFixture('find-lesson-id', 'Speed');
+		runFixture('add-attachment', speedId, 'worksheet.pdf', 'application/pdf', '%PDF-1.4 backup');
+		runFixture('add-attachment', speedId, 'notes.txt', 'text/plain', 'Notes for the Backup test');
 		await startB();
 	});
 

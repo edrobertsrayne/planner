@@ -1,9 +1,12 @@
 import { test, expect } from '@playwright/test';
-import { BEARER, apiKey, keysOf, type Page } from './helpers.ts';
+import { BEARER, apiKey, createdId, keysOf, type Page } from './helpers.ts';
+import { resetTo } from '../helpers.ts';
 
 // Covers the two Link endpoints over real HTTP (issue #159): creation at the end of the order,
-// the URL and scheme refusals, PATCH, and removal. Reads the Lesson the Lesson file left behind
-// — the one its PATCH test renamed — and leaves nothing the later files read.
+// the URL and scheme refusals, PATCH, and removal. Uses a Lesson of its own.
+
+test.beforeAll(() => resetTo('standard'));
+
 test.describe.serial('the Link endpoints', () => {
 	let page: Page;
 	let token = '';
@@ -14,20 +17,15 @@ test.describe.serial('the Link endpoints', () => {
 		page = await browser.newPage();
 		token = await apiKey(browser);
 
-		// The Lesson the earlier files left behind: under "API Test Course" → "API Topic One",
-		// renamed by the Lesson file's PATCH test.
-		const courses = await (
-			await page.request.get('/api/courses', { headers: BEARER(token) })
-		).json();
-		const courseId = courses.find((c: { name: string }) => c.name === 'API Test Course').id;
-		const topics = await (
-			await page.request.get(`/api/courses/${courseId}/topics`, { headers: BEARER(token) })
-		).json();
-		const topicOneId = topics.find((t: { name: string }) => t.name === 'API Topic One').id;
-		const lessons = await (
-			await page.request.get(`/api/topics/${topicOneId}/lessons`, { headers: BEARER(token) })
-		).json();
-		lessonAId = lessons.find((l: { title: string }) => l.title === 'API Lesson A Renamed').id;
+		const courseId = await createdId(page.request, token, '/api/courses', {
+			name: 'API Test Course'
+		});
+		const topicOneId = await createdId(page.request, token, `/api/courses/${courseId}/topics`, {
+			name: 'API Topic One'
+		});
+		lessonAId = await createdId(page.request, token, `/api/topics/${topicOneId}/lessons`, {
+			title: 'API Lesson A'
+		});
 	});
 
 	test.afterAll(async () => {

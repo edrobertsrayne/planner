@@ -1,8 +1,9 @@
 import { test, expect, type Page } from '@playwright/test';
+import { resetTo } from './helpers.ts';
 
-// Runs after the wizard test (issue #41) has created the one user this app ever has (ADR-0001),
-// so it can log in as that user rather than creating its own. File sorts after
-// setup-wizard.e2e.ts so the suite's single worker sees the user before this file runs.
+// Logs in as the one user (ADR-0001) that resetTo('standard') creates.
+test.beforeAll(() => resetTo('standard'));
+
 const EMAIL = 'teacher@example.com';
 const PASSWORD = 'a-very-long-password';
 

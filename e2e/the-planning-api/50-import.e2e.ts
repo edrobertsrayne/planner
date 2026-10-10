@@ -1,10 +1,14 @@
 import { test, expect } from '@playwright/test';
 import { BEARER, apiKey } from './helpers.ts';
+import { resetTo } from '../helpers.ts';
 
 // Covers the one Import endpoint over real HTTP (issue #159): the whole-or-nothing transaction,
 // Course reuse by name, the ambiguity and collision refusals, the rejected Import that leaves
 // nothing behind, and the Lesson and Link caps. Brings its own Course and Topic, so it leans on
 // no other file in the directory.
+
+test.beforeAll(() => resetTo('standard'));
+
 test.describe.serial('the Topic import', () => {
 	let token = '';
 

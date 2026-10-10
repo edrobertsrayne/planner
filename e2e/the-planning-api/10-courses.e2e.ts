@@ -1,11 +1,13 @@
 import { test, expect } from '@playwright/test';
 import { BEARER, apiKey, keysOf } from './helpers.ts';
+import { resetTo } from '../helpers.ts';
 
 // Covers the two Course endpoints over real HTTP (issue #159): the key gate every route shares,
 // probed here against the Course routes, then the status codes, the uniqueness and validation
-// refusals, and the list's name order. Runs first in the directory: the Courses it creates —
-// "API Test Course" and "API Empty Course" — are what the Topic, Lesson and refusal files read
-// back by name.
+// refusals, and the list's name order.
+
+test.beforeAll(() => resetTo('standard'));
+
 test.describe.serial('the Course endpoints', () => {
 	let token = '';
 

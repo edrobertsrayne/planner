@@ -1,6 +1,6 @@
 /**
  * A demo database for prototypes, screenshots and manual smoke tests. Not for the e2e suite: that
- * builds its own data in `e2e.db` through the UI and the API.
+ * writes its own data with `reset` in scripts/e2e-fixtures.ts.
  *
  *   bun scripts/demo-db.ts seed /tmp/demo.db
  *   DATABASE_URL=/tmp/demo.db bun run dev --port 5173 --strictPort

@@ -1,22 +1,13 @@
 import { defineConfig } from '@playwright/test';
+import { DATABASE_URL, ORIGIN } from './e2e/helpers.ts';
 import { existsSync } from 'fs';
 
 // Use installed chromium on dev machine
 const chromiumPath = existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined;
 
-// A scratch database, never the developer's own local.db (see issue #40). Deleted before every
-// run so two consecutive suites see the same fresh state: migrations applied, no user, the
-// first-run wizard as the entry gate.
-const DATABASE_URL = 'e2e.db';
-const ORIGIN = 'http://localhost:4173';
-
 export default defineConfig({
-	// One database, one user (ADR-0001) — every spec file mutates the same shared state, so files
-	// must run one at a time, in the order they're discovered, rather than racing across workers.
-	//
-	// So the suite runs whole, or not at all. Running one file starts against an empty database and
-	// stops at the first-run wizard, not the login page: the failure names a duplicate "Password"
-	// field, which reads as a selector fault and is not one.
+	// One server and one database file (ADR-0001), so files run one at a time. Each file resets
+	// the database first (`resetTo` in e2e/helpers.ts), so any file also runs alone.
 	workers: 1,
 	use: {
 		launchOptions: chromiumPath ? { executablePath: chromiumPath } : {},

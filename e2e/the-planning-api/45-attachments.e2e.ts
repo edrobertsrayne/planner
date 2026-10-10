@@ -1,11 +1,15 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { test, expect } from '@playwright/test';
-import { BEARER, apiKey, keysOf, type Page } from './helpers.ts';
+import { BEARER, apiKey, createdId, keysOf, type Page } from './helpers.ts';
+import { resetTo } from '../helpers.ts';
 
 // Covers the two Attachment endpoints over real HTTP (issue #268): upload, the refusals, the
-// Lesson GET's `attachments`, and removal from the row and the disk. Uses the Lesson the Lesson
-// file left behind and removes what it creates, so the later files see nothing new.
+// Lesson GET's `attachments`, and removal from the row and the disk. Uses a Lesson of its own
+// and removes what it creates.
+
+test.beforeAll(() => resetTo('standard'));
+
 test.describe.serial('the Attachment endpoints', () => {
 	let page: Page;
 	let token = '';
@@ -15,18 +19,15 @@ test.describe.serial('the Attachment endpoints', () => {
 		page = await browser.newPage();
 		token = await apiKey(browser);
 
-		const courses = await (
-			await page.request.get('/api/courses', { headers: BEARER(token) })
-		).json();
-		const courseId = courses.find((c: { name: string }) => c.name === 'API Test Course').id;
-		const topics = await (
-			await page.request.get(`/api/courses/${courseId}/topics`, { headers: BEARER(token) })
-		).json();
-		const topicOneId = topics.find((t: { name: string }) => t.name === 'API Topic One').id;
-		const lessons = await (
-			await page.request.get(`/api/topics/${topicOneId}/lessons`, { headers: BEARER(token) })
-		).json();
-		lessonAId = lessons.find((l: { title: string }) => l.title === 'API Lesson A Renamed').id;
+		const courseId = await createdId(page.request, token, '/api/courses', {
+			name: 'API Test Course'
+		});
+		const topicOneId = await createdId(page.request, token, `/api/courses/${courseId}/topics`, {
+			name: 'API Topic One'
+		});
+		lessonAId = await createdId(page.request, token, `/api/topics/${topicOneId}/lessons`, {
+			title: 'API Lesson A'
+		});
 	});
 
 	test.afterAll(async () => {

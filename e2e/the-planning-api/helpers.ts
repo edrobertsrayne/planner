@@ -1,22 +1,13 @@
-import { expect, type Browser, type Page } from '@playwright/test';
+import { expect, type APIRequestContext, type Browser, type Page } from '@playwright/test';
 
 // The setup every planning API e2e file shares (issue #174): the one login, the API key the
-// files read from Settings, and the small request, date and fixture helpers the resource files
-// use. The files run one at a time in the suite's single-worker ordering (see isolation.e2e.ts),
-// so the numbered prefixes carry the order the sections read in the single file they replaced:
-// Courses, Topics, Lessons, Links, the Import, the refusals that read what those left behind,
-// the Blocked Days, the Terms, and the key regeneration last. The directory sits where that
-// single file sat — after teaching-flows.e2e.ts, whose Classes the fixtures assign — and before
-// user-settings-password.e2e.ts, which must stay last.
-//
-// The key is stable across files (issue #183): opening Settings mints one if the database has
-// none, so from 10-courses.e2e.ts on every file reads the same standing token, through `apiKey`.
-// Only 90-the-key.e2e.ts, which runs last, is allowed to replace it — that is the regeneration test.
+// files read from Settings, and the small request helpers. Each file starts from
+// resetTo('standard') and creates the records it reads, so each file runs alone.
 const EMAIL = 'teacher@example.com';
 const PASSWORD = 'a-very-long-password';
 
-// The Course the wizard-era fixture data left behind: two Classes follow it (created in
-// teaching-flows.e2e.ts), which is what makes the delete route's Class refusal reachable.
+// The Course and Class of the standard state. A Class follows the Course, so the delete route's
+// Class refusal is reachable.
 export const FIXTURE_COURSE = 'KS3 Science';
 export const FIXTURE_CLASS_LABEL = '9C/Sc1';
 
@@ -49,15 +40,23 @@ export async function standingKey(page: Page): Promise<string> {
 	return (await field.inputValue()).trim();
 }
 
-// The standing key, read from Settings once per worker. Every later file reuses it.
-// 90-the-key.e2e.ts replaces the key, and it runs last, so it reads the key from its own page.
-let key: string | undefined;
-
+// Reads the standing key from Settings, through a page of its own. Opening Settings mints a key
+// if the database has none.
 export async function apiKey(browser: Browser): Promise<string> {
-	if (!key) {
-		const page = await openPage(browser);
-		key = await standingKey(page);
-		await page.close();
-	}
+	const page = await openPage(browser);
+	const key = await standingKey(page);
+	await page.close();
 	return key;
+}
+
+// Creates a record through the API and returns its id: the records a file reads, made by the file.
+export async function createdId(
+	request: APIRequestContext,
+	token: string,
+	url: string,
+	data: object
+) {
+	const response = await request.post(url, { headers: BEARER(token), data });
+	expect(response.status()).toBe(201);
+	return (await response.json()).id as string;
 }

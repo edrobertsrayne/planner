@@ -1,13 +1,10 @@
 import { test, expect, type Page } from '@playwright/test';
-import { EMAIL, PASSWORD, isoDate, mondayOf, plusDays, weekdayOf } from './helpers.ts';
+import { EMAIL, PASSWORD, isoDate, mondayOf, plusDays, resetTo, weekdayOf } from './helpers.ts';
 
 // Covers the two doors a teacher places and removes a Lesson from (issue #254): an Open Slot's
-// Session page and the Calendar day menu, plus the Calendar tile's dashed-ring mark. Runs after
-// teaching-flows.e2e.ts — the one user, the Terms and 9C/Sc1 (which never gets a Topic assigned,
-// so its Tuesday P3 Slot in every week stays an Open Slot) already exist — and before
-// the-attachments.e2e.ts, for the suite's single-worker ordering (see isolation.e2e.ts). Every
-// date here is chosen well clear of the dates teaching-flows.e2e.ts itself acts on, so this file
-// disturbs nothing the files after it depend on.
+// Session page and the Calendar day menu, plus the Calendar tile's dashed-ring mark.
+// Reads 9C/Sc1 from the standard state: it has no Topic, so its Tuesday P3 Slot in every week is an Open Slot.
+test.beforeAll(() => resetTo('standard'));
 
 // The next Tuesday on or after `iso` — 9C/Sc1's one weekly Slot, in every Teaching Week letter.
 function nextTuesday(iso: string): string {
@@ -58,8 +55,7 @@ test.describe.serial('Placing and removing a Lesson', () => {
 	});
 
 	test('placing a Lesson from an Open Slot tile creates it and marks the tile with its dashed ring', async () => {
-		// Three weeks out — well inside Term 2 (isoDate(-14) to isoDate(56) per teaching-flows'
-		// fixture) and well clear of the dates teaching-flows' own tests act on.
+		// Three weeks out — well inside Term 2 (isoDate(-14) to isoDate(56) in the standard state).
 		const tuesday = nextTuesday(isoDate(21));
 		await page.goto(`/calendar?week=${mondayOf(tuesday)}`);
 		const cell = page.locator('td').filter({ hasText: '9C/Sc1' });
@@ -198,7 +194,7 @@ test.describe.serial('Placing and removing a Lesson', () => {
 		await expect(shiftedCell).toContainText('Forced-move rehearsal');
 		await expect(shiftedCell.locator('[data-standalone-ring]')).toBeVisible();
 
-		// Restore the state later files expect: unblocking returns the Slot to Available, and the
+		// Restore the state the tests that follow expect: unblocking returns the Slot to Available, and the
 		// Placement's anchor is where it lands again (GLOSSARY.md: "returns when the Slot is
 		// Available again") — so removal happens back on the original Tuesday, not the shifted one.
 		await page.goto(`/calendar?week=${mondayOf(tuesday)}`);
