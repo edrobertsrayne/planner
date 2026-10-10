@@ -28,6 +28,10 @@ Add new entries at the top, dated:
   changing other Classes. Ruled out of scope while charting the per-Class order map (#366): the
   teacher needs only a different order, so Lessons stay shared.
 
+- 2026-10-10: A keyboard way to move a Lesson in a Class's Sequence (for example, ↑ and ↓ on
+  a focused grip). The Sequence tab moves a Lesson only by a drag, ruled in #372: the one
+  teacher uses a mouse or a finger.
+
 - 2026-10-10: Decide if the Planning page has value. The Class page is now the only place to
   change a Class's teaching order (#379), so Planning is only a to-do list of Draft and Planned
   Lessons. Keep it as that, change it, or remove it. Ruled out of scope on the per-Class lesson
