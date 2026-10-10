@@ -57,3 +57,9 @@ which the earlier ladder would have required everywhere preparation appeared.
 > word "planned", so **Unplanned Slot** became **Open Slot** and **Planned Length** became
 > **Length** — see the amendment on ADR-0007. `GLOSSARY.md` is the source of truth for all four
 > terms.
+
+> **Amended 2026-10-10 (ADR-0026).** Assigned Topics are gone. Draft and Planned are shared by
+> every Class whose Sequence holds the Lesson. Readiness dies when its pairing does: Remove Lesson
+> from a Class's Sequence, deleting the Lesson, or removing the last Placement that names the pair.
+> Deleting a Topic no longer deletes its Lessons, so it no longer takes Readiness with it. The
+> **Teaching note** shares the Readiness key and the same rule.

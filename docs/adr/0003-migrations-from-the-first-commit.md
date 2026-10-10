@@ -31,3 +31,9 @@ this decision protects.
 > plan data means retyping it through the editing screens. That remains an acceptable worst case:
 > the database is a single file (ADR-0008), so restore is copying the file back, and retyping was
 > always the fallback behind the fallback.
+
+> **Amended 2026-10-10 (ADR-0026).** One migration deliberately deletes Session notes: the cutover
+> to per-Class Sequences resets the plan and drops `session.note`. The teacher accepted the loss,
+> because almost no notes existed. The rule above still stands. The history stays append-only, and
+> the way back is the old build with a Backup taken before the upgrade. Notes now live as
+> **Teaching notes** in `lesson_note`, and they are what this decision protects from here on.

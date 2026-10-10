@@ -10,6 +10,13 @@ Session; anything describing the teaching itself lives on the Lesson.
 > assignment is what lets two Classes take the same material in different orders without forking
 > the Lessons. The one part that did not survive is the escape hatch below.
 
+> **Amended 2026-10-10 (ADR-0026).** Sharing stands: a Class points at the shared Lesson, and an
+> edit to a Lesson shows in every Class. Assigning a Topic now copies the Topic's Lesson ids, not
+> its Lessons, into the Class's **Sequence**, which is the Class's own order. Two consequences
+> below change: a Class's different subset and order is its Sequence, not its Assigned Topics; and
+> the note on how a Lesson went is a **Teaching note** on the Sequence entry (Class, Lesson), not on
+> the Session.
+
 ## Why
 
 The alternative is to copy a Course's Lessons into each Class on assignment, letting each Class's
@@ -32,5 +39,13 @@ Classes needing different content are given a different subset of Assigned Topic
 order — and materially different content means a different Course only in the sense that the
 Topics themselves differ, not that one Course is copied.
 
+> **Amended 2026-10-10 (ADR-0026).** Read "Assigned Topics" above as "Sequence": a Class takes a
+> subset of the shared Lessons in its own order. Assigned Topics no longer exist.
+
 Notes on how a lesson went must attach to the Session. Putting them on the Lesson would leak one
 Class's experience into every other Class's plan.
+
+> **Amended 2026-10-10 (ADR-0026).** The note stays per Class, which is the point of this
+> paragraph. Its key changes from the occasion (Class, date, Period) to the Sequence entry (Class,
+> Lesson). A Rewind relabels occasions, and the note now follows its Lesson to the day it was
+> really taught. Still never on the Lesson.
