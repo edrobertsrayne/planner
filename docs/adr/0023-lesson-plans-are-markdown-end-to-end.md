@@ -26,3 +26,6 @@ no longer holds, but `.markdown` covers the whole of what the editor can produce
 own tokens.
 
 > **Amended 2026-10-07.** Lesson bodies and Session notes now render LaTeX maths, chemistry (`\ce{}`, mhchem) included, through KaTeX. KaTeX was one of the reasons Milkdown was rejected. It now arrives on its own, without Vue or CodeMirror. Both renderers read one syntax: `$…$` inline and `$$…$$` block, with regexes copied from `@tiptap/extension-mathematics` into `markdown.ts`. A ready-made markdown-it plugin would apply Pandoc's stricter `$` rules, so the read-only view would disagree with the editor. A literal dollar is `\$`. The editor patches `@tiptap/markdown`'s text escaping so that it writes `\$`. The `{@html}` stays safe only while markdown-it has `html: false` and KaTeX has `trust: false`. Both conditions are now load-bearing.
+
+> **Amended 2026-10-10 (ADR-0026).** The Session note became the **Teaching note**, stored as
+> markdown in `teaching_note.body`. Nothing else here changes.

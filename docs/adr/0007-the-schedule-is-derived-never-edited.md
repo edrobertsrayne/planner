@@ -17,6 +17,12 @@ disruption is a change to the function's _input_, and the schedule is recomputed
 > dates for the same reason — adding a Lesson to a half-taught Topic grows the flattened list in the
 > middle and shifts the rest of the year right, deliberately and without warning.
 
+> **Amended 2026-10-10 (ADR-0026).** The input is now the Class's **Sequence**: its own stored
+> order of Lesson ids, in place of the flattened Assigned Topics. The function is unchanged. A
+> Lesson edit no longer grows a Class's list: a new Lesson joins no Sequence until the teacher
+> assigns its Topic again. A reorder re-derives one Class from today, and the taught part of a
+> Sequence is locked, so a reorder never reaches into the past.
+
 The function takes a **boundary** and writes on and after it, never before. The boundary is today.
 Sessions dated before it are the record of what happened — inputs to the next run, not outputs.
 
@@ -56,6 +62,13 @@ A Rewind relabels Sessions, and a Session may carry notes on how the teaching we
 the dated occasion — Class, date, Period — not to the Lesson, so they are never lost; but a Session
 whose Lesson changed is reported to the teacher rather than silently relabelled. This is the one
 place the model touches something it cannot derive.
+
+> **Amended 2026-10-10 (ADR-0026).** The paragraph above no longer holds. A note belongs to the
+> Sequence entry (Class, Lesson), so a Rewind moves it with its Lesson to the day the Lesson was
+> really taught, and no note can be left on an occasion whose Lesson changed. The noted-Session
+> report (`atRisk`) is retired. The Rewind report is `placementsMoved` only (ADR-0022). Notes are
+> the one input here the derivation cannot make, and they now ride on a key the derivation never
+> changes.
 
 Running out of Available Slots is a reportable outcome, not an error. The function places what fits
 and returns the rest as unplaced. Silently dropping Lessons would make the tool untrustworthy.

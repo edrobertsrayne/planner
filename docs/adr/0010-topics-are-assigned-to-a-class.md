@@ -1,3 +1,7 @@
+---
+status: superseded by ADR-0026
+---
+
 # Topics are assigned to a Class, not Courses
 
 A Class is created against exactly one Course, which limits what it may be taught. What it
@@ -51,3 +55,12 @@ deleting the Class; `bun db:studio` is the escape hatch otherwise.
 Nothing forbids assigning the same Topic to a Class twice. It makes "how far into Forces is this
 Class" ambiguous on the Classes view, and that was judged not worth a constraint for a case that
 will not arise.
+
+> **Superseded 2026-10-10 (ADR-0026).** A Class no longer records Topics. It holds a **Sequence**:
+> its own order of shared Lessons, so Topics can interleave. What stands: a Class follows one
+> Course, fixed at creation, and Assign Topic offers only that Course's Topics; the Course holds
+> its Topics in no order; the Class teaches part of a Course. What goes: Assigned Topics and their
+> order; editing a Topic's content moving dates in every Class that holds it (a new Lesson joins no
+> Sequence); the progress rule, which is retired, not restated, because a Sequence can hold
+> Standalone Lessons and interleaved Topics; and the paragraph on assigning one Topic twice, since
+> a Lesson is in a Sequence once at most.

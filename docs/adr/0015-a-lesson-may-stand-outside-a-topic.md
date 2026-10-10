@@ -69,3 +69,13 @@ need a mark to tell them apart. Adding one now would be guessing at a design not
 > and a schedulable one, so `lesson` gains no column. One consequence this ADR did not foresee:
 > because a Placement is the only door back onto a Class's schedule, the reverse of Detach —
 > re-filing a Standalone Lesson into a Topic — is retired along with it. Detach is one-way.
+
+> **Amended 2026-10-10 (ADR-0026).** A Class's Lessons now come from its **Sequence**, which
+> holds Lesson ids, not Topics. Three things change. **Detach takes a Lesson out of its Topic, not
+> out of any plan**: a Sequence that holds the Lesson keeps it, and nothing is re-derived. **Detach
+> is two-way again**: any Lesson may be given a Topic, a Placed one too, because a Topic no longer
+> carries a Lesson into a Class. **Deleting a Topic detaches its Lessons** instead of deleting them:
+> they stay as Standalone Lessons, and every Sequence keeps them. A Standalone Lesson now reaches a
+> Class by a Placement or by a Sequence (Add Lesson on the Class page). A Standalone Lesson that no
+> Sequence holds and no Placement names is a retired one; rollover tidies it later
+> (`docs/backlog.md`). Deleting a Lesson is still refused once a Class was taught it.

@@ -21,19 +21,20 @@ only part of one in a year. Course names are unique across the planner, case-ins
 _Avoid_: Scheme of work, syllabus, curriculum, module, unit
 
 **Topic**:
-A named block of teaching within a Course, such as "Forces". Composed of Lessons, in order.
-Belongs to exactly one Course and holds no position within it; the order teaching happens in is
-fixed per Class by its Assigned Topics. Topic names are unique within their Course —
-case-insensitive, and trimmed — so two Courses may each hold a "Forces", but one Course may not
-hold two "Forces" Topics.
+A named block of teaching within a Course, such as "Forces". Composed of Lessons, in order: the
+order Assign Topic adds them to a Class's Sequence. Belongs to exactly one Course and holds no
+position within it; the teacher can move it to a different Course. A Topic is a label and a
+source, never the unit of teaching order: what a Class teaches, and in which order, is its
+Sequence. Topic names are unique within their Course — case-insensitive, and trimmed — so two
+Courses may each hold a "Forces", but one Course may not hold two "Forces" Topics.
 _Avoid_: Unit, module, block, chapter
 
 **Lesson**:
-One teaching episode within a Topic — the plan, not the event. Exists whether or not it
-has ever been taught, and is shared by every Class assigned its Topic. A title alone constitutes
-a Lesson; the notes and the links to resources held elsewhere arrive as planning catches up.
-Lesson titles are not unique: one Topic may hold two Lessons called "Revision", so a Lesson is
-addressed by its identity and never by its title.
+One teaching episode — the plan, not the event. Usually filed in a Topic; a Standalone Lesson has
+none. Exists whether or not it has ever been taught, and is shared by every Class whose Sequence
+holds it. A title alone constitutes a Lesson; the notes and the links to resources held elsewhere
+arrive as planning catches up. Lesson titles are not unique: one Topic may hold two Lessons called
+"Revision", so a Lesson is addressed by its identity and never by its title.
 _Avoid_: Period, session, class
 
 **Tag**:
@@ -54,16 +55,18 @@ Detaching or moving the Lesson keeps it.
 _Avoid_: Upload, media, resource
 
 **Standalone Lesson**:
-A Lesson belonging to no Topic. It sits in no Course, so no Class's Assigned Topics reach it, and
-it takes a date only by being Placed. Every Session that already taught it still names it. This is
-what lets a taught Lesson leave the plan without erasing what a Class was taught (ADR-0015).
+A Lesson belonging to no Topic. It reaches a Class only by a Placement, or by Add Lesson on that
+Class's Sequence. A Lesson becomes one by Detach, or when its Topic is deleted. Every Session that
+already taught it still names it. This is what lets a taught Lesson leave its Topic without erasing
+what a Class was taught (ADR-0015).
 _Avoid_: Orphan, archived Lesson, deleted Lesson, loose Lesson, ad-hoc Lesson, one-off Lesson
 
 **Detach**:
 Removing a Lesson from its Topic, making it a Standalone Lesson. The Lesson keeps its title, body,
-Links and Length; only its place in the plan goes. One-way: a Standalone Lesson never rejoins a
-Topic. Distinct from deleting a Lesson, which removes the Lesson itself and is refused once a
-Class has been taught it or a Placement names it.
+Links and Length, and every Sequence that holds it keeps it: only its filing changes. Not one-way:
+any Lesson may be given a Topic, a Standalone Lesson included. Distinct from deleting a Lesson,
+which removes the Lesson itself and is refused once a Class has been taught it or a Placement
+names it.
 _Avoid_: Archive, retire, unfile, soft delete
 
 **Length**:
@@ -74,13 +77,13 @@ _Avoid_: Planned Length, duration, double, span, periods
 
 **Draft**:
 A Lesson the teacher has not yet marked Planned — it is written but not reviewed and approved.
-Typically carries no more than its title. Belongs to the Lesson, so every Class assigned its Topic
-sees the same. Says nothing about whether any Class is Ready to teach it.
+Typically carries no more than its title. Belongs to the Lesson, so every Class whose Sequence
+holds it sees the same. Says nothing about whether any Class is Ready to teach it.
 _Avoid_: Bare, empty, stub, untouched, Placed
 
 **Planned**:
 A Lesson the teacher has reviewed and approved as ready to teach from. Belongs to the Lesson,
-shared by every Class assigned its Topic. Marked by the teacher and never derived from the body or
+shared by every Class that teaches it. Marked by the teacher and never derived from the body or
 the links. Names the Lesson's state, never its place on the calendar — a Lesson takes a date by
 being Scheduled, and the two are unrelated.
 _Avoid_: Drafted, written, complete, scheduled, Placed
@@ -97,10 +100,9 @@ _Avoid_: Bulk create, batch upload, sync
 **Class**:
 A group of pupils taught as a unit, identified by a label such as "9B/Sc1". A Class follows
 exactly one Course, fixed when the Class is created, which limits the Topics it may be given; what
-it actually teaches is the subset of those Topics assigned to it. It has its own Slots, and is
-scoped to one academic year — next year's teaching is new Classes, not these ones carried forward.
-It is a label, a Course, a Timetable and a Tone only — it holds no information about individual
-pupils.
+it actually teaches is its Sequence. It has its own Slots, and is scoped to one academic year —
+next year's teaching is new Classes, not these ones carried forward. It is a label, a Course, a
+Timetable, a Sequence and a Tone only — it holds no information about individual pupils.
 _Avoid_: Group, set, form, cohort
 
 **Tone**:
@@ -114,14 +116,15 @@ A Tone carries no meaning beyond recognition — a Class's Tone says nothing abo
 subject or Course.
 _Avoid_: Colour, theme
 
-**Assigned Topic**:
-One Topic given to one Class to teach, at a position in that Class's order. A Class begins the
-year with none and accumulates them one at a time as the Topics are written, so the teaching order
-is decided as it is reached rather than planned in advance. The assignment carries a position and
-nothing else — no status and no date, both of which are derivable. The Topic must belong to the
-Class's Course. Assigned Topics are what the schedule is derived from: their Lessons, flattened in
-order, are the sequence laid onto that Class's Available Slots.
-_Avoid_: Assignment (means homework), allocation, scheduled topic
+**Sequence**:
+The ordered Lessons one Class teaches: the Class's own order over the shared Lessons, so Topics
+may interleave and two Classes differ freely. A Lesson is in a Sequence once at most. A Class
+begins the year with an empty Sequence. **Assign Topic** adds a Topic's Lessons, as they are then,
+to the end, and skips each one already in the Sequence or Placed on that Class; a Lesson written
+later reaches no Class until its Topic is assigned again. The teacher moves, adds and removes
+Lessons. A Lesson with a Session on or before today is fixed, and nothing moves in front of it.
+The Sequence is what the schedule is derived from: it is laid onto that Class's Available Slots.
+_Avoid_: Queue, list, Assigned Topic
 
 **Period**:
 One of the six numbered teaching positions in a school day, P1 to P6. Every day has the same six.
@@ -143,20 +146,28 @@ _Avoid_: Classroom, location, venue
 
 **Session**:
 A single dated occasion on which a Lesson is taught to a Class, occupying one Slot on one date.
-The place where anything class-specific lives, including notes on how the teaching actually went.
-A Session is identified by its occasion — Class, date and Period — not by its Lesson, so notes
-stay put when a Rewind changes which Lesson that occasion carried.
+A Session is identified by its occasion — Class, date and Period — not by its Lesson, so a Rewind
+can change which Lesson an occasion carried. It carries no note: how the teaching went is the
+Teaching note, which follows the Lesson.
 _Avoid_: Teaching period, occurrence, instance, event
 
+**Teaching note**:
+The teacher's note on how one Lesson went with one Class. There is one per Class and Lesson,
+shared by every part of the Lesson, a Continuation's included, and by every Placement of it on that
+Class. Keyed like Readiness, so it follows its Lesson through a reorder or a Rewind to the day the
+Lesson was really taught, and it dies when the pairing does. Written on the Session page. An Open
+Slot carries none. Distinct from the free text on a Blocked Slot, which explains the disruption.
+_Avoid_: Session note, Lesson note, comment
+
 **Placement**:
-One Standalone Lesson put on one Class on one date the teacher chooses, with no Topic behind it.
-To **Place** is to make one; the reverse is to remove it, which leaves the Lesson standing as a
-Standalone Lesson. A Placement is anchored to the date and Slot chosen and takes the first
-Available Slot at or after it, so it shifts right when that Slot stops being Available, and
-returns when the Slot is Available again. The Slot chosen may be an Open Slot or one a Topic
-Lesson already holds; a Placement consumes the Slot it takes, so that Lesson and every Lesson
-after it in the Class's Assigned Topics move on past it. Made for today or a later date, never a
-past one.
+One Lesson put on one Class on one date the teacher chooses, outside that Class's Sequence. To
+**Place** is to make one, and Placing makes a new Standalone Lesson; the reverse is to remove it,
+which leaves the Lesson standing. A Lesson is in a Class's Sequence or Placed on that Class, never
+both. A Placement is anchored to the date and Slot chosen and takes the first Available Slot at or
+after it, so it shifts right when that Slot stops being Available, and returns when the Slot is
+Available again. The Slot chosen may be an Open Slot or one a Sequence Lesson already holds; a
+Placement consumes the Slot it takes, so that Lesson and every Lesson after it in the Class's
+Sequence move on past it. Made for today or a later date, never a past one.
 _Avoid_: Insertion, injection, ad-hoc Lesson, one-off Lesson, pinned Session, placed Slot,
 reservation, pin, lock, unplace, cancel
 
@@ -205,9 +216,9 @@ A Slot on a date that falls within a Term, lies within the dates that Slot holds
 Blocked Day nor a Blocked Slot — that is, a Slot on which teaching can actually take place.
 
 **Open Slot**:
-An Available Slot carrying no Lesson, because the Class's Assigned Topics ran out before its Slots
-did. The mirror of an unplaced Lesson, and the normal condition of a Class that has not yet been
-given its next Topic — not a fault, and never a Blocked Slot, which means the opposite.
+An Available Slot carrying no Lesson, because the Class's Sequence ran out before its Slots did.
+The mirror of an unplaced Lesson, and the normal condition of a Class whose next Topic is not yet
+assigned — not a fault, and never a Blocked Slot, which means the opposite.
 _Avoid_: Unplanned Slot, empty slot, gap, free period, unfilled
 
 **Runway**:
@@ -224,7 +235,7 @@ The rule governing every disruption: when a Lesson cannot be taught as scheduled
 Lesson after it in that Class's sequence move to the next Available Slots for that Class,
 preserving the order of the sequence. The alternative — skipping a Lesson so later ones keep their
 dates — is deliberately not supported. Shift-right is not an operation anyone performs; it is what
-falls out of laying the Class's Assigned Topics onto the Available Slots that remain.
+falls out of laying the Class's Sequence onto the Available Slots that remain.
 _Avoid_: Reschedule, push back, bump
 
 **Rewind**:
@@ -235,11 +246,11 @@ today.
 _Avoid_: Undo, replay, recalculate, backdate
 
 **Rewind report**:
-What every write that re-derives a Class answers with: the noted Sessions whose Lesson the Rewind
-changed (`atRisk`), and the Placements that no longer sit on their anchor (`placementsMoved`). The
-teacher must see it, because a changed Lesson may leave its note not applying, and a Placement
-carries no note to make silence safe. It travels as one value, `report`, from the seam to the
-screen, and one view, `RewindReport`, renders it.
+What every write that re-derives a Class answers with: the Placements that no longer sit on their
+anchor (`placementsMoved`). The teacher must see it, because the teacher chose each Placement's
+date. A Lesson that a Rewind moves needs no report, because its Teaching note moves with it. It
+travels as one value, `report`, from the seam to the screen, and one view, `RewindReport`,
+renders it.
 _Avoid_: Warning, at-risk list, change log
 
 **Continuation**:
@@ -253,16 +264,17 @@ _Avoid_: Split, extend, carry over, overrun
 
 **Ready**:
 One Class is prepared to teach one Lesson — printed, resourced, practicals set. Recorded per Class
-and Lesson, so Classes sharing a Topic differ freely, and the mark survives Shift-right and Rewind.
+and Lesson, so Classes sharing a Lesson differ freely, and the mark survives Shift-right and Rewind.
 Independent of the Lesson's planning status: a Draft Lesson may be Ready, and marking a Lesson
 Draft never clears the mark.
 _Avoid_: Printed, done, prepared
 
 **Readiness**:
 The record that one Class is Ready for one Lesson. Exists only once made; it dies when the pairing
-does — unassignment, deletion, or the removal of the last Placement naming it — and nothing
-derived ever disturbs it. Separate from Draft and Planned, which describe the shared plan rather
-than one Class's preparation to teach it.
+does — Remove Lesson from the Class's Sequence, deletion of the Lesson, or the removal of the last
+Placement naming it — and nothing derived ever disturbs it. The Teaching note follows the same
+rule. Separate from Draft and Planned, which describe the shared plan rather than one Class's
+preparation to teach it.
 _Avoid_: Checklist, handout list, preparation
 
 ### The planner's data
@@ -337,33 +349,36 @@ The day's menu shows from a tablet up and not on a phone, because the calendar i
 
 **Classes**:
 One tone-coloured tile per Class, keyed by Class rather than by time. Each tile carries the
-Class's label, Course and tone, its progress through its Assigned Topics, its current Topic with
-the Lesson queued next inside it, and its Runway. The tile body is one link to the Class page, as
-on Courses; its footer holds Assign next Topic and Open Class. A Class is created here, in a dialog
-opened from the New Class tile. On a phone the footer keeps only Open Class, and there is no New
-Class tile, because nothing is written there. The Runway is shown plainly on every tile and is
-never coloured or flagged: a Class approaching the end of its Assigned Topics is the normal
-condition several times a year, so a threshold warning would be on almost always and mean
-nothing. The Agenda showing Open Slots inside its own horizon is the only alert the planner has.
+Class's label, Course and tone, the Lesson queued next with its Topic, and its Runway. The whole
+tile is one link to the Class page, as on Courses; it has no footer and no progress bar. A Class
+is created here, in a dialog opened from the New Class tile. On a phone there is no New Class
+tile, because nothing is written there. The Runway is shown plainly and is not coloured while the
+Sequence fits the year: a Class approaching the end of its Sequence is the normal condition
+several times a year, so a threshold warning would be on almost always and mean nothing. The one
+exception is Lessons with no Slot left this year: the Runway line then reads "N Lessons past the
+end of the year" in red, here and on the Class page. Apart from that, the Agenda showing Open Slots
+inside its own horizon is the only alert the planner has.
 
 **Class page**:
-The single surface for one Class, in two tabs under the Class's label and Course. Overview, the
-default, leads with the Class's next five Sessions, each opening the Session page, then its
-progress (Last taught with its Session note, Next up, the Runway); beside them stand its Assigned
-Topics in order, whose reorder and Unassign controls show on hover or keyboard focus, and always
-on a touch screen, like every other row control. Timetable holds the "Timetable as at" control and
-the Slot grid, both weeks stacked. The Timetable tab shows, and is written, from a tablet up; a
-phone shows Overview only, with no tabs and no reorder or Unassign. The only place a Class is
-timetabled. Creating a Class
-happens on the Classes screen, which also carries Assign next Topic; the Assigned Topics already
-given are ordered here. There is no screen showing every Class's Timetable at once, because the
-Timetable is only ever read or written one Class at a time. Periods held by another Class carry
-that Class's label rather than being hatched or hidden, since a position can hold only one Class
-on any given date; that is where the Slot uniqueness rule is enforced. An edit takes effect from a
-position in the year the teacher picks — the start of the year, today, a date on which this
-Class's Slots change, or any date — chosen through the same "Timetable as at" control that reads
-history, so ending one Slot and starting another is ordinary editing rather than a special
-operation.
+The single surface for one Class, in three tabs under the Class's label and Course. Overview, the
+default, is one column: the Class's next five Sessions, each opening the Session page, then Last
+taught with its Teaching note, Next up and the Runway. Timetable holds the "Timetable as at"
+control and the Slot grid, both weeks stacked. Sequence, labelled with its count of Lessons, is
+the only place a Sequence is read or written. It shows By week, each week's Slots in fixed
+places, or as a List. The teacher drags a Lesson by its grip to take another Lesson's place, and
+select mode moves or removes several at once. Assign Topic, Add Lesson and Remove Lesson are here
+too. Each change is kept at once, and a line says how many Lessons change date. Taught Lessons are
+fixed and hidden until asked for; a Placement shows fixed in its Slot; Lessons with no Slot left
+show in a "Past the end of the year" row. The Timetable and Sequence tabs show, and are written,
+from a tablet up; a phone shows Overview only, with no tabs. The only place a Class is timetabled.
+Creating a Class happens on the Classes screen. There is no screen showing every Class's Timetable
+at once, because the Timetable is only ever read or written one Class at a time. Periods held by
+another Class carry that Class's label rather than being hatched or hidden, since a position can
+hold only one Class on any given date; that is where the Slot uniqueness rule is enforced. An edit
+takes effect from a position in the year the teacher picks — the start of the year, today, a date
+on which this Class's Slots change, or any date — chosen through the same "Timetable as at" control
+that reads history, so ending one Slot and starting another is ordinary editing rather than a
+special operation.
 
 **Courses**:
 Where Course content is written. One tile per Course, marked by the Course's Tone as a dot and as
@@ -371,8 +386,10 @@ the colour of its progress bar, with a New Course tile after them; each tile ope
 Course. The Course page holds the Course's Topics on the left and the chosen Topic's Lessons in
 order on the right. Below a wide laptop window it shows one at a time: the Topics, then the
 chosen Topic's Lessons. A new Topic and a new Lesson are each created by typing a name at the foot
-of its own list. Detach and delete a Lesson are in the Lesson editor only. Import has no control
-here. The only screen that reads or writes Courses, Topics and Lessons. On a phone it is read-only.
+of its own list. Detach and delete a Lesson are in the Lesson editor only. Move to… files a Topic
+in another Course. A Topic's Lesson order is the order Assign Topic adds its Lessons in; changing
+it changes no Class's Sequence. Deleting a Topic keeps its Lessons as Standalone Lessons. Import
+has no control here. The only screen that writes Courses and Topics. On a phone it is read-only.
 Unlike the other three screens it is a writing surface, and it is where the planner is used on a
 Sunday rather than during a teaching week.
 
@@ -392,36 +409,37 @@ of the Language above names its parts.
 
 **Lesson editor**:
 The single surface for one Lesson — its title, its markdown body, its links, its attachments, its
-Tags and its Length, and the Detach and delete controls. Every Lesson is written here, a Standalone
-Lesson included, placed or not: to the teacher a Standalone Lesson differs from any other only in
-having no Topic, so its page simply lacks what needs one — the Topic, the stepping and Detach. A
+Tags and its Length, its Topic, and the Detach and delete controls. Every Lesson is written here, a
+Standalone Lesson included, placed or not: to the teacher a Standalone Lesson differs from any
+other only in having no Topic, so its page lacks Detach, and its Topic control gives it one. A
 page of its own, addressed by the Lesson alone, so the same page opens from the Courses view, the
-Planning view and the Session page, and moving the Lesson to another Topic, or Detaching it, keeps
-the teacher on it. It steps to the next or previous Lesson in the Lesson's Topic, in the Topic's
-order, whichever view opened it; stepping stops at either end of the Topic and never crosses into
-another, because a Course holds its Topics in no order. Leaving it — by Back or by deleting the
-Lesson — returns the teacher to the view they came from, or, when there is none, to the Lesson's
-Topic on its Course page, or to the Planning view for a Standalone Lesson. Creating a Lesson does
-not open it. It is written on a laptop or desktop; on a phone it is a read view. Distinct from the
-Session page: the Lesson editor writes the plan shared by every Class, the Session page writes
-one Class's occasion.
+Class page, the Planning view and the Session page, and moving the Lesson to another Topic, or
+Detaching it, keeps the teacher on it. Opened from the Class page, it steps through that Class's
+whole Sequence, taught, untaught and past the end, Standalone Lessons included, and says so:
+"Lesson 14 of 52 in 9B/Sc1". Opened from any other view, it steps through the Lesson's Topic, in
+the Topic's order; stepping stops at either end of the Topic and never crosses into another,
+because a Course holds its Topics in no order, and a Standalone Lesson does not step. Leaving it —
+by Back or by deleting the Lesson — returns the teacher to the view they came from, or, when there
+is none, to the Lesson's Topic on its Course page, or to the Planning view for a Standalone Lesson.
+Creating a Lesson does not open it. It is written on a laptop or desktop; on a phone it is a read
+view. Distinct from the Session page: the Lesson editor writes the plan shared by every Class, the
+Session page writes one Class's occasion and its Teaching note.
 
 **Session page**:
-The single surface for one Session — its Lesson's plan, links and attachments, the note on the
-occasion, and the Continuation control. Attachments here are view-and-download only, like Links.
+The single surface for one Session — its Lesson's plan, links and attachments, the Teaching note,
+and the Continuation control. Attachments here are view-and-download only, like Links.
 The page never rewrites the shared plan, for a Topic Lesson or a placed Standalone Lesson alike;
 it opens the Lesson's own page in the Lesson editor for that. It is where a Lesson is Placed and a
 Placement removed, because those are acts on the occasion, not on the plan. Opened from any of the
 three reading views; there is no other place a Session is read or written. It opens on an Open
-Slot too, showing no plan and offering the note — a Session is identified by its occasion, not by
-its Lesson, so a Slot carrying no Lesson is still an occasion the teacher may want to write about.
+Slot too, showing no plan and no note: a Teaching note needs a Lesson, and an Open Slot has none.
 Shows the Class's Readiness for this Lesson, read-only — the page describes the exact (Lesson,
 Class) occasion the Agenda row already ticks, so it would otherwise hide a fact its own row
 displays. No other screen shows Readiness.
 A page of its own, like the Lesson editor, addressed by its occasion: the Class, the date and the
 Period. It does not step to another Session. Leaving it by Back returns the teacher to the view
 they came from, or, when there is none, to the Agenda. On a laptop the plan is on the left and a
-rail on the right holds the note and the acts on the occasion — Needs more time, Remove a
+rail on the right holds the Teaching note and the acts on the occasion — Needs more time, Remove a
 Continuation, Place a Lesson and Remove placement. Below a laptop it is one column, and once the
 Session has started the note comes before the plan, because on a phone the teacher opens it after
 the lesson to write the note.

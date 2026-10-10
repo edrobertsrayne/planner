@@ -74,6 +74,13 @@ row names the Lesson, same 409 shape ("Remove the Placement first"). This is req
 "no mark" answer to hold — without it, deleting a placed-but-untaught Standalone Lesson would leave
 a Placement naming a Lesson that no longer exists.
 
+> **Amended 2026-10-10 (ADR-0026).** "Detach is one-way" is retired, and so is the closed attach
+> door below. A Topic no longer carries a Lesson into a Class: a Class's **Sequence** holds Lesson
+> ids. So giving a Placed Lesson a Topic cannot schedule it twice, and any Lesson may be given a
+> Topic. Two rules keep the routes apart. A Lesson is in a Class's Sequence or Placed on that Class,
+> never both: **Assign Topic** skips a Lesson Placed on that Class. A Standalone Lesson may be in a
+> Sequence (Add Lesson on the Class page). `placeLesson` still makes a new Standalone Lesson.
+
 ## Considered options
 
 Three mechanisms were built and run against a real 2026/27 calendar in
@@ -166,6 +173,12 @@ a touched Session row against the `placement` table (by `classId` + `lessonId`, 
 stored anchor) and reported unconditionally, independent of whether the row carries a note. A
 Placement dated before a Rewind's boundary is ordinary history, exactly like a taught Topic Lesson's
 Session — not pinned, and live input again the moment the boundary moves back before it.
+
+> **Amended 2026-10-10 (ADR-0026).** `atRisk` is retired. A note belongs to the Sequence entry
+> (Class, Lesson) and moves with its Lesson, so the Rewind report is `placementsMoved` only. A
+> Placement still has no note of its own: the **Teaching note** for (Class, Lesson) serves every
+> Placement of that Lesson on that Class, and it dies with the last Placement that names the pair,
+> like Readiness. A taught Placement can still be removed; its note goes with it.
 
 **Editing a Standalone Lesson's Length re-derives sideways.** `updateLesson` currently no-ops a
 Length change for a Lesson with no Topic. Because a Standalone Lesson may be named by Placements on
