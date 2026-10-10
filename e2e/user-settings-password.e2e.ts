@@ -1,10 +1,8 @@
 import { test, expect, type Page, type BrowserContext } from '@playwright/test';
-import { resetTo } from './helpers.ts';
+import { EMAIL, PASSWORD, resetTo } from './helpers.ts';
 
 test.beforeAll(() => resetTo('standard'));
 
-const EMAIL = 'teacher@example.com';
-const PASSWORD = 'a-very-long-password';
 const NEW_PASSWORD = 'a-different-very-long-password';
 
 async function login(page: Page, email: string, password: string) {

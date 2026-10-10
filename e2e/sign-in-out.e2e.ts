@@ -1,11 +1,8 @@
 import { test, expect, type Page } from '@playwright/test';
-import { resetTo } from './helpers.ts';
+import { EMAIL, PASSWORD, resetTo } from './helpers.ts';
 
 // Logs in as the one user (ADR-0001) that resetTo('standard') creates.
 test.beforeAll(() => resetTo('standard'));
-
-const EMAIL = 'teacher@example.com';
-const PASSWORD = 'a-very-long-password';
 
 async function login(page: Page, email: string, password: string) {
 	await page.getByLabel('Email').fill(email);

@@ -38,21 +38,6 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await page.close();
 	});
 
-	test('a Class created from the Classes dialog lands on a distinct tone from the previous one', async () => {
-		await page.goto('/classes');
-		const toneOf = async (label: string) => {
-			const dot = page
-				.locator('li')
-				.filter({ hasText: label })
-				.locator('[aria-hidden="true"]')
-				.first();
-			return dot.evaluate((el) => getComputedStyle(el).backgroundColor);
-		};
-		const toneA = await toneOf('9B/Sc1');
-		const toneB = await toneOf('9C/Sc1');
-		expect(toneA).not.toBe(toneB);
-	});
-
 	test('the Lesson editor stays open on Escape, and Back returns to the Courses screen', async () => {
 		await page.goto('/courses');
 		await page.getByRole('link', { name: 'KS3 Science' }).click();
@@ -648,12 +633,23 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expect(page.locator('main').getByText('Recap', { exact: true })).toBeHidden();
 	});
 
-	test('the New Class dialog creates a Class and opens its page', async () => {
+	test('a Class created from the Classes dialog opens its page and takes a distinct tone', async () => {
 		await page.goto('/classes');
 		await page.getByRole('button', { name: 'New Class' }).first().click();
 		await page.getByLabel('Label').fill('9D/Sc1');
 		await page.getByRole('button', { name: 'Create Class' }).click();
 		await page.waitForURL(/\/classes\/[^/]+$/);
 		await expect(page.getByRole('heading', { level: 1, name: '9D/Sc1' })).toBeVisible();
+
+		await page.goto('/classes');
+		const toneOf = async (label: string) => {
+			const dot = page
+				.locator('li')
+				.filter({ hasText: label })
+				.locator('[aria-hidden="true"]')
+				.first();
+			return dot.evaluate((el) => getComputedStyle(el).backgroundColor);
+		};
+		expect(await toneOf('9D/Sc1')).not.toBe(await toneOf('9C/Sc1'));
 	});
 });
