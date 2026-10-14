@@ -81,8 +81,6 @@ export interface ClassLane {
 	classLabel: string;
 	courseId: string;
 	tone: number;
-	taught: number;
-	total: number;
 	lastTaught: {
 		date: string;
 		period: number;
@@ -91,13 +89,11 @@ export interface ClassLane {
 		note: string | null;
 	} | null;
 	nextUp: { title: string; topicName: string | null } | null;
-	unplacedCount: number;
 	runway: Runway;
 }
 
-// One lane per Class (issue #37): how far it has got through its Sequence — never its
-// Course (ADR-0010) — what was last taught and its Teaching note, what is queued next, and the
-// Runway. Reuses classSchedule's single derived answer per Class; there is no separate
+// One lane per Class (issue #37): what was last taught and its Teaching note, what is queued
+// next, and the Runway. Reuses classSchedule's single derived answer per Class; there is no separate
 // Classes-view computation. `classId` restricts to one Class, for the lane atop its own Class page.
 export function classLanes(
 	db: Db,
@@ -131,8 +127,6 @@ export function classLanes(
 			classLabel: cls.label,
 			courseId: cls.courseId,
 			tone: cls.tone,
-			taught: result.history.length,
-			total: result.history.length + result.scheduled.length + result.unplaced.length,
 			lastTaught:
 				lastEntry && lastName
 					? {
@@ -143,7 +137,6 @@ export function classLanes(
 						}
 					: null,
 			nextUp: (nextEntry && names.get(nextEntry.lessonId)) ?? null,
-			unplacedCount: result.unplaced.length,
 			runway: result.runway
 		};
 	});

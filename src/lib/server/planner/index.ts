@@ -117,6 +117,7 @@ export {
 	importTopic,
 	renameCourse,
 	renameTopic,
+	moveTopicToCourse,
 	setReadiness,
 	tagsByLesson,
 	tagsOf,

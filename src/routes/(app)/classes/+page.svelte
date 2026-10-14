@@ -2,7 +2,6 @@
 	import { resolve } from '$app/paths';
 	import { classTone } from '$lib/class-tone';
 	import { formatDateShort } from '$lib/date';
-	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -45,7 +44,6 @@
 		<ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 			{#each data.lanes as lane (lane.classId)}
 				{@const tone = classTone(lane.tone)}
-				{@const pct = lane.total ? Math.round((lane.taught / lane.total) * 100) : 0}
 				<!-- The tile body is one link to the Class page, as on Courses (story 107). -->
 				<li class="flex flex-col overflow-hidden rounded-xl border bg-card">
 					<a
@@ -67,18 +65,6 @@
 							</span>
 						</span>
 
-						<span
-							class="h-1 overflow-hidden rounded-full bg-muted"
-							role="progressbar"
-							aria-valuenow={pct}
-							aria-valuemin={0}
-							aria-valuemax={100}
-							aria-label={`${lane.classLabel}: ${lane.taught} of ${lane.total} Lessons taught`}
-						>
-							<span class="block h-full" style:width="{pct}%" style:background-color={tone.ring}
-							></span>
-						</span>
-
 						<dl class="mt-auto space-y-1 text-xs">
 							<!-- The Topic sits above the Lesson because the Lesson is inside it: the tile reads
 						     "you are in Electricity, and the next one is Resistance". -->
@@ -92,23 +78,20 @@
 							</div>
 							<div class="flex gap-1.5">
 								<dt class="shrink-0 text-muted-foreground">Runway</dt>
-								<dd class="min-w-0 tabular-nums">
-									{lane.runway.date ? formatDateShort(lane.runway.date) : 'open-ended'}
-								</dd>
+								{#if lane.runway.lessonsRemaining > 0}
+									<dd class="min-w-0 text-destructive">
+										{lane.runway.lessonsRemaining} Lesson{lane.runway.lessonsRemaining === 1
+											? ''
+											: 's'} past the end of the year
+									</dd>
+								{:else}
+									<dd class="min-w-0 tabular-nums">
+										{lane.runway.date ? formatDateShort(lane.runway.date) : 'open-ended'}
+									</dd>
+								{/if}
 							</div>
 						</dl>
 					</a>
-
-					<div class="flex items-center gap-1 border-t px-2 py-1.5">
-						<Button
-							variant="ghost"
-							size="sm"
-							class="ml-auto shrink-0 px-2 text-xs"
-							href={resolve(`/classes/${lane.classId}`)}
-						>
-							Open Class<ChevronRightIcon />
-						</Button>
-					</div>
 				</li>
 			{/each}
 
