@@ -5,12 +5,15 @@
 	import GripVerticalIcon from '@lucide/svelte/icons/grip-vertical';
 	import LockIcon from '@lucide/svelte/icons/lock';
 	import PlusIcon from '@lucide/svelte/icons/plus';
-	import { onFail, submitWithValue } from '$lib/client/enhance';
+	import XIcon from '@lucide/svelte/icons/x';
+	import { failureReason, onFail, submitWithValue } from '$lib/client/enhance';
 	import { movedOrder } from '$lib/sequence-order';
 	import { formatDateShort } from '$lib/date';
 	import Markdown from '$lib/components/markdown.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
+	import { toast } from 'svelte-sonner';
 	import { topicColour } from '$lib/topic-colour';
 	import type { DateChange, SequenceEntry, SkipReason, TopicOption } from '$lib/server/planner';
 
@@ -22,7 +25,8 @@
 		entries,
 		topics,
 		result,
-		moved
+		moved,
+		removed
 	}: {
 		classId: string;
 		entries: SequenceEntry[];
@@ -34,9 +38,12 @@
 		} | null;
 		// The last Move: the Lessons moved, and each Lesson that got a new first Slot.
 		moved: { lessonIds: string[]; changed: DateChange[]; lessonsChanged: number } | null;
+		removed: { count: number; changed: number } | null;
 	} = $props();
 
 	let assignForm = $state<HTMLFormElement | undefined>();
+	// The Lesson that × asks about. The dialog stays until the write is done or Ed cancels.
+	let removing = $state<SequenceEntry | null>(null);
 	let moveForm = $state<HTMLFormElement | undefined>();
 
 	// A drag starts at a grip and uses pointer events, so one path serves a mouse and a finger. The
@@ -103,6 +110,16 @@
 		if (!dropped || !moveForm) return;
 		(moveForm.elements.namedItem('lessonIds') as HTMLInputElement).value = lessonIds.join(',');
 		submitWithValue(moveForm, 'targetId', target);
+	}
+
+	// What a removal costs: the Teaching note and Ready mark of this Class and Lesson go with it.
+	function losses(entry: SequenceEntry): string {
+		const lost = [entry.note ? 'Teaching note' : null, entry.ready ? 'Ready mark' : null].filter(
+			(item) => item !== null
+		);
+		return lost.length
+			? `The ${lost.join(' and the ')} of this Lesson in this Class will be lost.`
+			: 'No notes or Ready marks will be lost.';
 	}
 
 	const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -187,6 +204,15 @@
 		</p>
 	{/if}
 
+	{#if removed}
+		<p class="mt-2 text-xs text-muted-foreground" role="status" data-remove-result>
+			Removed {plural(removed.count, 'Lesson')}.
+			{removed.changed === 0
+				? 'No Lessons change date.'
+				: `${plural(removed.changed, 'Lesson')} ${removed.changed === 1 ? 'changes' : 'change'} date.`}
+		</p>
+	{/if}
+
 	<ol class="mt-3 divide-y rounded-xl border" data-sequence>
 		{#each entries as entry (entry.lessonId)}
 			<li
@@ -259,6 +285,16 @@
 						<Markdown source={entry.note} class="line-clamp-2 text-xs text-muted-foreground" />
 					{/if}
 				</a>
+				{#if !entry.fixed}
+					<button
+						type="button"
+						class="flex items-center px-3 text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+						aria-label={`Remove ${entry.title}`}
+						onclick={() => (removing = entry)}
+					>
+						<XIcon class="size-4" aria-hidden="true" />
+					</button>
+				{/if}
 			</li>
 		{:else}
 			<li class="px-3 py-4 text-sm text-muted-foreground">
@@ -277,3 +313,45 @@
 		{dragIds.length > 1 ? `${dragIds.length} Lessons, from “${dragged.title}”` : dragged.title}
 	</div>
 {/if}
+
+<Dialog.Root
+	open={removing !== null}
+	onOpenChange={(open) => {
+		if (!open) removing = null;
+	}}
+>
+	<Dialog.Content class="sm:max-w-md">
+		{#if removing}
+			<Dialog.Header>
+				<Dialog.Title>Remove “{removing.title}” from this Class?</Dialog.Title>
+				<Dialog.Description>
+					{losses(removing)}
+					{#if removing.onlyHere}
+						“{removing.title}” is in no other Class. After you remove it, you cannot add it to a
+						Class again.
+					{/if}
+				</Dialog.Description>
+			</Dialog.Header>
+			<Dialog.Footer>
+				<Button variant="outline" size="sm" class="h-7" onclick={() => (removing = null)}>
+					Cancel
+				</Button>
+				<form
+					method="POST"
+					action="?/removeLessons"
+					use:enhance={() =>
+						async ({ result, update }) => {
+							removing = null;
+							if (result.type === 'failure')
+								toast.error(failureReason(result, 'Could not remove.'));
+							else await update({ invalidateAll: true });
+						}}
+				>
+					<input type="hidden" name="classId" value={classId} />
+					<input type="hidden" name="lessonId" value={removing.lessonId} />
+					<Button type="submit" variant="destructive" size="sm" class="h-7">Remove</Button>
+				</form>
+			</Dialog.Footer>
+		{/if}
+	</Dialog.Content>
+</Dialog.Root>

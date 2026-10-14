@@ -135,6 +135,7 @@
 				topics={data.sequence.topics}
 				result={form?.assigned ?? null}
 				moved={form?.moved ?? null}
+				removed={form?.removed ?? null}
 			/>
 		</div>
 	{/if}

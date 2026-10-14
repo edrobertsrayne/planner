@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { expectToast, resetTo } from './helpers.ts';
+import { resetTo } from './helpers.ts';
 import {
 	BEARER,
 	FIXTURE_CLASS_LABEL,
@@ -52,21 +52,13 @@ test.describe.serial('a Teaching note and the Sequence after a Lesson write', ()
 		await expect(page.getByRole('button', { name: 'Back' })).toBeVisible();
 	}
 
-	// The Lesson editor of a Lesson in the Class's Sequence, reached from its Sequence tab.
-	async function openLessonFromSequence(title: string) {
+	// × on a card of the Sequence tab takes the Lesson out of this Class and keeps the Lesson.
+	async function removeFromSequence(title: string) {
 		await openFixtureClass();
 		await page.getByRole('tab', { name: /^Sequence/ }).click();
-		await page.getByRole('link', { name: new RegExp(title) }).click();
-		await expect(page).toHaveURL(/\/lessons\//);
-	}
-
-	// A Lesson that a Sequence holds asks first, and the question names the Class.
-	async function deleteLessonInSequence() {
-		await page.getByRole('button', { name: 'Delete Lesson' }).click();
-		const dialog = page.getByRole('dialog');
-		await expect(dialog).toContainText(`Sequence of ${FIXTURE_CLASS_LABEL}`);
-		await dialog.getByRole('button', { name: 'Delete', exact: true }).click();
-		await expectToast(page, 'Lesson deleted.');
+		await page.getByRole('button', { name: `Remove ${title}` }).click();
+		await page.getByRole('dialog').getByRole('button', { name: 'Remove', exact: true }).click();
+		await expect(page.locator('[data-remove-result]')).toContainText('Removed 1 Lesson.');
 	}
 
 	test.beforeAll(async ({ browser }) => {
@@ -107,12 +99,9 @@ test.describe.serial('a Teaching note and the Sequence after a Lesson write', ()
 	});
 
 	test.afterAll(async () => {
-		// A Lesson in the Class's Sequence asks first when it is deleted. It takes its entry and
-		// its Teaching note with it, and the Class has no Sequence again.
-		for (const title of ['A one', 'B one', 'B two']) {
-			await openLessonFromSequence(title);
-			await deleteLessonInSequence();
-		}
+		// Remove takes each Lesson out of the Class's Sequence, with its Teaching note, and keeps
+		// the Lesson. The Class has no Sequence again, and the Lessons then delete without a confirm.
+		for (const title of ['A one', 'B one', 'B two']) await removeFromSequence(title);
 
 		for (const id of topicIds) {
 			const lessons = await (

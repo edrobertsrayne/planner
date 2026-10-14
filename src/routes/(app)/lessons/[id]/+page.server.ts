@@ -10,6 +10,7 @@ import {
 	classesTaughtLesson,
 	lessonDetail,
 	lessonsOf,
+	listCourses,
 	listTagNames,
 	sequenceLessonIds,
 	topicsOf
@@ -48,6 +49,10 @@ export const load: PageServerLoad = ({ params, url }) => {
 		// steps nowhere.
 		siblingIds: inSequence ? sequence : topic ? lessonsOf(db, topic.id).map((l) => l.id) : [],
 		topics: course ? topicsOf(db, course.id) : [],
+		// For a Standalone Lesson's Topic picker: every Topic, grouped by Course.
+		topicChoices: topic
+			? []
+			: listCourses(db).map((c) => ({ id: c.id, course: c.name, topics: topicsOf(db, c.id) })),
 		tags: attachedTags(db, lesson.id),
 		existingTagNames: listTagNames(db),
 		attachments: attachmentsOf(db, lesson.id),

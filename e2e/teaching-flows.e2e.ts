@@ -162,6 +162,35 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expect(page.getByRole('button', { name: 'Next Lesson' })).toBeDisabled();
 	});
 
+	test('× removes a Lesson from one Class after a confirm, and Assign Topic brings it back', async () => {
+		await page.goto(`/classes/${classBId}`);
+		await page.getByRole('tab', { name: 'Sequence' }).click();
+		const entries = page.locator('[data-sequence] > li');
+		await expect(entries).toHaveCount(2);
+
+		// The confirm says what is lost; Cancel removes nothing.
+		await page.getByRole('button', { name: 'Remove Motion' }).click();
+		const dialog = page.getByRole('dialog');
+		await expect(dialog).toContainText('No notes or Ready marks will be lost.');
+		await dialog.getByRole('button', { name: 'Cancel' }).click();
+		await expect(entries).toHaveCount(2);
+
+		await page.getByRole('button', { name: 'Remove Motion' }).click();
+		await page.getByRole('dialog').getByRole('button', { name: 'Remove', exact: true }).click();
+		await expect(entries).toHaveCount(1);
+		await expect(entries.first()).toContainText('Speed');
+		await expect(page.locator('[data-remove-result]')).toContainText('Removed 1 Lesson.');
+		await expect(page.locator('[data-remove-result]')).toContainText('Lessons change date');
+		await expect(page.getByRole('tab', { name: 'Sequence 1' })).toBeVisible();
+
+		// The Lesson stays in the Course, so Assign Topic adds it back at the end.
+		await page.getByRole('button', { name: 'Assign Topic' }).click();
+		await page.getByRole('menuitem', { name: /^Forces/ }).click();
+		await expect(page.getByText('Added 1 Lesson from Forces.')).toBeVisible();
+		await expect(entries).toHaveCount(2);
+		await expect(entries.nth(1)).toContainText('Motion');
+	});
+
 	test('a note typed and then dismissed is present on reopen', async () => {
 		await page.goto('/');
 		const note = `Went well — ${Date.now()}`;
