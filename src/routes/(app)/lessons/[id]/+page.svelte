@@ -295,6 +295,37 @@
 								</form>
 							{/if}
 
+							{#if !data.topic && data.topicChoices.some((g) => g.topics.length)}
+								<label for="lesson-topic" class="text-muted-foreground">Topic</label>
+								<form
+									method="POST"
+									action="?/moveLessonToTopic"
+									use:enhance={() => {
+										return async ({ update }) => update({ reset: false });
+									}}
+								>
+									<input type="hidden" name="id" value={lesson.id} />
+									<select
+										id="lesson-topic"
+										name="topicId"
+										value=""
+										class="w-full rounded-md border border-input bg-background px-2 py-1 text-sm pointer-coarse:min-h-11"
+										onchange={(e) => e.currentTarget.form?.requestSubmit()}
+									>
+										<option value="" disabled>Choose a Topic…</option>
+										{#each data.topicChoices as group (group.id)}
+											{#if group.topics.length}
+												<optgroup label={group.course}>
+													{#each group.topics as t (t.id)}
+														<option value={t.id}>{t.name}</option>
+													{/each}
+												</optgroup>
+											{/if}
+										{/each}
+									</select>
+								</form>
+							{/if}
+
 							{#if data.taughtBy.length}
 								<span class="text-muted-foreground">Taught by</span>
 								<span class="text-xs">{data.taughtBy.map((c) => c.label).join(', ')}</span>

@@ -71,6 +71,50 @@ test.describe('the Course and Topic editors', () => {
 		await expect(page.getByRole('dialog')).toHaveCount(0);
 	});
 
+	test('Move to… files a Topic in another Course and refuses a name clash', async ({ page }) => {
+		await login(page, '/courses');
+		const courseBox = page.getByPlaceholder('New Course name — press Enter');
+		await courseBox.fill('Move target');
+		await courseBox.press('Enter');
+		await expect(page.getByRole('link', { name: 'Move target' })).toBeVisible();
+
+		await openCourse(page);
+		const topicBox = page.getByPlaceholder('New Topic name — press Enter');
+		await topicBox.fill('Mover');
+		await topicBox.press('Enter');
+		const link = page.getByRole('link', { name: 'Mover', exact: true });
+		await expect(link).toBeVisible();
+
+		await page.getByRole('button', { name: 'Move to…' }).click();
+		await page.getByRole('menuitem', { name: 'Move target' }).click();
+		await expect(link).toHaveCount(0);
+
+		await page.goto('/courses');
+		await page.getByRole('link', { name: 'Move target' }).click();
+		await expect(page.getByRole('link', { name: 'Mover', exact: true })).toBeVisible();
+
+		// A second Topic of the same name in KS3 Science cannot move into Move target.
+		await openCourse(page);
+		await topicBox.fill('Mover');
+		await topicBox.press('Enter');
+		await expect(link).toBeVisible();
+		await page.getByRole('button', { name: 'Move to…' }).click();
+		await page.getByRole('menuitem', { name: 'Move target' }).click();
+		await expect(page.getByRole('alert')).toContainText(
+			'The Course "Move target" already holds a Topic called "Mover".'
+		);
+
+		// Leave nothing behind: both Topics are empty, so each goes at once.
+		await page.getByRole('button', { name: 'Topic actions' }).click();
+		await page.getByRole('menuitem', { name: 'Delete Topic' }).click();
+		await expect(link).toHaveCount(0);
+		await page.goto('/courses');
+		await page.getByRole('link', { name: 'Move target' }).click();
+		await page.getByRole('button', { name: 'Course actions' }).click();
+		await page.getByRole('menuitem', { name: 'Delete Course' }).click();
+		await expect(page).toHaveURL(/\/courses$/);
+	});
+
 	test('Delete Course asks before it deletes, and a Course with Classes refuses', async ({
 		page
 	}) => {
@@ -307,6 +351,11 @@ test.describe('Detach on the Lesson editor', () => {
 		await expect(page.getByText('Standalone Lesson', { exact: true })).toBeVisible();
 		await expect(page.getByLabel('Topic', { exact: true })).toHaveCount(0);
 		await expect(page.getByRole('button', { name: 'Detach from Topic' })).toHaveCount(0);
+
+		// A Standalone Lesson takes a Topic from a picker that lists every Topic, grouped by Course.
+		await page.getByLabel('Topic', { exact: true }).selectOption({ label: 'Forces' });
+		await expect(page.getByRole('button', { name: 'Detach from Topic' })).toBeVisible();
+		await expect(page.getByText('Standalone Lesson', { exact: true })).toHaveCount(0);
 
 		// Leave nothing behind for the tests that follow. It was opened from the Courses screen,
 		// so Back after the delete returns there.
