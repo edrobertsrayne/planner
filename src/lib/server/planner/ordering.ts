@@ -1,5 +1,5 @@
-// Explicit ordering, shared by the four things that carry a `position`: a Class's Assigned
-// Topics, a Topic's Lessons, a Lesson's Links, and a Lesson moved between Topics. Pure — the
+// Explicit ordering, shared by the four things that carry a `position`: a Class's
+// Sequence, a Topic's Lessons, a Lesson's Links, and a Lesson moved between Topics. Pure — the
 // caller owns the query and the update, so which table is being ordered stays visible at the
 // call site; only the arithmetic lives here.
 

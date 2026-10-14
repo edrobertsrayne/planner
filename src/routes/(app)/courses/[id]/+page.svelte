@@ -16,6 +16,7 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { touchTarget } from '$lib/components/ui/touch-target.js';
+	import { tick } from 'svelte';
 	import { MediaQuery } from 'svelte/reactivity';
 	import ConfirmDeleteDialog from './ConfirmDeleteDialog.svelte';
 	import type { PageProps } from './$types';
@@ -40,9 +41,32 @@
 	// From `md` up the plan is written; below it, it is read: no rename, menu, reorder or create box.
 	const wide = new MediaQuery('min-width: 768px', true);
 
-	// A delete always asks first. The dialog's form carries `confirmed`, so nothing is removed
-	// before it is answered.
-	let pendingDelete = $state<{ kind: 'course' | 'topic'; id: string; name: string } | null>(null);
+	// A delete that would detach Lessons asks first. The dialog's form carries `confirmed`, so
+	// nothing is removed before it is answered. An empty Topic or Course goes at once.
+	let pendingDelete = $state<{
+		kind: 'course' | 'topic';
+		id: string;
+		name: string;
+		description: string;
+	} | null>(null);
+	let quickDelete = $state<{ action: string; id: string }>({ action: '?/deleteTopic', id: '' });
+	let quickForm = $state<HTMLFormElement>();
+
+	async function askDelete(
+		target: NonNullable<typeof pendingDelete>,
+		empty: boolean
+	): Promise<void> {
+		if (!empty) {
+			pendingDelete = target;
+			return;
+		}
+		quickDelete = {
+			action: target.kind === 'topic' ? '?/deleteTopic' : '?/deleteCourse',
+			id: target.id
+		};
+		await tick();
+		quickForm?.requestSubmit();
+	}
 </script>
 
 <svelte:head><title>{data.course.name}</title></svelte:head>
@@ -105,7 +129,16 @@
 		{#if wide.current}
 			{@render menu(
 				'Course actions',
-				() => (pendingDelete = { kind: 'course', id: data.course.id, name: data.course.name }),
+				() =>
+					askDelete(
+						{
+							kind: 'course',
+							id: data.course.id,
+							name: data.course.name,
+							description: `Its ${plural(data.topics.length, 'Topic')} go. Its ${plural(data.lessonTotal, 'Lesson')} become Standalone Lessons.`
+						},
+						data.topics.length === 0
+					),
 				'Delete Course'
 			)}
 		{/if}
@@ -201,13 +234,22 @@
 								{plural(data.lessons.length, 'Lesson')}
 							</p>
 							<p class="mt-1 text-[11px] text-muted-foreground">
-								Changes move dates for every Class teaching this Topic
+								Assign Topic adds these Lessons to a Class in this order
 							</p>
 						</div>
 						{#if wide.current}
 							{@render menu(
 								'Topic actions',
-								() => (pendingDelete = { kind: 'topic', id: shown.id, name: shown.name }),
+								() =>
+									askDelete(
+										{
+											kind: 'topic',
+											id: shown.id,
+											name: shown.name,
+											description: `Its ${plural(data.lessons.length, 'Lesson')} become Standalone Lessons. Every Class keeps them in its Sequence.`
+										},
+										data.lessons.length === 0
+									),
 								'Delete Topic'
 							)}
 						{/if}
@@ -282,7 +324,8 @@
 <ConfirmDeleteDialog
 	bind:target={pendingDelete}
 	action={pendingDelete?.kind === 'topic' ? '?/deleteTopic' : '?/deleteCourse'}
-	description={pendingDelete?.kind === 'topic'
-		? 'Deleting it removes the Lessons it holds.'
-		: 'Deleting it removes its Topics and their Lessons.'}
 />
+
+<form method="POST" action={quickDelete.action} use:enhance bind:this={quickForm} hidden>
+	<input type="hidden" name="id" value={quickDelete.id} />
+</form>

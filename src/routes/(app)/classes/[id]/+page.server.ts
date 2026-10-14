@@ -5,7 +5,6 @@ import { refusal, trimmed } from '$lib/server/form';
 import {
 	academicYearStart,
 	activeSlots,
-	assignedTopicsOf,
 	assignTopic,
 	classDetail,
 	classLanes,
@@ -13,14 +12,12 @@ import {
 	datedSlotsOf,
 	holderAt,
 	listClasses,
-	moveAssignedTopic,
 	takeSlot,
 	clearSlot,
 	renameClass,
 	reportOf,
 	setSlotRoom,
-	topicsOf,
-	unassignTopic
+	sequenceView
 } from '$lib/server/planner';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -46,8 +43,7 @@ export const load: PageServerLoad = ({ params, url }) => {
 		on,
 		grid: activeSlots(db, on),
 		datedSlots: datedSlotsOf(db, selected.id),
-		assignedTopics: assignedTopicsOf(db, selected.id),
-		courseTopics: topicsOf(db, selected.courseId),
+		sequence: sequenceView(db, { classId: selected.id, today: today() }),
 		// Labels the grid needs for a Slot held by another Class — the grid itself carries only
 		// classId (activeSlots' shape is unchanged), so the label is looked up here.
 		classes: listClasses(db)
@@ -100,8 +96,18 @@ export const actions: Actions = {
 		const topicId = trimmed(data, 'topicId');
 		if (!topicId) return fail(400, { error: 'Pick a Topic to assign.' });
 		try {
-			const report = assignTopic(db, { classId, topicId, today: today() });
-			return { report };
+			const result = assignTopic(db, { classId, topicId, today: today() });
+			const topicName = sequenceView(db, { classId, today: today() })?.topics.find(
+				(topic) => topic.id === topicId
+			)?.name;
+			return {
+				report: reportOf(result),
+				assigned: {
+					topicName: topicName ?? '',
+					added: result.added.length,
+					skipped: result.skipped.map(({ title, reason }) => ({ title, reason }))
+				}
+			};
 		} catch (error) {
 			return refusal(error);
 		}
@@ -112,27 +118,5 @@ export const actions: Actions = {
 		const slot = setSlotRoom(db, { id: trimmed(data, 'id'), room: String(data.get('room') ?? '') });
 		if (!slot) return fail(404, { error: 'No such Slot.' });
 		return { slot };
-	},
-
-	unassignTopic: async ({ request }) => {
-		const data = await request.formData();
-		const classId = trimmed(data, 'classId');
-		const id = trimmed(data, 'id');
-		try {
-			const report = unassignTopic(db, { classId, id, today: today() });
-			return { report };
-		} catch (error) {
-			return refusal(error);
-		}
-	},
-
-	moveAssignedTopic: async ({ request }) => {
-		const data = await request.formData();
-		const classId = trimmed(data, 'classId');
-		const id = trimmed(data, 'id');
-		const direction = trimmed(data, 'direction');
-		if (direction !== 'up' && direction !== 'down') return fail(400, { error: 'Bad direction.' });
-		const report = moveAssignedTopic(db, { classId, id, direction, today: today() });
-		return { report };
 	}
 };

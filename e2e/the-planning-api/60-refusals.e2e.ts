@@ -10,10 +10,10 @@ import {
 import { resetTo, runFixture } from '../helpers.ts';
 
 // Covers the refusals that protect the record over real HTTP (issue #159): the deletes that
-// answer 409 because a Course still holds Topics, a Topic still holds Lessons or is assigned to
-// a Class, or a Class follows the Course — and the clean deletes that answer 204. Spans three
-// resources, so it has a file of its own, and creates the records it refuses to delete. The one
-// Topic it needs assigned to a Class is assigned here, by fixture: the API cannot make that
+// answer 409 because a Course still holds Topics, a Topic still holds Lessons, a Class's Sequence
+// holds a Lesson, or a Class follows the Course — and the clean deletes that answer 204. Spans
+// three resources, so it has a file of its own, and creates the records it refuses to delete.
+// The Lesson it needs in a Sequence is assigned here, by fixture: the API cannot make that
 // assignment itself.
 
 test.beforeAll(() => resetTo('standard'));
@@ -25,7 +25,7 @@ test.describe.serial('the refusals that protect the record', () => {
 	let courseId = '';
 	let emptyCourseId = '';
 	let ks3CourseId = '';
-	let assignedTopicId = '';
+	let sequencedLessonId = '';
 
 	let topicOneId = '';
 	let lessonCId = '';
@@ -50,16 +50,21 @@ test.describe.serial('the refusals that protect the record', () => {
 			title: 'API Lesson C'
 		});
 
-		// A Topic in the fixture Course, assigned to the fixture Class — the fixture writes the
-		// row the delete refusal needs.
-		const assigned = await (
-			await page.request.post(`/api/courses/${ks3CourseId}/topics`, {
-				headers: BEARER(token),
-				data: { name: 'API Assigned Topic' }
-			})
-		).json();
-		assignedTopicId = assigned.id;
-		runFixture('assign-topic', FIXTURE_CLASS_LABEL, assignedTopicId);
+		// A Topic in the fixture Course with one Lesson, assigned to the fixture Class — the fixture
+		// writes the Sequence entry the delete refusal needs.
+		const sequencedTopicId = await createdId(
+			page.request,
+			token,
+			`/api/courses/${ks3CourseId}/topics`,
+			{ name: 'API Sequenced Topic' }
+		);
+		sequencedLessonId = await createdId(
+			page.request,
+			token,
+			`/api/topics/${sequencedTopicId}/lessons`,
+			{ title: 'API Sequenced Lesson' }
+		);
+		runFixture('assign-topic', FIXTURE_CLASS_LABEL, sequencedTopicId);
 	});
 
 	test.afterAll(async () => {
@@ -77,13 +82,18 @@ test.describe.serial('the refusals that protect the record', () => {
 			error: 'This Topic still holds Lessons. Remove or detach them first.'
 		});
 
-		const topicAssigned = await request.delete(`/api/topics/${assignedTopicId}`, {
+		// A Lesson that a Class's Sequence holds is refused, naming the Class. The API has no
+		// confirm.
+		const lessonInSequence = await request.delete(`/api/lessons/${sequencedLessonId}`, {
 			headers: BEARER(token)
 		});
-		expect(topicAssigned.status()).toBe(409);
-		expect(await topicAssigned.json()).toEqual({
-			error: 'This Topic is assigned to a Class, so it cannot be removed.'
+		expect(lessonInSequence.status()).toBe(409);
+		expect(await lessonInSequence.json()).toEqual({
+			error: `This Lesson is in the Sequence of ${FIXTURE_CLASS_LABEL}.`
 		});
+		expect(
+			(await request.get(`/api/lessons/${sequencedLessonId}`, { headers: BEARER(token) })).status()
+		).toBe(200);
 
 		const topicMissing = await request.delete('/api/topics/does-not-exist', {
 			headers: BEARER(token)

@@ -1,13 +1,12 @@
-// A Class: its identity, the Topics assigned to it, and how far through them it has got. The
-// Class is what the engine schedules, so assigning or reordering its Topics re-derives it.
-import { and, asc, eq, inArray, lt, sql } from 'drizzle-orm';
+// A Class: its identity, and how far through its Sequence it has got. The Sequence itself is in
+// sequence.ts.
+import { asc, eq } from 'drizzle-orm';
 import { nextTone } from '$lib/class-tone';
 import * as schema from '../db/schema';
-import { lessonNames, rederive, scheduleFor, type Db, type WriteReport } from './derive';
+import { lessonNames, scheduleFor, type Db } from './derive';
 import { runway as deriveRunway, type Runway } from './engine';
-import { nextPosition, swapTargets, type Direction } from './ordering';
-import { Refused } from './refused';
 import { required } from './fields';
+import { teachingNoteOf } from './sequence';
 
 // The Tone is assigned once here, at creation — the next unused position of the fixed walk
 // (ADR-0013) — and never touched again by any other write.
@@ -71,140 +70,6 @@ export function classDetail(db: Db, id: string) {
 	return row ?? null;
 }
 
-// Gives a Class one more of its Course's Topics, at the next position in its order, then
-// re-derives that Class's schedule from today. Assigning October's Topic in October is an
-// ordinary re-run that must not disturb what is already taught (ADR-0007, amended). A Topic
-// outside the Class's Course is an `invalid` — the id the body names is real, but it is not
-// one this Class could ever take.
-export function assignTopic(
-	db: Db,
-	{ classId, topicId, today }: { classId: string; topicId: string; today: string }
-) {
-	const [cls] = db
-		.select({ courseId: schema.classes.courseId })
-		.from(schema.classes)
-		.where(eq(schema.classes.id, classId))
-		.all();
-	const [top] = db
-		.select({ courseId: schema.topic.courseId })
-		.from(schema.topic)
-		.where(eq(schema.topic.id, topicId))
-		.all();
-	if (!cls || !top || cls.courseId !== top.courseId) {
-		throw new Refused('invalid', "This Topic does not belong to the Class's Course.");
-	}
-
-	const position = nextPosition(
-		db
-			.select({ position: schema.assignedTopic.position })
-			.from(schema.assignedTopic)
-			.where(eq(schema.assignedTopic.classId, classId))
-			.all()
-	);
-
-	db.insert(schema.assignedTopic).values({ classId, topicId, position }).run();
-
-	return rederive(db, classId, today);
-}
-
-// A Class's Assigned Topics, in teaching order — the two-column shelf on the Class page.
-export function assignedTopicsOf(db: Db, classId: string) {
-	return db
-		.select({
-			id: schema.assignedTopic.id,
-			position: schema.assignedTopic.position,
-			topicId: schema.topic.id,
-			topicName: schema.topic.name
-		})
-		.from(schema.assignedTopic)
-		.innerJoin(schema.topic, eq(schema.topic.id, schema.assignedTopic.topicId))
-		.where(eq(schema.assignedTopic.classId, classId))
-		.orderBy(asc(schema.assignedTopic.position))
-		.all();
-}
-
-// Whether a Class has already been taught any Lesson of this Topic, before `today` — what stops
-// an Unassign of a Topic the Class has already reached.
-function topicReachedByClass(db: Db, classId: string, topicId: string, today: string): boolean {
-	const [row] = db
-		.select({ id: schema.session.id })
-		.from(schema.session)
-		.innerJoin(schema.lesson, eq(schema.lesson.id, schema.session.lessonId))
-		.where(
-			and(
-				eq(schema.session.classId, classId),
-				sql`${schema.lesson.topicId} = ${topicId}`,
-				lt(schema.session.date, today)
-			)
-		)
-		.all();
-	return row !== undefined;
-}
-
-// Drops a Topic the Class has not yet reached from its Assigned Topics, then re-derives its
-// schedule from today. Refused once any of the Topic's Lessons has already been taught to this
-// Class — the same Sessions-reference-Lessons reasoning as deleteLesson.
-export function unassignTopic(
-	db: Db,
-	{ classId, id, today }: { classId: string; id: string; today: string }
-) {
-	const [row] = db
-		.select()
-		.from(schema.assignedTopic)
-		.where(and(eq(schema.assignedTopic.id, id), eq(schema.assignedTopic.classId, classId)))
-		.all();
-	if (!row) return null;
-
-	if (topicReachedByClass(db, classId, row.topicId!, today)) {
-		throw new Refused('conflict', 'This Topic has already been taught and cannot be unassigned.');
-	}
-
-	const topicLessons = db
-		.select({ id: schema.lesson.id })
-		.from(schema.lesson)
-		.where(eq(schema.lesson.topicId, row.topicId!))
-		.all();
-	const lessonIds = topicLessons.map((l) => l.id);
-	if (lessonIds.length > 0) {
-		db.delete(schema.readiness)
-			.where(
-				and(eq(schema.readiness.classId, classId), inArray(schema.readiness.lessonId, lessonIds))
-			)
-			.run();
-	}
-
-	db.delete(schema.assignedTopic).where(eq(schema.assignedTopic.id, id)).run();
-	return rederive(db, classId, today);
-}
-
-// Swaps position with the previous or next Assigned Topic, and re-derives the Class's schedule.
-// Off either end is a no-op, same as moveLesson — reordering is free (issue #33), but only ever
-// within one Class's own order, never within the Course.
-export function moveAssignedTopic(
-	db: Db,
-	{
-		classId,
-		id,
-		direction,
-		today
-	}: { classId: string; id: string; direction: Direction; today: string }
-): WriteReport {
-	const swap = swapTargets(assignedTopicsOf(db, classId), id, direction);
-	if (!swap) return { atRisk: [], placementsMoved: [] };
-
-	const [a, b] = swap;
-	db.update(schema.assignedTopic)
-		.set({ position: b.position })
-		.where(eq(schema.assignedTopic.id, a.id))
-		.run();
-	db.update(schema.assignedTopic)
-		.set({ position: a.position })
-		.where(eq(schema.assignedTopic.id, b.id))
-		.run();
-
-	return rederive(db, classId, today);
-}
-
 // Read back exactly where a Class has got to. Pure: never writes.
 export function classSchedule(db: Db, { classId, today }: { classId: string; today: string }) {
 	const result = scheduleFor(db, { classId, boundary: today });
@@ -230,25 +95,8 @@ export interface ClassLane {
 	runway: Runway;
 }
 
-// The note Ed wrote against one taught occasion — read per lane rather than in the batch above,
-// since a lane has at most one.
-function noteAt(db: Db, classId: string, date: string, period: number): string | null {
-	const [row] = db
-		.select({ note: schema.session.note })
-		.from(schema.session)
-		.where(
-			and(
-				eq(schema.session.classId, classId),
-				eq(schema.session.date, date),
-				eq(schema.session.period, period)
-			)
-		)
-		.all();
-	return row?.note ?? null;
-}
-
-// One lane per Class (issue #37): how far it has got through its Assigned Topics — never its
-// Course (ADR-0010) — what was last taught and its Session note, what is queued next, and the
+// One lane per Class (issue #37): how far it has got through its Sequence — never its
+// Course (ADR-0010) — what was last taught and its Teaching note, what is queued next, and the
 // Runway. Reuses classSchedule's single derived answer per Class; there is no separate
 // Classes-view computation. `classId` restricts to one Class, for the lane atop its own Class page.
 export function classLanes(
@@ -291,7 +139,7 @@ export function classLanes(
 							date: lastEntry.date,
 							period: lastEntry.period,
 							...lastName,
-							note: noteAt(db, cls.id, lastEntry.date, lastEntry.period)
+							note: teachingNoteOf(db, cls.id, lastEntry.lessonId)
 						}
 					: null,
 			nextUp: (nextEntry && names.get(nextEntry.lessonId)) ?? null,

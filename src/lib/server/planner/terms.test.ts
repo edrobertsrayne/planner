@@ -1,7 +1,15 @@
 import type { Database } from 'bun:sqlite';
 import { describe, expect, test } from 'vitest';
 import { makeLessons, makeTopic, refused, setUp, TERMS } from './fixtures';
-import { assignTopic, replaceTerms, teachingWeeks, writeSessionNote } from './index';
+import {
+	assignTopic,
+	classSchedule,
+	replaceTerms,
+	sessionDetail,
+	teachingNoteOf,
+	teachingWeeks,
+	writeSessionNote
+} from './index';
 import * as schema from '../db/schema';
 
 describe('replacing the Terms', () => {
@@ -22,7 +30,7 @@ describe('replacing the Terms', () => {
 
 		const result = replaceTerms(db, client, { terms: NEW_TERMS, today: '2026-09-03' });
 
-		expect(result.atRisk).toEqual([]);
+		expect(result).toEqual({ placementsMoved: [] });
 
 		// Autumn 1 opening a week earlier adds one Teaching Week before it, so that week and
 		// every week after it re-letter: w/c 31 August becomes Week B.
@@ -116,7 +124,7 @@ describe('replacing the Terms', () => {
 		});
 
 		const report = replaceTerms(db, client, { terms: relaxed, today: '2026-09-03' });
-		expect(report).toEqual({ atRisk: [], placementsMoved: [] });
+		expect(report).toEqual({ placementsMoved: [] });
 	});
 
 	test('a failure part-way throws, leaving the old six in place', () => {
@@ -142,7 +150,7 @@ describe('replacing the Terms', () => {
 		expect(teachingWeeks(db).find((w) => w.weekCommencing === '2026-09-07')?.letter).toBe('B');
 	});
 
-	test('rewinds from the earliest Term opening across the old and the new sets, reporting noted Sessions put at risk', () => {
+	test('rewinds from the earliest Term opening across the old and the new sets, keeping the Teaching note with its Lesson', () => {
 		const { db, client, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		const [lesson] = makeLessons(db, topic.id, 1);
@@ -155,22 +163,24 @@ describe('replacing the Terms', () => {
 		});
 
 		// Two weeks later, the school moves Autumn 1's opening a week earlier. The Rewind
-		// reaches back past today to the earliest opening across the old and the new sets, so
-		// the noted Session is relabelled and reported rather than silently changed.
+		// reaches back past today to the earliest opening across the old and the new sets. The
+		// Lesson may change date, and its note goes with it.
 		const result = replaceTerms(db, client, { terms: NEW_TERMS, today: '2026-09-14' });
 
-		expect(result.atRisk).toEqual([
-			{
-				classId: classA.id,
-				classLabel: classA.label,
-				date: '2026-09-03',
-				period: 5,
-				lessonTitle: lesson.title
-			}
-		]);
+		expect(result).toEqual({ placementsMoved: [] });
+		expect(teachingNoteOf(db, classA.id, lesson.id)).toBe('went badly — redo the practical');
+		const { history, scheduled } = classSchedule(db, { classId: classA.id, today: '2026-09-14' });
+		const taught = [...history, ...scheduled].find((s) => s.lessonId === lesson.id)!;
+		const detail = sessionDetail(db, {
+			classId: classA.id,
+			date: taught.date,
+			period: taught.period,
+			today: '2026-09-14'
+		});
+		expect(detail?.note).toBe('went badly — redo the practical');
 	});
 
-	test('reports nothing at risk when no Session was put at risk', () => {
+	test('answers with the placementsMoved report only', () => {
 		const { db, client, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		makeLessons(db, topic.id, 1);
@@ -178,7 +188,7 @@ describe('replacing the Terms', () => {
 
 		const result = replaceTerms(db, client, { terms: TERMS, today: '2026-09-14' });
 
-		expect(result.atRisk).toEqual([]);
+		expect(result).toEqual({ placementsMoved: [] });
 	});
 
 	test('a Blocked Day stranded outside every Term is not an error and is not reported', () => {
@@ -188,7 +198,7 @@ describe('replacing the Terms', () => {
 		const shrunken = NEW_TERMS.map((t, i) => (i === 3 ? { ...t, closes: '2026-11-25' } : t));
 		const result = replaceTerms(db, client, { terms: shrunken, today: '2026-09-03' });
 
-		expect(result).toEqual({ atRisk: [], placementsMoved: [] });
+		expect(result).toEqual({ placementsMoved: [] });
 		expect(
 			db
 				.select()

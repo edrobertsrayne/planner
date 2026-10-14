@@ -1,23 +1,15 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { classTone } from '$lib/class-tone';
 	import { formatDateShort } from '$lib/date';
-	import { onFail, submitWithValue } from '$lib/client/enhance';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import PlusIcon from '@lucide/svelte/icons/plus';
-	import RewindReport from '$lib/components/rewind-report.svelte';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import { Button } from '$lib/components/ui/button';
-	import * as Select from '$lib/components/ui/select/index.js';
 	import NewClassDialog from './NewClassDialog.svelte';
 	import type { PageProps } from './$types';
 
-	let { data, form }: PageProps = $props();
-
-	// One form per tile, found by its Class — the Select picks the Topic and submits on the pick,
-	// so the trigger stays a plain "Assign next Topic" affordance rather than growing a button.
-	const assignForms: Record<string, HTMLFormElement> = {};
+	let { data }: PageProps = $props();
 
 	const courseName = (courseId: string) => data.courses.find((c) => c.id === courseId)?.name ?? '';
 </script>
@@ -26,8 +18,6 @@
 
 <div class="mx-auto max-w-6xl px-6 py-6">
 	<PageHeader title="Classes" />
-
-	<RewindReport report={form?.report} />
 
 	{#if !data.courses.length}
 		<div class="mt-6 rounded-xl border border-dashed px-6 py-12 text-center">
@@ -110,39 +100,6 @@
 					</a>
 
 					<div class="flex items-center gap-1 border-t px-2 py-1.5">
-						{#if data.courseTopics[lane.courseId]?.length}
-							<form
-								method="POST"
-								action="?/assignTopic"
-								class="min-w-0 flex-1 max-md:hidden"
-								bind:this={assignForms[lane.classId]}
-								use:enhance={onFail('Could not assign the Topic.')}
-							>
-								<input type="hidden" name="classId" value={lane.classId} />
-								<input type="hidden" name="topicId" />
-								<Select.Root
-									type="single"
-									onValueChange={(value) =>
-										submitWithValue(assignForms[lane.classId], 'topicId', value)}
-								>
-									<Select.Trigger
-										size="sm"
-										class="w-full min-w-0 justify-start border-0 bg-transparent px-2 text-xs text-muted-foreground"
-									>
-										Assign next Topic
-									</Select.Trigger>
-									<Select.Content>
-										{#each data.courseTopics[lane.courseId] as topic (topic.id)}
-											<Select.Item value={topic.id} label={topic.name} />
-										{/each}
-									</Select.Content>
-								</Select.Root>
-							</form>
-						{:else}
-							<span class="min-w-0 flex-1 px-2 text-xs text-muted-foreground/60 max-md:hidden">
-								No Topics to assign
-							</span>
-						{/if}
 						<Button
 							variant="ghost"
 							size="sm"

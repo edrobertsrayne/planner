@@ -3,7 +3,7 @@
 // language, everything the app outside `server/planner` may do — and nothing else. The
 // re-derivation core stays unexported on purpose, because there is no separate "recompute"
 // action anywhere, ever: every write that changes a scheduling input re-runs the engine for the
-// affected Class(es) on the same call and answers with its Rewind report (`WriteReport`).
+// affected Class(es) on the same call and answers with its report (`WriteReport`).
 //
 // The modules behind it, in dependency order:
 //
@@ -11,8 +11,9 @@
 //   derive.ts       feeding the engine from the database and persisting its answer
 //   ordering.ts     the `position` arithmetic the four ordered things share
 //   timetable.ts    Slots: which Class holds which Period, over which dates
-//   classes.ts      a Class, its Assigned Topics, and how far through them it has got
+//   classes.ts      a Class, and how far through its Sequence it has got
 //   disruptions.ts  Blocked Days and Blocked Slots
+//   sequence.ts     a Class's Sequence: its Lessons in its own order, and its Teaching notes
 //   placement.ts    Placement: a Standalone Lesson put directly onto a Class, no Topic behind it
 //   terms.ts        the six Terms, replaced as one document — the Week letter derives from them
 //   sessions.ts     one occasion: its detail, its note, its Continuation
@@ -21,7 +22,7 @@
 //   attachments.ts  files a Lesson holds: the directory, the allow-list, the create
 //   refused.ts      the one refusal every write leaves by, and the kind→status table
 
-export type { AtRiskSession, LessonName, PlacementMoved, WriteReport } from './derive';
+export type { LessonName, PlacementMoved, WriteReport } from './derive';
 
 export { defaultWeek, reportOf, teachingWeeks } from './derive';
 
@@ -40,18 +41,24 @@ export {
 } from './timetable';
 
 export {
-	assignedTopicsOf,
-	assignTopic,
 	classDetail,
 	classLanes,
 	classSchedule,
 	createClass,
 	listClasses,
-	moveAssignedTopic,
 	renameClass,
-	unassignTopic,
 	type ClassLane
 } from './classes';
+
+export {
+	assignTopic,
+	fixedLessonIds,
+	sequenceView,
+	teachingNoteOf,
+	type SequenceEntry,
+	type SkipReason,
+	type TopicOption
+} from './sequence';
 
 export { blockDay, blockSlot, unblockDay, unblockSlot } from './disruptions';
 

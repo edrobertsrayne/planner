@@ -295,38 +295,41 @@
 		{/if}
 
 		<div class="flex min-w-0 flex-col gap-5 lg:order-2 {started ? 'order-1' : 'order-2'}">
-			<section data-note>
-				<div class="mb-1.5 flex items-baseline justify-between gap-2">
-					<span class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-						How it went
-					</span>
-					{#if detail.placement}
-						<Button
-							variant="ghost"
-							size="sm"
-							class="h-6 px-2 text-xs text-destructive"
-							disabled={removingPlacement}
-							onclick={removePlacementNow}
-						>
-							{removingPlacement ? 'Removing…' : 'Remove placement'}
-						</Button>
-					{:else}
-						<span class="text-xs text-muted-foreground">stays with the occasion</span>
+			<!-- An Open Slot has no Lesson, so it has no note (ADR-0026). -->
+			{#if detail.lesson}
+				<section data-note>
+					<div class="mb-1.5 flex items-baseline justify-between gap-2">
+						<span class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+							How it went
+						</span>
+						{#if detail.placement}
+							<Button
+								variant="ghost"
+								size="sm"
+								class="h-6 px-2 text-xs text-destructive"
+								disabled={removingPlacement}
+								onclick={removePlacementNow}
+							>
+								{removingPlacement ? 'Removing…' : 'Remove placement'}
+							</Button>
+						{:else}
+							<span class="text-xs text-muted-foreground">stays with the Lesson</span>
+						{/if}
+					</div>
+					{#if removeError}
+						<p class="mb-1.5 text-xs text-destructive">{removeError}</p>
 					{/if}
-				</div>
-				{#if removeError}
-					<p class="mb-1.5 text-xs text-destructive">{removeError}</p>
-				{/if}
-				<MarkdownEditor
-					value={note}
-					label="How it went"
-					placeholder="Notes on this Session…"
-					onchange={(markdown) => {
-						note = markdown;
-						notes.edit(occasion, markdown);
-					}}
-				/>
-			</section>
+					<MarkdownEditor
+						value={note}
+						label="How it went"
+						placeholder="Notes on this Session…"
+						onchange={(markdown) => {
+							note = markdown;
+							notes.edit(occasion, markdown);
+						}}
+					/>
+				</section>
+			{/if}
 
 			{#if detail.lesson && started}
 				<div>

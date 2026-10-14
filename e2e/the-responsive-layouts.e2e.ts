@@ -826,7 +826,7 @@ test.describe('the Class chip row on a phone', () => {
 test.describe('the Classes screen on a laptop', () => {
 	test.use({ viewport: { width: 1280, height: 720 } });
 
-	test('a tile opens its Class page from its body, and the footer holds its two controls (stories 107–108)', async ({
+	test('a tile opens its Class page from its body, and the footer holds Open Class (stories 107–108)', async ({
 		page
 	}) => {
 		await login(page, '/classes');
@@ -835,7 +835,6 @@ test.describe('the Classes screen on a laptop', () => {
 		await expect(tile).toContainText('KS3 Science');
 		await expect(tile).toContainText('Runway');
 		// The footer sits beside the body link, not inside it: only the body opens the page.
-		await expect(item.getByRole('button', { name: 'Assign next Topic' })).toBeVisible();
 		await expect(item.getByRole('link', { name: 'Open Class' })).toBeVisible();
 		await tile.click();
 		await expect(page).toHaveURL(/\/classes\/[^/?]+$/);
@@ -864,13 +863,10 @@ test.describe('the Classes screen on a phone writes nothing', () => {
 	const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];
 	test.use({ viewport, userAgent, deviceScaleFactor, isMobile, hasTouch });
 
-	test('no New Class tile and no Assign next Topic; Open Class has a 44 px box (story 109)', async ({
-		page
-	}) => {
+	test('no New Class tile; Open Class has a 44 px box (story 109)', async ({ page }) => {
 		await login(page, '/classes');
 		await expect(page.getByRole('link', { name: /9B\/Sc1/ })).toBeVisible();
 		await expect(page.getByRole('button', { name: 'New Class' })).toBeHidden();
-		await expect(page.getByRole('button', { name: 'Assign next Topic' })).toBeHidden();
 		await expectHitArea44(page, 'Open Class', 'link');
 		await expectNoHorizontalScroll(page);
 	});
@@ -900,10 +896,11 @@ test.describe('the Class page on a laptop', () => {
 			'aria-selected',
 			'true'
 		);
-		// Overview first: the Assigned Topics stand beside the progress card, the Timetable
-		// not yet.
-		await expect(page.getByRole('heading', { name: 'Assigned Topics' })).toBeVisible();
+		// Overview first, with the Sequence tab after the Timetable tab; neither shows yet.
+		await expect(page.getByRole('tab', { name: /^Sequence/ })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Next Sessions' })).toBeVisible();
 		await expect(page.getByLabel('Timetable as at — pick any date')).toBeHidden();
+		await expect(page.getByRole('button', { name: 'Assign Topic' })).toBeHidden();
 
 		await page.getByRole('tab', { name: /^Timetable/ }).click();
 		await expect(page.getByRole('tab', { name: /^Timetable/ })).toHaveAttribute(
@@ -951,20 +948,17 @@ test.describe('the Class page on a phone writes nothing', () => {
 	const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];
 	test.use({ viewport, userAgent, deviceScaleFactor, isMobile, hasTouch });
 
-	test('no tabs and no Timetable; Overview only, with no reorder or Unassign (story 116)', async ({
-		page
-	}) => {
+	test('no tabs, no Timetable, no Sequence; Overview only (story 116)', async ({ page }) => {
 		await openClassPage(page);
 		await expectNoHorizontalScroll(page);
 		// No tabs at all: A chosen Timetable tab on a wider window still shows Overview here.
 		await expect(page.getByRole('tab', { name: 'Overview' })).toBeHidden();
 		// The Timetable itself is gone, with its "Timetable as at" control.
 		await expect(page.getByLabel('Timetable as at — pick any date')).toBeHidden();
-		// Overview reads: the progress card and the Assigned Topics, without their controls.
-		await expect(page.getByRole('heading', { name: 'Assigned Topics' })).toBeVisible();
-		await expect(page.getByRole('button', { name: /^Unassign / })).toBeHidden();
-		await expect(page.getByRole('button', { name: /^Move / })).toBeHidden();
-		await expect(page.getByRole('button', { name: 'Assign next Topic' })).toBeHidden();
+		// Overview reads. The Sequence tab and its Assign Topic menu are not there.
+		await expect(page.getByRole('heading', { name: 'Next Sessions' })).toBeVisible();
+		await expect(page.getByRole('tab', { name: /^Sequence/ })).toBeHidden();
+		await expect(page.getByRole('button', { name: 'Assign Topic' })).toBeHidden();
 	});
 });
 

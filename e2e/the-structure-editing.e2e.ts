@@ -23,7 +23,7 @@ test.beforeAll(() => resetTo('standard'));
 test.describe('the Course and Topic editors', () => {
 	test.use({ viewport: { width: 1280, height: 720 } });
 
-	test('a long Topic title wraps in full, and Delete Topic asks before it deletes', async ({
+	test('a long Topic title wraps in full, and Delete Topic asks before it detaches its Lessons', async ({
 		page
 	}) => {
 		await openCourse(page);
@@ -35,8 +35,14 @@ test.describe('the Course and Topic editors', () => {
 		await expect(link).toBeVisible();
 		expect(await link.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
 
+		const lessonBox = page.getByPlaceholder('New Lesson title — press Enter');
+		await lessonBox.fill('Wrap check');
+		await lessonBox.press('Enter');
+		await expect(page.getByRole('link', { name: 'Wrap check', exact: true })).toBeVisible();
+
 		await page.getByRole('button', { name: 'Topic actions' }).click();
 		await page.getByRole('menuitem', { name: 'Delete Topic' }).click();
+		await expect(page.getByRole('dialog')).toContainText('1 Lesson become Standalone Lessons');
 		await page.getByRole('button', { name: 'Cancel' }).click();
 		await expect(link).toBeVisible();
 
@@ -44,6 +50,25 @@ test.describe('the Course and Topic editors', () => {
 		await page.getByRole('menuitem', { name: 'Delete Topic' }).click();
 		await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
 		await expect(link).toHaveCount(0);
+
+		// The Lesson stayed, with no Topic. Delete it, so no Standalone Lesson is left behind.
+		await page.goto(`/lessons/${runFixture('find-lesson-id', 'Wrap check')}`);
+		await page.getByRole('button', { name: 'Delete Lesson' }).click();
+		await expectToast(page, 'Lesson deleted.');
+	});
+
+	test('an empty Topic is deleted at once, with no question', async ({ page }) => {
+		await openCourse(page);
+		const box = page.getByPlaceholder('New Topic name — press Enter');
+		await box.fill('Empty Topic');
+		await box.press('Enter');
+		const link = page.getByRole('link', { name: 'Empty Topic' });
+		await expect(link).toBeVisible();
+
+		await page.getByRole('button', { name: 'Topic actions' }).click();
+		await page.getByRole('menuitem', { name: 'Delete Topic' }).click();
+		await expect(link).toHaveCount(0);
+		await expect(page.getByRole('dialog')).toHaveCount(0);
 	});
 
 	test('Delete Course asks before it deletes, and a Course with Classes refuses', async ({

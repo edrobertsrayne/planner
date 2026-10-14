@@ -62,7 +62,7 @@ export function reportOfResult(result: ActionResult): WriteReport | null {
 
 // Whether a report has anything to show. A toast for an empty report would be blank.
 export function hasReport(report: WriteReport | null): report is WriteReport {
-	return !!report && (report.atRisk.length > 0 || report.placementsMoved.length > 0);
+	return !!report && report.placementsMoved.length > 0;
 }
 
 // A create box that stays where it is: the new row appears in the list above it, and the box is

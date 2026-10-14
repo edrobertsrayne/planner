@@ -328,23 +328,6 @@ export function schedule({
 	};
 }
 
-// The one operation that is not a re-run. Entering a disruption in the past means the record after
-// that date was written under a false assumption, so the boundary moves back and those Sessions
-// are re-derived. Notes are evidence of what was really taught, so any Session carrying one is
-// reported rather than silently discarded.
-export function rewind(
-	sessions: (SessionRecord & { note?: string | null })[],
-	classId: string,
-	to: string
-): { boundary: string; atRisk: SessionRecord[]; discarded: SessionRecord[] } {
-	const affected = sessions.filter((s) => s.classId === classId && s.date >= to);
-	return {
-		boundary: to,
-		atRisk: affected.filter((s) => s.note),
-		discarded: affected.filter((s) => !s.note)
-	};
-}
-
 // Runway is derived, not stored — the date of a Class's first Open Slot, with the count of
 // Lesson-parts still owed but with nowhere to go alongside it.
 export function runway(result: ScheduleResult): Runway {

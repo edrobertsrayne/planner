@@ -12,6 +12,7 @@
 	import UnlinkIcon from '@lucide/svelte/icons/unlink';
 	import XIcon from '@lucide/svelte/icons/x';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import MarkdownEditor from '$lib/components/markdown-editor.svelte';
@@ -58,6 +59,30 @@
 			} finally {
 				saving = null;
 				saved();
+			}
+		};
+	};
+
+	// A Lesson that a Sequence holds asks first. The action answers with `needsConfirm` and the
+	// reason, which names the Classes; the dialog then posts the same delete with `confirmed`.
+	let confirmDelete = $state<string | null>(null);
+	const onDelete: SubmitFunction = () => {
+		return async ({ result, update }) => {
+			confirmDelete = null;
+			if (result.type === 'success') {
+				toast.success('Lesson deleted.');
+				// This page goes with the Lesson, so the report outlives it as a toast.
+				const report = reportOfResult(result);
+				if (hasReport(report)) {
+					toast.custom(RewindReport, { componentProps: { report }, duration: 20000 });
+				}
+				await back();
+			} else if (result.type === 'failure' && result.data?.needsConfirm) {
+				confirmDelete = failureReason(result, 'Delete this Lesson?');
+			} else if (result.type === 'failure') {
+				toast.error(failureReason(result, 'Could not delete the Lesson.'));
+			} else {
+				await update();
 			}
 		};
 	};
@@ -482,27 +507,7 @@
 					</div>
 
 					<div class="flex flex-wrap items-center gap-1 border-t pt-3 max-lg:order-4">
-						<form
-							method="POST"
-							action="?/deleteLesson"
-							use:enhance={() => {
-								return async ({ result, update }) => {
-									if (result.type === 'success') {
-										toast.success('Lesson deleted.');
-										// This page goes with the Lesson, so the report outlives it as a toast.
-										const report = reportOfResult(result);
-										if (hasReport(report)) {
-											toast.custom(RewindReport, { componentProps: { report }, duration: 20000 });
-										}
-										await back();
-									} else if (result.type === 'failure') {
-										toast.error(failureReason(result, 'Could not delete the Lesson.'));
-									} else {
-										await update();
-									}
-								};
-							}}
-						>
+						<form method="POST" action="?/deleteLesson" use:enhance={onDelete}>
 							<input type="hidden" name="id" value={lesson.id} />
 							<Button
 								type="submit"
@@ -617,3 +622,29 @@
 		{/if}
 	{/key}
 </div>
+
+<Dialog.Root
+	open={confirmDelete !== null}
+	onOpenChange={(open) => {
+		if (!open) confirmDelete = null;
+	}}
+>
+	<Dialog.Content class="sm:max-w-md">
+		<Dialog.Header>
+			<Dialog.Title>Delete this Lesson?</Dialog.Title>
+			<Dialog.Description>
+				{confirmDelete} Deleting it takes it out of that Sequence.
+			</Dialog.Description>
+		</Dialog.Header>
+		<Dialog.Footer>
+			<Button variant="outline" size="sm" class="h-7" onclick={() => (confirmDelete = null)}>
+				Cancel
+			</Button>
+			<form method="POST" action="?/deleteLesson" use:enhance={onDelete}>
+				<input type="hidden" name="id" value={lesson.id} />
+				<input type="hidden" name="confirmed" value="true" />
+				<Button type="submit" variant="destructive" size="sm" class="h-7">Delete</Button>
+			</form>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>

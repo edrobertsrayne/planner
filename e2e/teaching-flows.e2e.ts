@@ -88,7 +88,9 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		const tuesday = (2 - new Date().getUTCDay() + 7) % 7;
 		await page.goto(`/calendar?week=${isoDate(tuesday - 1)}`);
 		await page.getByRole('link', { name: '9C/Sc1 Open Slot' }).click();
-		await openSessionAndExpect(page);
+		// An Open Slot has no Lesson, so it has no note field (ADR-0026).
+		await expect(page.getByRole('button', { name: 'Back' })).toBeVisible();
+		await expect(page.getByLabel('How it went')).toHaveCount(0);
 		await expect(page.locator('main')).toContainText('9C/Sc1');
 
 		await page.getByRole('button', { name: 'Back' }).click();
@@ -115,6 +117,40 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await page.getByRole('button', { name: 'Back' }).click();
 		await expectSessionClosed(page);
 		await expect(page).toHaveURL(`/classes/${classAId}`);
+	});
+
+	test('a Topic is assigned to a Class on its Sequence tab, and its Lessons then show there', async () => {
+		await page.goto(`/classes/${classBId}`);
+		await expect(page.getByRole('tab', { name: 'Sequence 0' })).toBeVisible();
+		await page.getByRole('tab', { name: 'Sequence' }).click();
+		await expect(page.getByText('No Lessons in this Sequence yet.')).toBeVisible();
+
+		// The menu counts the Lessons that the Sequence or a Placement already holds.
+		await page.getByRole('button', { name: 'Assign Topic' }).click();
+		await expect(
+			page.getByRole('menuitem', { name: 'Forces · 0 of 2 in Sequence or Placed' })
+		).toBeVisible();
+		await page.getByRole('menuitem', { name: /^Forces/ }).click();
+
+		await expect(page.getByText('Added 2 Lessons from Forces.')).toBeVisible();
+		const entries = page.locator('[data-sequence] > li');
+		await expect(entries).toHaveCount(2);
+		await expect(entries.nth(0)).toContainText('Speed');
+		await expect(entries.nth(0)).toContainText('Forces');
+		await expect(entries.nth(1)).toContainText('Motion');
+		await expect(page.getByRole('tab', { name: 'Sequence 2' })).toBeVisible();
+
+		// Assigning it again adds nothing: every Lesson is counted, so its menu item is off.
+		await page.getByRole('button', { name: 'Assign Topic' }).click();
+		await expect(
+			page.getByRole('menuitem', { name: 'Forces · all in Sequence or Placed' })
+		).toHaveAttribute('data-disabled', '');
+		await page.keyboard.press('Escape');
+
+		// A tap on a card opens the Lesson in its editor.
+		await entries.nth(0).getByRole('link').click();
+		await expect(page).toHaveURL(/\/lessons\//);
+		await expect(page.getByRole('textbox', { name: 'Lesson title' })).toHaveValue('Speed');
 	});
 
 	test('a note typed and then dismissed is present on reopen', async () => {
@@ -637,7 +673,7 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await page.getByRole('button', { name: 'Back' }).click();
 		await expectSessionClosed(page);
 
-		// A noted past Session left behind would show in the Term save report of the-calendar-setup.
+		// Take the past Sessions back out, with the Teaching note.
 		runFixture('unmark-taught', classBId, isoDate(-1), '5');
 		runFixture('unmark-taught', classAId, isoDate(-3), '6');
 		await page.goto('/courses');

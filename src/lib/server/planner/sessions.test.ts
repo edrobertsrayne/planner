@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { eq } from 'drizzle-orm';
 import { describe, expect, test } from 'vitest';
-import { makeLessons, makeTopic, setUp } from './fixtures';
+import { makeLessons, makeTopic, refused, setUp } from './fixtures';
 import {
 	assignTopic,
 	attachTag,
@@ -11,14 +11,17 @@ import {
 	classSchedule,
 	createAttachment,
 	createLink,
+	deleteLesson,
 	placeLesson,
 	recordContinuation,
 	removeContinuation,
 	removePlacement,
 	sessionDetail,
 	setReadiness,
+	teachingNoteOf,
 	writeSessionNote
 } from './index';
+import { rederive, type WriteReport } from './derive';
 import * as schema from '../db/schema';
 
 describe('Continuation', () => {
@@ -162,13 +165,13 @@ describe('Continuation', () => {
 		// School was actually closed on the very day the Lesson was recorded as needing more
 		// time, discovered after the fact — a Rewind lands directly on the continued Session.
 		// A Session is identified by its occasion, not by row id (ADR-0002), so re-deriving must
-		// not try to delete a Session that a Continuation still references. It carries no note, so
-		// it is reported as discarded rather than at risk.
-		let report: ReturnType<typeof blockDay> | undefined;
+		// not try to delete a Session that a Continuation still references. The Lesson moves to
+		// the next Available Slot and the Continuation goes with the closed occasion.
+		let report: WriteReport | undefined;
 		expect(() => {
 			report = blockDay(db, { date: '2026-09-03', note: 'Snow day', today: '2026-09-10' });
 		}).not.toThrow();
-		expect(report).toEqual({ atRisk: [], placementsMoved: [] });
+		expect(report).toEqual({ placementsMoved: [] });
 
 		const after = classSchedule(db, { classId: classA.id, today: '2026-09-10' });
 		const sessionsForLesson = [...after.history, ...after.scheduled].filter(
@@ -392,39 +395,95 @@ describe('the Session panel', () => {
 		expect(detail!.lesson).not.toBeNull();
 	});
 
-	test('a note on an Open Slot survives an unrelated re-derive of the same Class', () => {
+	test('an Open Slot has no note, and a write to it is refused', () => {
+		const { db, classA } = setUp();
+		// No Topic assigned: 3 Sep P5 is an Open Slot with no Lesson.
+		const occasion = { classId: classA.id, date: '2026-09-03', period: 5 };
+
+		refused(
+			() => writeSessionNote(db, { ...occasion, note: 'covered by a colleague' }),
+			'invalid',
+			'An Open Slot has no Lesson to write a note on.'
+		);
+		expect(sessionDetail(db, { ...occasion, today: '2026-09-03' })?.note).toBeNull();
+	});
+
+	test('an empty body deletes the Teaching note', () => {
 		const { db, course, classA } = setUp();
-		// classA's first Available Slot, 3 Sep P5/6, is left open.
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [lesson] = makeLessons(db, topic.id, 1);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+		const occasion = { classId: classA.id, date: '2026-09-03', period: 5 };
+
+		writeSessionNote(db, { ...occasion, note: 'went badly' });
+		expect(teachingNoteOf(db, classA.id, lesson.id)).toBe('went badly');
+
+		writeSessionNote(db, { ...occasion, note: '' });
+		expect(teachingNoteOf(db, classA.id, lesson.id)).toBeNull();
+		expect(sessionDetail(db, { ...occasion, today: '2026-09-03' })?.note).toBeNull();
+		expect(db.select().from(schema.teachingNote).all()).toEqual([]);
+	});
+
+	test('both parts of a Length-2 Lesson share one Teaching note', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		makeLessons(db, topic.id, 1, 2);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+
+		// The two parts sit on 3 Sep P5 and P6.
+		writeSessionNote(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			period: 5,
+			note: 'finish the circuit next time'
+		});
+
+		const second = sessionDetail(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			period: 6,
+			today: '2026-09-03'
+		});
+		expect(second?.note).toBe('finish the circuit next time');
+	});
+
+	test("a Continuation's extra Session shares the Lesson's Teaching note", () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		makeLessons(db, topic.id, 1);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+		recordContinuation(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			period: 5,
+			today: '2026-09-03'
+		});
 
 		writeSessionNote(db, {
 			classId: classA.id,
 			date: '2026-09-03',
 			period: 5,
-			note: 'covered by a colleague, ad hoc revision'
+			note: 'needed a second Period'
 		});
 
-		// An unrelated Topic assignment triggers rederive on classA from today.
-		const topic = makeTopic(db, course.id, 'Electricity');
-		makeLessons(db, topic.id, 1);
-		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-10' });
-
-		const detail = sessionDetail(db, {
+		// Continued on the day, the extra Session takes the next Available Slot, 3 Sep P6.
+		const extra = sessionDetail(db, {
 			classId: classA.id,
 			date: '2026-09-03',
-			period: 5,
-			today: '2026-09-10'
+			period: 6,
+			today: '2026-09-03'
 		});
-		expect(detail!.note).toBe('covered by a colleague, ad hoc revision');
+		expect(extra?.note).toBe('needed a second Period');
 	});
 
-	test('a note stays keyed to the occasion, not the Lesson, across a Rewind', () => {
+	test('a Teaching note follows its Lesson across a Rewind', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		// Two 1-Period Lessons land on 3 Sep's Thursday double: Lesson 1 on P5, Lesson 2 on P6.
 		const lessons = makeLessons(db, topic.id, 2);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 
-		// The note is on P6 — Lesson 2, as actually taught.
+		// The note is on P6: Lesson 2, as actually taught.
 		writeSessionNote(db, {
 			classId: classA.id,
 			date: '2026-09-03',
@@ -438,8 +497,8 @@ describe('the Session panel', () => {
 			.all()
 			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 4 && s.period === 5)!;
 
-		// P5 turns out to have been a field trip, entered after the fact: shift-right relabels
-		// P6 as carrying Lesson 1 instead of Lesson 2, though P6 itself is still taught.
+		// P5 turns out to have been a field trip, entered after the fact. Lesson 1 moves to P6
+		// and Lesson 2 moves to the next Available Slot, 8 Sep P2.
 		blockSlot(db, {
 			classId: classA.id,
 			date: '2026-09-03',
@@ -448,13 +507,96 @@ describe('the Session panel', () => {
 			today: '2026-09-10'
 		});
 
-		const detail = sessionDetail(db, {
+		const moved = sessionDetail(db, {
+			classId: classA.id,
+			date: '2026-09-08',
+			period: 2,
+			today: '2026-09-10'
+		});
+		expect(moved?.lesson?.title).toBe(lessons[1].title);
+		expect(moved?.note).toBe('went badly — redo the practical');
+
+		const relabelled = sessionDetail(db, {
 			classId: classA.id,
 			date: '2026-09-03',
 			period: 6,
 			today: '2026-09-10'
 		});
-		expect(detail!.note).toBe('went badly — redo the practical');
-		expect(detail!.lesson?.title).toBe(lessons[0].title);
+		expect(relabelled?.lesson?.title).toBe(lessons[0].title);
+		expect(relabelled?.note).toBeNull();
+	});
+
+	test('a Blocked Day that unschedules a Session deletes its row, not its Teaching note', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [lesson] = makeLessons(db, topic.id, 1);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+		writeSessionNote(db, { classId: classA.id, date: '2026-09-03', period: 5, note: 'trip next' });
+
+		blockDay(db, { date: '2026-09-03', note: 'Snow day', today: '2026-09-10' });
+
+		expect(
+			db
+				.select()
+				.from(schema.session)
+				.all()
+				.some((s) => s.date === '2026-09-03' && s.period === 5)
+		).toBe(false);
+		expect(teachingNoteOf(db, classA.id, lesson.id)).toBe('trip next');
+	});
+
+	test('Delete Lesson deletes its Teaching note', () => {
+		const { db, course, classA, atDir } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [lesson] = makeLessons(db, topic.id, 1);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-01' });
+		writeSessionNote(db, { classId: classA.id, date: '2026-09-03', period: 5, note: 'trip next' });
+
+		deleteLesson(db, { id: lesson.id, today: '2026-09-01', dir: atDir, confirmed: true });
+
+		expect(db.select().from(schema.teachingNote).all()).toEqual([]);
+	});
+
+	test('removing the last Placement of a Lesson deletes its Teaching note, and removing another does not', () => {
+		const { db, client, classA } = setUp();
+		const today = '2026-09-01';
+		const [first, second] = classSchedule(db, { classId: classA.id, today }).openSlots;
+		const { lesson } = placeLesson(db, client, {
+			classId: classA.id,
+			date: first.date,
+			slotId: first.slotId,
+			title: 'Assembly',
+			today
+		});
+		// placeLesson makes a new Lesson on each call, so the second Placement of the same
+		// Lesson goes straight into the schema.
+		const [other] = db
+			.insert(schema.placement)
+			.values({
+				classId: classA.id,
+				date: second.date,
+				slotId: second.slotId,
+				lessonId: lesson.id
+			})
+			.returning()
+			.all();
+		const [placement] = db
+			.select()
+			.from(schema.placement)
+			.all()
+			.filter((p) => p.id !== other.id);
+		rederive(db, classA.id, today);
+		writeSessionNote(db, {
+			classId: classA.id,
+			date: first.date,
+			period: first.period,
+			note: 'went well'
+		});
+
+		removePlacement(db, { id: other.id, today });
+		expect(teachingNoteOf(db, classA.id, lesson.id)).toBe('went well');
+
+		removePlacement(db, { id: placement.id, today });
+		expect(teachingNoteOf(db, classA.id, lesson.id)).toBeNull();
 	});
 });

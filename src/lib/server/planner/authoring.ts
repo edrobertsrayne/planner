@@ -1,14 +1,14 @@
 // Authoring — the Courses view. A Course and a Topic are not themselves scheduling inputs, so
-// creating or renaming one never re-derives. A Lesson is different: once its Topic is assigned to
-// a Class, the Lesson is part of that Class's schedule, so every write to its place or Length
-// re-derives every Class that reaches it — quietly, on the same write, with no separate
-// recompute step (issue #31).
-import { and, asc, eq, inArray, lt, notInArray, sql } from 'drizzle-orm';
+// creating, renaming or deleting one never re-derives. Nor does the order of a Topic's Lessons:
+// each Class holds its own Sequence (ADR-0026). A Lesson's Length is a scheduling input, so
+// a change to it re-derives every Class that reaches the Lesson, on the same write, with no
+// separate recompute step (issue #31).
+import { and, asc, eq, inArray, lt, sql } from 'drizzle-orm';
 import type { Database } from 'bun:sqlite';
 import { nextTone } from '$lib/class-tone';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
-import { combineReports, rederive, rederiveTopic, type Db, type WriteReport } from './derive';
+import { combineReports, rederive, type Db, type WriteReport } from './derive';
 import { nextPosition, swapTargets, type Direction } from './ordering';
 import { deleteAttachmentsOfLesson } from './attachments';
 import { Refused } from './refused';
@@ -196,31 +196,9 @@ export function renameCourse(db: Db, { id, name }: { id: string; name: string })
 	return row;
 }
 
-// Whether cascading into this Topic is blocked by something a confirmed delete cannot override:
-// the Topic assigned to a Class, or one of its Lessons already taught. Shared by deleteTopic's
-// own guard and deleteCourse's pre-flight over every Topic it is about to cascade into — checked
-// before either ever asks for confirmation, so a delete that can never succeed says so at once.
-function topicCascadeBlocker(db: Db, topicId: string, today: string): 'assigned' | 'taught' | null {
-	const assigned = db
-		.select({ id: schema.assignedTopic.id })
-		.from(schema.assignedTopic)
-		.where(eq(schema.assignedTopic.topicId, topicId))
-		.all();
-	if (assigned.length > 0) return 'assigned';
-
-	const taught = lessonsOf(db, topicId).some(
-		(lesson) => classesTaughtLesson(db, { lessonId: lesson.id, today }).length > 0
-	);
-	if (taught) return 'taught';
-
-	return null;
-}
-
-// A Course with no Topics goes at once, same as today. A Course that still holds Topics is
-// refused until the caller confirms (issue: Course/Topic delete parity with Lesson delete) —
-// then every Topic, and every Lesson each holds, goes with it. A Class following the Course, or
-// a Topic anywhere underneath that is assigned to a Class or holds an already-taught Lesson,
-// refuses unconditionally: confirming never overrides those.
+// A Course with no Topics goes at once. A Course that still holds Topics asks first: its Topics go,
+// and its Lessons become Standalone Lessons that every Sequence keeps (ADR-0026). The form's
+// dialog names the totals; the API has no confirm, so it answers 409 with the reason. A Class following the Course refuses unconditionally: confirming never overrides it.
 //
 // The confirm question is a return, not a throw — it is a question the form answers with
 // `confirmed=true`, not a refusal. An unknown id returns undefined, the door's 404; every other
@@ -228,7 +206,7 @@ function topicCascadeBlocker(db: Db, topicId: string, today: string): 'assigned'
 export function deleteCourse(
 	db: Db,
 	id: string,
-	{ today, confirmed = false, dir }: { today: string; confirmed?: boolean; dir: string }
+	{ confirmed = false }: { confirmed?: boolean } = {}
 ): typeof schema.course.$inferSelect | { needsConfirm: true; reason: string } | undefined {
 	const [course] = db.select().from(schema.course).where(eq(schema.course.id, id)).all();
 	if (!course) return undefined;
@@ -242,31 +220,19 @@ export function deleteCourse(
 		throw new Refused('conflict', 'A Class follows this Course, so it cannot be removed.');
 	}
 
-	const topics = topicsOf(db, id);
-	for (const topic of topics) {
-		const blocker = topicCascadeBlocker(db, topic.id, today);
-		if (blocker === 'assigned') {
-			throw new Refused(
-				'conflict',
-				'A Topic in this Course is assigned to a Class, so it cannot be removed.'
-			);
-		}
-		if (blocker === 'taught') {
-			throw new Refused(
-				'conflict',
-				'A Topic in this Course holds a Lesson that has already been taught, so it cannot be removed.'
-			);
-		}
-	}
-
-	if (topics.length > 0) {
+	const topicIds = topicsOf(db, id).map((topic) => topic.id);
+	if (topicIds.length > 0) {
 		if (!confirmed) {
 			return {
 				needsConfirm: true,
 				reason: 'This Course still holds Topics. Remove them first.'
 			};
 		}
-		for (const topic of topics) deleteTopic(db, topic.id, { today, confirmed: true, dir });
+		db.update(schema.lesson)
+			.set({ topicId: null })
+			.where(inArray(schema.lesson.topicId, topicIds))
+			.run();
+		db.delete(schema.topic).where(inArray(schema.topic.id, topicIds)).run();
 	}
 
 	const [deleted] = db.delete(schema.course).where(eq(schema.course.id, id)).returning().all();
@@ -298,32 +264,18 @@ export function renameTopic(db: Db, { id, name }: { id: string; name: string }) 
 	return row;
 }
 
-// A Topic with no Lessons goes at once, same as today. A Topic that still holds Lessons is
-// refused until the caller confirms — then every Lesson it holds goes with it, the same way
-// deleteLesson would remove each on its own. Assigned to a Class, or holding an already-taught
-// Lesson, refuses unconditionally: confirming never overrides those.
+// A Topic with no Lessons goes at once. A Topic that still holds Lessons asks first: its Lessons
+// become Standalone Lessons, and every Sequence keeps them (ADR-0026). Nothing is re-derived.
 //
 // The confirm question is a return, not a throw — it is a question the form answers with
-// `confirmed=true`, not a refusal. An unknown id returns undefined, the door's 404; every other
-// refusal throws `Refused`.
+// `confirmed=true`, not a refusal. An unknown id returns undefined, the door's 404.
 export function deleteTopic(
 	db: Db,
 	id: string,
-	{ today, confirmed = false, dir }: { today: string; confirmed?: boolean; dir: string }
+	{ confirmed = false }: { confirmed?: boolean } = {}
 ): typeof schema.topic.$inferSelect | { needsConfirm: true; reason: string } | undefined {
 	const [topic] = db.select().from(schema.topic).where(eq(schema.topic.id, id)).all();
 	if (!topic) return undefined;
-
-	const blocker = topicCascadeBlocker(db, id, today);
-	if (blocker === 'assigned') {
-		throw new Refused('conflict', 'This Topic is assigned to a Class, so it cannot be removed.');
-	}
-	if (blocker === 'taught') {
-		throw new Refused(
-			'conflict',
-			'This Topic holds a Lesson that has already been taught, so it cannot be removed.'
-		);
-	}
 
 	const lessons = lessonsOf(db, id);
 	if (lessons.length > 0) {
@@ -333,7 +285,7 @@ export function deleteTopic(
 				reason: 'This Topic still holds Lessons. Remove or detach them first.'
 			};
 		}
-		for (const lesson of lessons) deleteLesson(db, { id: lesson.id, today, dir });
+		db.update(schema.lesson).set({ topicId: null }).where(eq(schema.lesson.topicId, id)).run();
 	}
 
 	const [deleted] = db.delete(schema.topic).where(eq(schema.topic.id, id)).returning().all();
@@ -351,9 +303,8 @@ const endOfTopic = (db: Db, topicId: string) =>
 			.all()
 	);
 
-// A title alone is a complete Lesson — no draft state, no required second field. Re-derives every
-// Class already assigned this Topic, since a new Lesson changes what those Classes still have
-// left to teach.
+// A title alone is a complete Lesson — no draft state, no required second field. It joins no
+// Sequence, so no Class's dates change (ADR-0026): the report is empty.
 export function createLesson(
 	db: Db,
 	{
@@ -361,15 +312,13 @@ export function createLesson(
 		title,
 		body,
 		length,
-		status,
-		today
+		status
 	}: {
 		topicId: string;
 		title: string;
 		body?: string | null;
 		length?: number;
 		status?: string;
-		today: string;
 	}
 ): { lesson: typeof schema.lesson.$inferSelect } & WriteReport {
 	const [row] = db
@@ -384,7 +333,7 @@ export function createLesson(
 		})
 		.returning()
 		.all();
-	return { lesson: row, ...rederiveTopic(db, topicId, today) };
+	return { lesson: row, placementsMoved: [] };
 }
 
 export type LessonStatus = 'draft' | 'planned';
@@ -524,14 +473,13 @@ export type LessonChange = {
 // - The field rules in fields.ts run on each field the change names.
 // - A Topic the change names but the database does not hold is `missing`. The check comes first,
 //   so an unknown `topicId` answers 404 whatever the Lesson's own Topic (spec §3.4).
-// - Detach is one-way (ADR-0022): a Standalone Lesson never rejoins a Topic, a `conflict`.
 // - A move lands at the end of the new Topic's order: the Lesson has no position there yet.
+//   Filing — another Topic, Detach, or a Topic for a Standalone Lesson — changes no Sequence,
+//   re-derives nothing and keeps Readiness and Placements (ADR-0026).
 // - A change that sets nothing writes nothing and reports nothing.
-// - Length and Topic are scheduling inputs. A change to either re-derives every Class that reaches
-//   the Lesson, before or after: through the old Topic, the new Topic, or a Placement. Title, body
-//   and status never move a date (ADR-0014), so they re-derive nothing.
-// - A move to another Topic ends the Readiness of every Class the new Topic does not reach.
-//   A Detach deletes nothing, so the Standalone Lesson keeps its inert marks (ADR-0015).
+// - Length is the one scheduling input here. A change to it re-derives every Class that holds the
+//   Lesson in its Sequence or by a Placement. Title, body and status never move a date
+//   (ADR-0014), so they re-derive nothing.
 // An unknown id returns undefined, the door's 404.
 export function editLesson(
 	db: Db,
@@ -555,8 +503,6 @@ export function editLesson(
 			.where(eq(schema.topic.id, topicId))
 			.all();
 		if (!topic) throw new Refused('missing', 'Topic not found.');
-		if (row.topicId === null)
-			throw new Refused('conflict', 'A Standalone Lesson cannot rejoin a Topic.');
 		next.position = endOfTopic(db, topicId);
 	}
 	if (moves) next.topicId = topicId;
@@ -564,7 +510,7 @@ export function editLesson(
 	const changed = Object.fromEntries(
 		Object.entries(next).filter(([key, value]) => row[key as keyof typeof row] !== value)
 	) as typeof next;
-	if (Object.keys(changed).length === 0) return { lesson: row, atRisk: [], placementsMoved: [] };
+	if (Object.keys(changed).length === 0) return { lesson: row, placementsMoved: [] };
 
 	const [lesson] = db
 		.update(schema.lesson)
@@ -572,39 +518,31 @@ export function editLesson(
 		.where(eq(schema.lesson.id, id))
 		.returning()
 		.all();
-	if (!moves && changed.length === undefined) return { lesson, atRisk: [], placementsMoved: [] };
+	if (changed.length === undefined) return { lesson, placementsMoved: [] };
 
-	const assignedTo = (topicId: string | null) =>
-		topicId === null
-			? []
-			: db
-					.select({ classId: schema.assignedTopic.classId })
-					.from(schema.assignedTopic)
-					.where(eq(schema.assignedTopic.topicId, topicId))
-					.all()
-					.map((r) => r.classId);
-	const placedOn = db
-		.selectDistinct({ classId: schema.placement.classId })
-		.from(schema.placement)
-		.where(eq(schema.placement.lessonId, id))
-		.all()
-		.map((r) => r.classId);
-	const reachesNow = [...assignedTo(lesson.topicId), ...placedOn];
-
-	if (moves && lesson.topicId !== null) {
-		db.delete(schema.readiness)
-			.where(
-				and(eq(schema.readiness.lessonId, id), notInArray(schema.readiness.classId, reachesNow))
-			)
-			.run();
-	}
-
-	const classIds = new Set([...assignedTo(row.topicId), ...reachesNow]);
-	return { lesson, ...combineReports([...classIds].map((c) => rederive(db, c, today))) };
+	return { lesson, ...rederiveHolders(db, id, today) };
 }
 
-// Removes a Lesson entirely, along with its Links, and re-derives every Class assigned its
-// Topic. Refuses when a Class has already been taught this Lesson: the historical Session rows
+// Re-derives, from today, every Class that holds the Lesson in its Sequence or by a Placement.
+function rederiveHolders(db: Db, lessonId: string, today: string): WriteReport {
+	const inSequence = db
+		.select({ classId: schema.classLesson.classId })
+		.from(schema.classLesson)
+		.where(eq(schema.classLesson.lessonId, lessonId));
+	const placed = db
+		.select({ classId: schema.placement.classId })
+		.from(schema.placement)
+		.where(eq(schema.placement.lessonId, lessonId));
+	return combineReports(
+		inSequence
+			.union(placed)
+			.all()
+			.map((entry) => rederive(db, entry.classId, today))
+	);
+}
+
+// Removes a Lesson entirely, along with its Links, and re-derives every Class that held it.
+// Refuses when a Class has already been taught this Lesson: the historical Session rows
 // reference it (ADR-0002), so deleting it would erase part of the record of what happened —
 // the taught-by block in the Lesson editor is what warns Ed before he tries this and it fails.
 // The refusal carries the way out in teacher terms — Detach — usable at the form and the API
@@ -612,11 +550,22 @@ export function editLesson(
 // Refuses too while any Placement names the Lesson (ADR-0022): the "no mark" answer to whether a
 // Standalone Lesson is schedulable depends entirely on a `placement` row naming it, so deleting
 // one out from under a live Placement would leave that row naming a Lesson that no longer exists.
+// When a Sequence holds the Lesson, the caller must confirm first (ADR-0026): the answer is a
+// `needsConfirm` question that names the Classes. The API has no confirm, so it turns that
+// question into a 409. On confirm, the cascade takes the entries, Readiness and Teaching notes.
 // An unknown id returns undefined, the door's 404; every other refusal throws `Refused`.
 export function deleteLesson(
 	db: Db,
-	{ id, today, dir }: { id: string; today: string; dir: string }
-): ({ lesson: typeof schema.lesson.$inferSelect } & WriteReport) | undefined {
+	{
+		id,
+		today,
+		dir,
+		confirmed = false
+	}: { id: string; today: string; dir: string; confirmed?: boolean }
+):
+	| ({ lesson: typeof schema.lesson.$inferSelect } & WriteReport)
+	| { needsConfirm: true; reason: string }
+	| undefined {
 	const [row] = db.select().from(schema.lesson).where(eq(schema.lesson.id, id)).all();
 	if (!row) return undefined;
 
@@ -641,7 +590,21 @@ export function deleteLesson(
 		);
 	}
 
-	// Not-yet-taught Sessions carrying this Lesson are about to be replaced by `rederiveTopic`
+	const sequenceClasses = db
+		.select({ id: schema.classes.id, label: schema.classes.label })
+		.from(schema.classLesson)
+		.innerJoin(schema.classes, eq(schema.classes.id, schema.classLesson.classId))
+		.where(eq(schema.classLesson.lessonId, id))
+		.orderBy(asc(schema.classes.label))
+		.all();
+	if (sequenceClasses.length > 0 && !confirmed) {
+		return {
+			needsConfirm: true,
+			reason: `This Lesson is in the Sequence of ${sequenceClasses.map((c) => c.label).join(', ')}.`
+		};
+	}
+
+	// Not-yet-taught Sessions carrying this Lesson are about to be replaced by the re-derivation
 	// below — clear them, and any Continuation on them, before dropping the Lesson row itself.
 	const future = db
 		.select({ id: schema.session.id })
@@ -653,36 +616,31 @@ export function deleteLesson(
 	}
 	db.delete(schema.session).where(eq(schema.session.lessonId, id)).run();
 
-	db.delete(schema.readiness).where(eq(schema.readiness.lessonId, id)).run();
 	db.delete(schema.link).where(eq(schema.link.lessonId, id)).run();
 	deleteAttachmentsOfLesson(db, id, dir);
 	db.delete(schema.lesson).where(eq(schema.lesson.id, id)).run();
 
-	const report = row.topicId
-		? rederiveTopic(db, row.topicId, today)
-		: { atRisk: [], placementsMoved: [] };
-	return { lesson: row, ...report };
+	return {
+		lesson: row,
+		...combineReports(sequenceClasses.map((c) => rederive(db, c.id, today)))
+	};
 }
 
-// Swaps position with the previous or next Lesson in the same Topic, and re-derives every Class
-// assigned it. Off either end is a no-op — there is no wraparound and no error, same as moveLink.
+// Swaps position with the previous or next Lesson in the same Topic. Off either end is a no-op —
+// there is no wraparound and no error, same as moveLink. It sets the Topic's Lesson order only;
+// no Sequence changes, so nothing is re-derived (ADR-0026).
 export function moveLesson(
 	db: Db,
-	{
-		topicId,
-		id,
-		direction,
-		today
-	}: { topicId: string; id: string; direction: Direction; today: string }
+	{ topicId, id, direction }: { topicId: string; id: string; direction: Direction }
 ): WriteReport {
 	const swap = swapTargets(lessonsOf(db, topicId), id, direction);
-	if (!swap) return { atRisk: [], placementsMoved: [] };
+	if (!swap) return { placementsMoved: [] };
 
 	const [a, b] = swap;
 	db.update(schema.lesson).set({ position: b.position }).where(eq(schema.lesson.id, a.id)).run();
 	db.update(schema.lesson).set({ position: a.position }).where(eq(schema.lesson.id, b.id)).run();
 
-	return rederiveTopic(db, topicId, today);
+	return { placementsMoved: [] };
 }
 
 // Which Classes have already been taught this Lesson, before `today` — the taught-by block in
@@ -777,8 +735,7 @@ export function importTopic(
 			status?: string;
 			links?: Array<{ url: string; label: string }>;
 		}>;
-	},
-	today: string
+	}
 ): {
 	course: { id: string; name: string };
 	courseCreated: boolean;
@@ -907,14 +864,12 @@ export function importTopic(
 			});
 		}
 
-		const report = rederiveTopic(db, topicRow.id, today);
-
 		return {
 			course: { id: courseRecord.id, name: courseRecord.name },
 			courseCreated,
 			topic: { id: topicRow.id, name: topicRow.name, courseId: topicRow.courseId },
 			lessons: lessonResults,
-			report
+			report: { placementsMoved: [] }
 		};
 	});
 }

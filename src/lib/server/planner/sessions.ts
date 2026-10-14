@@ -1,5 +1,5 @@
-// A Session — one occasion of one Class — and the two things Ed does to it directly: writing a
-// note, and marking that it needs more time. Everything else about a Session is derived.
+// A Session — one occasion of one Class — and the two things Ed does to it directly: writing the
+// Teaching note of its Lesson, and marking that it needs more time. Everything else about a Session is derived.
 import { and, eq } from 'drizzle-orm';
 import * as schema from '../db/schema';
 import { classDetail } from './classes';
@@ -7,6 +7,7 @@ import { rederive, type Db, type WriteReport } from './derive';
 import { linksOf, tagsOf, type LessonStatus } from './authoring';
 import { attachmentsOf } from './attachments';
 import { Refused } from './refused';
+import { teachingNoteOf } from './sequence';
 
 // A Session is identified by its occasion (ADR-0002), never by row id, so every function here
 // takes the triple rather than an id.
@@ -67,8 +68,7 @@ export function sessionDetail(
 	const [row] = db
 		.select({
 			id: schema.session.id,
-			lessonId: schema.session.lessonId,
-			note: schema.session.note
+			lessonId: schema.session.lessonId
 		})
 		.from(schema.session)
 		.where(atOccasion(occasion))
@@ -76,6 +76,7 @@ export function sessionDetail(
 
 	let lesson: SessionDetail['lesson'] = null;
 	let ready: boolean | null = null;
+	let note: string | null = null;
 	let placement: SessionDetail['placement'] = null;
 	if (row?.lessonId) {
 		const [lessonRow] = db
@@ -109,6 +110,7 @@ export function sessionDetail(
 				)
 				.all();
 			ready = readyRow !== undefined;
+			note = teachingNoteOf(db, occasion.classId, row.lessonId);
 
 			const [placementRow] = db
 				.select({ id: schema.placement.id })
@@ -129,7 +131,7 @@ export function sessionDetail(
 		classLabel: cls.label,
 		lesson,
 		ready,
-		note: row?.note ?? null,
+		note,
 		continuations: row
 			? db
 					.select({ id: schema.continuation.id })
@@ -142,19 +144,39 @@ export function sessionDetail(
 	};
 }
 
-// The Session panel's one write (issue #35): a free-text note against the occasion, never against
-// the Lesson (ADR-0002). Upserts on the occasion's unique key without touching lessonId, so
-// writing a note never disturbs the schedule — and an Open Slot, which has no Session row
-// until now, gets one carrying no Lesson, purely to hold the note.
+// The Session panel's one write: the Teaching note of the occasion's Lesson, kept by Class and
+// Lesson, so it is shared by every Session of that Lesson on this Class and follows the Lesson
+// when it moves. An empty body deletes the note. An Open Slot has no Lesson, so it has no note:
+// writing one is `invalid`.
 export function writeSessionNote(
 	db: Db,
 	{ note, ...occasion }: Occasion & { note: string | null }
 ) {
-	db.insert(schema.session)
-		.values({ ...occasion, lessonId: null, note })
+	const [row] = db
+		.select({ lessonId: schema.session.lessonId })
+		.from(schema.session)
+		.where(atOccasion(occasion))
+		.all();
+	if (!row?.lessonId)
+		throw new Refused('invalid', 'An Open Slot has no Lesson to write a note on.');
+
+	const key = { classId: occasion.classId, lessonId: row.lessonId };
+	if (!note) {
+		db.delete(schema.teachingNote)
+			.where(
+				and(
+					eq(schema.teachingNote.classId, key.classId),
+					eq(schema.teachingNote.lessonId, key.lessonId)
+				)
+			)
+			.run();
+		return;
+	}
+	db.insert(schema.teachingNote)
+		.values({ ...key, body: note })
 		.onConflictDoUpdate({
-			target: [schema.session.classId, schema.session.date, schema.session.period],
-			set: { note }
+			target: [schema.teachingNote.classId, schema.teachingNote.lessonId],
+			set: { body: note }
 		})
 		.run();
 }

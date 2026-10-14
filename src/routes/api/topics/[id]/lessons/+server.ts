@@ -1,5 +1,4 @@
 import { json } from '@sveltejs/kit';
-import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
 import { topic } from '$lib/server/db/schema';
 import { requireApiKey } from '$lib/server/api-key';
@@ -46,8 +45,7 @@ export const POST: RequestHandler = async (event) => {
 			title,
 			body: data.body,
 			length: data.length,
-			status,
-			today: today()
+			status
 		});
 		return json({ ...created.lesson, links: [], report: reportOf(created) }, { status: 201 });
 	} catch (error) {

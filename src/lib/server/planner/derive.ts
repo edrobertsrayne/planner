@@ -11,7 +11,6 @@ import { generateTeachingWeeks, type TermInput } from '$lib/calendar/generate-te
 import { addDays } from '$lib/date';
 import {
 	schedule,
-	rewind,
 	type Calendar,
 	type Continuation,
 	type LessonInput,
@@ -111,16 +110,14 @@ export function loadCalendar(db: Db): Calendar {
 	};
 }
 
-// The Lessons of the Class's Assigned Topics, flattened in Assigned-Topic order then Lesson
-// order (ADR-0010) — never a Course's Lessons.
+// The Lessons of the Class's Sequence (ADR-0026), in its own order.
 function loadLessonStream(db: Db, classId: string): LessonInput[] {
 	return db
 		.select({ id: schema.lesson.id, length: schema.lesson.length })
-		.from(schema.assignedTopic)
-		.innerJoin(schema.topic, eq(schema.topic.id, schema.assignedTopic.topicId))
-		.innerJoin(schema.lesson, eq(schema.lesson.topicId, schema.topic.id))
-		.where(eq(schema.assignedTopic.classId, classId))
-		.orderBy(asc(schema.assignedTopic.position), asc(schema.lesson.position))
+		.from(schema.classLesson)
+		.innerJoin(schema.lesson, eq(schema.lesson.id, schema.classLesson.lessonId))
+		.where(eq(schema.classLesson.classId, classId))
+		.orderBy(asc(schema.classLesson.position))
 		.all();
 }
 
@@ -205,9 +202,9 @@ export const rewindBoundary = (date: string, today: string) => (date < today ? d
 // would silently orphan it. An occasion whose Lesson changes — only possible via a Rewind, since
 // ordinary writes never touch a date before boundary — drops any Continuation recorded against it,
 // because that Continuation was a reaction to a Lesson which, after the Rewind, was not the one
-// taught there, and is reported back as `atRisk` or `discarded` (ADR-0007) rather than silently
-// relabelled. An occasion that drops out of the plan entirely (its Slot was blocked) is deleted
-// along with any Continuation on it, for the same reason.
+// taught there. An occasion that is no longer scheduled (its Slot was blocked, or it is an Open
+// Slot) is deleted along with any Continuation on it: a Session row exists only for a Lesson.
+// A Teaching note is keyed by Class and Lesson, so it follows its Lesson through all of this.
 export function rederive(db: Db, classId: string, boundary: string, cal?: Calendar): WriteReport {
 	const existing = db
 		.select()
@@ -220,14 +217,11 @@ export function rederive(db: Db, classId: string, boundary: string, cal?: Calend
 	const placements = loadPlacements(db, classId);
 	const result = scheduleFor(db, { classId, boundary, cal: resolvedCal, placements });
 
-	const touched: (typeof existing)[number][] = [];
-
-	// A re-derivation only ever changes an occasion's Lesson; the row, and the note on it, stay
-	// put. Whatever the Lesson becomes, the Continuation recorded against the old one goes: it
-	// was a reaction to a Lesson no longer taught there.
-	function relabel(row: (typeof existing)[number], lessonId: string | null) {
+	// A re-derivation only ever changes an occasion's Lesson; the row stays put. Whatever the
+	// Lesson becomes, the Continuation recorded against the old one goes: it was a reaction to a
+	// Lesson no longer taught there.
+	function relabel(row: (typeof existing)[number], lessonId: string) {
 		if (row.lessonId === lessonId) return;
-		touched.push(row);
 		db.delete(schema.continuation).where(eq(schema.continuation.sessionId, row.id)).run();
 		db.update(schema.session).set({ lessonId }).where(eq(schema.session.id, row.id)).run();
 	}
@@ -252,66 +246,19 @@ export function rederive(db: Db, classId: string, boundary: string, cal?: Calend
 		}
 	}
 
-	// An occasion still an Available Slot but carrying no Lesson (Open Slot) keeps its row rather
-	// than losing it — a note written against it (issue #35) must stay put even though it was
-	// never part of `stillScheduled` to begin with.
-	const stillOpen = new Set(result.openSlots.map(occasionKey));
-
 	for (const [key, row] of byOccasion) {
 		if (stillScheduled.has(key)) continue;
-
-		if (stillOpen.has(key)) {
-			relabel(row, null);
-			continue;
-		}
-
-		// The occasion has stopped being an Available Slot at all — its Slot was blocked.
-		touched.push(row);
 		db.delete(schema.continuation).where(eq(schema.continuation.sessionId, row.id)).run();
-
-		// The note is the one irreplaceable thing in the system (#38) — even here the row stays,
-		// carrying no Lesson, rather than losing a note Ed wrote against it. Only a note-less row
-		// is safe to drop outright.
-		if (row.note !== null) {
-			db.update(schema.session).set({ lessonId: null }).where(eq(schema.session.id, row.id)).run();
-		} else {
-			db.delete(schema.session).where(eq(schema.session.id, row.id)).run();
-		}
+		db.delete(schema.session).where(eq(schema.session.id, row.id)).run();
 	}
 
-	const touchedWithLesson = touched.filter(
-		(row): row is typeof row & { lessonId: string } => row.lessonId !== null
-	);
-	const { atRisk } = rewind(touchedWithLesson, classId, boundary);
-
-	return {
-		atRisk: describeAtRisk(db, atRisk),
-		placementsMoved: describePlacementsMoved(db, resolvedCal, placements, result)
-	};
-}
-
-// Every Class currently assigned this Topic — the Classes whose schedule a change to one of the
-// Topic's Lessons touches. `placementsMoved` across every touched Class is folded into one
-// combined report: a Class holding both this Topic and a Placement can have the Placement shift
-// sideways when the Topic-Lesson stream in front of it changes shape.
-export function rederiveTopic(db: Db, topicId: string, today: string): WriteReport {
-	const classIds = db
-		.select({ classId: schema.assignedTopic.classId })
-		.from(schema.assignedTopic)
-		.where(eq(schema.assignedTopic.topicId, topicId))
-		.all()
-		.map((row) => row.classId);
-
-	return combineReports(classIds.map((classId) => rederive(db, classId, today)));
+	return { placementsMoved: describePlacementsMoved(db, resolvedCal, placements, result) };
 }
 
 // Folds one WriteReport per Class into the single combined report every multi-Class re-derive
-// (rederiveTopic, rederiveAllClasses, editLesson) returns.
+// (rederiveAllClasses, editLesson) returns.
 export function combineReports(reports: WriteReport[]): WriteReport {
-	return {
-		atRisk: reports.flatMap((r) => r.atRisk),
-		placementsMoved: reports.flatMap((r) => r.placementsMoved)
-	};
+	return { placementsMoved: reports.flatMap((r) => r.placementsMoved) };
 }
 
 // Re-derives every Class from a boundary and collects the combined report — shared by every
@@ -329,14 +276,6 @@ export function rederiveAllClasses(db: Db, boundary: string): WriteReport {
 	return combineReports(classIds.map((classId) => rederive(db, classId, boundary, cal)));
 }
 
-export interface AtRiskSession {
-	classId: string;
-	classLabel: string;
-	date: string;
-	period: number;
-	lessonTitle: string;
-}
-
 export interface PlacementMoved {
 	placementId: string;
 	classId: string;
@@ -351,19 +290,14 @@ export interface PlacementMoved {
 	stranded?: boolean;
 }
 
-// What every scheduling write answers in one call: the Rewind's report of noted Sessions whose
-// Lesson the re-derivation changed, already named by Class and Lesson — the describing lives
-// inside `rederive` so no caller can forget it. `placementsMoved` is the same idea for a
-// Placement whose anchor a Blocked Day or Blocked Slot has pushed off — unconditional, unlike
-// `atRisk`, since a Placement carries no note to make silence safe.
-export type WriteReport = { atRisk: AtRiskSession[]; placementsMoved: PlacementMoved[] };
+// What every scheduling write answers in one call: `placementsMoved` names each Placement whose
+// anchor a Blocked Day or Blocked Slot has pushed off, already named by Class and Lesson — the
+// describing lives inside `rederive` so no caller can forget it.
+export type WriteReport = { placementsMoved: PlacementMoved[] };
 
 // A write that answers with more than its report (`{ lesson, ...WriteReport }`, `{ slot, ... }`)
-// hands the doors this one way to take the report out, so no door names the two parts.
-export const reportOf = ({ atRisk, placementsMoved }: WriteReport): WriteReport => ({
-	atRisk,
-	placementsMoved
-});
+// hands the doors this one way to take the report out, so no door names the part.
+export const reportOf = ({ placementsMoved }: WriteReport): WriteReport => ({ placementsMoved });
 
 export interface LessonName {
 	title: string;
@@ -389,34 +323,6 @@ export function lessonNames(db: Db, ids: readonly string[]): Map<string, LessonN
 			.all()
 			.map(({ id, title, topicName }) => [id, { title, topicName }])
 	);
-}
-
-// A Rewind's report, made readable: each note-carrying Session whose Lesson changed, named by
-// Class and Lesson rather than left as bare ids — what blockDay and blockSlot's `atRisk` is for
-// (the point of the feature, not a nicety, per #38). Private by design: every write describes
-// its own report before returning.
-function describeAtRisk(db: Db, atRisk: SessionRecord[]): AtRiskSession[] {
-	if (atRisk.length === 0) return [];
-
-	const labels = new Map(
-		db
-			.select({ id: schema.classes.id, label: schema.classes.label })
-			.from(schema.classes)
-			.all()
-			.map((row) => [row.id, row.label])
-	);
-	const names = lessonNames(
-		db,
-		atRisk.map((s) => s.lessonId)
-	);
-
-	return atRisk.map((s) => ({
-		classId: s.classId,
-		classLabel: labels.get(s.classId) ?? s.classId,
-		date: s.date,
-		period: s.period,
-		lessonTitle: names.get(s.lessonId)?.title ?? s.lessonId
-	}));
 }
 
 // A Placement's stored anchor, resolved to a Period via the Calendar's Slot table, compared

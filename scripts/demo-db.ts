@@ -55,7 +55,7 @@ function seed(path: string | undefined) {
 		[electricity.id, ELECTRICITY]
 	] as const) {
 		for (const { links, ...lesson } of lessons) {
-			const created = createLesson(db, { topicId, ...lesson, status: 'planned', today: since });
+			const created = createLesson(db, { topicId, ...lesson, status: 'planned' });
 			for (const link of links ?? []) createLink(db, { lessonId: created.lesson.id, ...link });
 		}
 	}

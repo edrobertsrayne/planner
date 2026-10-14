@@ -4,21 +4,18 @@ import { makeLessons, makeTopic, setUp } from './fixtures';
 import {
 	activeSlots,
 	assignTopic,
-	assignedTopicsOf,
 	calendarWeek,
 	classDetail,
 	classLanes,
 	classSchedule,
 	createClass,
 	listClasses,
-	moveAssignedTopic,
-	unassignTopic,
 	writeSessionNote
 } from './index';
 import * as schema from '../db/schema';
 
 describe('reading a Class schedule back', () => {
-	test('lays Assigned-Topic Lessons onto the Class Available Slots in order', () => {
+	test('lays the Sequence onto the Class Available Slots in order', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		const lessons = makeLessons(db, topic.id, 3);
@@ -92,7 +89,7 @@ describe('Class Tones are assigned at creation, never derived (ADR-0013)', () =>
 });
 
 describe('running out of Available Slots', () => {
-	test('a Class whose Assigned Topics outrun the year reports unplaced Lessons rather than dropping them', () => {
+	test('a Class whose Sequence outruns the year reports unplaced Lessons rather than dropping them', () => {
 		const { db, course, classB } = setUp();
 		const topic = makeTopic(db, course.id, 'Everything');
 		// 10C/Ph2 has 2 Periods a fortnight; a 300-Lesson Topic cannot fit in one academic year.
@@ -168,74 +165,6 @@ describe('assigning Topics to a Class', () => {
 			assignTopic(db, { classId: classA.id, topicId: ownTopic.id, today: '2026-09-03' })
 		).not.toThrow();
 	});
-
-	test('accumulates one at a time, in the order assigned, shown as the shelf', () => {
-		const { db, course, classA } = setUp();
-		const forces = makeTopic(db, course.id, 'Forces');
-		const waves = makeTopic(db, course.id, 'Waves');
-
-		assignTopic(db, { classId: classA.id, topicId: forces.id, today: '2026-09-03' });
-		assignTopic(db, { classId: classA.id, topicId: waves.id, today: '2026-09-03' });
-
-		const shelf = assignedTopicsOf(db, classA.id);
-		expect(shelf.map((a) => a.topicName)).toEqual(['Forces', 'Waves']);
-	});
-
-	test('reorders freely, and the order is the teaching order', () => {
-		const { db, course, classA } = setUp();
-		const forces = makeTopic(db, course.id, 'Forces');
-		makeLessons(db, forces.id, 2);
-		const waves = makeTopic(db, course.id, 'Waves');
-		const wavesLessons = makeLessons(db, waves.id, 2);
-
-		assignTopic(db, { classId: classA.id, topicId: forces.id, today: '2026-09-03' });
-		assignTopic(db, {
-			classId: classA.id,
-			topicId: waves.id,
-			today: '2026-09-03'
-		});
-		const wavesRow = assignedTopicsOf(db, classA.id).find((a) => a.topicId === waves.id)!;
-
-		moveAssignedTopic(db, {
-			classId: classA.id,
-			id: wavesRow.id,
-			direction: 'up',
-			today: '2026-09-03'
-		});
-
-		const shelf = assignedTopicsOf(db, classA.id);
-		expect(shelf.map((a) => a.topicName)).toEqual(['Waves', 'Forces']);
-
-		const schedule = classSchedule(db, { classId: classA.id, today: '2026-09-03' });
-		// Moving Waves up makes its Lesson the first taught — the teaching order is the shelf.
-		expect(schedule.scheduled[0].lessonId).toBe(wavesLessons[0].id);
-	});
-
-	test('unassigns a Topic the Class has not reached', () => {
-		const { db, course, classA } = setUp();
-		const forces = makeTopic(db, course.id, 'Forces');
-		makeLessons(db, forces.id, 3);
-
-		assignTopic(db, { classId: classA.id, topicId: forces.id, today: '2026-09-03' });
-		const row = assignedTopicsOf(db, classA.id)[0];
-
-		unassignTopic(db, { classId: classA.id, id: row.id, today: '2026-09-03' });
-
-		expect(assignedTopicsOf(db, classA.id)).toEqual([]);
-	});
-
-	test('refuses to unassign a Topic the Class has already been taught', () => {
-		const { db, course, classA } = setUp();
-		const forces = makeTopic(db, course.id, 'Forces');
-		makeLessons(db, forces.id, 3);
-
-		assignTopic(db, { classId: classA.id, topicId: forces.id, today: '2026-09-03' });
-		const row = assignedTopicsOf(db, classA.id)[0];
-
-		expect(() =>
-			unassignTopic(db, { classId: classA.id, id: row.id, today: '2026-09-10' })
-		).toThrow(/already been taught/);
-	});
 });
 
 describe('the Classes view', () => {
@@ -275,7 +204,23 @@ describe('the Classes view', () => {
 		);
 	});
 
-	test('a Class with no Assigned Topics has nothing taught, nothing queued, and an untouched Runway', () => {
+	test('the lane shows the Teaching note of the Lesson, whichever of its Sessions carries it', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [first] = makeLessons(db, topic.id, 2, 2);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+
+		// The Lesson fills 3 Sep P5 and P6. The note goes on the first part.
+		writeSessionNote(db, { classId: classA.id, date: '2026-09-03', period: 5, note: 'ramps' });
+
+		const [lane] = classLanes(db, { today: '2026-09-05', classId: classA.id });
+		expect(lane.lastTaught).toMatchObject({ title: first.title, period: 6, note: 'ramps' });
+		expect(
+			db.select().from(schema.teachingNote).where(eq(schema.teachingNote.classId, classA.id)).all()
+		).toMatchObject([{ lessonId: first.id, body: 'ramps' }]);
+	});
+
+	test('a Class with an empty Sequence has nothing taught, nothing queued, and an untouched Runway', () => {
 		const { db, classA } = setUp();
 
 		const [lane] = classLanes(db, { today: '2026-09-03', classId: classA.id });
@@ -289,7 +234,7 @@ describe('the Classes view', () => {
 		expect(lane.runway.lessonsRemaining).toBe(0);
 	});
 
-	test('a Class whose Assigned Topics outrun the year reports its unplaced count on the lane', () => {
+	test('a Class whose Sequence outruns the year reports its unplaced count on the lane', () => {
 		const { db, course, classB } = setUp();
 		const topic = makeTopic(db, course.id, 'Everything');
 		makeLessons(db, topic.id, 300);

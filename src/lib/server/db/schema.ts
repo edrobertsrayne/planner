@@ -131,16 +131,35 @@ export const classes = sqliteTable('class', {
 	tone: integer('tone').notNull().default(0)
 });
 
-export const assignedTopic = sqliteTable('assigned_topic', {
-	id: id(),
-	classId: text('class_id')
-		.notNull()
-		.references(() => classes.id),
-	topicId: text('topic_id')
-		.notNull()
-		.references(() => topic.id),
-	position: integer('position').notNull()
-});
+// A Class's Sequence (ADR-0026): the shared Lessons it teaches, in its own order.
+export const classLesson = sqliteTable(
+	'class_lesson',
+	{
+		classId: text('class_id')
+			.notNull()
+			.references(() => classes.id, { onDelete: 'cascade' }),
+		lessonId: text('lesson_id')
+			.notNull()
+			.references(() => lesson.id, { onDelete: 'cascade' }),
+		position: integer('position').notNull()
+	},
+	(table) => [unique('class_lesson_pairing').on(table.classId, table.lessonId)]
+);
+
+// The note on how a Lesson went, one per Class and Lesson (ADR-0026). Markdown (ADR-0023).
+export const teachingNote = sqliteTable(
+	'teaching_note',
+	{
+		classId: text('class_id')
+			.notNull()
+			.references(() => classes.id, { onDelete: 'cascade' }),
+		lessonId: text('lesson_id')
+			.notNull()
+			.references(() => lesson.id, { onDelete: 'cascade' }),
+		body: text('body').notNull()
+	},
+	(table) => [unique('teaching_note_pairing').on(table.classId, table.lessonId)]
+);
 
 export const slot = sqliteTable(
 	'slot',
@@ -171,8 +190,7 @@ export const session = sqliteTable(
 			.references(() => classes.id),
 		date: text('date').notNull(),
 		period: integer('period').notNull(),
-		lessonId: text('lesson_id').references(() => lesson.id),
-		note: text('note')
+		lessonId: text('lesson_id').references(() => lesson.id)
 	},
 	(table) => [unique('session_occasion').on(table.classId, table.date, table.period)]
 );

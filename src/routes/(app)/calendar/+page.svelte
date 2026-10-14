@@ -35,8 +35,8 @@
 	// svelte-ignore state_referenced_locally
 	let setup = $state(data.terms.length === 0);
 
-	// A saved year says so even when it put nothing at risk — silence would read as unsaved.
-	const savedYearNone = 'The year is saved. No Sessions were put at risk.';
+	// A saved year says so even when it moved no Placement — silence would read as unsaved.
+	const savedYearNone = 'The year is saved.';
 
 	const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 

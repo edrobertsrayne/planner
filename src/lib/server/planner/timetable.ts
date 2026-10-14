@@ -153,7 +153,7 @@ export function takeSlot(
 ) {
 	const holder = holderAt(db, { week, day, period, on: takeFrom ?? MIN_DATE });
 	if (holder) {
-		if (holder.classId === classId) return { slot: holder, atRisk: [], placementsMoved: [] };
+		if (holder.classId === classId) return { slot: holder, placementsMoved: [] };
 		throw takenError(week, day, period);
 	}
 

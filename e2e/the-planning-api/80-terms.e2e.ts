@@ -30,7 +30,7 @@ test.describe.serial('the Term endpoints', () => {
 		expect(await empty.json()).toEqual({ terms: [] });
 
 		// Six Terms spanning today, given in no particular order — the read derives the names
-		// from position and answers 200 with the new six beside an empty at-risk report.
+		// from position and answers 200 with the new six beside an empty report.
 		// Term validation only checks open-before-close and no overlap (terms.ts) — no weekday
 		// rule — so these offsets from today hold whatever real weekday the suite runs on.
 		const opens = [-84, -14, 70, 98, 126, 154].map((d) => plusDays(todayIso(), d));
@@ -43,7 +43,7 @@ test.describe.serial('the Term endpoints', () => {
 		});
 		expect(put.status()).toBe(200);
 		const report = await put.json();
-		expect(report.report.atRisk).toEqual([]);
+		expect(report.report).toEqual({ placementsMoved: [] });
 		expect(report.terms.map((t: { name: string }) => t.name)).toEqual([
 			'Autumn 1',
 			'Autumn 2',

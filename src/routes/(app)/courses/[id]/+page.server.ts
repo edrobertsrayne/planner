@@ -1,9 +1,7 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { today } from '$lib/date';
-import { DATABASE_URL, db } from '$lib/server/db/client';
+import { db } from '$lib/server/db/client';
 import { refusal, trimmed } from '$lib/server/form';
 import {
-	attachmentsDir,
 	courseSummary,
 	createLesson,
 	createTopic,
@@ -66,11 +64,7 @@ export const actions: Actions = {
 		const data = await request.formData();
 		const id = trimmed(data, 'id');
 		try {
-			const result = deleteCourse(db, id, {
-				today: today(),
-				confirmed: trimmed(data, 'confirmed') === 'true',
-				dir: attachmentsDir(DATABASE_URL)
-			});
+			const result = deleteCourse(db, id, { confirmed: trimmed(data, 'confirmed') === 'true' });
 			if (!result) return fail(404, { error: 'No such Course.' });
 			if ('needsConfirm' in result) return fail(409, { error: result.reason });
 		} catch (error) {
@@ -107,11 +101,7 @@ export const actions: Actions = {
 		const data = await request.formData();
 		const id = trimmed(data, 'id');
 		try {
-			const result = deleteTopic(db, id, {
-				today: today(),
-				confirmed: trimmed(data, 'confirmed') === 'true',
-				dir: attachmentsDir(DATABASE_URL)
-			});
+			const result = deleteTopic(db, id, { confirmed: trimmed(data, 'confirmed') === 'true' });
 			if (!result) return fail(404, { error: 'No such Topic.' });
 			if ('needsConfirm' in result) return fail(409, { error: result.reason });
 			return {};
@@ -125,7 +115,7 @@ export const actions: Actions = {
 		const topicId = trimmed(data, 'topicId');
 		const title = String(data.get('title') ?? '');
 		try {
-			const created = createLesson(db, { topicId, title, today: today() });
+			const created = createLesson(db, { topicId, title });
 			return { lesson: created.lesson, report: reportOf(created) };
 		} catch (error) {
 			return refusal(error);
@@ -138,6 +128,6 @@ export const actions: Actions = {
 		const id = trimmed(data, 'id');
 		const direction = trimmed(data, 'direction');
 		if (direction !== 'up' && direction !== 'down') return fail(400, { error: 'Bad direction.' });
-		return { report: moveLesson(db, { topicId, id, direction, today: today() }) };
+		return { report: moveLesson(db, { topicId, id, direction }) };
 	}
 };

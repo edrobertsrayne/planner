@@ -103,7 +103,7 @@ export const actions: Actions = {
 
 	// The whole year, replaced as one document through the Terms seam — the seam owns every
 	// rule, so the action validates nothing of its own. The six rows are read in year position,
-	// named by the canonical Term names and not this action's own count. The at-risk report
+	// named by the canonical Term names and not this action's own count. The report
 	// travels back with the save; an empty one is stated plainly rather than left to read as
 	// silence.
 	saveYear: async ({ request }) => {

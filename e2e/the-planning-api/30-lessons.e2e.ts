@@ -4,8 +4,7 @@ import { resetTo } from '../helpers.ts';
 
 // Covers the two Lesson endpoints over real HTTP (issue #159): creation with its defaults, the
 // list order, PATCH's partial semantics, and the null-topicId detach that makes a Standalone
-// Lesson (ADR-0015). Detach is one-way (ADR-0022):
-// re-attaching a Standalone Lesson to a Topic is refused, never a 200.
+// Lesson (ADR-0015). Detach is two-way (ADR-0026): a Standalone Lesson can be filed in a Topic again.
 
 test.beforeAll(() => resetTo('standard'));
 
@@ -53,7 +52,7 @@ test.describe.serial('the Lesson endpoints', () => {
 			length: 1,
 			position: 0,
 			links: [],
-			report: { atRisk: [], placementsMoved: [] }
+			report: { placementsMoved: [] }
 		});
 
 		const full = await request.post(`/api/topics/${topicOneId}/lessons`, {
@@ -200,7 +199,7 @@ test.describe.serial('the Lesson endpoints', () => {
 			expect(noop.status()).toBe(200);
 			expect(await noop.json()).toMatchObject({
 				lesson: { body: 'Rewritten', length: 2, status: 'planned', topicId: topicOneId },
-				report: { atRisk: [], placementsMoved: [] }
+				report: { placementsMoved: [] }
 			});
 		}
 
@@ -225,7 +224,7 @@ test.describe.serial('the Lesson endpoints', () => {
 		expect(await missingTopic.json()).toEqual({ error: 'Topic not found.' });
 	});
 
-	test('a Lesson detaches with a null topicId, and re-attaching it is refused', async ({
+	test('a Lesson detaches with a null topicId, and can be filed in a Topic again', async ({
 		request
 	}) => {
 		const detach = await request.patch(`/api/lessons/${lessonBId}`, {
@@ -250,14 +249,24 @@ test.describe.serial('the Lesson endpoints', () => {
 		});
 		expect((await detailWhileDetached.json()).topicId).toBeNull();
 
+		const list = await request.get(`/api/topics/${topicOneId}/lessons`, { headers: BEARER(token) });
+		expect((await list.json()).map((l: { id: string }) => l.id)).toEqual([lessonAId, lessonCId]);
+
+		// Detach is two-way: filing the Lesson in a Topic puts it at the end of the Topic's order.
 		const reattach = await request.patch(`/api/lessons/${lessonBId}`, {
 			headers: BEARER(token),
 			data: { topicId: topicOneId }
 		});
-		expect(reattach.status()).toBe(409);
-		expect(await reattach.json()).toEqual({ error: 'A Standalone Lesson cannot rejoin a Topic.' });
+		expect(reattach.status()).toBe(200);
+		expect((await reattach.json()).lesson).toMatchObject({ topicId: topicOneId });
 
-		const list = await request.get(`/api/topics/${topicOneId}/lessons`, { headers: BEARER(token) });
-		expect((await list.json()).map((l: { id: string }) => l.id)).toEqual([lessonAId, lessonCId]);
+		const filed = await request.get(`/api/topics/${topicOneId}/lessons`, {
+			headers: BEARER(token)
+		});
+		expect((await filed.json()).map((l: { id: string }) => l.id)).toEqual([
+			lessonAId,
+			lessonCId,
+			lessonBId
+		]);
 	});
 });

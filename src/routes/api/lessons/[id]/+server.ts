@@ -81,13 +81,16 @@ export const DELETE: RequestHandler = async (event) => {
 	if (auth) return auth;
 
 	try {
-		const lesson = deleteLesson(db, {
+		const result = deleteLesson(db, {
 			id: event.params.id,
 			today: today(),
 			dir: attachmentsDir(DATABASE_URL)
 		});
 
-		if (!lesson) return json({ error: 'Lesson not found.' }, { status: 404 });
+		// The confirm question is the one failure that is not a refusal; the API never confirms, so
+		// a Lesson that a Sequence holds stays a 409 that names the Classes.
+		if (!result) return json({ error: 'Lesson not found.' }, { status: 404 });
+		if ('needsConfirm' in result) return json({ error: result.reason }, { status: 409 });
 		return new Response(null, { status: 204 });
 	} catch (error) {
 		return refusalJson(error);
