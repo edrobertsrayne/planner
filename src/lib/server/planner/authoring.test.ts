@@ -27,6 +27,7 @@ import {
 	listTagNames,
 	moveLesson,
 	moveLink,
+	moveTopicToCourse,
 	placeLesson,
 	renameCourse,
 	renameTopic,
@@ -981,6 +982,59 @@ describe('one Lesson edit', () => {
 		expect(datesOf(db, classA.id)).toEqual(datesBefore);
 		expect(db.select().from(schema.placement).all()).toMatchObject([{ lessonId: placed.id }]);
 		expect(db.select().from(schema.readiness).all()).toMatchObject([{ lessonId: placed.id }]);
+	});
+});
+
+describe('moving a Topic to another Course', () => {
+	test('files the Topic and keeps Sequences, Readiness and dates', () => {
+		const { db, course, classA, classB } = setUp();
+		const other = createCourse(db, { name: 'Year 10 Physics' });
+		const forces = makeTopic(db, course.id, 'Forces');
+		const [lesson, second] = makeLessons(db, forces.id, 2);
+		assignTopic(db, { classId: classA.id, topicId: forces.id, today: TODAY });
+		setReadiness(db, lesson.id, classA.id, true);
+		const before = {
+			sequence: sequenceOf(db, classA.id),
+			dates: datesOf(db, classA.id),
+			datesB: datesOf(db, classB.id),
+			readiness: db.select().from(schema.readiness).all()
+		};
+
+		const moved = moveTopicToCourse(db, { id: forces.id, courseId: other.id });
+
+		expect(moved).toMatchObject({ id: forces.id, courseId: other.id });
+		expect(topicsOf(db, other.id).map((t) => t.id)).toEqual([forces.id]);
+		expect(lessonsOf(db, forces.id).map((l) => l.id)).toEqual([lesson.id, second.id]);
+		expect(sequenceOf(db, classA.id)).toEqual(before.sequence);
+		expect(datesOf(db, classA.id)).toEqual(before.dates);
+		expect(datesOf(db, classB.id)).toEqual(before.datesB);
+		expect(db.select().from(schema.readiness).all()).toEqual(before.readiness);
+	});
+
+	test('refuses a name clash in the target Course with the import message', () => {
+		const { db, course } = setUp();
+		const other = createCourse(db, { name: 'Year 10 Physics' });
+		const forces = makeTopic(db, course.id, 'Forces');
+		makeTopic(db, other.id, 'forces');
+
+		refused(
+			() => moveTopicToCourse(db, { id: forces.id, courseId: other.id }),
+			'conflict',
+			'The Course "Year 10 Physics" already holds a Topic called "forces".'
+		);
+		expect(topicsOf(db, course.id).map((t) => t.id)).toEqual([forces.id]);
+	});
+
+	test('answers undefined for an unknown Topic and refuses an unknown Course', () => {
+		const { db, course } = setUp();
+		const forces = makeTopic(db, course.id, 'Forces');
+
+		expect(moveTopicToCourse(db, { id: 'nope', courseId: course.id })).toBeUndefined();
+		refused(
+			() => moveTopicToCourse(db, { id: forces.id, courseId: 'nope' }),
+			'missing',
+			'Course not found.'
+		);
 	});
 });
 

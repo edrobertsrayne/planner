@@ -10,6 +10,7 @@ import {
 	lessonsOf,
 	listCourses,
 	moveLesson,
+	moveTopicToCourse,
 	renameCourse,
 	renameTopic,
 	reportOf,
@@ -33,6 +34,7 @@ export const load: PageServerLoad = ({ params, url }) => {
 
 	return {
 		course,
+		otherCourses: listCourses(db).filter((c) => c.id !== course.id),
 		topics: topics.map((t) => ({ ...t, lessonCount: lessonCounts.get(t.id) ?? 0 })),
 		lessonTotal: [...lessonCounts.values()].reduce((sum, n) => sum + n, 0),
 		classes,
@@ -90,6 +92,19 @@ export const actions: Actions = {
 		const name = String(data.get('name') ?? '');
 		try {
 			const topic = renameTopic(db, { id, name });
+			if (!topic) return fail(404, { error: 'No such Topic.' });
+			return { topic };
+		} catch (error) {
+			return refusal(error);
+		}
+	},
+
+	moveTopic: async ({ request }) => {
+		const data = await request.formData();
+		const id = trimmed(data, 'id');
+		const courseId = trimmed(data, 'courseId');
+		try {
+			const topic = moveTopicToCourse(db, { id, courseId });
 			if (!topic) return fail(404, { error: 'No such Topic.' });
 			return { topic };
 		} catch (error) {

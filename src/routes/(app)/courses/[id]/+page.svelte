@@ -52,6 +52,16 @@
 	let quickDelete = $state<{ action: string; id: string }>({ action: '?/deleteTopic', id: '' });
 	let quickForm = $state<HTMLFormElement>();
 
+	// Move to… files the shown Topic in another Course. One hidden form carries the chosen Course.
+	let moveCourseId = $state('');
+	let moveForm = $state<HTMLFormElement>();
+
+	async function moveTo(courseId: string) {
+		moveCourseId = courseId;
+		await tick();
+		moveForm?.requestSubmit();
+	}
+
 	async function askDelete(
 		target: NonNullable<typeof pendingDelete>,
 		empty: boolean
@@ -237,6 +247,30 @@
 								Assign Topic adds these Lessons to a Class in this order
 							</p>
 						</div>
+						{#if wide.current && data.otherCourses.length}
+							<form
+								bind:this={moveForm}
+								method="POST"
+								action="?/moveTopic"
+								use:enhance
+								class="hidden"
+							>
+								<input type="hidden" name="id" value={shown.id} />
+								<input type="hidden" name="courseId" value={moveCourseId} />
+							</form>
+							<DropdownMenu.Root>
+								<DropdownMenu.Trigger
+									class="{touchTarget} shrink-0 rounded px-1 text-xs text-muted-foreground hover:text-foreground"
+								>
+									Move to…
+								</DropdownMenu.Trigger>
+								<DropdownMenu.Content align="end">
+									{#each data.otherCourses as c (c.id)}
+										<DropdownMenu.Item onSelect={() => moveTo(c.id)}>{c.name}</DropdownMenu.Item>
+									{/each}
+								</DropdownMenu.Content>
+							</DropdownMenu.Root>
+						{/if}
 						{#if wide.current}
 							{@render menu(
 								'Topic actions',

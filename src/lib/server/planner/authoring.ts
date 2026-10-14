@@ -73,12 +73,24 @@ function findTopicNameCollision(
 	return rows.find((row) => nameMatchesIgnoringCaseAndWhitespace(row.name, name));
 }
 
-// A Topic is refused on create or rename if the same Course already holds a Topic of that name.
+// A Topic is refused on create, rename or move if the Course already holds a Topic of that name.
+// A caller that names the Course gets the import message, which also names it.
 function assertTopicNameAvailable(
 	db: Db,
-	{ courseId, name, exceptId }: { courseId: string; name: string; exceptId?: string }
+	{
+		courseId,
+		name,
+		exceptId,
+		courseName
+	}: { courseId: string; name: string; exceptId?: string; courseName?: string }
 ) {
 	const collision = findTopicNameCollision(db, { courseId, name, exceptId });
+	if (collision && courseName !== undefined) {
+		throw new Refused(
+			'conflict',
+			`The Course "${courseName}" already holds a Topic called "${collision.name.trim()}".`
+		);
+	}
 	if (collision) {
 		throw new Refused(
 			'conflict',
@@ -258,6 +270,29 @@ export function renameTopic(db: Db, { id, name }: { id: string; name: string }) 
 	const [row] = db
 		.update(schema.topic)
 		.set({ name: trimmed })
+		.where(eq(schema.topic.id, id))
+		.returning()
+		.all();
+	return row;
+}
+
+// Files a Topic in another Course. Its Lessons, their Topic order, Sequences, Readiness and
+// Placements stay as they are, so nothing is re-derived (ADR-0026). An unknown Topic returns
+// undefined, the door's 404.
+export function moveTopicToCourse(db: Db, { id, courseId }: { id: string; courseId: string }) {
+	const [existing] = db.select().from(schema.topic).where(eq(schema.topic.id, id)).all();
+	if (!existing) return undefined;
+	const [target] = db.select().from(schema.course).where(eq(schema.course.id, courseId)).all();
+	if (!target) throw new Refused('missing', 'Course not found.');
+	assertTopicNameAvailable(db, {
+		courseId,
+		name: existing.name,
+		exceptId: id,
+		courseName: target.name
+	});
+	const [row] = db
+		.update(schema.topic)
+		.set({ courseId })
 		.where(eq(schema.topic.id, id))
 		.returning()
 		.all();
