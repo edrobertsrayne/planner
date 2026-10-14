@@ -5,6 +5,7 @@ import {
 	assignTopic,
 	classSchedule,
 	fixedLessonIds,
+	sequenceLessonIds,
 	recordContinuation,
 	sessionDetail
 } from './index';
@@ -271,5 +272,21 @@ describe('re-deriving a Sequence', () => {
 
 		expect(sessionRows(db, classA.id)).toEqual([]);
 		expect(db.select().from(schema.continuation).all()).toEqual([]);
+	});
+});
+
+describe('the Sequence order', () => {
+	test("lists the Class's Lessons in its own order, a Standalone Lesson included", () => {
+		const { db, course, classA, classB } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const lessons = makeLessons(db, topic.id, 3);
+		db.update(schema.lesson)
+			.set({ topicId: null })
+			.where(eq(schema.lesson.id, lessons[1].id))
+			.run();
+		setSequence(db, classA.id, [lessons[2].id, lessons[1].id, lessons[0].id]);
+
+		expect(sequenceLessonIds(db, classA.id)).toEqual([lessons[2].id, lessons[1].id, lessons[0].id]);
+		expect(sequenceLessonIds(db, classB.id)).toEqual([]);
 	});
 });
