@@ -825,7 +825,7 @@ test.describe('the Class chip row on a phone', () => {
 test.describe('the Classes screen on a laptop', () => {
 	test.use({ viewport: { width: 1280, height: 720 } });
 
-	test('a tile opens its Class page from its body, and the footer holds Open Class (stories 107–108)', async ({
+	test('a tile is one link to its Class page, with no footer and no progress bar (stories 86–87)', async ({
 		page
 	}) => {
 		await login(page, '/classes');
@@ -833,8 +833,9 @@ test.describe('the Classes screen on a laptop', () => {
 		const tile = item.getByRole('link', { name: /9B\/Sc1/ });
 		await expect(tile).toContainText('KS3 Science');
 		await expect(tile).toContainText('Runway');
-		// The footer sits beside the body link, not inside it: only the body opens the page.
-		await expect(item.getByRole('link', { name: 'Open Class' })).toBeVisible();
+		// The tile is one link: no footer link, no progress bar.
+		await expect(item.getByRole('link')).toHaveCount(1);
+		await expect(item.getByRole('progressbar')).toHaveCount(0);
 		await tile.click();
 		await expect(page).toHaveURL(/\/classes\/[^/?]+$/);
 	});
@@ -862,11 +863,13 @@ test.describe('the Classes screen on a phone writes nothing', () => {
 	const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];
 	test.use({ viewport, userAgent, deviceScaleFactor, isMobile, hasTouch });
 
-	test('no New Class tile; Open Class has a 44 px box (story 109)', async ({ page }) => {
+	test('no New Class tile; the tile body is the link, with a 44 px box (story 109)', async ({
+		page
+	}) => {
 		await login(page, '/classes');
 		await expect(page.getByRole('link', { name: /9B\/Sc1/ })).toBeVisible();
 		await expect(page.getByRole('button', { name: 'New Class' })).toBeHidden();
-		await expectHitArea44(page, 'Open Class', 'link');
+		await expectHitArea44(page, /9B\/Sc1/, 'link');
 		await expectNoHorizontalScroll(page);
 	});
 });
@@ -951,11 +954,14 @@ test.describe('the Class page on a phone writes nothing', () => {
 		await openClassPage(page);
 		await expectNoHorizontalScroll(page);
 		// No tabs at all: A chosen Timetable tab on a wider window still shows Overview here.
+		await expect(page.getByRole('tablist')).toBeHidden();
 		await expect(page.getByRole('tab', { name: 'Overview' })).toBeHidden();
 		// The Timetable itself is gone, with its "Timetable as at" control.
 		await expect(page.getByLabel('Timetable as at — pick any date')).toBeHidden();
 		// Overview reads. The Sequence tab and its Assign Topic menu are not there.
 		await expect(page.getByRole('heading', { name: 'Next Sessions' })).toBeVisible();
+		await expect(page.getByText('Runway', { exact: true })).toBeVisible();
+		await expect(page.getByRole('progressbar')).toHaveCount(0);
 		await expect(page.getByRole('tab', { name: /^Sequence/ })).toBeHidden();
 		await expect(page.getByRole('button', { name: 'Assign Topic' })).toBeHidden();
 	});
