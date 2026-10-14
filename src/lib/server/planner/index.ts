@@ -54,6 +54,7 @@ export {
 	assignTopic,
 	fixedLessonIds,
 	moveLessons,
+	sequenceLessonIds,
 	sequenceView,
 	teachingNoteOf,
 	type DateChange,

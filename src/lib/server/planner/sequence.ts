@@ -39,7 +39,7 @@ export function fixedLessonIds(db: Db, classId: string, today: string): Set<stri
 }
 
 // The Lessons of a Class's Sequence, in order.
-function sequenceLessonIds(db: Db, classId: string): string[] {
+export function sequenceLessonIds(db: Db, classId: string): string[] {
 	return db
 		.select({ lessonId: schema.classLesson.lessonId })
 		.from(schema.classLesson)
