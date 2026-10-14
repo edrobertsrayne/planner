@@ -76,13 +76,13 @@ test.describe('the Course and Topic editors', () => {
 		const courseBox = page.getByPlaceholder('New Course name — press Enter');
 		await courseBox.fill('Move target');
 		await courseBox.press('Enter');
-		await expect(page.getByRole('link', { name: 'Move target' })).toBeVisible();
+		await expect(page.getByRole('heading', { level: 1, name: 'Move target' })).toBeVisible();
 
 		await openCourse(page);
 		const topicBox = page.getByPlaceholder('New Topic name — press Enter');
 		await topicBox.fill('Mover');
 		await topicBox.press('Enter');
-		const link = page.getByRole('link', { name: 'Mover', exact: true });
+		const link = page.getByRole('link', { name: /^Mover/ });
 		await expect(link).toBeVisible();
 
 		await page.getByRole('button', { name: 'Move to…' }).click();
@@ -91,7 +91,7 @@ test.describe('the Course and Topic editors', () => {
 
 		await page.goto('/courses');
 		await page.getByRole('link', { name: 'Move target' }).click();
-		await expect(page.getByRole('link', { name: 'Mover', exact: true })).toBeVisible();
+		await expect(page.getByRole('link', { name: /^Mover/ })).toBeVisible();
 
 		// A second Topic of the same name in KS3 Science cannot move into Move target.
 		await openCourse(page);
@@ -110,6 +110,9 @@ test.describe('the Course and Topic editors', () => {
 		await expect(link).toHaveCount(0);
 		await page.goto('/courses');
 		await page.getByRole('link', { name: 'Move target' }).click();
+		await page.getByRole('button', { name: 'Topic actions' }).click();
+		await page.getByRole('menuitem', { name: 'Delete Topic' }).click();
+		await expect(link).toHaveCount(0);
 		await page.getByRole('button', { name: 'Course actions' }).click();
 		await page.getByRole('menuitem', { name: 'Delete Course' }).click();
 		await expect(page).toHaveURL(/\/courses$/);
@@ -248,7 +251,7 @@ test.describe('the Lesson editor for a Standalone Lesson', () => {
 		return runFixture('create-standalone-lesson', title).trim();
 	}
 
-	test('the form has Draft/Planned, Length and Tags, Links and Attachments, and no Topic, steps or Placements', async ({
+	test('the form has Draft/Planned, Length and Tags, Links and Attachments, a Topic picker, and no steps or Placements', async ({
 		page
 	}) => {
 		const id = standaloneLesson('Revision carousel');
@@ -258,7 +261,7 @@ test.describe('the Lesson editor for a Standalone Lesson', () => {
 		await expect(page.getByText('Standalone Lesson', { exact: true })).toBeVisible();
 		await expect(page.getByRole('radio', { name: 'Planned' })).toBeVisible();
 		await expect(page.getByLabel('Length')).toBeVisible();
-		await expect(page.getByLabel('Topic', { exact: true })).toHaveCount(0);
+		await expect(page.getByLabel('Topic', { exact: true })).toHaveValue('');
 		await expect(page.getByRole('button', { name: 'Next Lesson' })).toHaveCount(0);
 		await expect(page.getByText(/^Lesson \d+ of \d+$/)).toHaveCount(0);
 
@@ -349,7 +352,7 @@ test.describe('Detach on the Lesson editor', () => {
 		expect(page.url()).toBe(url);
 		await expect(page.getByRole('textbox', { name: 'Lesson title' })).toHaveValue('Detachable');
 		await expect(page.getByText('Standalone Lesson', { exact: true })).toBeVisible();
-		await expect(page.getByLabel('Topic', { exact: true })).toHaveCount(0);
+		await expect(page.getByLabel('Topic', { exact: true })).toHaveValue('');
 		await expect(page.getByRole('button', { name: 'Detach from Topic' })).toHaveCount(0);
 
 		// A Standalone Lesson takes a Topic from a picker that lists every Topic, grouped by Course.
