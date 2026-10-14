@@ -87,7 +87,7 @@
 		};
 	};
 
-	// Stepping follows the Topic's order and stops at both ends. It replaces the history entry, so
+	// Stepping follows the Class's Sequence, or the Topic's order without a Class, and stops at both ends. It replaces the history entry, so
 	// one browser Back leaves the Lesson editor however far Ed has stepped. It waits for a save
 	// in flight (a click blurs the field first), since `beforeNavigate` would otherwise cancel the
 	// move and redo it as a plain `goto` that pushes an entry.
@@ -99,7 +99,8 @@
 	async function step(id: string | null) {
 		if (!id) return;
 		await saving;
-		await goto(resolve(`/lessons/${id}`), { replaceState: true });
+		const query = data.stepClass ? `?class=${data.stepClass.id}` : '';
+		await goto(resolve(`/lessons/${id}${query}`), { replaceState: true });
 	}
 	function stepWithKey(e: KeyboardEvent) {
 		if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -164,7 +165,7 @@
 				>
 					<ChevronLeftIcon />
 				</Button>
-				<span class="tabular-nums">Lesson {index + 1} of {data.siblingIds.length}</span>
+				<span class="tabular-nums">Lesson {index + 1} of {data.siblingIds.length}{data.stepClass ? ` in ${data.stepClass.label}` : ''}</span>
 				<Button
 					variant="ghost"
 					size="icon-sm"

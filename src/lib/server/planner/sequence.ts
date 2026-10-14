@@ -246,3 +246,14 @@ export function sequenceView(db: Db, { classId, today }: { classId: string; toda
 
 	return { entries, topics };
 }
+
+// The ids of a Class's Lessons in Sequence order: what the Lesson editor steps through.
+export function sequenceLessonIds(db: Db, classId: string): string[] {
+	return db
+		.select({ lessonId: schema.classLesson.lessonId })
+		.from(schema.classLesson)
+		.where(eq(schema.classLesson.classId, classId))
+		.orderBy(asc(schema.classLesson.position))
+		.all()
+		.map((row) => row.lessonId);
+}
