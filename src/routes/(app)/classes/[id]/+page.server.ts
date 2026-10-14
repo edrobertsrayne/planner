@@ -100,13 +100,10 @@ export const actions: Actions = {
 		if (!topicId) return fail(400, { error: 'Pick a Topic to assign.' });
 		try {
 			const result = assignTopic(db, { classId, topicId, today: today() });
-			const topicName = sequenceView(db, { classId, today: today() })?.topics.find(
-				(topic) => topic.id === topicId
-			)?.name;
 			return {
 				report: reportOf(result),
 				assigned: {
-					topicName: topicName ?? '',
+					topicName: result.topicName,
 					added: result.added.length,
 					skipped: result.skipped.map(({ title, reason }) => ({ title, reason }))
 				}
@@ -127,8 +124,7 @@ export const actions: Actions = {
 				report: reportOf(result),
 				moved: {
 					lessonIds,
-					changed: result.changed,
-					lessonsChanged: result.lessonsChanged
+					changed: result.changed
 				}
 			};
 		} catch (error) {
@@ -145,7 +141,7 @@ export const actions: Actions = {
 			const result = removeFromSequence(db, { classId, lessonIds, today: today() });
 			return {
 				report: reportOf(result),
-				removed: { count: lessonIds.length, changed: result.lessonsChanged }
+				removed: { count: lessonIds.length, changed: result.changed }
 			};
 		} catch (error) {
 			return refusal(error);
@@ -165,7 +161,7 @@ export const actions: Actions = {
 			});
 			return {
 				report: reportOf(result),
-				added: { title: result.lesson.title, changed: result.lessonsChanged }
+				added: { title: result.lesson.title, changed: result.changed }
 			};
 		} catch (error) {
 			return refusal(error);

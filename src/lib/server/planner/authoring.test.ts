@@ -796,7 +796,7 @@ describe('reordering and moving Lessons', () => {
 
 			expect(deleteLesson(db, { id: lessons[1].id, today: TODAY, dir })).toEqual({
 				needsConfirm: true,
-				reason: `This Lesson is in the Sequence of ${classB.label}, ${classA.label}.`
+				reason: `This Lesson is in ${classB.label} and ${classA.label}'s Sequences. Delete it?`
 			});
 
 			expect(lessonDetail(db, lessons[1].id)).not.toBeNull();

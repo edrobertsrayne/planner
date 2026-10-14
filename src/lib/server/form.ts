@@ -8,7 +8,7 @@ export function trimmed(data: FormData, field: string): string {
 }
 
 // The seam refuses a write by throwing `Refused` with a message already written for Ed — "This
-// Topic has already been taught and cannot be unassigned." — and a kind that says which class of
+// Lesson was taught, so it cannot be removed." — and a kind that says which class of
 // refusal it is. The form door answers every refusal with the same failure shape, `{ error }`,
 // and takes its status from the kind. Anything else was not thrown deliberately: it rethrows, so
 // an unexpected fault reaches the error page as the 500 it is, never a 400 dressed as a bad

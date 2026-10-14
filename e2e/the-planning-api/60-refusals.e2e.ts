@@ -89,7 +89,7 @@ test.describe.serial('the refusals that protect the record', () => {
 		});
 		expect(lessonInSequence.status()).toBe(409);
 		expect(await lessonInSequence.json()).toEqual({
-			error: `This Lesson is in the Sequence of ${FIXTURE_CLASS_LABEL}.`
+			error: `This Lesson is in ${FIXTURE_CLASS_LABEL}'s Sequence. Delete it?`
 		});
 		expect(
 			(await request.get(`/api/lessons/${sequencedLessonId}`, { headers: BEARER(token) })).status()

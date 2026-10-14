@@ -1,4 +1,4 @@
-// The Session note's persistence rules (#89), as a module the panel calls rather than logic
+// The Teaching note's persistence rules (#89), as a module the panel calls rather than logic
 // inline in the component — this is the second of the rebuild's two test seams. Autosave on a
 // roughly 1s debounce; every exit flushes and none of them waits for the write; a failed write
 // leaves a localStorage draft keyed by the occasion, which wins over server state on reopen and

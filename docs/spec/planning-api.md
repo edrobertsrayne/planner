@@ -474,7 +474,7 @@ API has no confirm; in the browser, Delete Lesson asks first and then deletes th
 entries, its Readiness and its Teaching notes:
 
 ```json
-{ "error": "This Lesson is in the Sequence of 9B/Sc1, 9C/Sc1." }
+{ "error": "This Lesson is in 9B/Sc1 and 9C/Sc1's Sequences. Delete it?" }
 ```
 
 Deleting a Lesson deletes its Links.
@@ -700,9 +700,10 @@ are used as they are:
 
 - **`editLesson`** accepts `topicId: string | null`. A null target is Detach: it sets the column
   and re-derives nothing: Detach changes no Sequence.
-- **`deleteLesson`** refuses a taught or placed Lesson, or one that a Sequence holds, by throwing `Refused('conflict', …)` — the
+- **`deleteLesson`** refuses a taught or placed Lesson by throwing `Refused('conflict', …)` — the
   message written at the seam, the status mapped by the door (`src/lib/server/planner/refused.ts`).
-  An id the URL names but the database does not returns `undefined`, and the route answers its own 404.
+  A Lesson that a Sequence holds returns `{ needsConfirm: true, reason }` instead, and the API door
+  answers it with 409 and the `reason`. An id the URL names but the database does not returns `undefined`, and the route answers its own 404.
 
 ### 7.3 The three joins from ADR-0015
 

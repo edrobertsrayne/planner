@@ -9,6 +9,7 @@ import { and, eq } from 'drizzle-orm';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import { rederive, rewindBoundary, type Db, type WriteReport } from './derive';
+import { endPairing } from './sequence';
 import { isRealDate } from '$lib/date';
 import { Refused } from './refused';
 import { required } from './fields';
@@ -79,19 +80,7 @@ export function removePlacement(db: Db, { id, today }: { id: string; today: stri
 		)
 		.all();
 	if (!survivor) {
-		db.delete(schema.readiness)
-			.where(
-				and(eq(schema.readiness.lessonId, row.lessonId), eq(schema.readiness.classId, row.classId))
-			)
-			.run();
-		db.delete(schema.teachingNote)
-			.where(
-				and(
-					eq(schema.teachingNote.lessonId, row.lessonId),
-					eq(schema.teachingNote.classId, row.classId)
-				)
-			)
-			.run();
+		endPairing(db, row.classId, [row.lessonId]);
 	}
 
 	return rederive(db, row.classId, rewindBoundary(row.date, today));

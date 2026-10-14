@@ -669,7 +669,7 @@
 		<Dialog.Header>
 			<Dialog.Title>Delete this Lesson?</Dialog.Title>
 			<Dialog.Description>
-				{confirmDelete} Deleting it takes it out of that Sequence.
+				{confirmDelete}
 			</Dialog.Description>
 		</Dialog.Header>
 		<Dialog.Footer>

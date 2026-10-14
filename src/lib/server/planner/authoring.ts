@@ -633,9 +633,12 @@ export function deleteLesson(
 		.orderBy(asc(schema.classes.label))
 		.all();
 	if (sequenceClasses.length > 0 && !confirmed) {
+		const labels = sequenceClasses.map((c) => c.label);
+		const names =
+			labels.length > 1 ? `${labels.slice(0, -1).join(', ')} and ${labels.at(-1)}` : labels[0];
 		return {
 			needsConfirm: true,
-			reason: `This Lesson is in the Sequence of ${sequenceClasses.map((c) => c.label).join(', ')}.`
+			reason: `This Lesson is in ${names}'s ${labels.length > 1 ? 'Sequences' : 'Sequence'}. Delete it?`
 		};
 	}
 

@@ -3,7 +3,7 @@
 // form actions only call these functions.
 //
 // Each write runs in one transaction, re-derives this Class only, from today, and answers with
-// the `WriteReport` plus `lessonsChanged`: how many Lessons got a different first date.
+// the `WriteReport` plus `changed`: the Lessons that got a different first date.
 import { and, asc, eq, inArray, lte, ne } from 'drizzle-orm';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
@@ -71,8 +71,8 @@ function placedLessonIds(db: Db, classId: string): Set<string> {
 	);
 }
 
-// Where each Lesson of the Sequence first falls, from the engine: the date and Period of its first
-// part, or null when no Slot is left. Taught Lessons come from the record, the rest from today on.
+// Where each Lesson of the Sequence first falls, from the engine: the date of its first part, or
+// null when no Slot is left. Taught Lessons come from the record, the rest from today on.
 function firstSlots(db: Db, classId: string, today: string): Map<string, string | null> {
 	return firstSlotsOf(db, classId, scheduleFor(db, { classId, boundary: today }));
 }
@@ -80,27 +80,26 @@ function firstSlots(db: Db, classId: string, today: string): Map<string, string 
 function firstSlotsOf(db: Db, classId: string, result: ScheduleResult): Map<string, string | null> {
 	const first = new Map<string, string>();
 	for (const part of [...result.history, ...result.scheduled]) {
-		const at = `${part.date}|${part.period}`;
 		const seen = first.get(part.lessonId);
-		if (seen === undefined || at < seen) first.set(part.lessonId, at);
+		if (seen === undefined || part.date < seen) first.set(part.lessonId, part.date);
 	}
 	return new Map(sequenceLessonIds(db, classId).map((id) => [id, first.get(id) ?? null]));
 }
 
-// A Lesson that held a place before a write and now falls on a different first Slot. `was` is the
-// date of its old first Slot, or null when it was past the end of the year.
+// A Lesson that held a place before a write and now falls on a different first date. `was` is its
+// old first date, or null when it was past the end of the year.
 export interface DateChange {
 	lessonId: string;
 	was: string | null;
 }
 
 // Runs one Sequence write: in one transaction, re-deriving this Class from today, and listing the
-// Lessons that stay in the Sequence and now fall on a different first Slot.
+// Lessons that stay in the Sequence and now fall on a different first date.
 function writeSequence<T>(
 	db: Db,
 	{ classId, today }: { classId: string; today: string },
 	write: () => T
-): T & WriteReport & { lessonsChanged: number; changed: DateChange[] } {
+): T & WriteReport & { changed: DateChange[] } {
 	return inTransaction(db.$client, () => {
 		const before = firstSlots(db, classId, today);
 		const result = write();
@@ -109,11 +108,24 @@ function writeSequence<T>(
 		const changed: DateChange[] = [];
 		for (const [lessonId, at] of before) {
 			if (after.has(lessonId) && after.get(lessonId) !== at) {
-				changed.push({ lessonId, was: at?.split('|')[0] ?? null });
+				changed.push({ lessonId, was: at });
 			}
 		}
-		return { ...result, ...report, lessonsChanged: changed.length, changed };
+		return { ...result, ...report, changed };
 	});
+}
+
+function titleOf(db: Db, lessonId: string): string | undefined {
+	return lessonNames(db, [lessonId]).get(lessonId)?.title;
+}
+
+// The (Class, Lesson) pairing ends: its Readiness and Teaching note die with it (GLOSSARY).
+export function endPairing(db: Db, classId: string, lessonIds: string[]): void {
+	for (const table of [schema.readiness, schema.teachingNote]) {
+		db.delete(table)
+			.where(and(eq(table.classId, classId), inArray(table.lessonId, lessonIds)))
+			.run();
+	}
 }
 
 export type SkipReason = 'in-sequence' | 'placed';
@@ -132,7 +144,7 @@ export function assignTopic(
 		.where(eq(schema.classes.id, classId))
 		.all();
 	const [top] = db
-		.select({ courseId: schema.topic.courseId })
+		.select({ courseId: schema.topic.courseId, name: schema.topic.name })
 		.from(schema.topic)
 		.where(eq(schema.topic.id, topicId))
 		.all();
@@ -170,7 +182,7 @@ export function assignTopic(
 				added.push(lesson);
 			}
 		}
-		return { added, skipped };
+		return { topicName: top.name, added, skipped };
 	});
 }
 
@@ -197,24 +209,16 @@ export function moveLessons(
 	}
 
 	const fixed = fixedLessonIds(db, classId, today);
-	const titles = new Map(
-		db
-			.select({ id: schema.lesson.id, title: schema.lesson.title })
-			.from(schema.lesson)
-			.where(inArray(schema.lesson.id, order))
-			.all()
-			.map((row) => [row.id, row.title])
-	);
 	const taught = lessonIds.find((id) => fixed.has(id));
 	if (taught) {
-		throw new Refused('conflict', `“${titles.get(taught)}” was taught, so it cannot move.`);
+		throw new Refused('conflict', `“${titleOf(db, taught)}” was taught, so it cannot move.`);
 	}
 	const firstMoved = next.findIndex((id) => lessonIds.includes(id));
 	const inFront = next.slice(firstMoved).find((id) => fixed.has(id));
 	if (inFront) {
 		throw new Refused(
 			'conflict',
-			`A Lesson cannot go in front of “${titles.get(inFront)}”, which was taught.`
+			`A Lesson cannot go in front of “${titleOf(db, inFront)}”, which was taught.`
 		);
 	}
 
@@ -242,21 +246,19 @@ export function removeFromSequence(
 	const fixed = fixedLessonIds(db, classId, today);
 	const taught = lessonIds.find((id) => fixed.has(id));
 	if (taught !== undefined) {
-		const [row] = db
-			.select({ title: schema.lesson.title })
-			.from(schema.lesson)
-			.where(eq(schema.lesson.id, taught))
-			.all();
-		throw new Refused('conflict', `“${row?.title}” was taught, so it cannot be removed.`);
+		throw new Refused('conflict', `“${titleOf(db, taught)}” was taught, so it cannot be removed.`);
 	}
 
 	return writeSequence(db, { classId, today }, () => {
-		const own = (
-			table: typeof schema.classLesson | typeof schema.readiness | typeof schema.teachingNote
-		) => and(eq(table.classId, classId), inArray(table.lessonId, lessonIds));
-		db.delete(schema.classLesson).where(own(schema.classLesson)).run();
-		db.delete(schema.readiness).where(own(schema.readiness)).run();
-		db.delete(schema.teachingNote).where(own(schema.teachingNote)).run();
+		db.delete(schema.classLesson)
+			.where(
+				and(
+					eq(schema.classLesson.classId, classId),
+					inArray(schema.classLesson.lessonId, lessonIds)
+				)
+			)
+			.run();
+		endPairing(db, classId, lessonIds);
 		return {};
 	});
 }
@@ -284,14 +286,9 @@ export function addLesson(
 		if (index < 0) throw new Refused('invalid', 'That Lesson is not in this Sequence.');
 		const inFront = order.slice(index + 1).find((id) => fixed.has(id));
 		if (inFront) {
-			const [row] = db
-				.select({ title: schema.lesson.title })
-				.from(schema.lesson)
-				.where(eq(schema.lesson.id, inFront))
-				.all();
 			throw new Refused(
 				'conflict',
-				`A Lesson cannot go in front of “${row?.title}”, which was taught.`
+				`A Lesson cannot go in front of “${titleOf(db, inFront)}”, which was taught.`
 			);
 		}
 		at = index + 1;
@@ -442,7 +439,7 @@ export function sequenceView(db: Db, { classId, today }: { classId: string; toda
 		.all()
 		.map((row) => ({
 			...row,
-			firstDate: slots.get(row.lessonId)?.split('|')[0] ?? null,
+			firstDate: slots.get(row.lessonId) ?? null,
 			fixed: fixed.has(row.lessonId),
 			note: notes.get(row.lessonId) ?? null,
 			ready: ready.has(row.lessonId),

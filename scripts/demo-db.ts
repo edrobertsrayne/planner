@@ -96,7 +96,7 @@ function seed(path: string | undefined) {
 		for (const topicId of topics) assignTopic(db, { classId: cls.id, topicId, today: since });
 	}
 
-	// One note on the last taught Session, for the Session page and the Class page "Last taught".
+	// One Teaching note on the last taught Session, for the Session page and the Class page "Last taught".
 	const classId = created.get('9B/Sc1')!;
 	const [last] = db
 		.select()

@@ -7,6 +7,7 @@ import { lessonActions } from '$lib/server/lesson-actions';
 import {
 	attachedTags,
 	attachmentsOf,
+	classDetail,
 	classesTaughtLesson,
 	lessonDetail,
 	lessonsOf,
@@ -31,11 +32,7 @@ export const load: PageServerLoad = ({ params, url }) => {
 
 	// With a Class in the URL the editor steps through that Class's Sequence; without one, or when
 	// the Lesson is not in it, through the Topic's Lessons.
-	const [cls] = db
-		.select()
-		.from(schema.classes)
-		.where(eq(schema.classes.id, url.searchParams.get('class') ?? ''))
-		.all();
+	const cls = classDetail(db, url.searchParams.get('class') ?? '');
 	const sequence = cls ? sequenceLessonIds(db, cls.id) : [];
 	const inSequence = sequence.includes(lesson.id);
 

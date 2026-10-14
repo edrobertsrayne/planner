@@ -108,8 +108,8 @@ export function setUpAuthoring() {
 }
 
 // Writes a Class's Sequence in the given Lesson order, then re-derives the Class from `today`.
-// It stands in for a Sequence reorder until the Sequence Move write exists. It replaces every
-// `class_lesson` row of the Class: a Lesson left out of `lessonIds` leaves the Sequence.
+// For a Sequence the Sequence writes would refuse, such as Lessons of another Course (Assign Topic
+// is `invalid` for them). It replaces every `class_lesson` row of the Class.
 export function setSequence(
 	db: Db,
 	classId: string,

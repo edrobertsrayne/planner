@@ -6,7 +6,7 @@
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import { classTone } from '$lib/class-tone';
 	import { courseHref } from '$lib/client/back';
-	import { createInPlace, createThenSelect } from '$lib/client/enhance';
+	import { createInPlace, createThenSelect, submitWithValue } from '$lib/client/enhance';
 	import type { WriteReport } from '$lib/server/planner';
 	import RenameableRow from '$lib/components/renameable-row.svelte';
 	import RewindReport from '$lib/components/rewind-report.svelte';
@@ -16,7 +16,6 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { touchTarget } from '$lib/components/ui/touch-target.js';
-	import { tick } from 'svelte';
 	import { MediaQuery } from 'svelte/reactivity';
 	import ConfirmDeleteDialog from './ConfirmDeleteDialog.svelte';
 	import type { PageProps } from './$types';
@@ -49,33 +48,18 @@
 		name: string;
 		description: string;
 	} | null>(null);
-	let quickDelete = $state<{ action: string; id: string }>({ action: '?/deleteTopic', id: '' });
-	let quickForm = $state<HTMLFormElement>();
+	let quickTopicForm = $state<HTMLFormElement>();
+	let quickCourseForm = $state<HTMLFormElement>();
 
 	// Move to… files the shown Topic in another Course. One hidden form carries the chosen Course.
-	let moveCourseId = $state('');
 	let moveForm = $state<HTMLFormElement>();
 
-	async function moveTo(courseId: string) {
-		moveCourseId = courseId;
-		await tick();
-		moveForm?.requestSubmit();
-	}
-
-	async function askDelete(
-		target: NonNullable<typeof pendingDelete>,
-		empty: boolean
-	): Promise<void> {
+	function askDelete(target: NonNullable<typeof pendingDelete>, empty: boolean): void {
 		if (!empty) {
 			pendingDelete = target;
 			return;
 		}
-		quickDelete = {
-			action: target.kind === 'topic' ? '?/deleteTopic' : '?/deleteCourse',
-			id: target.id
-		};
-		await tick();
-		quickForm?.requestSubmit();
+		submitWithValue(target.kind === 'topic' ? quickTopicForm : quickCourseForm, 'id', target.id);
 	}
 </script>
 
@@ -256,7 +240,7 @@
 								class="hidden"
 							>
 								<input type="hidden" name="id" value={shown.id} />
-								<input type="hidden" name="courseId" value={moveCourseId} />
+								<input type="hidden" name="courseId" />
 							</form>
 							<DropdownMenu.Root>
 								<DropdownMenu.Trigger
@@ -266,7 +250,9 @@
 								</DropdownMenu.Trigger>
 								<DropdownMenu.Content align="end">
 									{#each data.otherCourses as c (c.id)}
-										<DropdownMenu.Item onSelect={() => moveTo(c.id)}>{c.name}</DropdownMenu.Item>
+										<DropdownMenu.Item onSelect={() => submitWithValue(moveForm, 'courseId', c.id)}
+											>{c.name}</DropdownMenu.Item
+										>
 									{/each}
 								</DropdownMenu.Content>
 							</DropdownMenu.Root>
@@ -360,6 +346,9 @@
 	action={pendingDelete?.kind === 'topic' ? '?/deleteTopic' : '?/deleteCourse'}
 />
 
-<form method="POST" action={quickDelete.action} use:enhance bind:this={quickForm} hidden>
-	<input type="hidden" name="id" value={quickDelete.id} />
+<form method="POST" action="?/deleteTopic" use:enhance bind:this={quickTopicForm} hidden>
+	<input type="hidden" name="id" />
+</form>
+<form method="POST" action="?/deleteCourse" use:enhance bind:this={quickCourseForm} hidden>
+	<input type="hidden" name="id" />
 </form>

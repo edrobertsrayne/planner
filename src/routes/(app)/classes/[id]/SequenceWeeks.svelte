@@ -9,6 +9,7 @@
 	import Markdown from '$lib/components/markdown.svelte';
 	import { formatDateShort, formatDayMonth } from '$lib/date';
 	import type { SlotFill } from '$lib/sequence-layout';
+	import { wasText } from '$lib/sequence-text';
 	import { topicColour } from '$lib/topic-colour';
 	import type { SequenceEntry, WeekRow } from '$lib/server/planner';
 
@@ -86,8 +87,6 @@
 		event.preventDefault();
 		onPick(entry);
 	};
-	const wasText = (lessonId: string) =>
-		was.get(lessonId) ? `was ${formatDateShort(was.get(lessonId)!)}` : 'was past the end';
 </script>
 
 {#snippet lessonCard(entry: SequenceEntry, part: number, of: number, base: string | null)}
@@ -141,7 +140,9 @@
 					</span>
 				{/if}
 				{#if !dragging && was.has(entry.lessonId)}
-					<span class="text-amber-700 dark:text-amber-400" data-was>{wasText(entry.lessonId)}</span>
+					<span class="text-amber-700 dark:text-amber-400" data-was
+						>{wasText(was.get(entry.lessonId) ?? null)}</span
+					>
 				{/if}
 			</span>
 		</a>

@@ -138,7 +138,7 @@
 				freeAfter={data.sequence.freeAfter}
 				pastEnd={data.sequence.pastEnd}
 				chips={data.sequence.chips}
-				result={form?.assigned ?? null}
+				assigned={form?.assigned ?? null}
 				moved={form?.moved ?? null}
 				removed={form?.removed ?? null}
 				added={form?.added ?? null}

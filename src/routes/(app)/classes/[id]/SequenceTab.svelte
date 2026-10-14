@@ -13,6 +13,7 @@
 	import { movedOrder } from '$lib/sequence-order';
 	import { withParam } from '$lib/query';
 	import { formatDateShort } from '$lib/date';
+	import { changeLine, plural, wasText } from '$lib/sequence-text';
 	import Markdown from '$lib/components/markdown.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
@@ -43,7 +44,7 @@
 		freeAfter,
 		pastEnd,
 		chips,
-		result,
+		assigned,
 		moved,
 		removed,
 		added
@@ -56,15 +57,15 @@
 		freeAfter: number;
 		pastEnd: string[];
 		chips: TopicChip[];
-		result: {
+		assigned: {
 			topicName: string;
 			added: number;
 			skipped: { title: string; reason: SkipReason }[];
 		} | null;
 		// The last Move: the Lessons moved, and each Lesson that got a new first Slot.
-		moved: { lessonIds: string[]; changed: DateChange[]; lessonsChanged: number } | null;
-		removed: { count: number; changed: number } | null;
-		added: { title: string; changed: number } | null;
+		moved: { lessonIds: string[]; changed: DateChange[] } | null;
+		removed: { count: number; changed: DateChange[] } | null;
+		added: { title: string; changed: DateChange[] } | null;
 	} = $props();
 
 	const byWeek = $derived(page.url.searchParams.get('layout') !== 'list');
@@ -263,7 +264,6 @@
 			: 'No notes or Ready marks will be lost.';
 	}
 
-	const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 	const REASONS: Record<SkipReason, string> = {
 		'in-sequence': 'already in this Sequence',
 		placed: 'Placed on this Class'
@@ -408,18 +408,16 @@
 
 	{#if moved}
 		<p class="mt-2 text-xs text-muted-foreground" role="status" data-move-result>
-			{moved.lessonsChanged === 0
-				? 'No Lessons change date.'
-				: `${plural(moved.lessonsChanged, 'Lesson')} ${moved.lessonsChanged === 1 ? 'changes' : 'change'} date.`}
+			{changeLine(moved.changed.length)}
 		</p>
 	{/if}
 
-	{#if result}
+	{#if assigned}
 		<p class="mt-2 text-xs text-muted-foreground" role="status" data-assign-result>
-			{result.added === 0
-				? `Added no Lessons from ${result.topicName}.`
-				: `Added ${plural(result.added, 'Lesson')} from ${result.topicName}.`}
-			{#each result.skipped as skip (skip.title)}
+			{assigned.added === 0
+				? `Added no Lessons from ${assigned.topicName}.`
+				: `Added ${plural(assigned.added, 'Lesson')} from ${assigned.topicName}.`}
+			{#each assigned.skipped as skip (skip.title)}
 				Skipped “{skip.title}”: {REASONS[skip.reason]}.
 			{/each}
 		</p>
@@ -428,18 +426,14 @@
 	{#if added}
 		<p class="mt-2 text-xs text-muted-foreground" role="status" data-add-result>
 			Added “{added.title}”.
-			{added.changed === 0
-				? 'No Lessons change date.'
-				: `${plural(added.changed, 'Lesson')} ${added.changed === 1 ? 'changes' : 'change'} date.`}
+			{changeLine(added.changed.length)}
 		</p>
 	{/if}
 
 	{#if removed}
 		<p class="mt-2 text-xs text-muted-foreground" role="status" data-remove-result>
 			Removed {plural(removed.count, 'Lesson')}.
-			{removed.changed === 0
-				? 'No Lessons change date.'
-				: `${plural(removed.changed, 'Lesson')} ${removed.changed === 1 ? 'changes' : 'change'} date.`}
+			{changeLine(removed.changed.length)}
 		</p>
 	{/if}
 
@@ -572,9 +566,7 @@
 								{/if}
 								{#if !dragging && was.has(entry.lessonId)}
 									<span class="text-amber-700 dark:text-amber-400" data-was>
-										was {was.get(entry.lessonId)
-											? formatDateShort(was.get(entry.lessonId)!)
-											: 'past the end'}
+										{wasText(was.get(entry.lessonId) ?? null)}
 									</span>
 								{/if}
 								{entry.firstDate ? formatDateShort(entry.firstDate) : 'past the end'}

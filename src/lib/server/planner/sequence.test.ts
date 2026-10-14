@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { describe, expect, test } from 'vitest';
-import { makeLessons, makeTopic, refused, setSequence, setUp } from './fixtures';
+import { makeLessons, makeTopic, refused, setUp } from './fixtures';
 import {
 	addLesson,
 	assignTopic,
@@ -200,8 +200,8 @@ describe('Assign Topic', () => {
 		const again = assignTopic(db, { classId: classA.id, topicId: topic.id, today });
 
 		// Lessons that held no place before do not count; nothing moved the second time.
-		expect(first.lessonsChanged).toBe(0);
-		expect(again.lessonsChanged).toBe(0);
+		expect(first.changed.length).toBe(0);
+		expect(again.changed.length).toBe(0);
 	});
 });
 
@@ -237,7 +237,7 @@ describe('re-deriving a Sequence', () => {
 		const [one, two, three] = makeLessons(db, topic.id, 3);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today });
 
-		setSequence(db, classA.id, [three.id, one.id, two.id], today);
+		moveLessons(db, { classId: classA.id, lessonIds: [three.id], targetId: one.id, today });
 
 		expect(taughtOrder(db, classA.id)).toEqual([three.id, one.id, two.id]);
 	});
@@ -245,12 +245,13 @@ describe('re-deriving a Sequence', () => {
 	test('deletes a Session row whose occasion is no longer scheduled', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
-		const [one] = makeLessons(db, topic.id, 2);
+		const lessons = makeLessons(db, topic.id, 2);
+		const [one] = lessons;
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today });
 		expect(sessionRows(db, classA.id)).toHaveLength(2);
 
 		// Lesson 2 leaves the Sequence, so 3 Sep P6 becomes an Open Slot.
-		setSequence(db, classA.id, [one.id], today);
+		removeFromSequence(db, { classId: classA.id, lessonIds: [lessons[1].id], today });
 
 		expect(sessionRows(db, classA.id)).toEqual([
 			{ date: '2026-09-03', period: 5, lessonId: one.id }
@@ -263,7 +264,7 @@ describe('re-deriving a Sequence', () => {
 	test('deletes a Continuation with the Session row it belonged to', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
-		makeLessons(db, topic.id, 1);
+		const [only] = makeLessons(db, topic.id, 1);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today });
 		recordContinuation(db, {
 			classId: classA.id,
@@ -274,7 +275,7 @@ describe('re-deriving a Sequence', () => {
 		expect(db.select().from(schema.continuation).all()).toHaveLength(1);
 
 		// The Rewind boundary is before both occasions, so both rows are laid again.
-		setSequence(db, classA.id, [], today);
+		removeFromSequence(db, { classId: classA.id, lessonIds: [only.id], today });
 
 		expect(sessionRows(db, classA.id)).toEqual([]);
 		expect(db.select().from(schema.continuation).all()).toEqual([]);
@@ -369,7 +370,7 @@ describe('Move', () => {
 		});
 
 		// Lessons 1 and 2 share a day (a double), so Lesson 2 moves from P6 to a later Slot.
-		expect(report.lessonsChanged).toBe(2);
+		expect(report.changed.length).toBe(2);
 		expect(report.changed).toEqual([
 			{ lessonId: ids[1], was: dateOf(ids[1]) },
 			{ lessonId: ids[2], was: dateOf(ids[2]) }
@@ -653,8 +654,9 @@ describe('Remove', () => {
 		const report = removeFromSequence(db, { classId: classA.id, lessonIds: [one.id], today });
 
 		expect(taughtOrder(db, classA.id)).toEqual([two.id, three.id]);
-		// Lesson 2 and Lesson 3 each fall on an earlier date. Lesson 1 left, so it does not count.
-		expect(report.lessonsChanged).toBe(2);
+		// Lesson 3 falls on an earlier date. Lesson 2 only moves from P6 to P5 on 3 Sep, which is the
+		// same date, and Lesson 1 left, so neither counts.
+		expect(report.changed.length).toBe(1);
 		expect(report.placementsMoved).toEqual([]);
 	});
 
@@ -849,7 +851,8 @@ describe('Add Lesson', () => {
 
 		const report = addLesson(db, { classId: classA.id, title: 'Quiz', today });
 
-		expect(report.lessonsChanged).toBe(3);
+		// The Quiz takes the first Slot. Lesson 1 only moves from P5 to P6 on 3 Sep, the same date.
+		expect(report.changed.length).toBe(2);
 	});
 });
 
@@ -858,11 +861,23 @@ describe('the Sequence order', () => {
 		const { db, course, classA, classB } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		const lessons = makeLessons(db, topic.id, 3);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today });
 		db.update(schema.lesson)
 			.set({ topicId: null })
 			.where(eq(schema.lesson.id, lessons[1].id))
 			.run();
-		setSequence(db, classA.id, [lessons[2].id, lessons[1].id, lessons[0].id]);
+		moveLessons(db, {
+			classId: classA.id,
+			lessonIds: [lessons[2].id],
+			targetId: lessons[0].id,
+			today
+		});
+		moveLessons(db, {
+			classId: classA.id,
+			lessonIds: [lessons[0].id],
+			targetId: lessons[1].id,
+			today
+		});
 
 		expect(sequenceLessonIds(db, classA.id)).toEqual([lessons[2].id, lessons[1].id, lessons[0].id]);
 		expect(sequenceLessonIds(db, classB.id)).toEqual([]);

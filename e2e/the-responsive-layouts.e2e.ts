@@ -626,7 +626,7 @@ test.describe('the Session page on a phone', () => {
 		await expect(page.getByLabel('How it went')).toBeVisible();
 	});
 
-	test('writes a Session note that a reload keeps', async ({ page }) => {
+	test('writes a Teaching note that a reload keeps', async ({ page }) => {
 		await openSessionWithLesson(page);
 		const text = `Phone note ${Date.now()}`;
 		const field = page.getByLabel('How it went');

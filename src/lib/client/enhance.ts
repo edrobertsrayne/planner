@@ -27,8 +27,8 @@ export function failureReason(result: ActionResult, fallback: string): string {
 	return typeof reason === 'string' ? reason : fallback;
 }
 
-// The seam writes its refusals for Ed to read — "This Topic has already been taught and cannot be
-// unassigned." — so a failure shows that reason and leaves the page as it was. Anything else
+// The seam writes its refusals for Ed to read — "This Lesson was taught, so it cannot be
+// removed." — so a failure shows that reason and leaves the page as it was. Anything else
 // refreshes.
 export function onFail(fallback: string): SubmitFunction {
 	return () =>
