@@ -46,11 +46,7 @@ export const load: PageServerLoad = ({ params, url }) => {
 		stepClass: inSequence ? { id: cls.id, label: cls.label } : null,
 		// The Lessons to step through, for "Lesson n of N". A Standalone Lesson reached without a Class
 		// steps nowhere.
-		siblingIds: inSequence
-			? sequence
-			: topic
-				? lessonsOf(db, topic.id).map((l) => l.id)
-				: [],
+		siblingIds: inSequence ? sequence : topic ? lessonsOf(db, topic.id).map((l) => l.id) : [],
 		topics: course ? topicsOf(db, course.id) : [],
 		tags: attachedTags(db, lesson.id),
 		existingTagNames: listTagNames(db),

@@ -165,7 +165,11 @@
 				>
 					<ChevronLeftIcon />
 				</Button>
-				<span class="tabular-nums">Lesson {index + 1} of {data.siblingIds.length}{data.stepClass ? ` in ${data.stepClass.label}` : ''}</span>
+				<span class="tabular-nums"
+					>Lesson {index + 1} of {data.siblingIds.length}{data.stepClass
+						? ` in ${data.stepClass.label}`
+						: ''}</span
+				>
 				<Button
 					variant="ghost"
 					size="icon-sm"
