@@ -12,7 +12,7 @@
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
-	import ClassProgress from './ClassProgress.svelte';
+	import LaneSummary from './LaneSummary.svelte';
 	import NextSessions from './NextSessions.svelte';
 	import SequenceTab from './SequenceTab.svelte';
 	import SlotRooms from './SlotRooms.svelte';
@@ -120,7 +120,7 @@
 			{/if}
 			{#if data.lane}
 				<div class="rounded-xl border p-4">
-					<ClassProgress classId={data.class.id} lane={data.lane} />
+					<LaneSummary classId={data.class.id} lane={data.lane} />
 				</div>
 			{/if}
 		</div>

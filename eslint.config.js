@@ -81,7 +81,7 @@ export default defineConfig(
 			'src/routes/(app)/+layout.svelte',
 			'src/routes/(app)/+page.svelte',
 			'src/routes/(app)/calendar/+page.svelte',
-			'src/routes/(app)/classes/*/ClassProgress.svelte',
+			'src/routes/(app)/classes/*/LaneSummary.svelte',
 			'src/routes/(app)/classes/*/NextSessions.svelte',
 			'src/routes/(app)/courses/*/+page.svelte',
 			'src/routes/(app)/lessons/*/+page.svelte'

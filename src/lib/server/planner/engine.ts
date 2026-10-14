@@ -329,11 +329,11 @@ export function schedule({
 }
 
 // Runway is derived, not stored — the date of a Class's first Open Slot, with the count of
-// Lesson-parts still owed but with nowhere to go alongside it.
+// distinct Lessons still owed but with nowhere to go alongside it (a Lesson of two parts counts once).
 export function runway(result: ScheduleResult): Runway {
 	return {
 		date: result.openSlots[0]?.date ?? null,
-		lessonsRemaining: result.unplaced.length
+		lessonsRemaining: new Set(result.unplaced.map((part) => part.lessonId)).size
 	};
 }
 

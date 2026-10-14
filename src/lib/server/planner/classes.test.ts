@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { describe, expect, test } from 'vitest';
+import { runway } from './engine';
 import { makeLessons, makeTopic, setUp } from './fixtures';
 import {
 	activeSlots,
@@ -188,8 +189,6 @@ describe('the Classes view', () => {
 		const [lane] = classLanes(db, { today: '2026-09-05', classId: classA.id });
 
 		expect(lane.classId).toBe(classA.id);
-		expect(lane.taught).toBe(2);
-		expect(lane.total).toBe(3);
 		expect(lane.lastTaught).toMatchObject({
 			date: '2026-09-03',
 			period: 6,
@@ -198,7 +197,7 @@ describe('the Classes view', () => {
 			note: 'went well'
 		});
 		expect(lane.nextUp).toMatchObject({ title: lessons[2].title, topicName: 'Forces' });
-		expect(lane.unplacedCount).toBe(0);
+		expect(lane.runway.lessonsRemaining).toBe(0);
 		expect(lane.runway).toEqual(
 			classSchedule(db, { classId: classA.id, today: '2026-09-05' }).runway
 		);
@@ -225,8 +224,6 @@ describe('the Classes view', () => {
 
 		const [lane] = classLanes(db, { today: '2026-09-03', classId: classA.id });
 
-		expect(lane.taught).toBe(0);
-		expect(lane.total).toBe(0);
 		expect(lane.lastTaught).toBeNull();
 		expect(lane.nextUp).toBeNull();
 		// Every Available Slot is Open — the Runway date is the first of them, straight away.
@@ -242,8 +239,25 @@ describe('the Classes view', () => {
 
 		const [lane] = classLanes(db, { today: '2026-09-03', classId: classB.id });
 
-		expect(lane.unplacedCount).toBeGreaterThan(0);
-		expect(lane.runway.lessonsRemaining).toBe(lane.unplacedCount);
+		const { unplaced } = classSchedule(db, { classId: classB.id, today: '2026-09-03' });
+		expect(lane.runway.lessonsRemaining).toBeGreaterThan(0);
+		expect(lane.runway.lessonsRemaining).toBe(new Set(unplaced.map((p) => p.lessonId)).size);
+	});
+
+	test('the Runway counts a Lesson past the end once, however many parts it has', () => {
+		const result = {
+			boundary: '2026-09-03',
+			history: [],
+			scheduled: [],
+			openSlots: [],
+			strandedPlacementIds: [],
+			unplaced: [
+				{ lessonId: 'a', part: 1, of: 2 },
+				{ lessonId: 'a', part: 2, of: 2 },
+				{ lessonId: 'b', part: 1, of: 1 }
+			]
+		};
+		expect(runway(result)).toEqual({ date: null, lessonsRemaining: 2 });
 	});
 
 	test('a lane carries the Tone stored on the Class, so the tile can colour itself', () => {
