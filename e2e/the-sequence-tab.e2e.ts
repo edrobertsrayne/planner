@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { isoDate, login, resetTo, runFixture } from './helpers.ts';
 import { BEARER, FIXTURE_COURSE, openPage, standingKey } from './the-planning-api/helpers.ts';
 
-// The Sequence tab's List layout. The 9C/Sc1 Class of the standard state gets one Topic of 14
+// The Sequence tab, By week (the default) and List (`layout=list`). The 9C/Sc1 Class of the standard state gets one Topic of 14
 // Lessons ("Move A" to "Move N"), assigned through Assign Topic. 9B/Sc1 has a taught Lesson.
 // This file resets the database first, so the files after it start from the standard state.
 
@@ -13,11 +13,42 @@ const titleOf = (letter: string) => `Move ${letter}`;
 
 let classCId = '';
 
-// The Class page of a Class, on its Sequence tab.
+// The Class page of a Class, on its Sequence tab, as a List.
 async function openSequence(page: Page, classId = classCId) {
-	await page.goto(`/classes/${classId}`);
+	await page.goto(`/classes/${classId}?layout=list`);
 	await page.getByRole('tab', { name: /^Sequence/ }).click();
 	await expect(page.locator('[data-sequence]')).toBeVisible();
+}
+
+// The same, By week: the default layout.
+async function openWeeks(page: Page, classId = classCId) {
+	await page.goto(`/classes/${classId}`);
+	await page.getByRole('tab', { name: /^Sequence/ }).click();
+	await expect(page.locator('[data-sequence-weeks]')).toBeVisible();
+}
+
+const cardOf = (page: Page, title: string) =>
+	page
+		.locator('[data-lesson-card]')
+		.filter({ has: page.locator('[data-title]', { hasText: title }) });
+
+// The titles of the Lessons in the week rows, in Slot order.
+const weekOrder = (page: Page) =>
+	page.locator('[data-week] [data-lesson-card] [data-title]').allInnerTexts();
+
+// A mouse drag from one Lesson's grip onto another Lesson's Slot, By week. The preview shows
+// before the drop, with a dashed outline on each Lesson that will change Slot.
+async function weekDrag(page: Page, from: string, onto: string, outlined: number) {
+	const grip = await cardOf(page, from)
+		.getByRole('button', { name: `Drag ${from}` })
+		.boundingBox();
+	const target = await cardOf(page, onto).boundingBox();
+	if (!grip || !target) throw new Error('No box');
+	await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+	await page.mouse.down();
+	await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, { steps: 6 });
+	await expect(page.locator('[data-changing]')).toHaveCount(outlined);
+	await page.mouse.up();
 }
 
 const entries = (page: Page) => page.locator('[data-sequence] > li');
@@ -196,6 +227,93 @@ test.describe.serial('moving Lessons in a Sequence by drag', () => {
 	});
 });
 
+test.describe.serial('the By week layout', () => {
+	// Tall, so that every week row is in the window at once.
+	test.use({ viewport: { width: 1180, height: 1600 }, hasTouch: true });
+
+	test('is the default, and layout=list picks the List', async ({ page }) => {
+		await login(page);
+		await openWeeks(page);
+		await expect(page.locator('[data-sequence]')).toHaveCount(0);
+		await expect(page.locator('[data-week]').first()).toContainText(/Week [AB]/);
+		expect(await weekOrder(page)).toEqual(expected(LETTERS));
+		// A row of Topic chips, and one line for the other free Slots.
+		await expect(page.locator('[data-topic-chip]')).toHaveText(/Moves\s*14/);
+		await expect(page.locator('[data-free-after]')).toContainText(
+			'other free Slots to the end of the year'
+		);
+		// Nothing is past the end of the year, and no Lesson is taught.
+		await expect(page.locator('[data-past-end]')).toHaveCount(0);
+		await expect(page.locator('[data-taught]')).toHaveCount(0);
+
+		await page.goto(`/classes/${classCId}?layout=list`);
+		await page.getByRole('tab', { name: /^Sequence/ }).click();
+		await expect(page.locator('[data-sequence]')).toBeVisible();
+		await expect(page.locator('[data-sequence-weeks]')).toHaveCount(0);
+		// The layout button goes back, and the address says so.
+		await page.getByRole('button', { name: 'By week' }).click();
+		await expect(page.locator('[data-sequence-weeks]')).toBeVisible();
+		await expect(page).not.toHaveURL(/layout=/);
+	});
+
+	test('a mouse drag takes the target Slot, with a live preview, and a drag back undoes it', async ({
+		page
+	}) => {
+		await login(page);
+		await openWeeks(page);
+
+		// D takes B's Slot: B and C go one Slot on, so three Lessons will change Slot.
+		await weekDrag(page, titleOf('D'), titleOf('B'), 3);
+		await expect(page.locator('[data-move-result]')).toHaveText('3 Lessons change date.');
+		expect(await weekOrder(page)).toEqual(expected(['A', 'D', 'B', 'C', ...LETTERS.slice(4)]));
+		await expect(page.locator('[data-changing]')).toHaveCount(0);
+		await expect(page.locator('[data-was]')).toHaveCount(3);
+		await expect(cardOf(page, titleOf('D'))).toHaveClass(/ring-2/);
+
+		// Kept at once: a reload shows it.
+		await openWeeks(page);
+		expect(await weekOrder(page)).toEqual(expected(['A', 'D', 'B', 'C', ...LETTERS.slice(4)]));
+
+		await weekDrag(page, titleOf('D'), titleOf('C'), 3);
+		await expect.poll(() => weekOrder(page)).toEqual(expected(LETTERS));
+	});
+
+	test('a touch drag from the grip moves a Lesson, By week', async ({ page }) => {
+		await login(page);
+		await openWeeks(page);
+		const cdp = await page.context().newCDPSession(page);
+		const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', x = 0, y = 0) =>
+			cdp.send('Input.dispatchTouchEvent', {
+				type,
+				touchPoints: type === 'touchEnd' ? [] : [{ x, y }]
+			});
+
+		const grip = await cardOf(page, titleOf('C'))
+			.getByRole('button', { name: `Drag ${titleOf('C')}` })
+			.boundingBox();
+		const target = await cardOf(page, titleOf('A')).boundingBox();
+		if (!grip || !target) throw new Error('No box');
+		const start = { x: grip.x + grip.width / 2, y: grip.y + grip.height / 2 };
+		const end = { x: target.x + target.width / 2, y: target.y + target.height / 2 };
+		await touch('touchStart', start.x, start.y);
+		for (let step = 1; step <= 6; step++) {
+			await touch(
+				'touchMove',
+				start.x + ((end.x - start.x) * step) / 6,
+				start.y + ((end.y - start.y) * step) / 6
+			);
+		}
+		await expect(page.locator('[data-changing]')).toHaveCount(3);
+		await touch('touchEnd');
+
+		await expect(page.locator('[data-move-result]')).toHaveText('3 Lessons change date.');
+		expect(await weekOrder(page)).toEqual(expected(['C', 'A', 'B', ...LETTERS.slice(3)]));
+
+		await weekDrag(page, titleOf('C'), titleOf('B'), 3);
+		await expect.poll(() => weekOrder(page)).toEqual(expected(LETTERS));
+	});
+});
+
 test.describe('a taught Lesson is fixed', () => {
 	test.use({ viewport: { width: 1180, height: 820 } });
 
@@ -230,5 +348,24 @@ test.describe('a taught Lesson is fixed', () => {
 		await expect
 			.poll(() => order(page))
 			.toEqual(expected(['A', 'C', 'D', 'B', ...LETTERS.slice(4)]));
+	});
+});
+
+test.describe('a taught Lesson, By week', () => {
+	test.use({ viewport: { width: 1180, height: 1600 } });
+
+	test('is hidden behind a line, and is a fixed card with no grip', async ({ page }) => {
+		// Move A was marked taught, and B moved, in the test above.
+		await login(page);
+		await openWeeks(page);
+
+		await expect(page.locator('[data-taught] summary')).toHaveText('1 Lesson taught, fixed — show');
+		await expect(page.getByRole('button', { name: `Drag ${titleOf('A')}` })).toHaveCount(0);
+		await expect(page.getByRole('button', { name: `Drag ${titleOf('B')}` })).toBeVisible();
+		// The test above left B after D.
+		expect(await weekOrder(page)).toEqual(expected(['C', 'D', 'B', ...LETTERS.slice(4)]));
+
+		await page.locator('[data-taught] summary').click();
+		await expect(page.locator('[data-taught-lesson]')).toContainText(titleOf('A'));
 	});
 });

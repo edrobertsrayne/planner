@@ -61,7 +61,10 @@ export {
 	type DateChange,
 	type SequenceEntry,
 	type SkipReason,
-	type TopicOption
+	type TopicChip,
+	type TopicOption,
+	type WeekCell,
+	type WeekRow
 } from './sequence';
 
 export { blockDay, blockSlot, unblockDay, unblockSlot } from './disruptions';

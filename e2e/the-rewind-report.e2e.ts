@@ -117,6 +117,7 @@ test.describe.serial('a Teaching note and the Sequence after a Lesson write', ()
 
 	test('a Lesson moved in front of a noted Lesson moves its Teaching note to the new date', async () => {
 		await openFixtureClass();
+		await page.goto(`${page.url()}?layout=list`);
 		await page.getByRole('tab', { name: /^Sequence/ }).click();
 		const titles = page.locator('[data-sequence] [data-title]');
 		await expect(titles).toHaveText(['A one', 'B one', 'B two']);

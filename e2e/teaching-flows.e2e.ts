@@ -120,7 +120,7 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 	});
 
 	test('a Topic is assigned to a Class on its Sequence tab, and its Lessons then show there', async () => {
-		await page.goto(`/classes/${classBId}`);
+		await page.goto(`/classes/${classBId}?layout=list`);
 		await expect(page.getByRole('tab', { name: 'Sequence 0' })).toBeVisible();
 		await page.getByRole('tab', { name: 'Sequence' }).click();
 		await expect(page.getByText('No Lessons in this Sequence yet.')).toBeVisible();
@@ -163,7 +163,7 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 	});
 
 	test('× removes a Lesson from one Class after a confirm, and Assign Topic brings it back', async () => {
-		await page.goto(`/classes/${classBId}`);
+		await page.goto(`/classes/${classBId}?layout=list`);
 		await page.getByRole('tab', { name: 'Sequence' }).click();
 		const entries = page.locator('[data-sequence] > li');
 		await expect(entries).toHaveCount(2);

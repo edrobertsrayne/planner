@@ -133,6 +133,10 @@
 				classId={data.class.id}
 				entries={data.sequence.entries}
 				topics={data.sequence.topics}
+				weeks={data.sequence.weeks}
+				freeAfter={data.sequence.freeAfter}
+				pastEnd={data.sequence.pastEnd}
+				chips={data.sequence.chips}
 				result={form?.assigned ?? null}
 				moved={form?.moved ?? null}
 				removed={form?.removed ?? null}

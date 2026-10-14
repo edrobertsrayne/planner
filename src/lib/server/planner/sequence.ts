@@ -7,7 +7,16 @@
 import { and, asc, eq, inArray, lte, ne } from 'drizzle-orm';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
-import { rederive, scheduleFor, type Db, type WriteReport } from './derive';
+import { addDays } from '$lib/date';
+import { inAnyTerm, slotHolds, type ScheduleResult } from './engine';
+import {
+	lessonNames,
+	loadCalendar,
+	rederive,
+	scheduleFor,
+	type Db,
+	type WriteReport
+} from './derive';
 import { nextPosition } from './ordering';
 import { movedOrder } from '$lib/sequence-order';
 import { Refused } from './refused';
@@ -64,7 +73,10 @@ function placedLessonIds(db: Db, classId: string): Set<string> {
 // Where each Lesson of the Sequence first falls, from the engine: the date and Period of its first
 // part, or null when no Slot is left. Taught Lessons come from the record, the rest from today on.
 function firstSlots(db: Db, classId: string, today: string): Map<string, string | null> {
-	const result = scheduleFor(db, { classId, boundary: today });
+	return firstSlotsOf(db, classId, scheduleFor(db, { classId, boundary: today }));
+}
+
+function firstSlotsOf(db: Db, classId: string, result: ScheduleResult): Map<string, string | null> {
 	const first = new Map<string, string>();
 	for (const part of [...result.history, ...result.scheduled]) {
 		const at = `${part.date}|${part.period}`;
@@ -260,8 +272,38 @@ export interface SequenceEntry {
 	fixed: boolean;
 	note: string | null;
 	ready: boolean;
+	// How many Slots the Lesson still takes: one per part not yet taught. Zero for a fixed Lesson.
+	parts: number;
 	// A Standalone Lesson that no other Class holds: after a removal no Class can add it again.
 	onlyHere: boolean;
+}
+
+// One Slot of a week row. A Slot stays in its place; the Lessons move through the Slots.
+//   lesson  a Sequence Lesson that can still move       taught   a fixed Lesson (it was taught)
+//   placed  a Placement, fixed in its Slot               free     an Open Slot
+//   past    a Slot before today with no Session         blocked  a Blocked Day or Blocked Slot
+export interface WeekCell {
+	key: string; // `${date}|${period}`
+	date: string;
+	day: number;
+	period: number;
+	kind: 'lesson' | 'taught' | 'placed' | 'free' | 'past' | 'blocked';
+	lessonId: string | null;
+	part: number;
+	of: number;
+	// Only for a Placement: its Lesson is not in the Sequence, so the entries cannot name it.
+	title: string | null;
+}
+
+export type WeekRow =
+	| { kind: 'week'; weekCommencing: string; letter: 'A' | 'B'; cells: WeekCell[] }
+	| { kind: 'holiday'; from: string; to: string };
+
+export interface TopicChip {
+	topicId: string;
+	name: string;
+	// Lessons of the Topic in the Sequence that are not fixed.
+	untaught: number;
 }
 
 export interface TopicOption {
@@ -282,7 +324,14 @@ export function sequenceView(db: Db, { classId, today }: { classId: string; toda
 	if (!cls) return null;
 
 	const fixed = fixedLessonIds(db, classId, today);
-	const slots = firstSlots(db, classId, today);
+	const cal = loadCalendar(db);
+	const result = scheduleFor(db, { classId, boundary: today, cal });
+	const slots = firstSlotsOf(db, classId, result);
+	// The parts each Sequence Lesson still takes. A Placement's parts are not the Sequence's.
+	const parts = new Map<string, number>();
+	for (const part of [...result.scheduled.filter((s) => !s.placementId), ...result.unplaced]) {
+		parts.set(part.lessonId, (parts.get(part.lessonId) ?? 0) + 1);
+	}
 	const ready = new Set(
 		db
 			.select({ lessonId: schema.readiness.lessonId })
@@ -336,6 +385,7 @@ export function sequenceView(db: Db, { classId, today }: { classId: string; toda
 			fixed: fixed.has(row.lessonId),
 			note: notes.get(row.lessonId) ?? null,
 			ready: ready.has(row.lessonId),
+			parts: fixed.has(row.lessonId) ? 0 : (parts.get(row.lessonId) ?? 0),
 			onlyHere: row.topicId === null && !elsewhere.has(row.lessonId)
 		}));
 
@@ -361,5 +411,117 @@ export function sequenceView(db: Db, { classId, today }: { classId: string; toda
 			};
 		});
 
-	return { entries, topics };
+	const { weeks, freeAfter } = weekRows(db, { classId, cal, result, fixed, entries });
+	const owed = new Set(result.unplaced.map((part) => part.lessonId));
+	const pastEnd = entries.filter((e) => !e.fixed && owed.has(e.lessonId)).map((e) => e.lessonId);
+	const chips = new Map<string, TopicChip>();
+	for (const entry of entries) {
+		if (!entry.topicId || !entry.topicName) continue;
+		const chip = chips.get(entry.topicId) ?? {
+			topicId: entry.topicId,
+			name: entry.topicName,
+			untaught: 0
+		};
+		if (!entry.fixed) chip.untaught++;
+		chips.set(entry.topicId, chip);
+	}
+
+	return { entries, topics, weeks, freeAfter, pastEnd, chips: [...chips.values()] };
+}
+
+// The By week rows. They run from the week of the first Lesson that can still move to the week of
+// the last, plus one week of free Slots; a School Holiday between two rows is one thin row. Every
+// Slot of the Class stands in its place in its week. `freeAfter` counts the Open Slots the rows
+// leave out, to the end of the year.
+function weekRows(
+	db: Db,
+	{
+		classId,
+		cal,
+		result,
+		fixed,
+		entries
+	}: {
+		classId: string;
+		cal: ReturnType<typeof loadCalendar>;
+		result: ScheduleResult;
+		fixed: Set<string>;
+		entries: SequenceEntry[];
+	}
+) {
+	const inSequence = new Set(entries.map((e) => e.lessonId));
+	const known = new Map<string, Pick<WeekCell, 'kind' | 'lessonId' | 'part' | 'of'>>();
+	const placedIds = new Set<string>();
+	for (const s of result.history) {
+		const kind = inSequence.has(s.lessonId) ? 'taught' : 'placed';
+		if (kind === 'placed') placedIds.add(s.lessonId);
+		known.set(`${s.date}|${s.period}`, { kind, lessonId: s.lessonId, part: 0, of: 0 });
+	}
+	for (const s of result.scheduled) {
+		const kind = s.placementId ? 'placed' : fixed.has(s.lessonId) ? 'taught' : 'lesson';
+		if (kind === 'placed') placedIds.add(s.lessonId);
+		known.set(`${s.date}|${s.period}`, { kind, lessonId: s.lessonId, part: s.part, of: s.of });
+	}
+	for (const s of result.openSlots) {
+		known.set(`${s.date}|${s.period}`, { kind: 'free', lessonId: null, part: 0, of: 0 });
+	}
+	const titles = lessonNames(db, [...placedIds]);
+
+	const blockedDays = new Set(cal.blockedDays);
+	const blockedSlots = new Set(cal.blockedSlots.map((b) => `${b.date}|${b.slotId}`));
+	const own = cal.slots.filter((slot) => slot.classId === classId);
+	const all = cal.teachingWeeks.map((week) => {
+		const cells: WeekCell[] = [];
+		for (let day = 1; day <= 5; day++) {
+			const date = addDays(week.weekCommencing, day - 1);
+			if (!inAnyTerm(cal.terms, date)) continue;
+			for (const slot of own
+				.filter((s) => s.week === week.letter && s.day === day && slotHolds(s, date))
+				.sort((a, b) => a.period - b.period)) {
+				const key = `${date}|${slot.period}`;
+				const at = known.get(key);
+				const blocked = blockedDays.has(date) || blockedSlots.has(`${date}|${slot.id}`);
+				cells.push({
+					key,
+					date,
+					day,
+					period: slot.period,
+					...(at ?? { kind: blocked ? 'blocked' : 'past', lessonId: null, part: 0, of: 0 }),
+					title: at?.kind === 'placed' ? (titles.get(at.lessonId!)?.title ?? null) : null
+				});
+			}
+		}
+		return {
+			kind: 'week' as const,
+			weekCommencing: week.weekCommencing,
+			letter: week.letter,
+			cells
+		};
+	});
+
+	const has = (kind: WeekCell['kind']) => (row: (typeof all)[number]) =>
+		row.cells.some((cell) => cell.kind === kind);
+	let first = all.findIndex(has('lesson'));
+	if (first === -1) first = all.findIndex(has('free'));
+	if (first === -1) return { weeks: [] as WeekRow[], freeAfter: 0 };
+	const last = all.findLastIndex(has('lesson'));
+	const shown = all.slice(first, Math.min(Math.max(last, first) + 2, all.length));
+
+	const weeks: WeekRow[] = [];
+	for (const row of shown) {
+		const before = weeks.at(-1);
+		if (before?.kind === 'week' && row.weekCommencing > addDays(before.weekCommencing, 7)) {
+			weeks.push({
+				kind: 'holiday',
+				from: addDays(before.weekCommencing, 7),
+				to: addDays(row.weekCommencing, -3)
+			});
+		}
+		weeks.push(row);
+	}
+	const freeShown = shown.reduce(
+		(n, row) => n + row.cells.filter((c) => c.kind === 'free').length,
+		0
+	);
+	return { weeks, freeAfter: result.openSlots.length - freeShown };
 }

@@ -1,13 +1,16 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import GripVerticalIcon from '@lucide/svelte/icons/grip-vertical';
 	import LockIcon from '@lucide/svelte/icons/lock';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import XIcon from '@lucide/svelte/icons/x';
-	import { failureReason, onFail, submitWithValue } from '$lib/client/enhance';
+	import { failureReason, onFail, replaceQuery, submitWithValue } from '$lib/client/enhance';
+	import { layOutSequence, type SlotFill } from '$lib/sequence-layout';
 	import { movedOrder } from '$lib/sequence-order';
+	import { withParam } from '$lib/query';
 	import { formatDateShort } from '$lib/date';
 	import Markdown from '$lib/components/markdown.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -15,15 +18,28 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import { toast } from 'svelte-sonner';
 	import { topicColour } from '$lib/topic-colour';
-	import type { DateChange, SequenceEntry, SkipReason, TopicOption } from '$lib/server/planner';
+	import SequenceWeeks from './SequenceWeeks.svelte';
+	import type {
+		DateChange,
+		SequenceEntry,
+		SkipReason,
+		TopicChip,
+		TopicOption,
+		WeekRow
+	} from '$lib/server/planner';
 
-	// What this Class teaches, in the order it teaches it: its own Sequence (ADR-0026). The list
-	// layout only. Assign Topic adds a Topic's Lessons at the end; a tap on a card opens the Lesson
-	// in its editor; a drag from the grip moves the Lesson onto another Lesson's place.
+	// What this Class teaches, in the order it teaches it: its own Sequence (ADR-0026), By week or as
+	// a List (`layout=list` in the address). Assign Topic adds a Topic's Lessons at the end; a tap on
+	// a card opens the Lesson in its editor; a drag from the grip moves the Lesson onto another
+	// Lesson's place: by week a drop takes the target's Slot, in the List a line shows the place.
 	let {
 		classId,
 		entries,
 		topics,
+		weeks,
+		freeAfter,
+		pastEnd,
+		chips,
 		result,
 		moved,
 		removed
@@ -31,6 +47,10 @@
 		classId: string;
 		entries: SequenceEntry[];
 		topics: TopicOption[];
+		weeks: WeekRow[];
+		freeAfter: number;
+		pastEnd: string[];
+		chips: TopicChip[];
 		result: {
 			topicName: string;
 			added: number;
@@ -40,6 +60,10 @@
 		moved: { lessonIds: string[]; changed: DateChange[]; lessonsChanged: number } | null;
 		removed: { count: number; changed: number } | null;
 	} = $props();
+
+	const byWeek = $derived(page.url.searchParams.get('layout') !== 'list');
+	const setLayout = (layout: 'week' | 'list') =>
+		replaceQuery(withParam(page.url, 'layout', layout === 'list' ? 'list' : null));
 
 	let assignForm = $state<HTMLFormElement | undefined>();
 	// The Lesson that × asks about. The dialog stays until the write is done or Ed cancels.
@@ -65,6 +89,55 @@
 	const proposal = $derived(overId ? movedOrder(order, dragIds, overId) : null);
 	// The drop line sits on the side of the target that the Lesson comes from.
 	const lineAbove = $derived(!!overId && order.indexOf(overId) < order.indexOf(dragIds[0]));
+
+	// By week: the Slots stay, and the Lessons that can still move go through them. During a drag,
+	// the Lessons lie as the drop would put them, and each that changes Slot is outlined.
+	const byId = $derived(new Map(entries.map((entry) => [entry.lessonId, entry])));
+	const cells = $derived(weeks.flatMap((row) => (row.kind === 'week' ? row.cells : [])));
+	const current = $derived(
+		new Map<string, SlotFill>(
+			cells.flatMap((cell) =>
+				cell.kind === 'lesson' && cell.lessonId
+					? [[cell.key, { lessonId: cell.lessonId, part: cell.part, of: cell.of }] as const]
+					: []
+			)
+		)
+	);
+	const preview = $derived(
+		dragging && proposal
+			? layOutSequence(
+					proposal.flatMap((id) => {
+						const entry = byId.get(id);
+						return entry && !entry.fixed ? [{ lessonId: id, parts: entry.parts }] : [];
+					}),
+					cells.filter((c) => c.kind === 'lesson' || c.kind === 'free').map((c) => c.key)
+				)
+			: null
+	);
+	const firstSlotOf = (fills: Map<string, SlotFill>) => {
+		const first: Record<string, string> = {};
+		for (const [key, fill] of fills) first[fill.lessonId] ??= key;
+		return first;
+	};
+	const changing = $derived.by(() => {
+		if (!preview) return new Set<string>();
+		const before = firstSlotOf(current);
+		const after = firstSlotOf(preview.fills);
+		return new Set(
+			entries
+				.filter((e) => !e.fixed && before[e.lessonId] !== after[e.lessonId])
+				.map((e) => e.lessonId)
+		);
+	});
+	// The Lessons past the end of the year stay listed during a drag, so the card under a finger
+	// is never removed; one that the drop would push out joins them.
+	const pastEndShown = $derived(
+		preview
+			? entries
+					.filter((e) => pastEnd.includes(e.lessonId) || preview.pastEnd.includes(e.lessonId))
+					.map((e) => e.lessonId)
+			: pastEnd
+	);
 
 	function hitTest() {
 		const el = document.elementFromPoint(pointer.x, pointer.y)?.closest<HTMLElement>('[data-drop]');
@@ -139,6 +212,20 @@
 <section class="mt-4">
 	<div class="flex flex-wrap items-center gap-2">
 		<h2 class="text-sm font-semibold">Sequence</h2>
+		<div class="flex rounded-md border text-xs max-md:hidden" role="group" aria-label="Layout">
+			{#each [['week', 'By week'], ['list', 'List']] as const as [layout, label] (layout)}
+				<button
+					type="button"
+					class="px-2 py-1 first:rounded-l-md last:rounded-r-md {byWeek === (layout === 'week')
+						? 'bg-muted font-medium'
+						: 'text-muted-foreground hover:bg-muted/40'}"
+					aria-pressed={byWeek === (layout === 'week')}
+					onclick={() => setLayout(layout)}
+				>
+					{label}
+				</button>
+			{/each}
+		</div>
 		<form
 			method="POST"
 			action="?/assignTopic"
@@ -213,95 +300,137 @@
 		</p>
 	{/if}
 
-	<ol class="mt-3 divide-y rounded-xl border" data-sequence>
-		{#each entries as entry (entry.lessonId)}
-			<li
-				class="relative flex items-stretch {dragIds.includes(entry.lessonId)
-					? 'opacity-40'
-					: ''} {!dragging && moved?.lessonIds.includes(entry.lessonId)
-					? 'ring-2 ring-amber-500 ring-inset'
-					: ''}"
-				style:background-color={topicColour(entry.topicId, 0.12)}
-				data-drop={entry.fixed ? undefined : entry.lessonId}
-			>
-				{#if dragging && proposal && overId === entry.lessonId}
-					<span
-						class="pointer-events-none absolute inset-x-0 z-10 h-0.5 bg-primary {lineAbove
-							? '-top-px'
-							: '-bottom-px'}"
-						data-drop-line
-					></span>
-				{/if}
-				{#if entry.fixed}
-					<span class="w-7 shrink-0"></span>
-				{:else}
-					<button
-						type="button"
-						class="flex w-7 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground"
-						aria-label="Drag {entry.title}"
-						onpointerdown={(event) => dragStart(event, entry.lessonId)}
-					>
-						<GripVerticalIcon class="size-4" />
-					</button>
-				{/if}
-				<a
-					href={resolve(`/lessons/${entry.lessonId}?class=${classId}`)}
-					class="flex min-w-0 flex-1 flex-col gap-1 px-3 py-2 hover:bg-muted/40"
+	{#if chips.length}
+		<ul class="mt-3 flex flex-wrap gap-2" aria-label="Topics in this Sequence">
+			{#each chips as chip (chip.topicId)}
+				<li
+					class="flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs"
+					style:background-color={topicColour(chip.topicId, 0.12)}
+					data-topic-chip
 				>
-					<span class="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-						<span class="text-sm font-medium" data-title>{entry.title}</span>
-						{#if entry.topicName}
-							<span class="flex items-center gap-1.5 text-xs text-muted-foreground">
-								<span
-									class="size-2 rounded-full"
-									style:background-color={topicColour(entry.topicId, 0.8)}
-									aria-hidden="true"
-								></span>
-								{entry.topicName}
-							</span>
-						{/if}
-						<span
-							class="ml-auto flex items-center gap-2 text-xs text-muted-foreground tabular-nums"
-						>
-							{#if entry.ready}
-								<span class="flex items-center gap-0.5" data-ready>
-									<CheckIcon class="size-3" aria-hidden="true" />Ready
-								</span>
-							{/if}
-							{#if entry.fixed}
-								<LockIcon class="size-3" aria-label="Fixed: already taught" />
-							{/if}
-							{#if !dragging && was.has(entry.lessonId)}
-								<span class="text-amber-700 dark:text-amber-400" data-was>
-									was {was.get(entry.lessonId)
-										? formatDateShort(was.get(entry.lessonId)!)
-										: 'past the end'}
-								</span>
-							{/if}
-							{entry.firstDate ? formatDateShort(entry.firstDate) : 'past the end'}
-						</span>
-					</span>
-					{#if entry.note}
-						<Markdown source={entry.note} class="line-clamp-2 text-xs text-muted-foreground" />
-					{/if}
-				</a>
-				{#if !entry.fixed}
-					<button
-						type="button"
-						class="flex items-center px-3 text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-						aria-label={`Remove ${entry.title}`}
-						onclick={() => (removing = entry)}
-					>
-						<XIcon class="size-4" aria-hidden="true" />
-					</button>
-				{/if}
-			</li>
-		{:else}
-			<li class="px-3 py-4 text-sm text-muted-foreground">
+					<span
+						class="size-2 rounded-full"
+						style:background-color={topicColour(chip.topicId, 0.8)}
+						aria-hidden="true"
+					></span>
+					{chip.name}
+					<span class="text-muted-foreground tabular-nums" data-untaught>{chip.untaught}</span>
+				</li>
+			{/each}
+		</ul>
+	{/if}
+
+	{#if byWeek}
+		<SequenceWeeks
+			{classId}
+			{weeks}
+			{freeAfter}
+			{entries}
+			pastEnd={pastEndShown}
+			fills={preview?.fills ?? current}
+			{changing}
+			{dragIds}
+			ringed={moved?.lessonIds ?? []}
+			{was}
+			onGrip={dragStart}
+			onRemove={(entry) => (removing = entry)}
+		/>
+		{#if entries.length === 0}
+			<p class="mt-3 text-sm text-muted-foreground">
 				No Lessons in this Sequence yet. Use Assign Topic to add a Topic's Lessons.
-			</li>
-		{/each}
-	</ol>
+			</p>
+		{/if}
+	{:else}
+		<ol class="mt-3 divide-y rounded-xl border" data-sequence>
+			{#each entries as entry (entry.lessonId)}
+				<li
+					class="relative flex items-stretch {dragIds.includes(entry.lessonId)
+						? 'opacity-40'
+						: ''} {!dragging && moved?.lessonIds.includes(entry.lessonId)
+						? 'ring-2 ring-amber-500 ring-inset'
+						: ''}"
+					style:background-color={topicColour(entry.topicId, 0.12)}
+					data-drop={entry.fixed ? undefined : entry.lessonId}
+				>
+					{#if dragging && proposal && overId === entry.lessonId}
+						<span
+							class="pointer-events-none absolute inset-x-0 z-10 h-0.5 bg-primary {lineAbove
+								? '-top-px'
+								: '-bottom-px'}"
+							data-drop-line
+						></span>
+					{/if}
+					{#if entry.fixed}
+						<span class="w-7 shrink-0"></span>
+					{:else}
+						<button
+							type="button"
+							class="flex w-7 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground"
+							aria-label="Drag {entry.title}"
+							onpointerdown={(event) => dragStart(event, entry.lessonId)}
+						>
+							<GripVerticalIcon class="size-4" />
+						</button>
+					{/if}
+					<a
+						href={resolve(`/lessons/${entry.lessonId}?class=${classId}`)}
+						class="flex min-w-0 flex-1 flex-col gap-1 px-3 py-2 hover:bg-muted/40"
+					>
+						<span class="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+							<span class="text-sm font-medium" data-title>{entry.title}</span>
+							{#if entry.topicName}
+								<span class="flex items-center gap-1.5 text-xs text-muted-foreground">
+									<span
+										class="size-2 rounded-full"
+										style:background-color={topicColour(entry.topicId, 0.8)}
+										aria-hidden="true"
+									></span>
+									{entry.topicName}
+								</span>
+							{/if}
+							<span
+								class="ml-auto flex items-center gap-2 text-xs text-muted-foreground tabular-nums"
+							>
+								{#if entry.ready}
+									<span class="flex items-center gap-0.5" data-ready>
+										<CheckIcon class="size-3" aria-hidden="true" />Ready
+									</span>
+								{/if}
+								{#if entry.fixed}
+									<LockIcon class="size-3" aria-label="Fixed: already taught" />
+								{/if}
+								{#if !dragging && was.has(entry.lessonId)}
+									<span class="text-amber-700 dark:text-amber-400" data-was>
+										was {was.get(entry.lessonId)
+											? formatDateShort(was.get(entry.lessonId)!)
+											: 'past the end'}
+									</span>
+								{/if}
+								{entry.firstDate ? formatDateShort(entry.firstDate) : 'past the end'}
+							</span>
+						</span>
+						{#if entry.note}
+							<Markdown source={entry.note} class="line-clamp-2 text-xs text-muted-foreground" />
+						{/if}
+					</a>
+					{#if !entry.fixed}
+						<button
+							type="button"
+							class="flex items-center px-3 text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+							aria-label={`Remove ${entry.title}`}
+							onclick={() => (removing = entry)}
+						>
+							<XIcon class="size-4" aria-hidden="true" />
+						</button>
+					{/if}
+				</li>
+			{:else}
+				<li class="px-3 py-4 text-sm text-muted-foreground">
+					No Lessons in this Sequence yet. Use Assign Topic to add a Topic's Lessons.
+				</li>
+			{/each}
+		</ol>
+	{/if}
 </section>
 
 {#if dragged}
