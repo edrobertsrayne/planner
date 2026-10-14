@@ -5,6 +5,7 @@ import {
 	assignTopic,
 	classSchedule,
 	fixedLessonIds,
+	sequenceLessonIds,
 	recordContinuation,
 	removeFromSequence,
 	sessionDetail
@@ -409,5 +410,21 @@ describe('Remove', () => {
 
 		expect(report.added.map((l) => l.id)).toEqual([one.id]);
 		expect(sequenceOf(db, classA.id)).toEqual([two.id, one.id]);
+	});
+});
+
+describe('the Sequence order', () => {
+	test("lists the Class's Lessons in its own order, a Standalone Lesson included", () => {
+		const { db, course, classA, classB } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const lessons = makeLessons(db, topic.id, 3);
+		db.update(schema.lesson)
+			.set({ topicId: null })
+			.where(eq(schema.lesson.id, lessons[1].id))
+			.run();
+		setSequence(db, classA.id, [lessons[2].id, lessons[1].id, lessons[0].id]);
+
+		expect(sequenceLessonIds(db, classA.id)).toEqual([lessons[2].id, lessons[1].id, lessons[0].id]);
+		expect(sequenceLessonIds(db, classB.id)).toEqual([]);
 	});
 });

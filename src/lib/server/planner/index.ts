@@ -54,6 +54,7 @@ export {
 	assignTopic,
 	fixedLessonIds,
 	removeFromSequence,
+	sequenceLessonIds,
 	sequenceView,
 	teachingNoteOf,
 	type SequenceEntry,
