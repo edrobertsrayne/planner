@@ -51,6 +51,7 @@ export {
 } from './classes';
 
 export {
+	addLesson,
 	assignTopic,
 	fixedLessonIds,
 	moveLessons,

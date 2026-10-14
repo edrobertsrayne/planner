@@ -12,6 +12,7 @@ import {
 	datedSlotsOf,
 	holderAt,
 	listClasses,
+	addLesson,
 	moveLessons,
 	takeSlot,
 	clearSlot,
@@ -145,6 +146,26 @@ export const actions: Actions = {
 			return {
 				report: reportOf(result),
 				removed: { count: lessonIds.length, changed: result.lessonsChanged }
+			};
+		} catch (error) {
+			return refusal(error);
+		}
+	},
+
+	addLesson: async ({ request }) => {
+		const data = await request.formData();
+		const classId = trimmed(data, 'classId');
+		const afterLessonId = trimmed(data, 'afterLessonId') || null;
+		try {
+			const result = addLesson(db, {
+				classId,
+				title: String(data.get('title') ?? ''),
+				afterLessonId,
+				today: today()
+			});
+			return {
+				report: reportOf(result),
+				added: { title: result.lesson.title, changed: result.lessonsChanged }
 			};
 		} catch (error) {
 			return refusal(error);

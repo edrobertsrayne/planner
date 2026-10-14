@@ -19,6 +19,7 @@ import {
 } from './derive';
 import { nextPosition } from './ordering';
 import { movedOrder } from '$lib/sequence-order';
+import { required } from './fields';
 import { Refused } from './refused';
 
 // The Teaching note of one Class and Lesson, or null when there is none (ADR-0026). Both parts of
@@ -257,6 +258,66 @@ export function removeFromSequence(
 		db.delete(schema.readiness).where(own(schema.readiness)).run();
 		db.delete(schema.teachingNote).where(own(schema.teachingNote)).run();
 		return {};
+	});
+}
+
+// Add Lesson: makes a new Standalone Lesson (Length 1, Draft) in this Class only, and puts it in
+// the Sequence straight after `afterLessonId`, or at the first untaught place when none is given:
+// after the last fixed Lesson, or first when none is fixed. Nothing may go in front of a fixed
+// Lesson, so a given Lesson with a fixed Lesson after it is refused.
+export function addLesson(
+	db: Db,
+	{
+		classId,
+		title,
+		afterLessonId,
+		today
+	}: { classId: string; title: string; afterLessonId?: string | null; today: string }
+) {
+	const name = required(title, 'A Lesson needs a title.');
+	const order = sequenceLessonIds(db, classId);
+	const fixed = fixedLessonIds(db, classId, today);
+
+	let at: number;
+	if (afterLessonId) {
+		const index = order.indexOf(afterLessonId);
+		if (index < 0) throw new Refused('invalid', 'That Lesson is not in this Sequence.');
+		const inFront = order.slice(index + 1).find((id) => fixed.has(id));
+		if (inFront) {
+			const [row] = db
+				.select({ title: schema.lesson.title })
+				.from(schema.lesson)
+				.where(eq(schema.lesson.id, inFront))
+				.all();
+			throw new Refused(
+				'conflict',
+				`A Lesson cannot go in front of “${row?.title}”, which was taught.`
+			);
+		}
+		at = index + 1;
+	} else {
+		at = order.findLastIndex((id) => fixed.has(id)) + 1;
+	}
+
+	return writeSequence(db, { classId, today }, () => {
+		const [lesson] = db
+			.insert(schema.lesson)
+			.values({ topicId: null, title: name, position: 0 })
+			.returning()
+			.all();
+		order.splice(at, 0, lesson.id);
+		order.forEach((lessonId, position) => {
+			const where = and(
+				eq(schema.classLesson.classId, classId),
+				eq(schema.classLesson.lessonId, lessonId)
+			);
+			if (lessonId === lesson.id) {
+				db.insert(schema.classLesson).values({ classId, lessonId, position }).run();
+			} else {
+				db.update(schema.classLesson).set({ position }).where(where).run();
+			}
+		});
+		return { lesson };
 	});
 }
 

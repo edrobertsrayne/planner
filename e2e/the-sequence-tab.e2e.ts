@@ -369,3 +369,55 @@ test.describe('a taught Lesson, By week', () => {
 		await expect(page.locator('[data-taught-lesson]')).toContainText(titleOf('A'));
 	});
 });
+
+test.describe.serial('Add Lesson', () => {
+	test.use({ viewport: { width: 1180, height: 1600 } });
+
+	test('+ Add on a week puts a new Lesson in that week', async ({ page }) => {
+		await login(page);
+		await openWeeks(page);
+		const before = await weekOrder(page);
+		const week = page.locator('[data-week]').nth(1);
+		const firstOfWeek = await week.locator('[data-lesson-card] [data-title]').first().innerText();
+
+		await week.getByRole('button', { name: /^Add a Lesson to the week/ }).click();
+		await page.getByRole('textbox', { name: 'Title of the new Lesson' }).fill('Week quiz');
+		await page.getByRole('button', { name: 'Add', exact: true }).click();
+
+		await expect(page.locator('[data-add-result]')).toContainText('Added “Week quiz”.');
+		// The new Lesson takes the first Lesson Slot of the week, and the Lessons after it move on.
+		await expect(week.locator('[data-lesson-card] [data-title]').first()).toHaveText('Week quiz');
+		await expect(week.locator('[data-lesson-card]').filter({ hasText: firstOfWeek })).toHaveCount(
+			0
+		);
+		const after = await weekOrder(page);
+		expect(after).toHaveLength(before.length + 1);
+		expect(after.filter((title) => title !== 'Week quiz')).toEqual(before);
+	});
+
+	test('Add Lesson in the List puts it at the first untaught place, in this Class only', async ({
+		page
+	}) => {
+		await login(page);
+		await openSequence(page);
+
+		await page.getByRole('button', { name: 'Add Lesson' }).click();
+		await page.getByRole('textbox', { name: 'Title of the new Lesson' }).fill('Starter');
+		await page.keyboard.press('Enter');
+
+		await expect(page.locator('[data-add-result]')).toContainText('Added “Starter”.');
+		// Move A was taught, so it stays first. The new Lesson follows it.
+		const titles = page.locator('[data-sequence] [data-title]');
+		await expect(titles.nth(0)).toHaveText(titleOf('A'));
+		await expect(titles.nth(1)).toHaveText('Starter');
+
+		// 9B/Sc1 never held it.
+		await page.goto('/classes');
+		await page
+			.getByRole('link', { name: /9B\/Sc1/ })
+			.first()
+			.click();
+		await page.getByRole('tab', { name: /^Sequence/ }).click();
+		await expect(page.getByText('Starter')).toHaveCount(0);
+	});
+});

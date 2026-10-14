@@ -140,6 +140,7 @@
 				result={form?.assigned ?? null}
 				moved={form?.moved ?? null}
 				removed={form?.removed ?? null}
+				added={form?.added ?? null}
 			/>
 		</div>
 	{/if}

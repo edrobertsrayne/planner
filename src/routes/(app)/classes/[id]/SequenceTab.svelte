@@ -14,6 +14,7 @@
 	import { formatDateShort } from '$lib/date';
 	import Markdown from '$lib/components/markdown.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import { toast } from 'svelte-sonner';
@@ -42,7 +43,8 @@
 		chips,
 		result,
 		moved,
-		removed
+		removed,
+		added
 	}: {
 		classId: string;
 		entries: SequenceEntry[];
@@ -59,6 +61,7 @@
 		// The last Move: the Lessons moved, and each Lesson that got a new first Slot.
 		moved: { lessonIds: string[]; changed: DateChange[]; lessonsChanged: number } | null;
 		removed: { count: number; changed: number } | null;
+		added: { title: string; changed: number } | null;
 	} = $props();
 
 	const byWeek = $derived(page.url.searchParams.get('layout') !== 'list');
@@ -69,6 +72,9 @@
 	// The Lesson that × asks about. The dialog stays until the write is done or Ed cancels.
 	let removing = $state<SequenceEntry | null>(null);
 	let moveForm = $state<HTMLFormElement | undefined>();
+	// Add Lesson's inline title field: `row` is the place it opens (the toolbar's, or a week row),
+	// `afterLessonId` the Lesson the new one follows (none: the first untaught place).
+	let adding = $state<{ row: number | 'tab'; afterLessonId: string | null } | null>(null);
 
 	// A drag starts at a grip and uses pointer events, so one path serves a mouse and a finger. The
 	// grip has `touch-action: none`; the rest of the card still lets a finger scroll the page. The
@@ -226,10 +232,18 @@
 				</button>
 			{/each}
 		</div>
+		<Button
+			variant="outline"
+			size="sm"
+			class="ml-auto h-7 text-xs max-md:hidden"
+			onclick={() => (adding = { row: 'tab', afterLessonId: null })}
+		>
+			<PlusIcon data-icon="inline-start" />Add Lesson
+		</Button>
 		<form
 			method="POST"
 			action="?/assignTopic"
-			class="ml-auto max-md:hidden"
+			class="max-md:hidden"
 			bind:this={assignForm}
 			use:enhance={onFail('Could not assign the Topic.')}
 		>
@@ -261,6 +275,46 @@
 		</form>
 	</div>
 
+	{#snippet addField()}
+		<form
+			method="POST"
+			action="?/addLesson"
+			class="flex items-center gap-2"
+			data-add-lesson
+			use:enhance={() =>
+				async ({ result, update }) => {
+					if (result.type === 'failure') {
+						toast.error(failureReason(result, 'Could not add the Lesson.'));
+					} else {
+						adding = null;
+						await update({ invalidateAll: true });
+					}
+				}}
+		>
+			<input type="hidden" name="classId" value={classId} />
+			<input type="hidden" name="afterLessonId" value={adding?.afterLessonId ?? ''} />
+			<Input
+				name="title"
+				required
+				autofocus
+				placeholder="Lesson title"
+				aria-label="Title of the new Lesson"
+				class="h-7 max-w-xs text-xs"
+				onkeydown={(event) => event.key === 'Escape' && (adding = null)}
+			/>
+			<Button type="submit" size="sm" class="h-7 text-xs">Add</Button>
+			<Button
+				type="button"
+				variant="ghost"
+				size="sm"
+				class="h-7 text-xs"
+				onclick={() => (adding = null)}
+			>
+				Cancel
+			</Button>
+		</form>
+	{/snippet}
+
 	<form
 		method="POST"
 		action="?/moveLessons"
@@ -271,6 +325,10 @@
 		<input type="hidden" name="lessonIds" />
 		<input type="hidden" name="targetId" />
 	</form>
+
+	{#if adding?.row === 'tab'}
+		<div class="mt-2">{@render addField()}</div>
+	{/if}
 
 	{#if moved}
 		<p class="mt-2 text-xs text-muted-foreground" role="status" data-move-result>
@@ -288,6 +346,15 @@
 			{#each result.skipped as skip (skip.title)}
 				Skipped “{skip.title}”: {REASONS[skip.reason]}.
 			{/each}
+		</p>
+	{/if}
+
+	{#if added}
+		<p class="mt-2 text-xs text-muted-foreground" role="status" data-add-result>
+			Added “{added.title}”.
+			{added.changed === 0
+				? 'No Lessons change date.'
+				: `${plural(added.changed, 'Lesson')} ${added.changed === 1 ? 'changes' : 'change'} date.`}
 		</p>
 	{/if}
 
@@ -334,6 +401,9 @@
 			{was}
 			onGrip={dragStart}
 			onRemove={(entry) => (removing = entry)}
+			addingRow={adding?.row ?? null}
+			onAdd={(row, afterLessonId) => (adding = { row, afterLessonId })}
+			{addField}
 		/>
 		{#if entries.length === 0}
 			<p class="mt-3 text-sm text-muted-foreground">

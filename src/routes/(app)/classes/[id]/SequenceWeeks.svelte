@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import type { Snippet } from 'svelte';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import GripVerticalIcon from '@lucide/svelte/icons/grip-vertical';
 	import LockIcon from '@lucide/svelte/icons/lock';
+	import PlusIcon from '@lucide/svelte/icons/plus';
 	import XIcon from '@lucide/svelte/icons/x';
 	import Markdown from '$lib/components/markdown.svelte';
 	import { formatDateShort, formatDayMonth } from '$lib/date';
@@ -25,7 +27,10 @@
 		ringed,
 		was,
 		onGrip,
-		onRemove
+		onRemove,
+		addingRow,
+		onAdd,
+		addField
 	}: {
 		classId: string;
 		weeks: WeekRow[];
@@ -44,7 +49,24 @@
 		was: Map<string, string | null>;
 		onGrip: (event: PointerEvent, lessonId: string) => void;
 		onRemove: (entry: SequenceEntry) => void;
+		// The row whose title field is open, and the one snippet that draws that field.
+		addingRow: number | 'tab' | null;
+		onAdd: (row: number, afterLessonId: string | null) => void;
+		addField: Snippet;
 	} = $props();
+
+	// Where "+ Add" on a week puts a Lesson: in front of the first Lesson that starts in the week
+	// (so the new one takes that Slot), else, when the week has only free Slots, at the end of the
+	// Sequence. Null in a week with no movable Slot (no "+ Add" there).
+	function addAnchor(row: Extract<WeekRow, { kind: 'week' }>): { after: string | null } | null {
+		const open = row.cells.find(
+			(cell) => cell.kind === 'free' || (cell.kind === 'lesson' && cell.part === 1)
+		);
+		if (!open) return null;
+		const order = entries.map((entry) => entry.lessonId);
+		const index = open.kind === 'lesson' ? order.indexOf(open.lessonId ?? '') : order.length;
+		return { after: order[index - 1] ?? null };
+	}
 
 	const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 	const byId = $derived(new Map(entries.map((entry) => [entry.lessonId, entry])));
@@ -153,6 +175,16 @@
 					<div class="w-20 shrink-0 text-xs">
 						<p class="font-medium">Week {row.letter}</p>
 						<p class="text-muted-foreground">{formatDayMonth(row.weekCommencing)}</p>
+						{#if addAnchor(row) && !dragging}
+							<button
+								type="button"
+								class="mt-1 flex items-center gap-0.5 text-muted-foreground hover:text-foreground"
+								aria-label="Add a Lesson to the week of {formatDayMonth(row.weekCommencing)}"
+								onclick={() => onAdd(i, addAnchor(row)!.after)}
+							>
+								<PlusIcon class="size-3" aria-hidden="true" />Add
+							</button>
+						{/if}
 					</div>
 					<div class="flex min-w-0 flex-1 flex-wrap gap-2">
 						{#each row.cells as cell (cell.key)}
@@ -209,6 +241,9 @@
 						{:else}
 							<p class="text-xs text-muted-foreground">No Slots this week.</p>
 						{/each}
+						{#if addingRow === i}
+							<div class="w-full">{@render addField()}</div>
+						{/if}
 					</div>
 				</li>
 			{/if}
