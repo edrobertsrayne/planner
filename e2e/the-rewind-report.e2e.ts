@@ -10,8 +10,9 @@ import {
 
 // A Teaching note follows its Lesson when a write moves the Lesson (ADR-0026), and writing a
 // Lesson changes no Class's dates. It gives 9C/Sc1 from the standard state (Tuesday P3, Open
-// Slots) two Topics of one Lesson each in KS3 Science, assigns them through the Sequence tab,
-// notes the Session that the second Topic's Lesson fills, and undoes all of it at the end.
+// Slots) one Topic of one Lesson and one Topic of two Lessons in KS3 Science, assigns them
+// through the Sequence tab, notes the Session that the first Lesson of the second Topic fills,
+// and undoes all of it at the end.
 
 test.beforeAll(() => resetTo('standard'));
 
@@ -76,21 +77,24 @@ test.describe.serial('a Teaching note and the Sequence after a Lesson write', ()
 			await page.request.get('/api/courses', { headers: BEARER(token) })
 		).json();
 		courseId = courses.find((c: { name: string }) => c.name === FIXTURE_COURSE).id;
-		for (const [name, lesson] of [
-			['Rewind A', 'A one'],
-			['Rewind B', 'B one']
-		]) {
+		for (const [name, titles] of [
+			['Rewind A', ['A one']],
+			['Rewind B', ['B one', 'B two']]
+		] as const) {
 			const topic = await post(`/api/courses/${courseId}/topics`, { name });
 			topicIds.push(topic.id);
-			await post(`/api/topics/${topic.id}/lessons`, { title: lesson });
+			for (const title of titles) await post(`/api/topics/${topic.id}/lessons`, { title });
 		}
 
 		await openFixtureClass();
 		await page.getByRole('tab', { name: /^Sequence/ }).click();
-		for (const name of ['Rewind A', 'Rewind B']) {
+		for (const [name, added] of [
+			['Rewind A', 'Added 1 Lesson'],
+			['Rewind B', 'Added 2 Lessons']
+		]) {
 			await page.getByRole('button', { name: 'Assign Topic' }).click();
 			await page.getByRole('menuitem', { name: new RegExp(`^${name} `) }).click();
-			await expect(page.getByText(`Added 1 Lesson from ${name}.`)).toBeVisible();
+			await expect(page.getByText(`${added} from ${name}.`)).toBeVisible();
 		}
 
 		// The second Session the Class teaches carries 'B one'. Note it.
@@ -103,10 +107,12 @@ test.describe.serial('a Teaching note and the Sequence after a Lesson write', ()
 	});
 
 	test.afterAll(async () => {
-		// 'B one' is in the Class's Sequence, so its delete asks first. The Lesson takes its entry
-		// and its Teaching note with it, and the Class has no Sequence again.
-		await openLessonFromSequence('B one');
-		await deleteLessonInSequence();
+		// A Lesson in the Class's Sequence asks first when it is deleted. It takes its entry and
+		// its Teaching note with it, and the Class has no Sequence again.
+		for (const title of ['A one', 'B one', 'B two']) {
+			await openLessonFromSequence(title);
+			await deleteLessonInSequence();
+		}
 
 		for (const id of topicIds) {
 			const lessons = await (
@@ -120,26 +126,40 @@ test.describe.serial('a Teaching note and the Sequence after a Lesson write', ()
 		await page.close();
 	});
 
-	test('a Lesson removed in front of a noted Lesson moves its Teaching note to the new date', async () => {
-		await openLessonFromSequence('A one');
-		await deleteLessonInSequence();
+	test('a Lesson moved in front of a noted Lesson moves its Teaching note to the new date', async () => {
+		await openFixtureClass();
+		await page.getByRole('tab', { name: /^Sequence/ }).click();
+		const titles = page.locator('[data-sequence] [data-title]');
+		await expect(titles).toHaveText(['A one', 'B one', 'B two']);
 
-		// 'B one' is now the first Session, and its note went with it.
-		await openNextSession(0);
+		// 'B two' takes the place of 'B one': 'B one' moves from the second Session to the third.
+		const grip = await page.getByRole('button', { name: 'Drag B two' }).boundingBox();
+		const card = await page
+			.locator('[data-sequence] > li')
+			.filter({ hasText: 'B one' })
+			.boundingBox();
+		await page.mouse.move(grip!.x + grip!.width / 2, grip!.y + grip!.height / 2);
+		await page.mouse.down();
+		await page.mouse.move(card!.x + card!.width / 2, card!.y + card!.height / 2, { steps: 6 });
+		await page.mouse.up();
+		await expect(titles).toHaveText(['A one', 'B two', 'B one']);
+
+		// The note went with 'B one' to the third Session, and the second Session has none.
+		await openNextSession(2);
 		await expect(page.locator('main')).toContainText('B one');
 		await expect(page.getByLabel('How it went')).toHaveText('book the ripple tank');
 		await page.getByRole('button', { name: 'Back' }).click();
 
-		// The Slot it left is an Open Slot, which has no note field.
 		await nextSessions().nth(1).getByRole('link').first().click();
-		await expect(page.getByRole('button', { name: 'Back' })).toBeVisible();
-		await expect(page.getByLabel('How it went')).toHaveCount(0);
+		await expect(page.locator('main')).toContainText('B two');
+		await expect(page.getByLabel('How it went')).toHaveText('');
+		await page.getByRole('button', { name: 'Back' }).click();
 	});
 
 	test('a Lesson added in a Topic changes no date in the Class', async () => {
 		await openFixtureClass();
 		const before = await nextSessions().allInnerTexts();
-		expect(before[0]).toContain('B one');
+		expect(before[0]).toContain('A one');
 
 		await page.goto(`/courses/${courseId}?topic=${topicIds[1]}`);
 		await expect(page.getByRole('link', { name: 'B one', exact: true })).toBeVisible();
@@ -149,9 +169,9 @@ test.describe.serial('a Teaching note and the Sequence after a Lesson write', ()
 		await expect(page.getByRole('link', { name: 'B extra', exact: true })).toBeVisible();
 		await expect(box).toBeFocused();
 
-		// The new Lesson joins no Sequence: the Class has the same Sessions and one Lesson.
+		// The new Lesson joins no Sequence: the Class has the same Sessions and three Lessons.
 		await openFixtureClass();
 		expect(await nextSessions().allInnerTexts()).toEqual(before);
-		await expect(page.getByRole('tab', { name: 'Sequence 1' })).toBeVisible();
+		await expect(page.getByRole('tab', { name: 'Sequence 3' })).toBeVisible();
 	});
 });
