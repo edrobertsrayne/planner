@@ -550,3 +550,33 @@ test.describe.serial('Add Lesson', () => {
 		await expect(page.getByText('Starter')).toHaveCount(0);
 	});
 });
+
+// After a Remove, the cards that changed date say what they were; a reload keeps the tab. The
+// test ends with the Topic assigned again, so the Sequence is whole.
+test.describe.serial('Remove', () => {
+	test.use({ viewport: { width: 1180, height: 820 } });
+
+	test('shows "was <date>" on the Lessons that moved up, and a reload keeps the Sequence tab', async ({
+		page
+	}) => {
+		await login(page);
+		await openSequence(page);
+
+		await page.getByRole('button', { name: `Remove ${titleOf('B')}` }).click();
+		await page.getByRole('dialog').getByRole('button', { name: 'Remove' }).click();
+		await expect(page.locator('[data-remove-result]')).toContainText('Removed 1 Lesson.');
+		await expect(
+			page
+				.locator('[data-sequence] > li')
+				.filter({ hasText: titleOf('C') })
+				.locator('[data-was]')
+		).toBeVisible();
+
+		await page.reload();
+		await expect(page.locator('[data-sequence]')).toBeVisible();
+
+		await page.getByRole('button', { name: 'Assign Topic' }).click();
+		await page.getByRole('menuitem', { name: /^Moves / }).click();
+		await expect(page.locator('[data-assign-result]')).toContainText('Added 1 Lesson');
+	});
+});

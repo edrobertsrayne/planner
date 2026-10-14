@@ -9,7 +9,7 @@ import {
 	sessionDetail,
 	unblockDay,
 	unblockSlot,
-	writeSessionNote
+	writeTeachingNote
 } from './index';
 import * as schema from '../db/schema';
 
@@ -102,7 +102,7 @@ describe('Blocked Slot', () => {
 		const [lesson] = makeLessons(db, topic.id, 1);
 
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
-		writeSessionNote(db, {
+		writeTeachingNote(db, {
 			classId: classA.id,
 			date: '2026-09-03',
 			period: 5,
@@ -181,7 +181,7 @@ describe('removing a Blocked Day', () => {
 		// Slot. The teacher notes it there.
 		blockDay(db, { date: '2026-09-03', note: 'Snow day', today: '2026-09-01' });
 		const pushed = classSchedule(db, { classId: classA.id, today: '2026-09-01' }).scheduled[0];
-		writeSessionNote(db, {
+		writeTeachingNote(db, {
 			classId: classA.id,
 			date: pushed.date,
 			period: pushed.period,

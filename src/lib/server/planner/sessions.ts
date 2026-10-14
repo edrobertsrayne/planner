@@ -8,6 +8,7 @@ import { linksOf, tagsOf, type LessonStatus } from './authoring';
 import { attachmentsOf } from './attachments';
 import { Refused } from './refused';
 import { teachingNoteOf } from './sequence';
+import { lessonBody } from './fields';
 
 // A Session is identified by its occasion (ADR-0002), never by row id, so every function here
 // takes the triple rather than an id.
@@ -144,11 +145,11 @@ export function sessionDetail(
 	};
 }
 
-// The Session panel's one write: the Teaching note of the occasion's Lesson, kept by Class and
+// The Session page's one write: the Teaching note of the occasion's Lesson, kept by Class and
 // Lesson, so it is shared by every Session of that Lesson on this Class and follows the Lesson
 // when it moves. An empty body deletes the note. An Open Slot has no Lesson, so it has no note:
 // writing one is `invalid`.
-export function writeSessionNote(
+export function writeTeachingNote(
 	db: Db,
 	{ note, ...occasion }: Occasion & { note: string | null }
 ) {
@@ -161,7 +162,8 @@ export function writeSessionNote(
 		throw new Refused('invalid', 'An Open Slot has no Lesson to write a note on.');
 
 	const key = { classId: occasion.classId, lessonId: row.lessonId };
-	if (!note) {
+	const body = lessonBody(note);
+	if (body === null) {
 		db.delete(schema.teachingNote)
 			.where(
 				and(
@@ -173,10 +175,10 @@ export function writeSessionNote(
 		return;
 	}
 	db.insert(schema.teachingNote)
-		.values({ ...key, body: note })
+		.values({ ...key, body })
 		.onConflictDoUpdate({
 			target: [schema.teachingNote.classId, schema.teachingNote.lessonId],
-			set: { body: note }
+			set: { body }
 		})
 		.run();
 }

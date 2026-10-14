@@ -135,8 +135,7 @@ export const actions: Actions = {
 	removeLessons: async ({ request }) => {
 		const data = await request.formData();
 		const classId = trimmed(data, 'classId');
-		const lessonIds = data.getAll('lessonId').map(String);
-		if (lessonIds.length === 0) return fail(400, { error: 'Pick a Lesson to remove.' });
+		const lessonIds = trimmed(data, 'lessonIds').split(',').filter(Boolean);
 		try {
 			const result = removeFromSequence(db, { classId, lessonIds, today: today() });
 			return {

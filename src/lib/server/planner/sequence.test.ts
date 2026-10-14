@@ -645,6 +645,16 @@ describe('Remove', () => {
 		expect(db.select().from(schema.lesson).all()).toHaveLength(3);
 	});
 
+	test('refuses an empty list of Lessons', () => {
+		const { db, classA } = setUp();
+
+		refused(
+			() => removeFromSequence(db, { classId: classA.id, lessonIds: [], today }),
+			'invalid',
+			'Pick a Lesson to remove.'
+		);
+	});
+
 	test('moves the later Lessons up into the free Slots', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');

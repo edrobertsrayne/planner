@@ -143,6 +143,6 @@ export const actions: Actions = {
 		const id = trimmed(data, 'id');
 		const direction = trimmed(data, 'direction');
 		if (direction !== 'up' && direction !== 'down') return fail(400, { error: 'Bad direction.' });
-		return { report: moveLesson(db, { topicId, id, direction }) };
+		moveLesson(db, { topicId, id, direction });
 	}
 };

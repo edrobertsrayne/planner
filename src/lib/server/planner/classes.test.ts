@@ -11,7 +11,7 @@ import {
 	classSchedule,
 	createClass,
 	listClasses,
-	writeSessionNote
+	writeTeachingNote
 } from './index';
 import * as schema from '../db/schema';
 
@@ -177,7 +177,7 @@ describe('the Classes view', () => {
 
 		// classA's first Available Slot is 3 Sep's Thursday double (P5, P6): Lesson 1 lands on
 		// P5, Lesson 2 on P6 — both taught by the time `today` moves past them.
-		writeSessionNote(db, {
+		writeTeachingNote(db, {
 			classId: classA.id,
 			date: '2026-09-03',
 			period: 6,
@@ -210,7 +210,7 @@ describe('the Classes view', () => {
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 
 		// The Lesson fills 3 Sep P5 and P6. The note goes on the first part.
-		writeSessionNote(db, { classId: classA.id, date: '2026-09-03', period: 5, note: 'ramps' });
+		writeTeachingNote(db, { classId: classA.id, date: '2026-09-03', period: 5, note: 'ramps' });
 
 		const [lane] = classLanes(db, { today: '2026-09-05', classId: classA.id });
 		expect(lane.lastTaught).toMatchObject({ title: first.title, period: 6, note: 'ramps' });

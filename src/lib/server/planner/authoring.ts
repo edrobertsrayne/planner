@@ -670,15 +670,13 @@ export function deleteLesson(
 export function moveLesson(
 	db: Db,
 	{ topicId, id, direction }: { topicId: string; id: string; direction: Direction }
-): WriteReport {
+): void {
 	const swap = swapTargets(lessonsOf(db, topicId), id, direction);
-	if (!swap) return { placementsMoved: [] };
+	if (!swap) return;
 
 	const [a, b] = swap;
 	db.update(schema.lesson).set({ position: b.position }).where(eq(schema.lesson.id, a.id)).run();
 	db.update(schema.lesson).set({ position: a.position }).where(eq(schema.lesson.id, b.id)).run();
-
-	return { placementsMoved: [] };
 }
 
 // Which Classes have already been taught this Lesson, before `today` — the taught-by block in

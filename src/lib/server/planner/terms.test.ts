@@ -8,7 +8,7 @@ import {
 	sessionDetail,
 	teachingNoteOf,
 	teachingWeeks,
-	writeSessionNote
+	writeTeachingNote
 } from './index';
 import * as schema from '../db/schema';
 
@@ -155,7 +155,7 @@ describe('replacing the Terms', () => {
 		const topic = makeTopic(db, course.id, 'Forces');
 		const [lesson] = makeLessons(db, topic.id, 1);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
-		writeSessionNote(db, {
+		writeTeachingNote(db, {
 			classId: classA.id,
 			date: '2026-09-03',
 			period: 5,

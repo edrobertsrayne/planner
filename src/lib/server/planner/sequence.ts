@@ -8,10 +8,11 @@ import { and, asc, eq, inArray, lte, ne } from 'drizzle-orm';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import { addDays } from '$lib/date';
-import { inAnyTerm, slotHolds, type ScheduleResult } from './engine';
+import { availableSlots, inAnyTerm, slotHolds, type ScheduleResult } from './engine';
 import {
 	lessonNames,
 	loadCalendar,
+	occasionKey,
 	rederive,
 	scheduleFor,
 	type Db,
@@ -213,27 +214,37 @@ export function moveLessons(
 	if (taught) {
 		throw new Refused('conflict', `“${titleOf(db, taught)}” was taught, so it cannot move.`);
 	}
-	const firstMoved = next.findIndex((id) => lessonIds.includes(id));
-	const inFront = next.slice(firstMoved).find((id) => fixed.has(id));
+	refuseInFrontOfTaught(db, next.slice(next.findIndex((id) => lessonIds.includes(id))), fixed);
+
+	return writeSequence(db, { classId, today }, () => {
+		writeOrder(db, classId, next);
+		return {};
+	});
+}
+
+// Nothing may land in front of a taught Lesson: `after` is the part of the new order behind the
+// place the change makes, and a fixed Lesson in it refuses the write.
+function refuseInFrontOfTaught(db: Db, after: string[], fixed: Set<string>) {
+	const inFront = after.find((id) => fixed.has(id));
 	if (inFront) {
 		throw new Refused(
 			'conflict',
 			`A Lesson cannot go in front of “${titleOf(db, inFront)}”, which was taught.`
 		);
 	}
+}
 
-	return writeSequence(db, { classId, today }, () => {
-		next.forEach((lessonId, position) =>
-			db
-				.update(schema.classLesson)
-				.set({ position })
-				.where(
-					and(eq(schema.classLesson.classId, classId), eq(schema.classLesson.lessonId, lessonId))
-				)
-				.run()
-		);
-		return {};
-	});
+// Rewrites the `position` of every Lesson in the Class's Sequence from a full order.
+export function writeOrder(db: Db, classId: string, order: string[]) {
+	order.forEach((lessonId, position) =>
+		db
+			.update(schema.classLesson)
+			.set({ position })
+			.where(
+				and(eq(schema.classLesson.classId, classId), eq(schema.classLesson.lessonId, lessonId))
+			)
+			.run()
+	);
 }
 
 // Remove: takes the Lessons out of this Class's Sequence, with the Readiness and Teaching note of
@@ -243,6 +254,7 @@ export function removeFromSequence(
 	db: Db,
 	{ classId, lessonIds, today }: { classId: string; lessonIds: string[]; today: string }
 ) {
+	if (lessonIds.length === 0) throw new Refused('invalid', 'Pick a Lesson to remove.');
 	const fixed = fixedLessonIds(db, classId, today);
 	const taught = lessonIds.find((id) => fixed.has(id));
 	if (taught !== undefined) {
@@ -284,13 +296,7 @@ export function addLesson(
 	if (afterLessonId) {
 		const index = order.indexOf(afterLessonId);
 		if (index < 0) throw new Refused('invalid', 'That Lesson is not in this Sequence.');
-		const inFront = order.slice(index + 1).find((id) => fixed.has(id));
-		if (inFront) {
-			throw new Refused(
-				'conflict',
-				`A Lesson cannot go in front of “${titleOf(db, inFront)}”, which was taught.`
-			);
-		}
+		refuseInFrontOfTaught(db, order.slice(index + 1), fixed);
 		at = index + 1;
 	} else {
 		at = order.findLastIndex((id) => fixed.has(id)) + 1;
@@ -302,18 +308,11 @@ export function addLesson(
 			.values({ topicId: null, title: name, position: 0 })
 			.returning()
 			.all();
+		db.insert(schema.classLesson)
+			.values({ classId, lessonId: lesson.id, position: order.length })
+			.run();
 		order.splice(at, 0, lesson.id);
-		order.forEach((lessonId, position) => {
-			const where = and(
-				eq(schema.classLesson.classId, classId),
-				eq(schema.classLesson.lessonId, lessonId)
-			);
-			if (lessonId === lesson.id) {
-				db.insert(schema.classLesson).values({ classId, lessonId, position }).run();
-			} else {
-				db.update(schema.classLesson).set({ position }).where(where).run();
-			}
-		});
+		writeOrder(db, classId, order);
 		return { lesson };
 	});
 }
@@ -513,20 +512,20 @@ function weekRows(
 	for (const s of result.history) {
 		const kind = inSequence.has(s.lessonId) ? 'taught' : 'placed';
 		if (kind === 'placed') placedIds.add(s.lessonId);
-		known.set(`${s.date}|${s.period}`, { kind, lessonId: s.lessonId, part: 0, of: 0 });
+		known.set(occasionKey(s), { kind, lessonId: s.lessonId, part: 0, of: 0 });
 	}
 	for (const s of result.scheduled) {
 		const kind = s.placementId ? 'placed' : fixed.has(s.lessonId) ? 'taught' : 'lesson';
 		if (kind === 'placed') placedIds.add(s.lessonId);
-		known.set(`${s.date}|${s.period}`, { kind, lessonId: s.lessonId, part: s.part, of: s.of });
+		known.set(occasionKey(s), { kind, lessonId: s.lessonId, part: s.part, of: s.of });
 	}
 	for (const s of result.openSlots) {
-		known.set(`${s.date}|${s.period}`, { kind: 'free', lessonId: null, part: 0, of: 0 });
+		known.set(occasionKey(s), { kind: 'free', lessonId: null, part: 0, of: 0 });
 	}
 	const titles = lessonNames(db, [...placedIds]);
 
-	const blockedDays = new Set(cal.blockedDays);
-	const blockedSlots = new Set(cal.blockedSlots.map((b) => `${b.date}|${b.slotId}`));
+	// A Slot of the Class that is not an Available Slot, and not known, is blocked.
+	const available = new Set(availableSlots(cal, classId).map(occasionKey));
 	const own = cal.slots.filter((slot) => slot.classId === classId);
 	const all = cal.teachingWeeks.map((week) => {
 		const cells: WeekCell[] = [];
@@ -536,9 +535,9 @@ function weekRows(
 			for (const slot of own
 				.filter((s) => s.week === week.letter && s.day === day && slotHolds(s, date))
 				.sort((a, b) => a.period - b.period)) {
-				const key = `${date}|${slot.period}`;
+				const key = occasionKey({ date, period: slot.period });
 				const at = known.get(key);
-				const blocked = blockedDays.has(date) || blockedSlots.has(`${date}|${slot.id}`);
+				const blocked = !available.has(key);
 				cells.push({
 					key,
 					date,

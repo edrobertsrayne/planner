@@ -199,7 +199,9 @@
 	}
 
 	// Each card whose first Slot changed in the last Move, with its old date.
-	const was = $derived(new Map((moved?.changed ?? []).map((c) => [c.lessonId, c.was])));
+	const was = $derived(
+		new Map(((moved ?? removed ?? added)?.changed ?? []).map((c) => [c.lessonId, c.was]))
+	);
 
 	function dragStart(event: PointerEvent, lessonId: string) {
 		event.preventDefault();
@@ -667,9 +669,7 @@
 						}}
 				>
 					<input type="hidden" name="classId" value={classId} />
-					{#each removing as entry (entry.lessonId)}
-						<input type="hidden" name="lessonId" value={entry.lessonId} />
-					{/each}
+					<input type="hidden" name="lessonIds" value={removing.map((e) => e.lessonId).join(',')} />
 					<Button type="submit" variant="destructive" size="sm" class="h-7">Remove</Button>
 				</form>
 			</Dialog.Footer>

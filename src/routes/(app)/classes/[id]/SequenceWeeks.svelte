@@ -9,7 +9,7 @@
 	import Markdown from '$lib/components/markdown.svelte';
 	import { formatDateShort, formatDayMonth } from '$lib/date';
 	import type { SlotFill } from '$lib/sequence-layout';
-	import { wasText } from '$lib/sequence-text';
+	import { plural, wasText } from '$lib/sequence-text';
 	import { topicColour } from '$lib/topic-colour';
 	import type { SequenceEntry, WeekRow } from '$lib/server/planner';
 
@@ -80,7 +80,7 @@
 	const byId = $derived(new Map(entries.map((entry) => [entry.lessonId, entry])));
 	const taught = $derived(entries.filter((entry) => entry.fixed));
 	const dragging = $derived(dragIds.length > 0);
-	const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
 	// In select mode a tap on a Lesson picks it, and never follows the link.
 	const pick = (event: MouseEvent, entry: SequenceEntry) => {
 		if (!selectMode) return;
@@ -239,15 +239,28 @@
 										Free
 									</div>
 								{:else if cell.kind === 'taught' && entry}
-									<div
-										class="flex min-h-10 items-center gap-1.5 rounded-md border bg-muted/40 px-2 py-1.5 text-sm"
+									<a
+										href={resolve(`/lessons/${entry.lessonId}?class=${classId}`)}
+										class="flex min-h-10 flex-col justify-center gap-0.5 rounded-md border px-2 py-1.5 text-sm hover:bg-muted/40"
+										style:background-color={topicColour(entry.topicId, 0.12)}
 										data-fixed-card
-										role="presentation"
-										onclick={() => selectMode && onPick(entry)}
+										onclick={(event) => pick(event, entry)}
 									>
-										<LockIcon class="size-3 shrink-0" aria-label="Fixed: already taught" />
-										<span class="font-medium" data-title>{entry.title}</span>
-									</div>
+										<span class="flex items-center gap-1.5">
+											<LockIcon class="size-3 shrink-0" aria-label="Fixed: already taught" />
+											<span class="font-medium" data-title>{entry.title}</span>
+										</span>
+										{#if entry.topicName}
+											<span class="flex items-center gap-1 text-xs text-muted-foreground">
+												<span
+													class="size-2 rounded-full"
+													style:background-color={topicColour(entry.topicId, 0.8)}
+													aria-hidden="true"
+												></span>
+												{entry.topicName}
+											</span>
+										{/if}
+									</a>
 								{:else if cell.kind === 'placed'}
 									<div
 										class="flex min-h-10 items-center gap-1.5 rounded-md border bg-muted/40 px-2 py-1.5 text-sm"

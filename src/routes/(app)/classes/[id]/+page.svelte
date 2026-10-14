@@ -7,6 +7,7 @@
 	import { replaceQuery } from '$lib/client/enhance';
 	import { formatDate } from '$lib/date';
 	import { withParam } from '$lib/query';
+	import { untrack } from 'svelte';
 	import RenameableRow from '$lib/components/renameable-row.svelte';
 	import RewindReport from '$lib/components/rewind-report.svelte';
 	import { Badge } from '$lib/components/ui/badge/index.js';
@@ -24,7 +25,19 @@
 	// The Timetable reads and writes from a tablet up; on a phone Overview is the only view, so
 	// the rename pencil — the page's other edit — follows the Course page's rule.
 	const md = new MediaQuery('min-width: 768px', true);
-	let tab = $state<'overview' | 'timetable' | 'sequence'>('overview');
+	// A reload of a Sequence layout, or a form submission without JavaScript that wrote the
+	// Sequence, lands on the Sequence tab again.
+	let tab = $state<'overview' | 'timetable' | 'sequence'>(
+		untrack(() =>
+			page.url.searchParams.has('layout') ||
+			form?.assigned ||
+			form?.moved ||
+			form?.removed ||
+			form?.added
+				? 'sequence'
+				: 'overview'
+		)
+	);
 
 	// The "Timetable as at" date sets one parameter and keeps the rest, like every filter
 	// (withParam, issue #338).

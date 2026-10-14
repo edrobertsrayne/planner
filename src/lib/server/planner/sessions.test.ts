@@ -19,7 +19,7 @@ import {
 	sessionDetail,
 	setReadiness,
 	teachingNoteOf,
-	writeSessionNote
+	writeTeachingNote
 } from './index';
 import { rederive, type WriteReport } from './derive';
 import * as schema from '../db/schema';
@@ -377,7 +377,7 @@ describe('the Session panel', () => {
 		makeLessons(db, topic.id, 1);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 
-		writeSessionNote(db, {
+		writeTeachingNote(db, {
 			classId: classA.id,
 			date: '2026-09-03',
 			period: 5,
@@ -401,11 +401,27 @@ describe('the Session panel', () => {
 		const occasion = { classId: classA.id, date: '2026-09-03', period: 5 };
 
 		refused(
-			() => writeSessionNote(db, { ...occasion, note: 'covered by a colleague' }),
+			() => writeTeachingNote(db, { ...occasion, note: 'covered by a colleague' }),
 			'invalid',
 			'An Open Slot has no Lesson to write a note on.'
 		);
 		expect(sessionDetail(db, { ...occasion, today: '2026-09-03' })?.note).toBeNull();
+	});
+
+	test('a blank body stores no Teaching note', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [lesson] = makeLessons(db, topic.id, 1);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+		const occasion = { classId: classA.id, date: '2026-09-03', period: 5 };
+
+		writeTeachingNote(db, { ...occasion, note: '  \n ' });
+		expect(teachingNoteOf(db, classA.id, lesson.id)).toBeNull();
+		expect(db.select().from(schema.teachingNote).all()).toEqual([]);
+
+		writeTeachingNote(db, { ...occasion, note: 'went badly' });
+		writeTeachingNote(db, { ...occasion, note: '  ' });
+		expect(teachingNoteOf(db, classA.id, lesson.id)).toBeNull();
 	});
 
 	test('an empty body deletes the Teaching note', () => {
@@ -415,10 +431,10 @@ describe('the Session panel', () => {
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 		const occasion = { classId: classA.id, date: '2026-09-03', period: 5 };
 
-		writeSessionNote(db, { ...occasion, note: 'went badly' });
+		writeTeachingNote(db, { ...occasion, note: 'went badly' });
 		expect(teachingNoteOf(db, classA.id, lesson.id)).toBe('went badly');
 
-		writeSessionNote(db, { ...occasion, note: '' });
+		writeTeachingNote(db, { ...occasion, note: '' });
 		expect(teachingNoteOf(db, classA.id, lesson.id)).toBeNull();
 		expect(sessionDetail(db, { ...occasion, today: '2026-09-03' })?.note).toBeNull();
 		expect(db.select().from(schema.teachingNote).all()).toEqual([]);
@@ -431,7 +447,7 @@ describe('the Session panel', () => {
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 
 		// The two parts sit on 3 Sep P5 and P6.
-		writeSessionNote(db, {
+		writeTeachingNote(db, {
 			classId: classA.id,
 			date: '2026-09-03',
 			period: 5,
@@ -459,7 +475,7 @@ describe('the Session panel', () => {
 			today: '2026-09-03'
 		});
 
-		writeSessionNote(db, {
+		writeTeachingNote(db, {
 			classId: classA.id,
 			date: '2026-09-03',
 			period: 5,
@@ -484,7 +500,7 @@ describe('the Session panel', () => {
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 
 		// The note is on P6: Lesson 2, as actually taught.
-		writeSessionNote(db, {
+		writeTeachingNote(db, {
 			classId: classA.id,
 			date: '2026-09-03',
 			period: 6,
@@ -531,7 +547,7 @@ describe('the Session panel', () => {
 		const topic = makeTopic(db, course.id, 'Forces');
 		const [lesson] = makeLessons(db, topic.id, 1);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
-		writeSessionNote(db, { classId: classA.id, date: '2026-09-03', period: 5, note: 'trip next' });
+		writeTeachingNote(db, { classId: classA.id, date: '2026-09-03', period: 5, note: 'trip next' });
 
 		blockDay(db, { date: '2026-09-03', note: 'Snow day', today: '2026-09-10' });
 
@@ -550,7 +566,7 @@ describe('the Session panel', () => {
 		const topic = makeTopic(db, course.id, 'Forces');
 		const [lesson] = makeLessons(db, topic.id, 1);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-01' });
-		writeSessionNote(db, { classId: classA.id, date: '2026-09-03', period: 5, note: 'trip next' });
+		writeTeachingNote(db, { classId: classA.id, date: '2026-09-03', period: 5, note: 'trip next' });
 
 		deleteLesson(db, { id: lesson.id, today: '2026-09-01', dir: atDir, confirmed: true });
 
@@ -586,7 +602,7 @@ describe('the Session panel', () => {
 			.all()
 			.filter((p) => p.id !== other.id);
 		rederive(db, classA.id, today);
-		writeSessionNote(db, {
+		writeTeachingNote(db, {
 			classId: classA.id,
 			date: first.date,
 			period: first.period,

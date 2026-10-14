@@ -9,7 +9,7 @@ import {
 	recordContinuation,
 	sessionDetail,
 	teachingNoteOf,
-	writeSessionNote
+	writeTeachingNote
 } from './index';
 import { rederive, rewindBoundary, scheduleFor } from './derive';
 import * as schema from '../db/schema';
@@ -54,7 +54,7 @@ describe('every scheduling write answers with its Rewind report', () => {
 
 		// Five Lessons fill 3 Sep P5, 3 Sep P6, 8 Sep P2, 11 Sep P4 and 14 Sep P3. The teacher
 		// notes 14 Sep P3: Lesson 5. Continuing 3 Sep P5 pushes Lesson 5 to the next Slot.
-		writeSessionNote(db, {
+		writeTeachingNote(db, {
 			classId: classA.id,
 			date: '2026-09-14',
 			period: 3,
@@ -102,16 +102,15 @@ describe('a Lesson write answers with the Rewind report', () => {
 		expect(classSchedule(db, { classId: classA.id, today })).toEqual(before);
 	});
 
-	test('moveLesson answers with an empty report and changes no Sequence', () => {
+	test('moveLesson changes no Sequence', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		const lessons = makeLessons(db, topic.id, 2);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today });
 		const before = classSchedule(db, { classId: classA.id, today });
 
-		const report = moveLesson(db, { topicId: topic.id, id: lessons[1].id, direction: 'up' });
+		moveLesson(db, { topicId: topic.id, id: lessons[1].id, direction: 'up' });
 
-		expect(report).toEqual({ placementsMoved: [] });
 		expect(classSchedule(db, { classId: classA.id, today })).toEqual(before);
 	});
 
@@ -263,7 +262,7 @@ describe('placementsMoved', () => {
 			.values({ classId: classA.id, date: anchor.date, slotId: anchor.slotId, lessonId: lesson.id })
 			.run();
 		rederive(db, classA.id, '2026-09-01');
-		writeSessionNote(db, {
+		writeTeachingNote(db, {
 			classId: classA.id,
 			date: anchor.date,
 			period: anchor.period,

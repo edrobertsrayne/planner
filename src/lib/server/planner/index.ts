@@ -11,9 +11,9 @@
 //   derive.ts       feeding the engine from the database and persisting its answer
 //   ordering.ts     the `position` arithmetic the four ordered things share
 //   timetable.ts    Slots: which Class holds which Period, over which dates
+//   sequence.ts     a Class's Sequence: its Lessons in its own order, and its Teaching notes
 //   classes.ts      a Class, and how far through its Sequence it has got
 //   disruptions.ts  Blocked Days and Blocked Slots
-//   sequence.ts     a Class's Sequence: its Lessons in its own order, and its Teaching notes
 //   placement.ts    Placement: a Standalone Lesson put directly onto a Class, no Topic behind it
 //   terms.ts        the six Terms, replaced as one document — the Week letter derives from them
 //   sessions.ts     one occasion: its detail, its note, its Continuation
@@ -78,7 +78,7 @@ export {
 	recordContinuation,
 	removeContinuation,
 	sessionDetail,
-	writeSessionNote,
+	writeTeachingNote,
 	type Occasion,
 	type SessionDetail
 } from './sessions';

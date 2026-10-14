@@ -27,7 +27,7 @@ import {
 	createLink,
 	createTopic,
 	replaceTerms,
-	writeSessionNote
+	writeTeachingNote
 } from '../src/lib/server/planner/index.ts';
 import { today } from '../src/lib/date.ts';
 import { EMAIL, PASSWORD } from '../e2e/helpers.ts';
@@ -106,7 +106,7 @@ function seed(path: string | undefined) {
 		.limit(1)
 		.all();
 	if (last) {
-		writeSessionNote(db, {
+		writeTeachingNote(db, {
 			classId,
 			date: last.date,
 			period: last.period,

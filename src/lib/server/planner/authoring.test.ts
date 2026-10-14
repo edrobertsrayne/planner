@@ -1065,9 +1065,8 @@ describe('edits to the shared plan change no Sequence', () => {
 		const sequence = sequenceOf(db, classA.id);
 		const dates = datesOf(db, classA.id);
 
-		const report = moveLesson(db, { topicId: topic.id, id: lessons[2].id, direction: 'up' });
+		moveLesson(db, { topicId: topic.id, id: lessons[2].id, direction: 'up' });
 
-		expect(report).toEqual({ placementsMoved: [] });
 		expect(lessonsOf(db, topic.id).map((l) => l.id)).toEqual([
 			lessons[0].id,
 			lessons[2].id,

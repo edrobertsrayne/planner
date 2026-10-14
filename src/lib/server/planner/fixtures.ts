@@ -6,6 +6,7 @@ import { afterEach, expect } from 'vitest';
 import { openDatabase, runMigrations } from '../db';
 import * as schema from '../db/schema';
 import { rederive, type Db } from './derive';
+import { writeOrder } from './sequence';
 import { addSlot, attachmentsDir, createClass, Refused, type RefusalKind } from './index';
 
 // Asserts the call is refused the one way the seam refuses: a `Refused` throw carrying the
@@ -117,8 +118,9 @@ export function setSequence(
 	today = '2026-09-03'
 ): void {
 	db.delete(schema.classLesson).where(eq(schema.classLesson.classId, classId)).run();
-	lessonIds.forEach((lessonId, position) =>
-		db.insert(schema.classLesson).values({ classId, lessonId, position }).run()
+	lessonIds.forEach((lessonId) =>
+		db.insert(schema.classLesson).values({ classId, lessonId, position: 0 }).run()
 	);
+	writeOrder(db, classId, lessonIds);
 	rederive(db, classId, today);
 }
