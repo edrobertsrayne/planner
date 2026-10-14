@@ -24,6 +24,9 @@
 		dragIds,
 		ringed,
 		was,
+		selectMode,
+		selected,
+		onPick,
 		onGrip,
 		onRemove
 	}: {
@@ -42,6 +45,10 @@
 		ringed: string[];
 		// Each Lesson whose first Slot changed in the last write, with its old date.
 		was: Map<string, string | null>;
+		// Select mode: a tap picks a Lesson instead of opening it, and the × buttons go.
+		selectMode: boolean;
+		selected: string[];
+		onPick: (entry: SequenceEntry) => void;
 		onGrip: (event: PointerEvent, lessonId: string) => void;
 		onRemove: (entry: SequenceEntry) => void;
 	} = $props();
@@ -51,20 +58,28 @@
 	const taught = $derived(entries.filter((entry) => entry.fixed));
 	const dragging = $derived(dragIds.length > 0);
 	const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+	// In select mode a tap on a Lesson picks it, and never follows the link.
+	const pick = (event: MouseEvent, entry: SequenceEntry) => {
+		if (!selectMode) return;
+		event.preventDefault();
+		onPick(entry);
+	};
 	const wasText = (lessonId: string) =>
 		was.get(lessonId) ? `was ${formatDateShort(was.get(lessonId)!)}` : 'was past the end';
 </script>
 
 {#snippet lessonCard(entry: SequenceEntry, part: number, of: number, base: string | null)}
+	{@const isSelected = selected.includes(entry.lessonId)}
 	<div
 		class="relative flex h-full items-stretch rounded-md border {dragIds.includes(entry.lessonId)
 			? 'opacity-40'
-			: ''} {changing.has(entry.lessonId)
+			: ''} {isSelected ? 'border-primary ring-2 ring-primary' : ''} {changing.has(entry.lessonId)
 			? 'border-dashed border-primary outline-dashed'
 			: ''} {!dragging && ringed.includes(entry.lessonId) ? 'ring-2 ring-amber-500' : ''}"
-		style:background-color={topicColour(entry.topicId, 0.12)}
+		style:background-color={topicColour(entry.topicId, isSelected ? 0.45 : 0.12)}
 		data-drop={base ?? undefined}
 		data-lesson-card
+		data-selected={isSelected ? '' : undefined}
 		data-changing={changing.has(entry.lessonId) ? '' : undefined}
 	>
 		<button
@@ -78,8 +93,14 @@
 		<a
 			href={resolve(`/lessons/${entry.lessonId}?class=${classId}`)}
 			class="flex min-w-0 flex-1 flex-col gap-0.5 py-1.5 pr-1 hover:bg-muted/40"
+			onclick={(event) => pick(event, entry)}
 		>
-			<span class="text-sm leading-tight font-medium" data-title>{entry.title}</span>
+			<span class="flex items-start gap-1">
+				<span class="text-sm leading-tight font-medium" data-title>{entry.title}</span>
+				{#if isSelected}
+					<CheckIcon class="mt-0.5 size-3.5 shrink-0 text-primary" aria-label="Selected" />
+				{/if}
+			</span>
 			<span class="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
 				{#if entry.topicName}
 					<span class="flex items-center gap-1">
@@ -102,14 +123,16 @@
 				{/if}
 			</span>
 		</a>
-		<button
-			type="button"
-			class="flex items-start px-1.5 pt-1.5 text-muted-foreground hover:text-foreground"
-			aria-label={`Remove ${entry.title}`}
-			onclick={() => onRemove(entry)}
-		>
-			<XIcon class="size-4" aria-hidden="true" />
-		</button>
+		{#if !selectMode}
+			<button
+				type="button"
+				class="flex items-start px-1.5 pt-1.5 text-muted-foreground hover:text-foreground"
+				aria-label={`Remove ${entry.title}`}
+				onclick={() => onRemove(entry)}
+			>
+				<XIcon class="size-4" aria-hidden="true" />
+			</button>
+		{/if}
 	</div>
 {/snippet}
 
@@ -125,7 +148,8 @@
 						<LockIcon class="size-3 shrink-0" aria-label="Fixed: already taught" />
 						<a
 							class="font-medium hover:underline"
-							href={resolve(`/lessons/${entry.lessonId}?class=${classId}`)}>{entry.title}</a
+							href={resolve(`/lessons/${entry.lessonId}?class=${classId}`)}
+							onclick={(event) => pick(event, entry)}>{entry.title}</a
 						>
 						{#if entry.topicName}<span class="text-muted-foreground">{entry.topicName}</span>{/if}
 						{#if entry.firstDate}
@@ -185,6 +209,8 @@
 									<div
 										class="flex min-h-10 items-center gap-1.5 rounded-md border bg-muted/40 px-2 py-1.5 text-sm"
 										data-fixed-card
+										role="presentation"
+										onclick={() => selectMode && onPick(entry)}
 									>
 										<LockIcon class="size-3 shrink-0" aria-label="Fixed: already taught" />
 										<span class="font-medium" data-title>{entry.title}</span>
