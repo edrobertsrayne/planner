@@ -59,6 +59,15 @@ test.describe.serial('a Teaching note and the Sequence after a Lesson write', ()
 		await expect(page).toHaveURL(/\/lessons\//);
 	}
 
+	// × on a card of the Sequence tab takes the Lesson out of this Class and keeps the Lesson.
+	async function removeFromSequence(title: string) {
+		await openFixtureClass();
+		await page.getByRole('tab', { name: /^Sequence/ }).click();
+		await page.getByRole('button', { name: `Remove ${title}` }).click();
+		await page.getByRole('dialog').getByRole('button', { name: 'Remove', exact: true }).click();
+		await expect(page.locator('[data-remove-result]')).toContainText('Removed 1 Lesson.');
+	}
+
 	// A Lesson that a Sequence holds asks first, and the question names the Class.
 	async function deleteLessonInSequence() {
 		await page.getByRole('button', { name: 'Delete Lesson' }).click();
@@ -121,8 +130,7 @@ test.describe.serial('a Teaching note and the Sequence after a Lesson write', ()
 	});
 
 	test('a Lesson removed in front of a noted Lesson moves its Teaching note to the new date', async () => {
-		await openLessonFromSequence('A one');
-		await deleteLessonInSequence();
+		await removeFromSequence('A one');
 
 		// 'B one' is now the first Session, and its note went with it.
 		await openNextSession(0);

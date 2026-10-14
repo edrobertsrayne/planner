@@ -4,7 +4,7 @@
 //
 // Each write runs in one transaction, re-derives this Class only, from today, and answers with
 // the `WriteReport` plus `lessonsChanged`: how many Lessons got a different first date.
-import { and, asc, eq, lte } from 'drizzle-orm';
+import { and, asc, eq, inArray, lte, ne } from 'drizzle-orm';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import { rederive, scheduleFor, type Db, type WriteReport } from './derive';
@@ -74,7 +74,7 @@ function firstSlots(db: Db, classId: string, today: string): Map<string, string 
 }
 
 // Runs one Sequence write: in one transaction, re-deriving this Class from today, and counting the
-// Lessons that held a place before and now fall on a different first date.
+// Lessons that stay in the Sequence and now fall on a different first date.
 function writeSequence<T>(
 	db: Db,
 	{ classId, today }: { classId: string; today: string },
@@ -86,7 +86,7 @@ function writeSequence<T>(
 		const report = rederive(db, classId, today);
 		const after = firstSlots(db, classId, today);
 		let lessonsChanged = 0;
-		for (const [id, at] of before) if (after.get(id) !== at) lessonsChanged++;
+		for (const [id, at] of before) if (after.has(id) && after.get(id) !== at) lessonsChanged++;
 		return { ...result, ...report, lessonsChanged };
 	});
 }
@@ -149,6 +149,35 @@ export function assignTopic(
 	});
 }
 
+// Remove: takes the Lessons out of this Class's Sequence, with the Readiness and Teaching note of
+// each pair. The later Lessons move up into the free Slots. The Lessons stay, even a Standalone
+// Lesson in no other Class. It refuses when any Lesson is fixed, and then changes nothing.
+export function removeFromSequence(
+	db: Db,
+	{ classId, lessonIds, today }: { classId: string; lessonIds: string[]; today: string }
+) {
+	const fixed = fixedLessonIds(db, classId, today);
+	const taught = lessonIds.find((id) => fixed.has(id));
+	if (taught !== undefined) {
+		const [row] = db
+			.select({ title: schema.lesson.title })
+			.from(schema.lesson)
+			.where(eq(schema.lesson.id, taught))
+			.all();
+		throw new Refused('conflict', `“${row?.title}” was taught, so it cannot be removed.`);
+	}
+
+	return writeSequence(db, { classId, today }, () => {
+		const own = (
+			table: typeof schema.classLesson | typeof schema.readiness | typeof schema.teachingNote
+		) => and(eq(table.classId, classId), inArray(table.lessonId, lessonIds));
+		db.delete(schema.classLesson).where(own(schema.classLesson)).run();
+		db.delete(schema.readiness).where(own(schema.readiness)).run();
+		db.delete(schema.teachingNote).where(own(schema.teachingNote)).run();
+		return {};
+	});
+}
+
 export interface SequenceEntry {
 	lessonId: string;
 	title: string;
@@ -161,6 +190,8 @@ export interface SequenceEntry {
 	fixed: boolean;
 	note: string | null;
 	ready: boolean;
+	// A Standalone Lesson that no other Class holds: after a removal no Class can add it again.
+	onlyHere: boolean;
 }
 
 export interface TopicOption {
@@ -199,6 +230,21 @@ export function sequenceView(db: Db, { classId, today }: { classId: string; toda
 			.map((row) => [row.lessonId, row.body])
 	);
 
+	const elsewhere = new Set([
+		...db
+			.select({ lessonId: schema.classLesson.lessonId })
+			.from(schema.classLesson)
+			.where(ne(schema.classLesson.classId, classId))
+			.all()
+			.map((row) => row.lessonId),
+		...db
+			.select({ lessonId: schema.placement.lessonId })
+			.from(schema.placement)
+			.where(ne(schema.placement.classId, classId))
+			.all()
+			.map((row) => row.lessonId)
+	]);
+
 	const entries: SequenceEntry[] = db
 		.select({
 			lessonId: schema.lesson.id,
@@ -219,7 +265,8 @@ export function sequenceView(db: Db, { classId, today }: { classId: string; toda
 			firstDate: slots.get(row.lessonId)?.split('|')[0] ?? null,
 			fixed: fixed.has(row.lessonId),
 			note: notes.get(row.lessonId) ?? null,
-			ready: ready.has(row.lessonId)
+			ready: ready.has(row.lessonId),
+			onlyHere: row.topicId === null && !elsewhere.has(row.lessonId)
 		}));
 
 	const held = new Set([...entries.map((e) => e.lessonId), ...placedLessonIds(db, classId)]);

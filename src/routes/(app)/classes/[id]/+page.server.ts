@@ -14,6 +14,7 @@ import {
 	listClasses,
 	takeSlot,
 	clearSlot,
+	removeFromSequence,
 	renameClass,
 	reportOf,
 	setSlotRoom,
@@ -107,6 +108,22 @@ export const actions: Actions = {
 					added: result.added.length,
 					skipped: result.skipped.map(({ title, reason }) => ({ title, reason }))
 				}
+			};
+		} catch (error) {
+			return refusal(error);
+		}
+	},
+
+	removeLessons: async ({ request }) => {
+		const data = await request.formData();
+		const classId = trimmed(data, 'classId');
+		const lessonIds = data.getAll('lessonId').map(String);
+		if (lessonIds.length === 0) return fail(400, { error: 'Pick a Lesson to remove.' });
+		try {
+			const result = removeFromSequence(db, { classId, lessonIds, today: today() });
+			return {
+				report: reportOf(result),
+				removed: { count: lessonIds.length, changed: result.lessonsChanged }
 			};
 		} catch (error) {
 			return refusal(error);

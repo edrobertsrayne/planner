@@ -53,6 +53,7 @@ export {
 export {
 	assignTopic,
 	fixedLessonIds,
+	removeFromSequence,
 	sequenceView,
 	teachingNoteOf,
 	type SequenceEntry,
