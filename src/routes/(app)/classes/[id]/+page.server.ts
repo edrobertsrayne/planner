@@ -12,6 +12,7 @@ import {
 	datedSlotsOf,
 	holderAt,
 	listClasses,
+	moveLessons,
 	takeSlot,
 	clearSlot,
 	renameClass,
@@ -106,6 +107,26 @@ export const actions: Actions = {
 					topicName: topicName ?? '',
 					added: result.added.length,
 					skipped: result.skipped.map(({ title, reason }) => ({ title, reason }))
+				}
+			};
+		} catch (error) {
+			return refusal(error);
+		}
+	},
+
+	moveLessons: async ({ request }) => {
+		const data = await request.formData();
+		const classId = trimmed(data, 'classId');
+		const targetId = trimmed(data, 'targetId');
+		const lessonIds = trimmed(data, 'lessonIds').split(',').filter(Boolean);
+		try {
+			const result = moveLessons(db, { classId, lessonIds, targetId, today: today() });
+			return {
+				report: reportOf(result),
+				moved: {
+					lessonIds,
+					changed: result.changed,
+					lessonsChanged: result.lessonsChanged
 				}
 			};
 		} catch (error) {

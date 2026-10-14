@@ -53,8 +53,10 @@ export {
 export {
 	assignTopic,
 	fixedLessonIds,
+	moveLessons,
 	sequenceView,
 	teachingNoteOf,
+	type DateChange,
 	type SequenceEntry,
 	type SkipReason,
 	type TopicOption

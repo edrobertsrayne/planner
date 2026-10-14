@@ -4,11 +4,12 @@
 //
 // Each write runs in one transaction, re-derives this Class only, from today, and answers with
 // the `WriteReport` plus `lessonsChanged`: how many Lessons got a different first date.
-import { and, asc, eq, lte } from 'drizzle-orm';
+import { and, asc, eq, inArray, lte } from 'drizzle-orm';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import { rederive, scheduleFor, type Db, type WriteReport } from './derive';
 import { nextPosition } from './ordering';
+import { movedOrder } from '$lib/sequence-order';
 import { Refused } from './refused';
 
 // The Teaching note of one Class and Lesson, or null when there is none (ADR-0026). Both parts of
@@ -73,21 +74,30 @@ function firstSlots(db: Db, classId: string, today: string): Map<string, string 
 	return new Map(sequenceLessonIds(db, classId).map((id) => [id, first.get(id) ?? null]));
 }
 
-// Runs one Sequence write: in one transaction, re-deriving this Class from today, and counting the
-// Lessons that held a place before and now fall on a different first date.
+// A Lesson that held a place before a write and now falls on a different first Slot. `was` is the
+// date of its old first Slot, or null when it was past the end of the year.
+export interface DateChange {
+	lessonId: string;
+	was: string | null;
+}
+
+// Runs one Sequence write: in one transaction, re-deriving this Class from today, and listing the
+// Lessons that held a place before and now fall on a different first Slot.
 function writeSequence<T>(
 	db: Db,
 	{ classId, today }: { classId: string; today: string },
 	write: () => T
-): T & WriteReport & { lessonsChanged: number } {
+): T & WriteReport & { lessonsChanged: number; changed: DateChange[] } {
 	return inTransaction(db.$client, () => {
 		const before = firstSlots(db, classId, today);
 		const result = write();
 		const report = rederive(db, classId, today);
 		const after = firstSlots(db, classId, today);
-		let lessonsChanged = 0;
-		for (const [id, at] of before) if (after.get(id) !== at) lessonsChanged++;
-		return { ...result, ...report, lessonsChanged };
+		const changed: DateChange[] = [];
+		for (const [lessonId, at] of before) {
+			if (after.get(lessonId) !== at) changed.push({ lessonId, was: at?.split('|')[0] ?? null });
+		}
+		return { ...result, ...report, lessonsChanged: changed.length, changed };
 	});
 }
 
@@ -146,6 +156,64 @@ export function assignTopic(
 			}
 		}
 		return { added, skipped };
+	});
+}
+
+// Move: the Lessons of `lessonIds` go, in their current order, into the place of `targetId` (see
+// `movedOrder`). It changes this Class only, and a Placement stays on its date. A fixed Lesson
+// cannot move, and nothing may land in front of one, so a later Rewind lays the past again as it
+// was taught (ADR-0026). The first refusal that applies wins.
+export function moveLessons(
+	db: Db,
+	{
+		classId,
+		lessonIds,
+		targetId,
+		today
+	}: { classId: string; lessonIds: string[]; targetId: string; today: string }
+) {
+	const order = sequenceLessonIds(db, classId);
+	const next = movedOrder(order, lessonIds, targetId);
+	if (lessonIds.length === 0 || !next) {
+		throw new Refused(
+			'invalid',
+			'Those Lessons are not in this Sequence, or the target is one of them.'
+		);
+	}
+
+	const fixed = fixedLessonIds(db, classId, today);
+	const titles = new Map(
+		db
+			.select({ id: schema.lesson.id, title: schema.lesson.title })
+			.from(schema.lesson)
+			.where(inArray(schema.lesson.id, order))
+			.all()
+			.map((row) => [row.id, row.title])
+	);
+	const taught = lessonIds.find((id) => fixed.has(id));
+	if (taught) {
+		throw new Refused('conflict', `“${titles.get(taught)}” was taught, so it cannot move.`);
+	}
+	const firstMoved = next.findIndex((id) => lessonIds.includes(id));
+	const inFront = next.slice(firstMoved).find((id) => fixed.has(id));
+	if (inFront) {
+		throw new Refused(
+			'conflict',
+			`A Lesson cannot go in front of “${titles.get(inFront)}”, which was taught.`
+		);
+	}
+
+	return writeSequence(db, { classId, today }, () => {
+		next.forEach((lessonId, position) =>
+			db
+				.update(schema.classLesson)
+				.set({ position })
+				.where(
+					and(eq(schema.classLesson.classId, classId), eq(schema.classLesson.lessonId, lessonId))
+				)
+				.run()
+		);
+		return {};
 	});
 }
 

@@ -134,6 +134,7 @@
 				entries={data.sequence.entries}
 				topics={data.sequence.topics}
 				result={form?.assigned ?? null}
+				moved={form?.moved ?? null}
 			/>
 		</div>
 	{/if}
