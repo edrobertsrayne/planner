@@ -131,6 +131,7 @@
 		<div class={tab === 'sequence' ? 'max-md:hidden' : 'hidden'}>
 			<SequenceTab
 				classId={data.class.id}
+				classLabel={data.class.label}
 				entries={data.sequence.entries}
 				topics={data.sequence.topics}
 				weeks={data.sequence.weeks}

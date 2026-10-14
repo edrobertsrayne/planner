@@ -370,6 +370,135 @@ test.describe('a taught Lesson, By week', () => {
 	});
 });
 
+// Select mode. Move A is taught (above), so it is fixed. The tests end with the Sequence as the
+// standard state of this file leaves it: every Lesson removed, then the Topic assigned again.
+test.describe.serial('select mode', () => {
+	test.use({ viewport: { width: 1180, height: 820 } });
+
+	const rowOf = (page: Page, title: string) => entries(page).filter({ hasText: title });
+	const tap = (page: Page, title: string) => rowOf(page, title).locator('[data-title]').click();
+	const selectedCount = (page: Page, n: number) =>
+		expect(page.locator('[data-select-count]')).toHaveText(
+			n ? `${n} selected` : 'Tap Lessons to select'
+		);
+
+	test('Select becomes Done, taps select, × is hidden, a fixed Lesson refuses, Esc ends it', async ({
+		page
+	}) => {
+		await login(page);
+		await openSequence(page);
+		await expect(page.getByRole('button', { name: /^Remove Move/ }).first()).toBeVisible();
+
+		await page.getByRole('button', { name: 'Select', exact: true }).click();
+		await expect(page.getByRole('button', { name: 'Done', exact: true }).first()).toBeVisible();
+		await selectedCount(page, 0);
+		await expect(page.getByRole('button', { name: /^Remove Move/ })).toHaveCount(0);
+
+		await tap(page, titleOf('E'));
+		await tap(page, titleOf('F'));
+		await selectedCount(page, 2);
+		await expect(rowOf(page, titleOf('E'))).toHaveAttribute('data-selected', '');
+		await expect(rowOf(page, titleOf('E')).getByLabel('Selected')).toBeVisible();
+		await tap(page, titleOf('F'));
+		await selectedCount(page, 1);
+		await expect(rowOf(page, titleOf('F'))).not.toHaveAttribute('data-selected', '');
+
+		// A taught Lesson cannot be selected, and the tap does not open it.
+		await tap(page, titleOf('A'));
+		await expect(page.locator('[data-select-refusal]')).toHaveText(
+			`“${titleOf('A')}” was taught, so it cannot be selected.`
+		);
+		await expect(page).toHaveURL(/\/classes\//);
+		await selectedCount(page, 1);
+
+		// Esc ends the mode and clears the selection.
+		await page.keyboard.press('Escape');
+		await expect(page.locator('[data-select-bar]')).toHaveCount(0);
+		await expect(page.getByRole('button', { name: 'Select', exact: true })).toBeVisible();
+		await expect(page.locator('[data-selected]')).toHaveCount(0);
+		await expect(page.getByRole('button', { name: /^Remove Move/ }).first()).toBeVisible();
+
+		// Done ends it too, and a new mode starts with an empty selection.
+		await page.getByRole('button', { name: 'Select', exact: true }).click();
+		await selectedCount(page, 0);
+		await page.locator('[data-select-bar]').getByRole('button', { name: 'Done' }).click();
+		await expect(page.locator('[data-select-bar]')).toHaveCount(0);
+	});
+
+	test('a drag on a selected Lesson moves the selection; on another Lesson, only that one', async ({
+		page
+	}) => {
+		await login(page);
+		await openSequence(page);
+		// A is taught; the rest are in the order the drag tests left: C D B E F G ...
+		const before = await order(page);
+		expect(before.slice(0, 5)).toEqual(expected(['A', 'C', 'D', 'B', 'E']));
+
+		await page.getByRole('button', { name: 'Select', exact: true }).click();
+		await tap(page, titleOf('E'));
+		await tap(page, titleOf('G'));
+		await selectedCount(page, 2);
+
+		// E carries E and G, in their order, in front of C. The ghost says what it carries.
+		const start = await centreOf(page, titleOf('E'), true);
+		await page.mouse.move(start.x, start.y);
+		await page.mouse.down();
+		const end = await centreOf(page, titleOf('C'));
+		await page.mouse.move(end.x, end.y, { steps: 6 });
+		await expect(page.getByText(`2 Lessons, from “${titleOf('E')}”`)).toBeVisible();
+		await expect(page.locator('[data-drop-line]')).toHaveCount(1);
+		await page.mouse.up();
+		await expect
+			.poll(() => order(page))
+			.toEqual(expected(['A', 'E', 'G', 'C', 'D', 'B', 'F', ...LETTERS.slice(7)]));
+		await selectedCount(page, 2);
+		await expect(rowOf(page, titleOf('E'))).toHaveAttribute('data-selected', '');
+		await expect(rowOf(page, titleOf('G'))).toHaveAttribute('data-selected', '');
+
+		// A drag on a Lesson that is not selected moves only that one, and keeps the selection.
+		await mouseDrag(page, titleOf('F'), titleOf('E'));
+		await expect
+			.poll(() => order(page))
+			.toEqual(expected(['A', 'F', 'E', 'G', 'C', 'D', 'B', ...LETTERS.slice(7)]));
+		await selectedCount(page, 2);
+		await expect(rowOf(page, titleOf('F'))).not.toHaveAttribute('data-selected', '');
+	});
+
+	test('Select on a Topic chip and bulk Remove confirm the count; assigning again restores', async ({
+		page
+	}) => {
+		await login(page);
+		await openSequence(page);
+
+		// 13 untaught Lessons: the Topic's 14, less the taught one.
+		await page.locator('[data-topic-chip]').getByRole('button', { name: 'Select' }).click();
+		await expect(page.getByRole('button', { name: 'Done', exact: true }).first()).toBeVisible();
+		await selectedCount(page, 13);
+		await expect(rowOf(page, titleOf('A'))).not.toHaveAttribute('data-selected', '');
+
+		await page.locator('[data-select-bar]').getByRole('button', { name: 'Remove' }).click();
+		const dialog = page.getByRole('dialog');
+		await expect(dialog).toContainText('Remove 13 Lessons from 9C/Sc1?');
+		await expect(dialog).toContainText('No notes or Ready marks will be lost.');
+		await dialog.getByRole('button', { name: 'Cancel' }).click();
+		await expect(dialog).toHaveCount(0);
+		await selectedCount(page, 13);
+
+		await page.locator('[data-select-bar]').getByRole('button', { name: 'Remove' }).click();
+		await page.getByRole('dialog').getByRole('button', { name: 'Remove' }).click();
+		await expect(page.locator('[data-remove-result]')).toContainText('Removed 13 Lessons.');
+		await expect(entries(page)).toHaveCount(1);
+		await selectedCount(page, 0);
+		await page.locator('[data-select-bar]').getByRole('button', { name: 'Done' }).click();
+
+		// Assign Topic again puts the Lessons back, in the Topic's order; the taught one is skipped.
+		await page.getByRole('button', { name: 'Assign Topic' }).click();
+		await page.getByRole('menuitem', { name: /^Moves / }).click();
+		await expect(page.locator('[data-assign-result]')).toContainText('Added 13 Lessons');
+		await expect.poll(() => order(page)).toEqual(expected(LETTERS));
+	});
+});
+
 test.describe.serial('Add Lesson', () => {
 	test.use({ viewport: { width: 1180, height: 1600 } });
 
@@ -401,7 +530,7 @@ test.describe.serial('Add Lesson', () => {
 		await login(page);
 		await openSequence(page);
 
-		await page.getByRole('button', { name: 'Add Lesson' }).click();
+		await page.getByRole('button', { name: 'Add Lesson', exact: true }).click();
 		await page.getByRole('textbox', { name: 'Title of the new Lesson' }).fill('Starter');
 		await page.keyboard.press('Enter');
 
