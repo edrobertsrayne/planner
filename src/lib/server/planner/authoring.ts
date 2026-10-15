@@ -563,7 +563,9 @@ export function editLesson(
 		.where(eq(schema.lesson.id, id))
 		.returning()
 		.all();
-	if (changed.length === undefined) return { lesson, placementsMoved: [] };
+	// Only a Length change moves dates, so only it re-derives the Classes that hold the Lesson.
+	const lengthChanged = 'length' in changed;
+	if (!lengthChanged) return { lesson, placementsMoved: [] };
 
 	return { lesson, ...rederiveHolders(db, id, today) };
 }
