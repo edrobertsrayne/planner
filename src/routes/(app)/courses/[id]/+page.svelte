@@ -7,6 +7,7 @@
 	import { classTone } from '$lib/class-tone';
 	import { courseHref } from '$lib/client/back';
 	import { createInPlace, createThenSelect, submitWithValue } from '$lib/client/enhance';
+	import { courseDeleteText, plural, standaloneText } from '$lib/sequence-text';
 	import RenameableRow from '$lib/components/renameable-row.svelte';
 	import ReorderButtons from '$lib/components/reorder-buttons.svelte';
 	import TagChips from '$lib/components/tag-chips.svelte';
@@ -21,11 +22,6 @@
 	let { data, form }: PageProps = $props();
 
 	const tone = $derived(classTone(data.course.tone));
-	const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
-	const standalone = (n: number) =>
-		n === 1
-			? 'Its 1 Lesson becomes a Standalone Lesson.'
-			: `Its ${n} Lessons become Standalone Lessons.`;
 
 	// Each create box clears itself once the write lands, so the next name can be typed straight in.
 	let newTopicName = $state('');
@@ -123,7 +119,7 @@
 							kind: 'course',
 							id: data.course.id,
 							name: data.course.name,
-							description: `${data.topics.length === 1 ? 'Its 1 Topic goes.' : `Its ${data.topics.length} Topics go.`} ${standalone(data.lessonTotal)}`
+							description: courseDeleteText(data.topics.length, data.lessonTotal)
 						},
 						data.topics.length === 0
 					),
@@ -259,7 +255,7 @@
 											kind: 'topic',
 											id: shown.id,
 											name: shown.name,
-											description: `${standalone(data.lessons.length)} Every Class keeps ${data.lessons.length === 1 ? 'it' : 'them'} in its Sequence.`
+											description: `${standaloneText(data.lessons.length)} Every Class keeps ${data.lessons.length === 1 ? 'it' : 'them'} in its Sequence.`
 										},
 										data.lessons.length === 0
 									),

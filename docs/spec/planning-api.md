@@ -320,7 +320,7 @@ This is the lookup list. An agent that knows a Course by name and needs its id s
 → **409** if the Course holds any Topic:
 
 ```json
-{ "error": "This Course still holds Topics. Remove them first." }
+{ "error": "Delete KS3 Science? Its 2 Topics go. Its 12 Lessons become Standalone Lessons." }
 ```
 
 → **409** if any Class follows the Course:
@@ -367,7 +367,7 @@ Move to… on the Course page). The API does not expose it.
 → **409** if the Topic holds any Lesson:
 
 ```json
-{ "error": "This Topic still holds Lessons. Remove or detach them first." }
+{ "error": "Delete Forces? Its 12 Lessons become Standalone Lessons." }
 ```
 
 The API has no confirm, so a Topic with Lessons is refused. In the browser, Delete Topic asks first and

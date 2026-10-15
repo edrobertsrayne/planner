@@ -30,10 +30,10 @@ export interface StorageLike {
 
 // The prefix differs from the old per-occasion drafts, so those are ignored.
 export function draftKey(target: NoteTarget): string {
-	return `session-note-lesson:${target.classId}~${target.lessonId}`;
+	return `teaching-note:${target.classId}~${target.lessonId}`;
 }
 
-export interface SessionNotesOptions {
+export interface TeachingNotesOptions {
 	// Writes one note to the server. Rejecting is what marks the save failed.
 	write: (target: NoteTarget, note: string) => Promise<void>;
 	// Where drafts live. Defaults to localStorage, resolved per operation; returning null (SSR,
@@ -42,7 +42,7 @@ export interface SessionNotesOptions {
 	onFailure?: (target: NoteTarget, note: string, error: unknown) => void;
 }
 
-export interface SessionNotes {
+export interface TeachingNotes {
 	// Begin showing a Lesson on an occasion: flushes whatever was left pending, then returns the
 	// note to display — the local draft if one exists, else the server's, else empty.
 	open(target: NoteTarget, serverNote: string | null): string;
@@ -58,7 +58,7 @@ function defaultStorage(): StorageLike | null {
 	return typeof localStorage === 'undefined' ? null : localStorage;
 }
 
-export function createSessionNotes(options: SessionNotesOptions): SessionNotes {
+export function createTeachingNotes(options: TeachingNotesOptions): TeachingNotes {
 	const { write, onFailure } = options;
 	const storage = options.storage ?? defaultStorage;
 

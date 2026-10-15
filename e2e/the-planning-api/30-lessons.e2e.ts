@@ -1,6 +1,6 @@
-import { test, expect } from '@playwright/test';
-import { BEARER, apiKey, createdId, keysOf, type Page } from './helpers.ts';
-import { resetTo } from '../helpers.ts';
+import { test, expect, type Page } from '@playwright/test';
+import { apiKey, createdId, keysOf } from './helpers.ts';
+import { BEARER, resetTo } from '../helpers.ts';
 
 // Covers the two Lesson endpoints over real HTTP (issue #159): creation with its defaults, the
 // list order, PATCH's partial semantics, and the null-topicId detach that makes a Standalone

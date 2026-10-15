@@ -1,13 +1,6 @@
-import { test, expect } from '@playwright/test';
-import {
-	BEARER,
-	FIXTURE_CLASS_LABEL,
-	FIXTURE_COURSE,
-	apiKey,
-	createdId,
-	type Page
-} from './helpers.ts';
-import { resetTo, runFixture } from '../helpers.ts';
+import { test, expect, type Page } from '@playwright/test';
+import { apiKey, createdId } from './helpers.ts';
+import { BEARER, FIXTURE_CLASS_LABEL, FIXTURE_COURSE, resetTo, runFixture } from '../helpers.ts';
 
 // Covers the refusals that protect the record over real HTTP (issue #159): the deletes that
 // answer 409 because a Course still holds Topics, a Topic still holds Lessons, a Class's Sequence
@@ -79,7 +72,7 @@ test.describe.serial('the refusals that protect the record', () => {
 		});
 		expect(topicWithLessons.status()).toBe(409);
 		expect(await topicWithLessons.json()).toEqual({
-			error: 'This Topic still holds Lessons. Remove or detach them first.'
+			error: 'Delete API Topic One? Its 1 Lesson becomes a Standalone Lesson.'
 		});
 
 		// A Lesson that a Class's Sequence holds is refused, naming the Class. The API has no
@@ -116,7 +109,7 @@ test.describe.serial('the refusals that protect the record', () => {
 		});
 		expect(courseWithTopics.status()).toBe(409);
 		expect(await courseWithTopics.json()).toEqual({
-			error: 'This Course still holds Topics. Remove them first.'
+			error: 'Delete API Test Course? Its 1 Topic goes. Its 1 Lesson becomes a Standalone Lesson.'
 		});
 
 		const courseFollowed = await request.post('/api/courses', {

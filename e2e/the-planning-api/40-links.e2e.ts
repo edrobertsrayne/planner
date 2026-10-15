@@ -1,6 +1,6 @@
-import { test, expect } from '@playwright/test';
-import { BEARER, apiKey, createdId, keysOf, type Page } from './helpers.ts';
-import { resetTo } from '../helpers.ts';
+import { test, expect, type Page } from '@playwright/test';
+import { apiKey, createdId, keysOf } from './helpers.ts';
+import { BEARER, resetTo } from '../helpers.ts';
 
 // Covers the two Link endpoints over real HTTP (issue #159): creation at the end of the order,
 // the URL and scheme refusals, PATCH, and removal. Uses a Lesson of its own.

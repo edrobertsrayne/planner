@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import {
-	createSessionNotes,
+	createTeachingNotes,
 	draftKey,
 	type NoteTarget,
-	type SessionNotes,
+	type TeachingNotes,
 	type StorageLike
-} from './session-note';
+} from './teaching-note';
 
 const occasionA: NoteTarget = {
 	classId: 'cls_a',
@@ -40,7 +40,7 @@ interface Harness {
 }
 
 function harness(writeImpl?: (target: NoteTarget, note: string) => Promise<void>): Harness & {
-	notes: SessionNotes;
+	notes: TeachingNotes;
 } {
 	const storage = memoryStorage();
 	const write = vi.fn(writeImpl ?? (() => Promise.resolve()));
@@ -49,7 +49,7 @@ function harness(writeImpl?: (target: NoteTarget, note: string) => Promise<void>
 		storage,
 		write,
 		onFailure,
-		notes: createSessionNotes({ write, storage: () => storage, onFailure })
+		notes: createTeachingNotes({ write, storage: () => storage, onFailure })
 	};
 }
 
@@ -63,7 +63,7 @@ afterEach(() => {
 
 describe('draft keys', () => {
 	test('are keyed by Class and Lesson', () => {
-		expect(draftKey(occasionA)).toBe('session-note-lesson:cls_a~les_1');
+		expect(draftKey(occasionA)).toBe('teaching-note:cls_a~les_1');
 		expect(draftKey(occasionB)).not.toBe(draftKey(occasionA));
 	});
 

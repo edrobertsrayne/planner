@@ -1506,7 +1506,7 @@ describe('deleting a Course or a Topic', () => {
 
 		expect(deleteTopic(db, topic.id)).toEqual({
 			needsConfirm: true,
-			reason: 'This Topic still holds Lessons. Remove or detach them first.'
+			reason: 'Delete Forces? Its 1 Lesson becomes a Standalone Lesson.'
 		});
 		expect(lessonsOf(db, topic.id)).toEqual([lesson]);
 
@@ -1523,7 +1523,7 @@ describe('deleting a Course or a Topic', () => {
 
 		expect(deleteCourse(db, course.id)).toEqual({
 			needsConfirm: true,
-			reason: 'This Course still holds Topics. Remove them first.'
+			reason: 'Delete Year 9 Physics? Its 1 Topic goes. Its 1 Lesson becomes a Standalone Lesson.'
 		});
 		expect(topicsOf(db, course.id)).toHaveLength(1);
 

@@ -13,7 +13,15 @@
 	import { movedOrder } from '$lib/sequence-order';
 	import { withParam } from '$lib/query';
 	import { formatDateShort } from '$lib/date';
-	import { changeLine, plural, wasText } from '$lib/sequence-text';
+	import {
+		addedLine,
+		assignedLine,
+		changeLine,
+		lossSentence,
+		removedLine,
+		skippedLine,
+		wasText
+	} from '$lib/sequence-text';
 	import Markdown from '$lib/components/markdown.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
@@ -246,33 +254,6 @@
 		(moveForm.elements.namedItem('lessonIds') as HTMLInputElement).value = lessonIds.join(',');
 		submitWithValue(moveForm, 'targetId', target);
 	}
-
-	// What a removal costs: the Teaching note and Ready mark of this Class and Lesson go with it.
-	function losses(gone: SequenceEntry[]): string {
-		if (gone.length === 1) {
-			const [entry] = gone;
-			const lost = [entry.note ? 'Teaching note' : null, entry.ready ? 'Ready mark' : null].filter(
-				(item) => item !== null
-			);
-			return lost.length
-				? `The ${lost.join(' and the ')} of this Lesson in this Class will be lost.`
-				: 'No notes or Ready marks will be lost.';
-		}
-		const notes = gone.filter((entry) => entry.note).length;
-		const ready = gone.filter((entry) => entry.ready).length;
-		const lost = [
-			notes ? plural(notes, 'Teaching note') : null,
-			ready ? plural(ready, 'Ready mark') : null
-		].filter((item) => item !== null);
-		return lost.length
-			? `${lost.join(' and ')} will be lost.`
-			: 'No notes or Ready marks will be lost.';
-	}
-
-	const REASONS: Record<SkipReason, string> = {
-		'in-sequence': 'already in this Sequence',
-		placed: 'Placed on this Class'
-	};
 </script>
 
 <svelte:window
@@ -419,25 +400,23 @@
 
 	{#if assigned}
 		<p class="mt-2 text-xs text-muted-foreground" role="status" data-assign-result>
-			{assigned.added === 0
-				? `Added no Lessons from ${assigned.topicName}.`
-				: `Added ${plural(assigned.added, 'Lesson')} from ${assigned.topicName}.`}
+			{assignedLine(assigned.added, assigned.topicName)}
 			{#each assigned.skipped as skip, i (i)}
-				Skipped “{skip.title}”: {REASONS[skip.reason]}.
+				{skippedLine(skip.title, skip.reason)}
 			{/each}
 		</p>
 	{/if}
 
 	{#if added}
 		<p class="mt-2 text-xs text-muted-foreground" role="status" data-add-result>
-			Added “{added.title}”.
+			{addedLine(added.title)}
 			{changeLine(added.changed.length)}
 		</p>
 	{/if}
 
 	{#if removed}
 		<p class="mt-2 text-xs text-muted-foreground" role="status" data-remove-result>
-			Removed {plural(removed.count, 'Lesson')}.
+			{removedLine(removed.count)}
 			{changeLine(removed.changed.length)}
 		</p>
 	{/if}
@@ -488,7 +467,7 @@
 			{was}
 			{selectMode}
 			selected={chosenIds}
-			onPick={pick}
+			onTap={tapCard}
 			onGrip={dragStart}
 			onRemove={(entry) => (removing = [entry])}
 			addingRow={adding?.row ?? null}
@@ -649,7 +628,7 @@
 						: `Remove ${removing.length} Lessons from ${classLabel}?`}
 				</Dialog.Title>
 				<Dialog.Description>
-					{losses(removing)}
+					{lossSentence(removing)}
 					{#each removing.filter((entry) => entry.onlyHere) as entry (entry.lessonId)}
 						“{entry.title}” is in no other Class. After you remove it, you cannot add it to a Class
 						again.

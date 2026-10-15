@@ -6,6 +6,7 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { Database } from 'bun:sqlite';
 import { nextTone } from '$lib/class-tone';
+import { courseDeleteText, standaloneText } from '$lib/sequence-text';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import { combineReports, rederive, type Db, type WriteReport } from './derive';
@@ -236,9 +237,14 @@ export function deleteCourse(
 	const topicIds = topicsOf(db, id).map((topic) => topic.id);
 	if (topicIds.length > 0) {
 		if (!confirmed) {
+			const [{ lessonTotal }] = db
+				.select({ lessonTotal: sql<number>`count(*)` })
+				.from(schema.lesson)
+				.where(inArray(schema.lesson.topicId, topicIds))
+				.all();
 			return {
 				needsConfirm: true,
-				reason: 'This Course still holds Topics. Remove them first.'
+				reason: `Delete ${course.name}? ${courseDeleteText(topicIds.length, lessonTotal)}`
 			};
 		}
 		db.update(schema.lesson)
@@ -318,7 +324,7 @@ export function deleteTopic(
 		if (!confirmed) {
 			return {
 				needsConfirm: true,
-				reason: 'This Topic still holds Lessons. Remove or detach them first.'
+				reason: `Delete ${topic.name}? ${standaloneText(lessons.length)}`
 			};
 		}
 		db.update(schema.lesson).set({ topicId: null }).where(eq(schema.lesson.topicId, id)).run();

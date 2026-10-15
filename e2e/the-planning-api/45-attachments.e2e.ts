@@ -1,8 +1,8 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { test, expect } from '@playwright/test';
-import { BEARER, apiKey, createdId, keysOf, type Page } from './helpers.ts';
-import { resetTo } from '../helpers.ts';
+import { test, expect, type Page } from '@playwright/test';
+import { apiKey, createdId, keysOf } from './helpers.ts';
+import { BEARER, resetTo } from '../helpers.ts';
 
 // Covers the two Attachment endpoints over real HTTP (issue #268): upload, the refusals, the
 // Lesson GET's `attachments`, and removal from the row and the disk. Uses a Lesson of its own

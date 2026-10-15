@@ -4,7 +4,7 @@
 	import { formatWeekday, today } from '$lib/date';
 	import { formatSize } from '$lib/format-size';
 	import type { Occasion } from '$lib/client/session-href';
-	import { createSessionNotes } from '$lib/client/session-note';
+	import { createTeachingNotes } from '$lib/client/teaching-note';
 	import type { SessionDetail, WriteReport } from '$lib/server/planner';
 	import RewindReport from '$lib/components/rewind-report.svelte';
 	import { Badge } from '$lib/components/ui/badge';
@@ -26,7 +26,7 @@
 	// below, so the effect cleanup is the one flush point for them all;
 	// closing the tab has no Svelte hook, so pagehide covers it. None of them waits for the
 	// write, and there is no unsaved-changes prompt anywhere.
-	const notes = createSessionNotes({
+	const notes = createTeachingNotes({
 		// keepalive lets a flush fired from pagehide — closing the tab — reach the server
 		// through teardown; notes are small, so the request fits the keepalive budget.
 		write: async (target, value) => {

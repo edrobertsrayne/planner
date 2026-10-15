@@ -1,12 +1,12 @@
 import { test, expect, type Page } from '@playwright/test';
-import { resetTo } from './helpers.ts';
 import {
 	BEARER,
 	FIXTURE_CLASS_LABEL,
 	FIXTURE_COURSE,
 	openPage,
+	resetTo,
 	standingKey
-} from './the-planning-api/helpers.ts';
+} from './helpers.ts';
 
 // A Teaching note follows its Lesson when a write moves the Lesson (ADR-0026), and writing a
 // Lesson changes no Class's dates. It gives 9C/Sc1 from the standard state (Tuesday P3, Open

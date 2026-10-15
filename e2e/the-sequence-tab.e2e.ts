@@ -1,6 +1,14 @@
 import { test, expect, type Page } from '@playwright/test';
-import { isoDate, login, resetTo, runFixture } from './helpers.ts';
-import { BEARER, FIXTURE_COURSE, openPage, standingKey } from './the-planning-api/helpers.ts';
+import {
+	BEARER,
+	FIXTURE_COURSE,
+	isoDate,
+	login,
+	openPage,
+	resetTo,
+	runFixture,
+	standingKey
+} from './helpers.ts';
 
 // The Sequence tab, By week (the default) and List (`layout=list`). The 9C/Sc1 Class of the standard
 // state gets one Topic of 14 Lessons ("Move A" to "Move N"), assigned through Assign Topic.

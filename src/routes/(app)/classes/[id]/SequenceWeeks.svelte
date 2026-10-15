@@ -30,7 +30,7 @@
 		was,
 		selectMode,
 		selected,
-		onPick,
+		onTap,
 		onGrip,
 		onRemove,
 		addingRow,
@@ -55,7 +55,8 @@
 		// Select mode: a tap picks a Lesson instead of opening it, and the × buttons go.
 		selectMode: boolean;
 		selected: string[];
-		onPick: (entry: SequenceEntry) => void;
+		// In select mode a tap on a Lesson picks it instead of following its link.
+		onTap: (event: MouseEvent, entry: SequenceEntry) => void;
 		onGrip: (event: PointerEvent, lessonId: string) => void;
 		onRemove: (entry: SequenceEntry) => void;
 		// The row whose title field is open, and the one snippet that draws that field.
@@ -81,13 +82,6 @@
 	const byId = $derived(new Map(entries.map((entry) => [entry.lessonId, entry])));
 	const taught = $derived(entries.filter((entry) => entry.fixed));
 	const dragging = $derived(dragIds.length > 0);
-
-	// In select mode a tap on a Lesson picks it, and never follows the link.
-	const pick = (event: MouseEvent, entry: SequenceEntry) => {
-		if (!selectMode) return;
-		event.preventDefault();
-		onPick(entry);
-	};
 </script>
 
 {#snippet lessonCard(entry: SequenceEntry, part: number, of: number, base: string | null)}
@@ -115,7 +109,7 @@
 		<a
 			href={resolve(`/lessons/${entry.lessonId}?class=${classId}`)}
 			class="flex min-w-0 flex-1 flex-col gap-0.5 py-1.5 pr-1 hover:bg-muted/40"
-			onclick={(event) => pick(event, entry)}
+			onclick={(event) => onTap(event, entry)}
 		>
 			<span class="flex items-start gap-1">
 				<span class="text-sm leading-tight font-medium" data-title>{entry.title}</span>
@@ -173,7 +167,7 @@
 						<a
 							class="font-medium hover:underline"
 							href={resolve(`/lessons/${entry.lessonId}?class=${classId}`)}
-							onclick={(event) => pick(event, entry)}>{entry.title}</a
+							onclick={(event) => onTap(event, entry)}>{entry.title}</a
 						>
 						{#if entry.topicName}<span class="text-muted-foreground">{entry.topicName}</span>{/if}
 						{#if entry.firstDate}
@@ -249,7 +243,7 @@
 										class="flex min-h-10 flex-col justify-center gap-0.5 rounded-md border px-2 py-1.5 text-sm hover:bg-muted/40"
 										style:background-color={topicColour(entry.topicId, 0.12)}
 										data-fixed-card
-										onclick={(event) => pick(event, entry)}
+										onclick={(event) => onTap(event, entry)}
 									>
 										<span class="flex items-center gap-1.5">
 											<LockIcon class="size-3 shrink-0" aria-label="Fixed: already taught" />

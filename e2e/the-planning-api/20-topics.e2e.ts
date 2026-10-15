@@ -1,6 +1,6 @@
-import { test, expect } from '@playwright/test';
-import { BEARER, FIXTURE_COURSE, apiKey, createdId, keysOf, type Page } from './helpers.ts';
-import { resetTo } from '../helpers.ts';
+import { test, expect, type Page } from '@playwright/test';
+import { apiKey, createdId, keysOf } from './helpers.ts';
+import { BEARER, FIXTURE_COURSE, resetTo } from '../helpers.ts';
 
 // Covers the two Topic endpoints over real HTTP (issue #159): the per-Course, case-insensitive
 // collision rule, the list's sort, the rename collision, and the courseId refusal. The routes
