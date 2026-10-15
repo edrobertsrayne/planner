@@ -4,11 +4,14 @@ import { makeLessons, makeTopic, setUp } from './fixtures';
 import {
 	addLesson,
 	assignTopic,
+	blockSlot,
 	classSchedule,
+	recordContinuation,
 	moveLessons,
 	sequenceLessonIds,
 	sequenceView
 } from './index';
+import { layOutSequence } from '../../sequence-layout';
 import { rederive } from './derive';
 import type { Db } from './derive';
 import * as schema from '../db/schema';
@@ -65,10 +68,10 @@ describe('the By week view', () => {
 			['2026-09-14', 'A']
 		]);
 		expect(rows[0].cells.map((c) => [c.key, c.kind])).toEqual([
-			['2026-09-03|5', 'lesson'],
-			['2026-09-03|6', 'lesson']
+			['2026-09-03|5', 'movable'],
+			['2026-09-03|6', 'movable']
 		]);
-		expect(rows[2].cells.every((c) => c.kind === 'free')).toBe(true);
+		expect(rows[2].cells.every((c) => c.kind === 'movable')).toBe(true);
 		// Every other Open Slot to the end of the year is counted in one number.
 		const total = classSchedule(db, { classId: classA.id, today }).openSlots.length;
 		expect(view.freeAfter).toBe(total - rows[2].cells.length);
@@ -122,29 +125,78 @@ describe('the By week view', () => {
 			.run();
 		rederive(db, classA.id, today);
 
-		const cells = weeksOf(db, classA.id).weeks.flatMap((w) => (w.kind === 'week' ? w.cells : []));
+		const view = weeksOf(db, classA.id);
+		const cells = view.weeks.flatMap((w) => (w.kind === 'week' ? w.cells : []));
 		const cell = cells.find((c) => c.key === `${anchor.date}|${anchor.period}`)!;
-		expect(cell.kind).toBe('placed');
-		expect(cell.title).toBe(placed.title);
+		expect(cell.kind === 'placed' && cell.title).toBe(placed.title);
 		// The Placement is not in the Sequence, and the Sequence Lessons go round it.
-		expect(cells.filter((c) => c.kind === 'lesson').map((c) => c.lessonId)).toEqual(
-			lessons.map((l) => l.id)
-		);
+		expect(
+			view.entries
+				.filter((e) => e.firstDate !== null && cells.some((c) => c.key.startsWith(e.firstDate!)))
+				.map((e) => e.lessonId)
+		).toEqual(lessons.map((l) => l.id));
 	});
 
-	test('lists each Lesson with no Slot left as past the end, only when one exists', () => {
+	test('a Lesson with no Slot left has no first date, only when one exists', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		makeLessons(db, topic.id, 3);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today });
-		expect(weeksOf(db, classA.id).pastEnd).toEqual([]);
+		const dateless = (view: ReturnType<typeof weeksOf>) =>
+			view.entries.filter((e) => e.firstDate === null).map((e) => e.lessonId);
+		expect(dateless(weeksOf(db, classA.id))).toEqual([]);
 
 		const total = classSchedule(db, { classId: classA.id, today }).openSlots.length;
 		const long = makeTopic(db, course.id, 'Long');
 		const lessons = makeLessons(db, long.id, total + 2);
 		assignTopic(db, { classId: classA.id, topicId: long.id, today });
 
-		expect(weeksOf(db, classA.id).pastEnd).toEqual(lessons.slice(-2).map((l) => l.id));
+		expect(dateless(weeksOf(db, classA.id))).toEqual(lessons.slice(-2).map((l) => l.id));
+	});
+
+	test("laying the Sequence order through the movable Slots gives each Lesson's first date", () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		makeLessons(db, topic.id, 6);
+		const [long] = makeLessons(db, makeTopic(db, course.id, 'Long').id, 1, 2);
+		const [placed] = makeLessons(db, makeTopic(db, course.id, 'Extras').id, 1);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today });
+		assignTopic(db, { classId: classA.id, topicId: long.topicId!, today });
+		// A Placement, a Continuation on the first Slot, and a Blocked Slot, all in play at once.
+		const anchor = classSchedule(db, { classId: classA.id, today }).scheduled[7];
+		db.insert(schema.placement)
+			.values({ classId: classA.id, date: anchor.date, slotId: anchor.slotId, lessonId: placed.id })
+			.run();
+		rederive(db, classA.id, today);
+		const now = '2026-09-13';
+		recordContinuation(db, { classId: classA.id, date: '2026-09-03', period: 5, today: now });
+		const blocked = classSchedule(db, { classId: classA.id, today: now }).scheduled[2];
+		blockSlot(db, {
+			classId: classA.id,
+			date: blocked.date,
+			slotId: blocked.slotId,
+			note: 'Trip',
+			today: now
+		});
+
+		const view = weeksOf(db, classA.id, now);
+		const cells = view.weeks.flatMap((w) => (w.kind === 'week' ? w.cells : []));
+		const kinds = new Set(cells.map((c) => c.kind));
+		expect([...kinds]).toEqual(expect.arrayContaining(['taught', 'placed', 'blocked', 'movable']));
+		expect(view.entries.find((e) => e.lessonId === long.id)?.parts).toBe(2);
+
+		const { fills } = layOutSequence(
+			view.entries.map((e) => e.lessonId),
+			new Map(view.entries.map((e) => [e.lessonId, e.parts])),
+			cells.filter((c) => c.kind === 'movable').map((c) => c.key)
+		);
+		const first = new Map<string, string>();
+		for (const [key, fill] of fills) {
+			if (!first.has(fill.lessonId)) first.set(fill.lessonId, key.split('|')[0]);
+		}
+		for (const entry of view.entries.filter((e) => !e.fixed)) {
+			expect(first.get(entry.lessonId) ?? null).toBe(entry.firstDate);
+		}
 	});
 
 	test('counts each Topic in the Sequence by its untaught Lessons', () => {

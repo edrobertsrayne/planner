@@ -4,10 +4,11 @@ import { layOutSequence } from './sequence-layout';
 describe('layOutSequence', () => {
 	test('lays the Lessons through the Slots in order, a Length-2 Lesson in two Slots', () => {
 		const { fills, pastEnd } = layOutSequence(
-			[
-				{ lessonId: 'a', parts: 1 },
-				{ lessonId: 'b', parts: 2 }
-			],
+			['a', 'b'],
+			new Map([
+				['a', 1],
+				['b', 2]
+			]),
 			['s1', 's2', 's3', 's4']
 		);
 		expect([...fills]).toEqual([
@@ -20,11 +21,12 @@ describe('layOutSequence', () => {
 
 	test('a Lesson with no Slot left is past the end, once', () => {
 		const { fills, pastEnd } = layOutSequence(
-			[
-				{ lessonId: 'a', parts: 1 },
-				{ lessonId: 'b', parts: 2 },
-				{ lessonId: 'c', parts: 1 }
-			],
+			['a', 'b', 'c'],
+			new Map([
+				['a', 1],
+				['b', 2],
+				['c', 1]
+			]),
 			['s1', 's2']
 		);
 		expect([...fills.keys()]).toEqual(['s1', 's2']);

@@ -36,7 +36,6 @@
 		topics,
 		weeks,
 		freeAfter,
-		pastEnd,
 		chips,
 		sequenceResult
 	}: {
@@ -46,7 +45,6 @@
 		topics: TopicOption[];
 		weeks: WeekRow[];
 		freeAfter: number;
-		pastEnd: string[];
 		chips: TopicChip[];
 		// The last write's outcome: what to say, each Lesson that got a new first Slot, and the
 		// Lessons to ring.
@@ -129,53 +127,33 @@
 	// The drop line sits on the side of the target that the Lesson comes from.
 	const lineAbove = $derived(!!overId && order.indexOf(overId) < order.indexOf(dragIds[0]));
 
-	// By week: the Slots stay, and the Lessons that can still move go through them. During a drag,
-	// the Lessons lie as the drop would put them, and each that changes Slot is outlined.
-	const byId = $derived(new Map(entries.map((entry) => [entry.lessonId, entry])));
-	const cells = $derived(weeks.flatMap((row) => (row.kind === 'week' ? row.cells : [])));
-	const current = $derived(
-		new Map<string, SlotFill>(
-			cells.flatMap((cell) =>
-				cell.kind === 'lesson' && cell.lessonId
-					? [[cell.key, { lessonId: cell.lessonId, part: cell.part, of: cell.of }] as const]
-					: []
-			)
+	// By week: the Slots stay, and the Lessons that can still move go through them, as the order
+	// lies now or, during a drag, as the drop would put them. Each Lesson that changes Slot is
+	// outlined.
+	const parts = $derived(new Map(entries.map((entry) => [entry.lessonId, entry.parts])));
+	const slotKeys = $derived(
+		weeks.flatMap((row) =>
+			row.kind === 'week' ? row.cells.filter((c) => c.kind === 'movable').map((c) => c.key) : []
 		)
 	);
-	const preview = $derived(
-		dragging && proposal
-			? layOutSequence(
-					proposal.flatMap((id) => {
-						const entry = byId.get(id);
-						return entry && !entry.fixed ? [{ lessonId: id, parts: entry.parts }] : [];
-					}),
-					cells.filter((c) => c.kind === 'lesson' || c.kind === 'free').map((c) => c.key)
-				)
-			: null
-	);
+	const resting = $derived(layOutSequence(order, parts, slotKeys));
+	const layout = $derived(proposal ? layOutSequence(proposal, parts, slotKeys) : resting);
 	const firstSlotOf = (fills: Map<string, SlotFill>) => {
 		const first: Record<string, string> = {};
 		for (const [key, fill] of fills) first[fill.lessonId] ??= key;
 		return first;
 	};
 	const changing = $derived.by(() => {
-		if (!preview) return new Set<string>();
-		const before = firstSlotOf(current);
-		const after = firstSlotOf(preview.fills);
-		return new Set(
-			entries
-				.filter((e) => !e.fixed && before[e.lessonId] !== after[e.lessonId])
-				.map((e) => e.lessonId)
-		);
+		const before = firstSlotOf(resting.fills);
+		const after = firstSlotOf(layout.fills);
+		return new Set(entries.map((e) => e.lessonId).filter((id) => before[id] !== after[id]));
 	});
 	// The Lessons past the end of the year stay listed during a drag, so the card under a finger
 	// is never removed; one that the drop would push out joins them.
 	const pastEndShown = $derived(
-		preview
-			? entries
-					.filter((e) => pastEnd.includes(e.lessonId) || preview.pastEnd.includes(e.lessonId))
-					.map((e) => e.lessonId)
-			: pastEnd
+		entries
+			.map((e) => e.lessonId)
+			.filter((id) => resting.pastEnd.includes(id) || layout.pastEnd.includes(id))
 	);
 
 	function hitTest() {
@@ -415,7 +393,8 @@
 			{freeAfter}
 			{entries}
 			pastEnd={pastEndShown}
-			fills={preview?.fills ?? current}
+			fills={layout.fills}
+			resting={resting.fills}
 			{changing}
 			{dragIds}
 			ringed={sequenceResult?.ringed ?? []}

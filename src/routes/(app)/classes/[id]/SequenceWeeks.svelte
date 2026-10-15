@@ -24,6 +24,7 @@
 		entries,
 		pastEnd,
 		fills,
+		resting,
 		changing,
 		dragIds,
 		ringed,
@@ -43,8 +44,10 @@
 		entries: SequenceEntry[];
 		// The Lessons with no Slot left, in Sequence order.
 		pastEnd: string[];
-		// What each movable Slot shows now: the preview during a drag, else the engine's layout.
+		// What each movable Slot shows now: the preview during a drag, else the Sequence as it lies.
 		fills: Map<string, SlotFill>;
+		// The Sequence as it lies: a card's drop target stays put while the preview moves cards.
+		resting: Map<string, SlotFill>;
 		// Lessons that will change Slot if the drop happens now.
 		changing: Set<string>;
 		dragIds: string[];
@@ -70,11 +73,12 @@
 	// Sequence. Null in a week with no movable Slot (no "+ Add" there).
 	function addAnchor(row: Extract<WeekRow, { kind: 'week' }>): { after: string | null } | null {
 		const open = row.cells.find(
-			(cell) => cell.kind === 'free' || (cell.kind === 'lesson' && cell.part === 1)
+			(cell) => cell.kind === 'movable' && (fills.get(cell.key)?.part ?? 1) === 1
 		);
 		if (!open) return null;
 		const order = entries.map((entry) => entry.lessonId);
-		const index = open.kind === 'lesson' ? order.indexOf(open.lessonId ?? '') : order.length;
+		const at = fills.get(open.key);
+		const index = at ? order.indexOf(at.lessonId) : order.length;
 		return { after: order[index - 1] ?? null };
 	}
 
@@ -208,11 +212,10 @@
 					</div>
 					<div class="flex min-w-0 flex-1 flex-wrap gap-2">
 						{#each row.cells as cell (cell.key)}
-							{@const fill =
-								cell.kind === 'lesson' || cell.kind === 'free' ? fills.get(cell.key) : null}
+							{@const fill = cell.kind === 'movable' ? fills.get(cell.key) : undefined}
 							{@const entry = fill
 								? byId.get(fill.lessonId)
-								: cell.lessonId
+								: cell.kind === 'taught'
 									? byId.get(cell.lessonId)
 									: undefined}
 							<div
@@ -223,14 +226,14 @@
 								<p class="mb-0.5 text-[11px] text-muted-foreground tabular-nums">
 									{DAYS[cell.day - 1]} · P{cell.period} · {formatDateShort(cell.date)}
 								</p>
-								{#if (cell.kind === 'lesson' || cell.kind === 'free') && fill && entry}
+								{#if cell.kind === 'movable' && fill && entry}
 									{@render lessonCard(
 										entry,
 										fill.part,
 										fill.of,
-										cell.kind === 'lesson' ? cell.lessonId : null
+										resting.get(cell.key)?.lessonId ?? null
 									)}
-								{:else if cell.kind === 'free'}
+								{:else if cell.kind === 'movable'}
 									<div
 										class="flex min-h-10 flex-1 items-center rounded-md border bg-muted/30 px-2 text-xs text-muted-foreground"
 										data-free

@@ -143,7 +143,6 @@
 				topics={data.sequence.topics}
 				weeks={data.sequence.weeks}
 				freeAfter={data.sequence.freeAfter}
-				pastEnd={data.sequence.pastEnd}
 				chips={data.sequence.chips}
 				sequenceResult={form?.sequenceResult ?? null}
 			/>

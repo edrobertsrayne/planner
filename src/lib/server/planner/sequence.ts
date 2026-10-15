@@ -315,21 +315,18 @@ export interface SequenceEntry {
 }
 
 // One Slot of a week row. A Slot stays in its place; the Lessons move through the Slots.
-//   lesson  a Sequence Lesson that can still move       taught   a fixed Lesson (it was taught)
-//   placed  a Placement, fixed in its Slot               free     an Open Slot
-//   past    a Slot before today with no Session         blocked  a Blocked Day or Blocked Slot
-export interface WeekCell {
-	key: string; // `${date}|${period}`
-	date: string;
-	day: number;
-	period: number;
-	kind: 'lesson' | 'taught' | 'placed' | 'free' | 'past' | 'blocked';
-	lessonId: string | null;
-	part: number;
-	of: number;
-	// Only for a Placement: its Lesson is not in the Sequence, so the entries cannot name it.
-	title: string | null;
-}
+//   movable  a Slot a Sequence Lesson may take, empty or not   taught   a fixed Lesson (it was taught)
+//   placed   a Placement, fixed in its Slot                    past     a Slot before today with no Session
+//   blocked  a Blocked Day or Blocked Slot
+// What a movable Slot shows is laid out by the client from the Sequence order (layOutSequence).
+export type WeekCell = { key: string; date: string; day: number; period: number } & (
+	| { kind: 'movable' }
+	| { kind: 'taught'; lessonId: string }
+	// A Placement's Lesson is not in the Sequence, so the entries cannot name it.
+	| { kind: 'placed'; title: string | null }
+	| { kind: 'past' }
+	| { kind: 'blocked' }
+);
 
 export type WeekRow =
 	| { kind: 'week'; weekCommencing: string; letter: 'A' | 'B'; cells: WeekCell[] }
@@ -441,8 +438,6 @@ export function sequenceView(db: Db, { classId, today }: { classId: string; toda
 		});
 
 	const { weeks, freeAfter } = weekRows(db, { classId, cal, result, fixed, entries });
-	const owed = new Set(result.unplaced.map((part) => part.lessonId));
-	const pastEnd = entries.filter((e) => !e.fixed && owed.has(e.lessonId)).map((e) => e.lessonId);
 	const chips = new Map<string, TopicChip>();
 	for (const entry of entries) {
 		if (!entry.topicId || !entry.topicName) continue;
@@ -455,7 +450,7 @@ export function sequenceView(db: Db, { classId, today }: { classId: string; toda
 		chips.set(entry.topicId, chip);
 	}
 
-	return { entries, topics, weeks, freeAfter, pastEnd, chips: [...chips.values()] };
+	return { entries, topics, weeks, freeAfter, chips: [...chips.values()] };
 }
 
 // The By week rows. They run from the week of the first Lesson that can still move to the week of
@@ -479,20 +474,32 @@ function weekRows(
 	}
 ) {
 	const inSequence = new Set(entries.map((e) => e.lessonId));
-	const known = new Map<string, Pick<WeekCell, 'kind' | 'lessonId' | 'part' | 'of'>>();
+	const known = new Map<
+		string,
+		{ kind: 'taught' | 'placed'; lessonId: string } | { kind: 'movable' }
+	>();
+	const lessonKeys = new Set<string>();
+	const openKeys = new Set<string>();
 	const placedIds = new Set<string>();
 	for (const s of result.history) {
 		const kind = inSequence.has(s.lessonId) ? 'taught' : 'placed';
 		if (kind === 'placed') placedIds.add(s.lessonId);
-		known.set(occasionKey(s), { kind, lessonId: s.lessonId, part: 0, of: 0 });
+		known.set(occasionKey(s), { kind, lessonId: s.lessonId });
 	}
 	for (const s of result.scheduled) {
-		const kind = s.placementId ? 'placed' : fixed.has(s.lessonId) ? 'taught' : 'lesson';
-		if (kind === 'placed') placedIds.add(s.lessonId);
-		known.set(occasionKey(s), { kind, lessonId: s.lessonId, part: s.part, of: s.of });
+		const key = occasionKey(s);
+		if (s.placementId || fixed.has(s.lessonId)) {
+			const kind = s.placementId ? 'placed' : 'taught';
+			if (kind === 'placed') placedIds.add(s.lessonId);
+			known.set(key, { kind, lessonId: s.lessonId });
+		} else {
+			lessonKeys.add(key);
+			known.set(key, { kind: 'movable' });
+		}
 	}
 	for (const s of result.openSlots) {
-		known.set(occasionKey(s), { kind: 'free', lessonId: null, part: 0, of: 0 });
+		openKeys.add(occasionKey(s));
+		known.set(occasionKey(s), { kind: 'movable' });
 	}
 	const titles = lessonNames(db, [...placedIds]);
 
@@ -509,15 +516,12 @@ function weekRows(
 				.sort((a, b) => a.period - b.period)) {
 				const key = occasionKey({ date, period: slot.period });
 				const at = known.get(key);
-				const blocked = !available.has(key);
-				cells.push({
-					key,
-					date,
-					day,
-					period: slot.period,
-					...(at ?? { kind: blocked ? 'blocked' : 'past', lessonId: null, part: 0, of: 0 }),
-					title: at?.kind === 'placed' ? (titles.get(at.lessonId!)?.title ?? null) : null
-				});
+				const base = { key, date, day, period: slot.period };
+				if (!at) cells.push({ ...base, kind: available.has(key) ? 'past' : 'blocked' });
+				else if (at.kind === 'movable') cells.push({ ...base, kind: 'movable' });
+				else if (at.kind === 'taught')
+					cells.push({ ...base, kind: 'taught', lessonId: at.lessonId });
+				else cells.push({ ...base, kind: 'placed', title: titles.get(at.lessonId)?.title ?? null });
 			}
 		}
 		return {
@@ -528,12 +532,12 @@ function weekRows(
 		};
 	});
 
-	const has = (kind: WeekCell['kind']) => (row: (typeof all)[number]) =>
-		row.cells.some((cell) => cell.kind === kind);
-	let first = all.findIndex(has('lesson'));
-	if (first === -1) first = all.findIndex(has('free'));
+	const has = (keys: Set<string>) => (row: (typeof all)[number]) =>
+		row.cells.some((cell) => keys.has(cell.key));
+	let first = all.findIndex(has(lessonKeys));
+	if (first === -1) first = all.findIndex(has(openKeys));
 	if (first === -1) return { weeks: [] as WeekRow[], freeAfter: 0 };
-	const last = all.findLastIndex(has('lesson'));
+	const last = all.findLastIndex(has(lessonKeys));
 	const shown = all.slice(first, Math.min(Math.max(last, first) + 2, all.length));
 
 	const weeks: WeekRow[] = [];
@@ -549,7 +553,7 @@ function weekRows(
 		weeks.push(row);
 	}
 	const freeShown = shown.reduce(
-		(n, row) => n + row.cells.filter((c) => c.kind === 'free').length,
+		(n, row) => n + row.cells.filter((c) => openKeys.has(c.key)).length,
 		0
 	);
 	return { weeks, freeAfter: result.openSlots.length - freeShown };
