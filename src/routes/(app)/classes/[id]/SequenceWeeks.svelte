@@ -92,7 +92,7 @@
 {#snippet lessonCard(entry: SequenceEntry, part: number, of: number, base: string | null)}
 	{@const isSelected = selected.includes(entry.lessonId)}
 	<div
-		class="relative flex h-full items-stretch rounded-md border {dragIds.includes(entry.lessonId)
+		class="relative flex flex-1 items-stretch rounded-md border {dragIds.includes(entry.lessonId)
 			? 'opacity-40'
 			: ''} {isSelected ? 'border-primary ring-2 ring-primary' : ''} {changing.has(entry.lessonId)
 			? 'border-dashed border-primary outline-dashed'
@@ -220,7 +220,11 @@
 								: cell.lessonId
 									? byId.get(cell.lessonId)
 									: undefined}
-							<div class="min-w-44 flex-1 basis-44" data-cell data-cell-kind={cell.kind}>
+							<div
+								class="flex min-w-44 flex-1 basis-44 flex-col"
+								data-cell
+								data-cell-kind={cell.kind}
+							>
 								<p class="mb-0.5 text-[11px] text-muted-foreground tabular-nums">
 									{DAYS[cell.day - 1]} · P{cell.period} · {formatDateShort(cell.date)}
 								</p>
@@ -233,7 +237,7 @@
 									)}
 								{:else if cell.kind === 'free'}
 									<div
-										class="flex h-full min-h-10 items-center rounded-md border bg-muted/30 px-2 text-xs text-muted-foreground"
+										class="flex min-h-10 flex-1 items-center rounded-md border bg-muted/30 px-2 text-xs text-muted-foreground"
 										data-free
 									>
 										Free
