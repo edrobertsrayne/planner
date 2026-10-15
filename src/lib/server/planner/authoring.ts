@@ -13,7 +13,7 @@ import { combineReports, rederive, type Db, type WriteReport } from './derive';
 import { nextPosition, swapTargets, type Direction } from './ordering';
 import { deleteAttachmentsOfLesson } from './attachments';
 import { Refused } from './refused';
-import { fixedLessonIds } from './sequence';
+import { fixedOn } from './sequence';
 import { lessonBody, lessonLength, lessonStatus, linkUrl, required } from './fields';
 
 // A delete that needs an answer first: the caller shows `reason` and asks again with `confirmed`.
@@ -693,11 +693,12 @@ export function classesTaughtLesson(
 	{ lessonId, today }: { lessonId: string; today: string }
 ) {
 	return db
-		.select({ id: schema.classes.id, label: schema.classes.label })
+		.selectDistinct({ id: schema.classes.id, label: schema.classes.label })
 		.from(schema.classes)
+		.innerJoin(schema.session, eq(schema.session.classId, schema.classes.id))
+		.where(and(eq(schema.session.lessonId, lessonId), fixedOn(today)))
 		.orderBy(asc(schema.classes.label))
-		.all()
-		.filter((c) => fixedLessonIds(db, c.id, today).has(lessonId));
+		.all();
 }
 
 // Appended at the next position in its Lesson's order, same as a Lesson within a Topic.

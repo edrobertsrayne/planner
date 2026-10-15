@@ -24,14 +24,18 @@ import { required } from './fields';
 import { Refused } from './refused';
 import { endPairing, teachingNotesOf } from './teaching-notes';
 
-// Fixed Lessons: those with a Session for this Class on or before today. They are what was taught,
-// so no write may move or remove them. The one answer to "is this Lesson fixed?".
+// Fixed Lessons: those with a Session on or before today. They are what was taught, so no write
+// may move or remove them. `fixedOn` is the one rule for "is this Session fixed?".
+export function fixedOn(today: string) {
+	return lte(schema.session.date, today);
+}
+
 export function fixedLessonIds(db: Db, classId: string, today: string): Set<string> {
 	return new Set(
 		db
 			.select({ lessonId: schema.session.lessonId })
 			.from(schema.session)
-			.where(and(eq(schema.session.classId, classId), lte(schema.session.date, today)))
+			.where(and(eq(schema.session.classId, classId), fixedOn(today)))
 			.all()
 			.flatMap((row) => (row.lessonId ? [row.lessonId] : []))
 	);
