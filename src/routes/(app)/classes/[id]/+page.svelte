@@ -29,13 +29,7 @@
 	// Sequence, lands on the Sequence tab again.
 	let tab = $state<'overview' | 'timetable' | 'sequence'>(
 		untrack(() =>
-			page.url.searchParams.has('layout') ||
-			form?.assigned ||
-			form?.moved ||
-			form?.removed ||
-			form?.added
-				? 'sequence'
-				: 'overview'
+			page.url.searchParams.has('layout') || form?.sequenceResult ? 'sequence' : 'overview'
 		)
 	);
 
@@ -151,10 +145,7 @@
 				freeAfter={data.sequence.freeAfter}
 				pastEnd={data.sequence.pastEnd}
 				chips={data.sequence.chips}
-				assigned={form?.assigned ?? null}
-				moved={form?.moved ?? null}
-				removed={form?.removed ?? null}
-				added={form?.added ?? null}
+				sequenceResult={form?.sequenceResult ?? null}
 			/>
 		</div>
 	{/if}

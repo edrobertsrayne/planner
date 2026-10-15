@@ -13,15 +13,7 @@
 	import { movedOrder } from '$lib/sequence-order';
 	import { withParam } from '$lib/query';
 	import { formatDateShort } from '$lib/date';
-	import {
-		addedLine,
-		assignedLine,
-		changeLine,
-		lossSentence,
-		removedLine,
-		skippedLine,
-		wasText
-	} from '$lib/sequence-text';
+	import { lossSentence, wasText, type SequenceResult } from '$lib/sequence-text';
 	import Markdown from '$lib/components/markdown.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
@@ -31,14 +23,7 @@
 	import { topicColour } from '$lib/topic-colour';
 	import { touchTarget } from '$lib/components/ui/touch-target';
 	import SequenceWeeks from './SequenceWeeks.svelte';
-	import type {
-		DateChange,
-		SequenceEntry,
-		SkipReason,
-		TopicChip,
-		TopicOption,
-		WeekRow
-	} from '$lib/server/planner';
+	import type { SequenceEntry, TopicChip, TopicOption, WeekRow } from '$lib/server/planner';
 
 	// What this Class teaches, in the order it teaches it: its own Sequence (ADR-0026), By week or as
 	// a List (`layout=list` in the address). Assign Topic adds a Topic's Lessons at the end; a tap on
@@ -53,10 +38,7 @@
 		freeAfter,
 		pastEnd,
 		chips,
-		assigned,
-		moved,
-		removed,
-		added
+		sequenceResult
 	}: {
 		classId: string;
 		classLabel: string;
@@ -66,15 +48,9 @@
 		freeAfter: number;
 		pastEnd: string[];
 		chips: TopicChip[];
-		assigned: {
-			topicName: string;
-			added: number;
-			skipped: { title: string; reason: SkipReason }[];
-		} | null;
-		// The last Move: the Lessons moved, and each Lesson that got a new first Slot.
-		moved: { lessonIds: string[]; changed: DateChange[] } | null;
-		removed: { count: number; changed: DateChange[] } | null;
-		added: { title: string; changed: DateChange[] } | null;
+		// The last write's outcome: what to say, each Lesson that got a new first Slot, and the
+		// Lessons to ring.
+		sequenceResult: SequenceResult | null;
 	} = $props();
 
 	const byWeek = $derived(page.url.searchParams.get('layout') !== 'list');
@@ -208,9 +184,7 @@
 	}
 
 	// Each card whose first Slot changed in the last Move, with its old date.
-	const was = $derived(
-		new Map(((moved ?? removed ?? added)?.changed ?? []).map((c) => [c.lessonId, c.was]))
-	);
+	const was = $derived(new Map((sequenceResult?.changed ?? []).map((c) => [c.lessonId, c.was])));
 
 	function dragStart(event: PointerEvent, lessonId: string) {
 		if (dragging || !event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0))
@@ -392,32 +366,13 @@
 		<div class="mt-2">{@render addField()}</div>
 	{/if}
 
-	{#if moved}
-		<p class="mt-2 text-xs text-muted-foreground" role="status" data-move-result>
-			{changeLine(moved.changed.length)}
-		</p>
-	{/if}
-
-	{#if assigned}
-		<p class="mt-2 text-xs text-muted-foreground" role="status" data-assign-result>
-			{assignedLine(assigned.added, assigned.topicName)}
-			{#each assigned.skipped as skip, i (i)}
-				{skippedLine(skip.title, skip.reason)}
-			{/each}
-		</p>
-	{/if}
-
-	{#if added}
-		<p class="mt-2 text-xs text-muted-foreground" role="status" data-add-result>
-			{addedLine(added.title)}
-			{changeLine(added.changed.length)}
-		</p>
-	{/if}
-
-	{#if removed}
-		<p class="mt-2 text-xs text-muted-foreground" role="status" data-remove-result>
-			{removedLine(removed.count)}
-			{changeLine(removed.changed.length)}
+	{#if sequenceResult}
+		<p
+			class="mt-2 text-xs text-muted-foreground"
+			role="status"
+			{...{ [`data-${sequenceResult.kind}-result`]: true }}
+		>
+			{sequenceResult.lines.join(' ')}
 		</p>
 	{/if}
 
@@ -463,7 +418,7 @@
 			fills={preview?.fills ?? current}
 			{changing}
 			{dragIds}
-			ringed={moved?.lessonIds ?? []}
+			ringed={sequenceResult?.ringed ?? []}
 			{was}
 			{selectMode}
 			selected={chosenIds}
@@ -487,7 +442,7 @@
 						? 'opacity-40'
 						: ''} {chosenIds.includes(entry.lessonId)
 						? 'ring-2 ring-primary ring-inset'
-						: ''} {!dragging && moved?.lessonIds.includes(entry.lessonId)
+						: ''} {!dragging && sequenceResult?.ringed.includes(entry.lessonId)
 						? 'ring-2 ring-amber-500 ring-inset'
 						: ''}"
 					style:background-color={topicColour(
