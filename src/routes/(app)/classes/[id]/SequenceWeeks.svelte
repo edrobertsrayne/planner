@@ -9,7 +9,8 @@
 	import Markdown from '$lib/components/markdown.svelte';
 	import { formatDateShort, formatDayMonth } from '$lib/date';
 	import type { SlotFill } from '$lib/sequence-layout';
-	import { plural, wasText } from '$lib/sequence-text';
+	import { plural } from '$lib/plural';
+	import { wasText } from '$lib/sequence-text';
 	import { topicColour } from '$lib/topic-colour';
 	import TopicTag from './TopicTag.svelte';
 	import { touchTarget } from '$lib/components/ui/touch-target';

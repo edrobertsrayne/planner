@@ -14,7 +14,7 @@
 		failureReason,
 		submitWithValue
 	} from '$lib/client/enhance';
-	import { plural } from '$lib/sequence-text';
+	import { plural } from '$lib/plural';
 	import RenameableRow from '$lib/components/renameable-row.svelte';
 	import ReorderButtons from '$lib/components/reorder-buttons.svelte';
 	import TagChips from '$lib/components/tag-chips.svelte';

@@ -1,6 +1,7 @@
 // The words the Sequence tab uses for a write's outcome and its confirm questions. One place, so the three writes (Move,
 // Add Lesson, Remove) and the two layouts cannot word the same thing differently.
 import { formatDateShort } from './date';
+import { plural } from './plural';
 import type { DateChange } from './server/planner';
 
 // What a Sequence write answers with: its words, each Lesson that got a new first Slot, and the
@@ -11,8 +12,6 @@ export interface SequenceResult {
 	changed: DateChange[];
 	ringed: string[];
 }
-
-export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 // "N Lessons change date." after a Sequence write.
 export const changeLine = (n: number) =>
