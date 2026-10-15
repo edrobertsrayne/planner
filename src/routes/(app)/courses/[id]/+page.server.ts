@@ -67,7 +67,7 @@ export const actions: Actions = {
 		try {
 			const result = deleteCourse(db, id, { confirmed: trimmed(data, 'confirmed') === 'true' });
 			if (!result) return fail(404, { error: 'No such Course.' });
-			if ('needsConfirm' in result) return fail(409, { error: result.reason });
+			if ('needsConfirm' in result) return fail(409, { error: result.reason, needsConfirm: true });
 		} catch (error) {
 			return refusal(error);
 		}
@@ -117,7 +117,7 @@ export const actions: Actions = {
 		try {
 			const result = deleteTopic(db, id, { confirmed: trimmed(data, 'confirmed') === 'true' });
 			if (!result) return fail(404, { error: 'No such Topic.' });
-			if ('needsConfirm' in result) return fail(409, { error: result.reason });
+			if ('needsConfirm' in result) return fail(409, { error: result.reason, needsConfirm: true });
 			return {};
 		} catch (error) {
 			return refusal(error);

@@ -3,10 +3,10 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 
-	// The delete ask for a Course or a Topic that still holds Lessons, shown before any delete runs.
-	// Its form posts `confirmed`, so the seam detaches the Lessons at once; the API keeps its own
-	// unconfirmed 409 question. `target` is null when no delete is pending; setting it opens the dialog, and
-	// confirming or cancelling clears it back to null.
+	// The delete ask for a Course or a Topic that still holds Lessons. The unconfirmed delete came
+	// back with `needsConfirm`, and `description` is the server's reason. Its form posts `confirmed`,
+	// so the seam detaches the Lessons at once. `target` is null when no delete is pending; setting
+	// it opens the dialog, and confirming or cancelling clears it back to null.
 	let {
 		target = $bindable(null),
 		action

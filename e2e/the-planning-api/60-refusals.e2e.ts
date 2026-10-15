@@ -72,7 +72,8 @@ test.describe.serial('the refusals that protect the record', () => {
 		});
 		expect(topicWithLessons.status()).toBe(409);
 		expect(await topicWithLessons.json()).toEqual({
-			error: 'Delete API Topic One? Its 1 Lesson becomes a Standalone Lesson.'
+			error:
+				'Delete API Topic One? Its 1 Lesson becomes a Standalone Lesson. Every Class keeps it in its Sequence.'
 		});
 
 		// A Lesson that a Class's Sequence holds is refused, naming the Class. The API has no
@@ -109,7 +110,8 @@ test.describe.serial('the refusals that protect the record', () => {
 		});
 		expect(courseWithTopics.status()).toBe(409);
 		expect(await courseWithTopics.json()).toEqual({
-			error: 'Delete API Test Course? Its 1 Topic goes. Its 1 Lesson becomes a Standalone Lesson.'
+			error:
+				'Delete API Test Course? Its 1 Topic goes. Its 1 Lesson becomes a Standalone Lesson. Every Class keeps it in its Sequence.'
 		});
 
 		const courseFollowed = await request.post('/api/courses', {

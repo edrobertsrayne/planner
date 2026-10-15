@@ -1,13 +1,20 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import type { SubmitFunction } from '@sveltejs/kit';
+	import { tick } from 'svelte';
 	import { resolve } from '$app/paths';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import { classTone } from '$lib/class-tone';
 	import { courseHref } from '$lib/client/back';
-	import { createInPlace, createThenSelect, submitWithValue } from '$lib/client/enhance';
-	import { courseDeleteText, plural, standaloneText } from '$lib/sequence-text';
+	import {
+		createInPlace,
+		createThenSelect,
+		failureReason,
+		submitWithValue
+	} from '$lib/client/enhance';
+	import { plural } from '$lib/sequence-text';
 	import RenameableRow from '$lib/components/renameable-row.svelte';
 	import ReorderButtons from '$lib/components/reorder-buttons.svelte';
 	import TagChips from '$lib/components/tag-chips.svelte';
@@ -30,27 +37,39 @@
 	// From `md` up the plan is written; below it, it is read: no rename, menu, reorder or create box.
 	const wide = new MediaQuery('min-width: 768px', true);
 
-	// A delete that would detach Lessons asks first. The dialog's form carries `confirmed`, so
-	// nothing is removed before it is answered. An empty Topic or Course goes at once.
+	// A delete is asked unconfirmed first. The action answers `needsConfirm` with the reason when
+	// Lessons would be detached, and the dialog then posts the delete with `confirmed`. An empty
+	// Topic or Course goes at once.
 	let pendingDelete = $state<{
 		kind: 'course' | 'topic';
 		id: string;
 		name: string;
 		description: string;
 	} | null>(null);
-	let quickTopicForm = $state<HTMLFormElement>();
-	let quickCourseForm = $state<HTMLFormElement>();
+	let deleteForm = $state<HTMLFormElement>();
+	let deleteAction = $state('?/deleteTopic');
+	let asked: { kind: 'course' | 'topic'; id: string; name: string } | null = null;
 
 	// Move to… files the shown Topic in another Course. One hidden form carries the chosen Course.
 	let moveForm = $state<HTMLFormElement>();
 
-	function askDelete(target: NonNullable<typeof pendingDelete>, empty: boolean): void {
-		if (!empty) {
-			pendingDelete = target;
-			return;
-		}
-		submitWithValue(target.kind === 'topic' ? quickTopicForm : quickCourseForm, 'id', target.id);
+	async function submitDelete(kind: 'course' | 'topic', id: string, name: string): Promise<void> {
+		asked = { kind, id, name };
+		deleteAction = kind === 'topic' ? '?/deleteTopic' : '?/deleteCourse';
+		await tick();
+		submitWithValue(deleteForm, 'id', id);
 	}
+
+	const answerDelete: SubmitFunction = () => {
+		const target = asked;
+		return async ({ result, update }) => {
+			if (target && result.type === 'failure' && result.data?.needsConfirm) {
+				pendingDelete = { ...target, description: failureReason(result, 'Delete it?') };
+			} else {
+				await update();
+			}
+		};
+	};
 </script>
 
 <svelte:head><title>{data.course.name}</title></svelte:head>
@@ -113,16 +132,7 @@
 		{#if wide.current}
 			{@render menu(
 				'Course actions',
-				() =>
-					askDelete(
-						{
-							kind: 'course',
-							id: data.course.id,
-							name: data.course.name,
-							description: courseDeleteText(data.topics.length, data.lessonTotal)
-						},
-						data.topics.length === 0
-					),
+				() => submitDelete('course', data.course.id, data.course.name),
 				'Delete Course'
 			)}
 		{/if}
@@ -249,16 +259,7 @@
 						{#if wide.current}
 							{@render menu(
 								'Topic actions',
-								() =>
-									askDelete(
-										{
-											kind: 'topic',
-											id: shown.id,
-											name: shown.name,
-											description: `${standaloneText(data.lessons.length)} Every Class keeps ${data.lessons.length === 1 ? 'it' : 'them'} in its Sequence.`
-										},
-										data.lessons.length === 0
-									),
+								() => submitDelete('topic', shown.id, shown.name),
 								'Delete Topic'
 							)}
 						{/if}
@@ -332,9 +333,6 @@
 	action={pendingDelete?.kind === 'topic' ? '?/deleteTopic' : '?/deleteCourse'}
 />
 
-<form method="POST" action="?/deleteTopic" use:enhance bind:this={quickTopicForm} hidden>
-	<input type="hidden" name="id" />
-</form>
-<form method="POST" action="?/deleteCourse" use:enhance bind:this={quickCourseForm} hidden>
+<form method="POST" action={deleteAction} use:enhance={answerDelete} bind:this={deleteForm} hidden>
 	<input type="hidden" name="id" />
 </form>

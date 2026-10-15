@@ -13,16 +13,6 @@ export const changeLine = (n: number) =>
 // The old date of a Lesson whose first date changed: null means it was past the end of the year.
 export const wasText = (was: string | null) => `was ${was ? formatDateShort(was) : 'past the end'}`;
 
-// What deleting a Topic or a Course does to its Lessons (ADR-0026). The Course page's dialog and
-// the server's confirm question (the API's 409) both read these, so they cannot drift.
-export const standaloneText = (lessons: number) =>
-	lessons === 1
-		? 'Its 1 Lesson becomes a Standalone Lesson.'
-		: `Its ${lessons} Lessons become Standalone Lessons.`;
-
-export const courseDeleteText = (topics: number, lessons: number) =>
-	`${topics === 1 ? 'Its 1 Topic goes.' : `Its ${topics} Topics go.`} ${standaloneText(lessons)}`;
-
 // What a removal from a Sequence costs: the Teaching note and Ready mark of this Class and Lesson
 // go with it.
 export const lossSentence = (gone: { note: string | null; ready: boolean }[]) => {
