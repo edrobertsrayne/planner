@@ -185,7 +185,7 @@ export function moveLessons(
 ) {
 	const order = sequenceLessonIds(db, classId);
 	const next = movedOrder(order, lessonIds, targetId);
-	if (lessonIds.length === 0 || !next) {
+	if (!next) {
 		throw new Refused(
 			'invalid',
 			'Those Lessons are not in this Sequence, or the target is one of them.'

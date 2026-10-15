@@ -4,9 +4,11 @@
 // The Lessons of `moved` go together, in their current order, into the place of `targetId`. Below
 // the first moved Lesson, they go after the target; above it, in front of the target. With one
 // Lesson this is "take the target's place": the Lessons between move one place the other way.
-// Null when the target is itself moved, or when `order` lacks the target or a moved Lesson.
+// Null when `moved` is empty, when the target is itself moved, or when `order` lacks the target
+// or a moved Lesson.
 export function movedOrder(order: string[], moved: string[], targetId: string): string[] | null {
 	const group = order.filter((id) => moved.includes(id));
+	if (moved.length === 0) return null;
 	if (group.length !== new Set(moved).size || !order.includes(targetId)) return null;
 	if (group.includes(targetId)) return null;
 
