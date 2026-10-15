@@ -231,27 +231,31 @@ export function deleteCourse(
 	}
 
 	const topicIds = topicsOf(db, id).map((topic) => topic.id);
-	if (topicIds.length > 0) {
-		if (!confirmed) {
-			const [{ lessonTotal }] = db
-				.select({ lessonTotal: sql<number>`count(*)` })
-				.from(schema.lesson)
-				.where(inArray(schema.lesson.topicId, topicIds))
-				.all();
-			return {
-				needsConfirm: true,
-				reason: `Delete ${course.name}? ${courseDeleteText(topicIds.length, lessonTotal)}`
-			};
-		}
-		db.update(schema.lesson)
-			.set({ topicId: null })
+	if (topicIds.length > 0 && !confirmed) {
+		const [{ lessonTotal }] = db
+			.select({ lessonTotal: sql<number>`count(*)` })
+			.from(schema.lesson)
 			.where(inArray(schema.lesson.topicId, topicIds))
-			.run();
-		db.delete(schema.topic).where(inArray(schema.topic.id, topicIds)).run();
+			.all();
+		return {
+			needsConfirm: true,
+			reason: `Delete ${course.name}? ${courseDeleteText(topicIds.length, lessonTotal)}`
+		};
 	}
 
-	const [deleted] = db.delete(schema.course).where(eq(schema.course.id, id)).returning().all();
-	return deleted;
+	// The Lessons detach, the Topics go and the Course goes in one all-or-nothing write.
+	return inTransaction(db.$client, () => {
+		if (topicIds.length > 0) {
+			db.update(schema.lesson)
+				.set({ topicId: null })
+				.where(inArray(schema.lesson.topicId, topicIds))
+				.run();
+			db.delete(schema.topic).where(inArray(schema.topic.id, topicIds)).run();
+		}
+
+		const [deleted] = db.delete(schema.course).where(eq(schema.course.id, id)).returning().all();
+		return deleted;
+	});
 }
 
 export function createTopic(db: Db, { courseId, name }: { courseId: string; name: string }) {
