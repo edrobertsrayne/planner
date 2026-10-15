@@ -105,11 +105,12 @@ function seed(path: string | undefined) {
 		.orderBy(desc(schema.session.date), desc(schema.session.period))
 		.limit(1)
 		.all();
-	if (last) {
+	if (last?.lessonId) {
 		writeTeachingNote(db, {
 			classId,
 			date: last.date,
 			period: last.period,
+			lessonId: last.lessonId,
 			note: 'Ran out of time for the plenary. Recap $F = ma$ next lesson.'
 		});
 	}
