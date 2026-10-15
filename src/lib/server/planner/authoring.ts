@@ -79,27 +79,20 @@ function findTopicNameCollision(
 }
 
 // A Topic is refused on create, rename or move if the Course already holds a Topic of that name.
-// A caller that names the Course gets the import message, which also names it.
 function assertTopicNameAvailable(
 	db: Db,
 	{
 		courseId,
+		courseName,
 		name,
-		exceptId,
-		courseName
-	}: { courseId: string; name: string; exceptId?: string; courseName?: string }
+		exceptId
+	}: { courseId: string; courseName: string; name: string; exceptId?: string }
 ) {
 	const collision = findTopicNameCollision(db, { courseId, name, exceptId });
-	if (collision && courseName !== undefined) {
-		throw new Refused(
-			'conflict',
-			`The Course "${courseName}" already holds a Topic called "${collision.name.trim()}".`
-		);
-	}
 	if (collision) {
 		throw new Refused(
 			'conflict',
-			`This Course already has a Topic called "${collision.name.trim()}".`
+			`The Course "${courseName}" already holds a Topic called "${collision.name.trim()}".`
 		);
 	}
 }
@@ -262,8 +255,10 @@ export function deleteCourse(
 }
 
 export function createTopic(db: Db, { courseId, name }: { courseId: string; name: string }) {
+	const [course] = db.select().from(schema.course).where(eq(schema.course.id, courseId)).all();
+	if (!course) throw new Refused('missing', 'Course not found.');
 	const trimmed = required(name, 'A Topic needs a name.');
-	assertTopicNameAvailable(db, { courseId, name: trimmed });
+	assertTopicNameAvailable(db, { courseId, courseName: course.name, name: trimmed });
 	const [row] = db.insert(schema.topic).values({ courseId, name: trimmed }).returning().all();
 	return row;
 }
@@ -271,9 +266,16 @@ export function createTopic(db: Db, { courseId, name }: { courseId: string; name
 export function renameTopic(db: Db, { id, name }: { id: string; name: string }) {
 	const [existing] = db.select().from(schema.topic).where(eq(schema.topic.id, id)).all();
 	if (!existing) return undefined;
+	const [course] = db
+		.select()
+		.from(schema.course)
+		.where(eq(schema.course.id, existing.courseId))
+		.all();
+	if (!course) throw new Refused('missing', 'Course not found.');
 	const trimmed = required(name, 'A Topic needs a name.');
 	assertTopicNameAvailable(db, {
 		courseId: existing.courseId,
+		courseName: course.name,
 		name: trimmed,
 		exceptId: id
 	});

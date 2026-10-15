@@ -55,7 +55,7 @@ test.describe.serial('the Topic endpoints', () => {
 		});
 		expect(same.status()).toBe(409);
 		expect(await same.json()).toEqual({
-			error: 'This Course already has a Topic called "API Topic One".'
+			error: 'The Course "API Test Course" already holds a Topic called "API Topic One".'
 		});
 
 		const caseInsensitive = await request.post(`/api/courses/${courseId}/topics`, {
@@ -72,7 +72,7 @@ test.describe.serial('the Topic endpoints', () => {
 		});
 		expect(fixtureCollision.status()).toBe(409);
 		expect(await fixtureCollision.json()).toEqual({
-			error: 'This Course already has a Topic called "Forces".'
+			error: `The Course "${FIXTURE_COURSE}" already holds a Topic called "Forces".`
 		});
 
 		const otherCourse = await request.post(`/api/courses/${courseId}/topics`, {
@@ -133,7 +133,7 @@ test.describe.serial('the Topic endpoints', () => {
 		});
 		expect(collision.status()).toBe(409);
 		expect(await collision.json()).toEqual({
-			error: 'This Course already has a Topic called "API Topic One".'
+			error: 'The Course "API Test Course" already holds a Topic called "API Topic One".'
 		});
 
 		// Moving a Topic between Courses is a scheduling act, so courseId is not a field: it is

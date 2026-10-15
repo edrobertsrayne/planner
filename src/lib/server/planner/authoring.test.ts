@@ -255,12 +255,12 @@ describe('name collisions', () => {
 		refused(
 			() => createTopic(db, { courseId: course.id, name: 'Forces' }),
 			'conflict',
-			'This Course already has a Topic called "Forces".'
+			'The Course "Year 9 Physics" already holds a Topic called "Forces".'
 		);
 		refused(
 			() => createTopic(db, { courseId: course.id, name: 'forces' }),
 			'conflict',
-			'This Course already has a Topic called "Forces".'
+			'The Course "Year 9 Physics" already holds a Topic called "Forces".'
 		);
 
 		// Different Course, same name: accepted.
@@ -278,12 +278,12 @@ describe('name collisions', () => {
 		refused(
 			() => renameTopic(db, { id: waves.id, name: 'Forces' }),
 			'conflict',
-			'This Course already has a Topic called "Forces".'
+			'The Course "Year 9 Physics" already holds a Topic called "Forces".'
 		);
 		refused(
 			() => renameTopic(db, { id: waves.id, name: 'FORCES' }),
 			'conflict',
-			'This Course already has a Topic called "Forces".'
+			'The Course "Year 9 Physics" already holds a Topic called "Forces".'
 		);
 
 		// A rename to its own name is not a collision — the seam excludes the row being renamed.
