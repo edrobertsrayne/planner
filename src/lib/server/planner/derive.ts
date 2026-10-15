@@ -191,6 +191,17 @@ export const rewindBoundary = (date: string, today: string) => (date < today ? d
 // Slot) is deleted along with any Continuation on it: a Session row exists only for a Lesson.
 // A Teaching note is keyed by Class and Lesson, so it follows its Lesson through all of this.
 export function rederive(db: Db, classId: string, boundary: string, cal?: Calendar): WriteReport {
+	return rederiveWithResult(db, classId, boundary, cal).report;
+}
+
+// `rederive` plus the schedule it laid down, for the Sequence writes that read first dates from it.
+// Not part of the index: only sequence.ts uses it.
+export function rederiveWithResult(
+	db: Db,
+	classId: string,
+	boundary: string,
+	cal?: Calendar
+): { report: WriteReport; result: ScheduleResult } {
 	const existing = db
 		.select()
 		.from(schema.session)
@@ -237,7 +248,10 @@ export function rederive(db: Db, classId: string, boundary: string, cal?: Calend
 		db.delete(schema.session).where(eq(schema.session.id, row.id)).run();
 	}
 
-	return { placementsMoved: describePlacementsMoved(db, resolvedCal, placements, result) };
+	return {
+		report: { placementsMoved: describePlacementsMoved(db, resolvedCal, placements, result) },
+		result
+	};
 }
 
 // Folds one WriteReport per Class into the single combined report every multi-Class re-derive

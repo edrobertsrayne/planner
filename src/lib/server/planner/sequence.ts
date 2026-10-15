@@ -13,7 +13,7 @@ import {
 	lessonNames,
 	loadCalendar,
 	occasionKey,
-	rederive,
+	rederiveWithResult,
 	scheduleFor,
 	type Db,
 	type WriteReport
@@ -96,8 +96,8 @@ function writeSequence<T>(
 	return inTransaction(db.$client, () => {
 		const before = firstSlots(db, classId, today);
 		const result = write();
-		const report = rederive(db, classId, today);
-		const after = firstSlots(db, classId, today);
+		const { report, result: schedule } = rederiveWithResult(db, classId, today);
+		const after = firstSlotsOf(db, classId, schedule);
 		const changed: DateChange[] = [];
 		for (const [lessonId, at] of before) {
 			if (after.has(lessonId) && after.get(lessonId) !== at) {
