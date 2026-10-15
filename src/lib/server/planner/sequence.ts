@@ -22,19 +22,7 @@ import { nextPosition } from './ordering';
 import { movedOrder } from '$lib/sequence-order';
 import { required } from './fields';
 import { Refused } from './refused';
-
-// The Teaching note of one Class and Lesson, or null when there is none (ADR-0026). Both parts of
-// a Length-2 Lesson, a Continuation and every Placement of the Lesson on this Class share it.
-export function teachingNoteOf(db: Db, classId: string, lessonId: string): string | null {
-	const [row] = db
-		.select({ body: schema.teachingNote.body })
-		.from(schema.teachingNote)
-		.where(
-			and(eq(schema.teachingNote.classId, classId), eq(schema.teachingNote.lessonId, lessonId))
-		)
-		.all();
-	return row?.body ?? null;
-}
+import { endPairing, teachingNotesOf } from './teaching-notes';
 
 // Fixed Lessons: those with a Session for this Class on or before today. They are what was taught,
 // so no write may move or remove them. The one answer to "is this Lesson fixed?".
@@ -118,15 +106,6 @@ function writeSequence<T>(
 
 function titleOf(db: Db, lessonId: string): string | undefined {
 	return lessonNames(db, [lessonId]).get(lessonId)?.title;
-}
-
-// The (Class, Lesson) pairing ends: its Readiness and Teaching note die with it (GLOSSARY).
-export function endPairing(db: Db, classId: string, lessonIds: string[]): void {
-	for (const table of [schema.readiness, schema.teachingNote]) {
-		db.delete(table)
-			.where(and(eq(table.classId, classId), inArray(table.lessonId, lessonIds)))
-			.run();
-	}
 }
 
 export type SkipReason = 'in-sequence' | 'placed';
@@ -397,14 +376,7 @@ export function sequenceView(db: Db, { classId, today }: { classId: string; toda
 			.all()
 			.map((row) => row.lessonId)
 	);
-	const notes = new Map(
-		db
-			.select({ lessonId: schema.teachingNote.lessonId, body: schema.teachingNote.body })
-			.from(schema.teachingNote)
-			.where(eq(schema.teachingNote.classId, classId))
-			.all()
-			.map((row) => [row.lessonId, row.body])
-	);
+	const notes = teachingNotesOf(db, classId);
 
 	const elsewhere = new Set([
 		...db

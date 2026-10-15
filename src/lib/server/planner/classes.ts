@@ -6,7 +6,7 @@ import * as schema from '../db/schema';
 import { lessonNames, scheduleFor, type Db } from './derive';
 import { runway as deriveRunway, type Runway } from './engine';
 import { required } from './fields';
-import { teachingNoteOf } from './sequence';
+import { teachingNoteOf } from './teaching-notes';
 
 // The Tone is assigned once here, at creation — the next unused position of the fixed walk
 // (ADR-0013) — and never touched again by any other write.

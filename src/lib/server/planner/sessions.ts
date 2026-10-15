@@ -7,7 +7,7 @@ import { rederive, type Db, type WriteReport } from './derive';
 import { linksOf, tagsOf, type LessonStatus } from './authoring';
 import { attachmentsOf } from './attachments';
 import { Refused } from './refused';
-import { teachingNoteOf } from './sequence';
+import { setTeachingNote, teachingNoteOf } from './teaching-notes';
 import { lessonBody } from './fields';
 
 // A Session is identified by its occasion (ADR-0002), never by row id, so every function here
@@ -164,26 +164,7 @@ export function writeTeachingNote(
 	if (lessonId !== undefined && lessonId !== row.lessonId)
 		throw new Refused('invalid', 'This Session now has a different Lesson. Reload to see it.');
 
-	const key = { classId: occasion.classId, lessonId: row.lessonId };
-	const body = lessonBody(note);
-	if (body === null) {
-		db.delete(schema.teachingNote)
-			.where(
-				and(
-					eq(schema.teachingNote.classId, key.classId),
-					eq(schema.teachingNote.lessonId, key.lessonId)
-				)
-			)
-			.run();
-		return;
-	}
-	db.insert(schema.teachingNote)
-		.values({ ...key, body })
-		.onConflictDoUpdate({
-			target: [schema.teachingNote.classId, schema.teachingNote.lessonId],
-			set: { body }
-		})
-		.run();
+	setTeachingNote(db, occasion.classId, row.lessonId, lessonBody(note));
 }
 
 // A Session marked as needing more time: its Lesson widens to occupy the next Available Slot too.

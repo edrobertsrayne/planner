@@ -9,7 +9,7 @@ import { and, eq } from 'drizzle-orm';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import { rederive, rewindBoundary, type Db, type WriteReport } from './derive';
-import { endPairing } from './sequence';
+import { endPairing } from './teaching-notes';
 import { isRealDate } from '$lib/date';
 import { Refused } from './refused';
 import { required } from './fields';
