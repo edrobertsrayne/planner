@@ -6,7 +6,7 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { Database } from 'bun:sqlite';
 import { nextTone } from '$lib/class-tone';
-import { courseDeleteText, standaloneText } from '$lib/sequence-text';
+import { courseDeleteText, lessonDeleteText, standaloneText } from '$lib/delete-text';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import { combineReports, rederive, type Db, type WriteReport } from './derive';
@@ -15,6 +15,9 @@ import { deleteAttachmentsOfLesson } from './attachments';
 import { Refused } from './refused';
 import { fixedLessonIds } from './sequence';
 import { lessonBody, lessonLength, lessonStatus, linkUrl, required } from './fields';
+
+// A delete that needs an answer first: the caller shows `reason` and asks again with `confirmed`.
+export type ConfirmQuestion = { needsConfirm: true; reason: string };
 
 // Course and Topic names carry an explicit uniqueness rule (issue #131, §6 of the planning API
 // spec). The database indexes are the guard of last resort — so the seam refuses the write first
@@ -221,7 +224,7 @@ export function deleteCourse(
 	db: Db,
 	id: string,
 	{ confirmed = false }: { confirmed?: boolean } = {}
-): typeof schema.course.$inferSelect | { needsConfirm: true; reason: string } | undefined {
+): typeof schema.course.$inferSelect | ConfirmQuestion | undefined {
 	const [course] = db.select().from(schema.course).where(eq(schema.course.id, id)).all();
 	if (!course) return undefined;
 
@@ -315,7 +318,7 @@ export function deleteTopic(
 	db: Db,
 	id: string,
 	{ confirmed = false }: { confirmed?: boolean } = {}
-): typeof schema.topic.$inferSelect | { needsConfirm: true; reason: string } | undefined {
+): typeof schema.topic.$inferSelect | ConfirmQuestion | undefined {
 	const [topic] = db.select().from(schema.topic).where(eq(schema.topic.id, id)).all();
 	if (!topic) return undefined;
 
@@ -346,7 +349,7 @@ const endOfTopic = (db: Db, topicId: string) =>
 	);
 
 // A title alone is a complete Lesson — no draft state, no required second field. It joins no
-// Sequence, so no Class's dates change (ADR-0026): the report is empty.
+// Sequence, so no Class's dates change (ADR-0026).
 export function createLesson(
 	db: Db,
 	{
@@ -362,7 +365,7 @@ export function createLesson(
 		length?: number;
 		status?: string;
 	}
-): { lesson: typeof schema.lesson.$inferSelect } & WriteReport {
+): { lesson: typeof schema.lesson.$inferSelect } {
 	const [row] = db
 		.insert(schema.lesson)
 		.values({
@@ -375,7 +378,7 @@ export function createLesson(
 		})
 		.returning()
 		.all();
-	return { lesson: row, placementsMoved: [] };
+	return { lesson: row };
 }
 
 export type LessonStatus = 'draft' | 'planned';
@@ -603,10 +606,7 @@ export function deleteLesson(
 		dir,
 		confirmed = false
 	}: { id: string; today: string; dir: string; confirmed?: boolean }
-):
-	| ({ lesson: typeof schema.lesson.$inferSelect } & WriteReport)
-	| { needsConfirm: true; reason: string }
-	| undefined {
+): ({ lesson: typeof schema.lesson.$inferSelect } & WriteReport) | ConfirmQuestion | undefined {
 	const [row] = db.select().from(schema.lesson).where(eq(schema.lesson.id, id)).all();
 	if (!row) return undefined;
 
@@ -637,13 +637,7 @@ export function deleteLesson(
 		.orderBy(asc(schema.classes.label))
 		.all();
 	if (sequenceClasses.length > 0 && !confirmed) {
-		const labels = sequenceClasses.map((c) => c.label);
-		const names =
-			labels.length > 1 ? `${labels.slice(0, -1).join(', ')} and ${labels.at(-1)}` : labels[0];
-		return {
-			needsConfirm: true,
-			reason: `This Lesson is in ${names}'s ${labels.length > 1 ? 'Sequences' : 'Sequence'}. Delete it?`
-		};
+		return { needsConfirm: true, reason: lessonDeleteText(sequenceClasses.map((c) => c.label)) };
 	}
 
 	// Not-yet-taught Sessions carrying this Lesson are about to be replaced by the re-derivation
@@ -785,7 +779,6 @@ export function importTopic(
 		position: number;
 		links: Array<{ id: string; url: string; label: string; position: number }>;
 	}>;
-	report: WriteReport;
 } {
 	if (courseId && courseName) {
 		throw new Refused('invalid', 'The "course" field must carry exactly one of "id" or "name".');
@@ -907,8 +900,7 @@ export function importTopic(
 			course: { id: courseRecord.id, name: courseRecord.name },
 			courseCreated,
 			topic: { id: topicRow.id, name: topicRow.name, courseId: topicRow.courseId },
-			lessons: lessonResults,
-			report: { placementsMoved: [] }
+			lessons: lessonResults
 		};
 	});
 }

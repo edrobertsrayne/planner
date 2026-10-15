@@ -1045,14 +1045,13 @@ describe('edits to the shared plan change no Sequence', () => {
 		return { db, topic, lessons, classA };
 	}
 
-	test('creating a Lesson adds it to no Sequence, moves no date and reports nothing', () => {
+	test('creating a Lesson adds it to no Sequence and moves no date', () => {
 		const { db, topic, classA } = setUpSequence();
 		const sequence = sequenceOf(db, classA.id);
 		const dates = datesOf(db, classA.id);
 
-		const { lesson, ...report } = createLesson(db, { topicId: topic.id, title: 'New' });
+		const { lesson } = createLesson(db, { topicId: topic.id, title: 'New' });
 
-		expect(report).toEqual({ placementsMoved: [] });
 		expect(sequenceOf(db, classA.id)).toEqual(sequence);
 		expect(sequenceOf(db, classA.id)).not.toContain(lesson.id);
 		expect(datesOf(db, classA.id)).toEqual(dates);

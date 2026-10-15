@@ -89,17 +89,17 @@ describe('every scheduling write answers with its Rewind report', () => {
 describe('a Lesson write answers with the Rewind report', () => {
 	const today = '2026-09-01';
 
-	test('createLesson answers with an empty report and changes no Sequence', () => {
+	test('createLesson answers with the Lesson only and changes no Sequence', () => {
 		const { db, course, classA } = setUp();
 		const forces = makeTopic(db, course.id, 'Forces');
 		makeLessons(db, forces.id, 1);
 		assignTopic(db, { classId: classA.id, topicId: forces.id, today });
 		const before = classSchedule(db, { classId: classA.id, today });
 
-		const { lesson, placementsMoved } = createLesson(db, { topicId: forces.id, title: 'Extra' });
+		const result = createLesson(db, { topicId: forces.id, title: 'Extra' });
 
-		expect(lesson.title).toBe('Extra');
-		expect(placementsMoved).toEqual([]);
+		expect(result.lesson.title).toBe('Extra');
+		expect(Object.keys(result)).toEqual(['lesson']);
 		expect(classSchedule(db, { classId: classA.id, today })).toEqual(before);
 	});
 
