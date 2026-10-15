@@ -28,13 +28,16 @@ export function failureReason(result: ActionResult, fallback: string): string {
 }
 
 // The seam writes its refusals for Ed to read — "This Lesson was taught, so it cannot be
-// removed." — so a failure shows that reason and leaves the page as it was. Anything else
-// refreshes.
-export function onFail(fallback: string): SubmitFunction {
+// removed." — so a failure shows that reason and leaves the page as it was. Anything else runs
+// `onSuccess`, if given, and refreshes.
+export function onFail(fallback: string, onSuccess?: () => void): SubmitFunction {
 	return () =>
 		async ({ result, update }) => {
 			if (result.type === 'failure') toast.error(failureReason(result, fallback));
-			else await update({ invalidateAll: true });
+			else {
+				onSuccess?.();
+				await update({ invalidateAll: true });
+			}
 		};
 }
 

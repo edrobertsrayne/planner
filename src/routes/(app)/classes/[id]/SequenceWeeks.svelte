@@ -11,6 +11,7 @@
 	import type { SlotFill } from '$lib/sequence-layout';
 	import { plural, wasText } from '$lib/sequence-text';
 	import { topicColour } from '$lib/topic-colour';
+	import TopicTag from './TopicTag.svelte';
 	import { touchTarget } from '$lib/components/ui/touch-target';
 	import type { SequenceEntry, WeekRow } from '$lib/server/planner';
 
@@ -123,14 +124,7 @@
 			</span>
 			<span class="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
 				{#if entry.topicName}
-					<span class="flex items-center gap-1">
-						<span
-							class="size-2 rounded-full"
-							style:background-color={topicColour(entry.topicId, 0.8)}
-							aria-hidden="true"
-						></span>
-						{entry.topicName}
-					</span>
+					<TopicTag topicId={entry.topicId} name={entry.topicName} class="gap-1" />
 				{/if}
 				{#if of > 1}<span>part {part} of {of}</span>{/if}
 				{#if entry.ready}
@@ -253,14 +247,11 @@
 											<span class="font-medium" data-title>{entry.title}</span>
 										</span>
 										{#if entry.topicName}
-											<span class="flex items-center gap-1 text-xs text-muted-foreground">
-												<span
-													class="size-2 rounded-full"
-													style:background-color={topicColour(entry.topicId, 0.8)}
-													aria-hidden="true"
-												></span>
-												{entry.topicName}
-											</span>
+											<TopicTag
+												topicId={entry.topicId}
+												name={entry.topicName}
+												class="gap-1 text-xs text-muted-foreground"
+											/>
 										{/if}
 									</a>
 								{:else if cell.kind === 'placed'}

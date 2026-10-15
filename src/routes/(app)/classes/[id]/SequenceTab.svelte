@@ -8,7 +8,7 @@
 	import LockIcon from '@lucide/svelte/icons/lock';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import XIcon from '@lucide/svelte/icons/x';
-	import { failureReason, onFail, replaceQuery, submitWithValue } from '$lib/client/enhance';
+	import { onFail, replaceQuery, submitWithValue } from '$lib/client/enhance';
 	import { layOutSequence, type SlotFill } from '$lib/sequence-layout';
 	import { movedOrder } from '$lib/sequence-order';
 	import { withParam } from '$lib/query';
@@ -19,10 +19,10 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
-	import { toast } from 'svelte-sonner';
 	import { topicColour } from '$lib/topic-colour';
 	import { touchTarget } from '$lib/components/ui/touch-target';
 	import SequenceWeeks from './SequenceWeeks.svelte';
+	import TopicTag from './TopicTag.svelte';
 	import type { SequenceEntry, TopicChip, TopicOption, WeekRow } from '$lib/server/planner';
 
 	// What this Class teaches, in the order it teaches it: its own Sequence (ADR-0026), By week or as
@@ -295,15 +295,7 @@
 			action="?/addLesson"
 			class="flex items-center gap-2"
 			data-add-lesson
-			use:enhance={() =>
-				async ({ result, update }) => {
-					if (result.type === 'failure') {
-						toast.error(failureReason(result, 'Could not add the Lesson.'));
-					} else {
-						adding = null;
-						await update({ invalidateAll: true });
-					}
-				}}
+			use:enhance={onFail('Could not add the Lesson.', () => (adding = null))}
 		>
 			<input type="hidden" name="classId" value={classId} />
 			<input type="hidden" name="afterLessonId" value={adding?.afterLessonId ?? ''} />
@@ -366,12 +358,7 @@
 					style:background-color={topicColour(chip.topicId, 0.12)}
 					data-topic-chip
 				>
-					<span
-						class="size-2 rounded-full"
-						style:background-color={topicColour(chip.topicId, 0.8)}
-						aria-hidden="true"
-					></span>
-					{chip.name}
+					<TopicTag topicId={chip.topicId} name={chip.name} />
 					<span class="text-muted-foreground tabular-nums" data-untaught>{chip.untaught}</span>
 					<button
 						type="button"
@@ -462,14 +449,11 @@
 								<CheckIcon class="size-3.5 self-center text-primary" aria-label="Selected" />
 							{/if}
 							{#if entry.topicName}
-								<span class="flex items-center gap-1.5 text-xs text-muted-foreground">
-									<span
-										class="size-2 rounded-full"
-										style:background-color={topicColour(entry.topicId, 0.8)}
-										aria-hidden="true"
-									></span>
-									{entry.topicName}
-								</span>
+								<TopicTag
+									topicId={entry.topicId}
+									name={entry.topicName}
+									class="gap-1.5 text-xs text-muted-foreground"
+								/>
 							{/if}
 							<span
 								class="ml-auto flex items-center gap-2 text-xs text-muted-foreground tabular-nums"
@@ -576,18 +560,10 @@
 				<form
 					method="POST"
 					action="?/removeLessons"
-					use:enhance={() => {
-						const gone = removing?.map((e) => e.lessonId) ?? [];
-						return async ({ result, update }) => {
-							removing = null;
-							if (result.type === 'failure')
-								toast.error(failureReason(result, 'Could not remove.'));
-							else {
-								selected = selected.filter((id) => !gone.includes(id));
-								await update({ invalidateAll: true });
-							}
-						};
-					}}
+					use:enhance={onFail('Could not remove.', () => {
+						selected = selected.filter((id) => !removing?.some((e) => e.lessonId === id));
+						removing = null;
+					})}
 				>
 					<input type="hidden" name="classId" value={classId} />
 					<input type="hidden" name="lessonIds" value={removing.map((e) => e.lessonId).join(',')} />
