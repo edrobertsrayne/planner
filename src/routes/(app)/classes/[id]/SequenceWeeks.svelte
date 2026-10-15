@@ -11,6 +11,7 @@
 	import type { SlotFill } from '$lib/sequence-layout';
 	import { plural, wasText } from '$lib/sequence-text';
 	import { topicColour } from '$lib/topic-colour';
+	import { touchTarget } from '$lib/components/ui/touch-target';
 	import type { SequenceEntry, WeekRow } from '$lib/server/planner';
 
 	// The By week layout: each week row holds the Class's Slots in fixed places, and the Lessons go
@@ -105,7 +106,7 @@
 	>
 		<button
 			type="button"
-			class="flex w-6 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground"
+			class="{touchTarget} flex w-6 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground"
 			aria-label="Drag {entry.title}"
 			onpointerdown={(event) => onGrip(event, entry.lessonId)}
 		>

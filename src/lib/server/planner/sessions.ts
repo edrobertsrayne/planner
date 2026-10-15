@@ -57,8 +57,8 @@ export interface SessionDetail extends Occasion {
 
 // The Session panel's one read (issue #35) — the only place a Session is read or written. A
 // Session is identified by its occasion, not by its Lesson, so this never fails to resolve just
-// because the occasion carries no Lesson: an Open Slot is still an occasion Ed may want to
-// write about.
+// because the occasion carries no Lesson: an Open Slot still resolves to a detail (Place a
+// Lesson, Continuations), but it has no Lesson and so no Teaching note.
 export function sessionDetail(
 	db: Db,
 	{ today, ...occasion }: Occasion & { today: string }
@@ -148,10 +148,11 @@ export function sessionDetail(
 // The Session page's one write: the Teaching note of the occasion's Lesson, kept by Class and
 // Lesson, so it is shared by every Session of that Lesson on this Class and follows the Lesson
 // when it moves. An empty body deletes the note. An Open Slot has no Lesson, so it has no note:
-// writing one is `invalid`.
+// writing one is `invalid`. The panel names the Lesson it shows; if the occasion has since
+// moved to another Lesson, the write is `invalid` too, so a note never lands on the wrong one.
 export function writeTeachingNote(
 	db: Db,
-	{ note, ...occasion }: Occasion & { note: string | null }
+	{ note, lessonId, ...occasion }: Occasion & { note: string | null; lessonId?: string }
 ) {
 	const [row] = db
 		.select({ lessonId: schema.session.lessonId })
@@ -160,6 +161,8 @@ export function writeTeachingNote(
 		.all();
 	if (!row?.lessonId)
 		throw new Refused('invalid', 'An Open Slot has no Lesson to write a note on.');
+	if (lessonId !== undefined && lessonId !== row.lessonId)
+		throw new Refused('invalid', 'This Session now has a different Lesson. Reload to see it.');
 
 	const key = { classId: occasion.classId, lessonId: row.lessonId };
 	const body = lessonBody(note);

@@ -68,17 +68,12 @@ export function hasReport(report: WriteReport | null): report is WriteReport {
 // A create box that stays where it is: the new row appears in the list above it, and the box is
 // ready for the next entry. `applyAction` ends a success with SvelteKit's own `reset_focus`, which
 // takes the caret out of the box — so a success refreshes the data and nothing else, and only a
-// refusal goes through the ordinary action handling to put its reason on the page. The write's
-// Rewind report, if it answered with one, goes to `onReport` instead of the page's `form`.
-export function createInPlace(
-	clear: () => void,
-	onReport: (report: WriteReport | null) => void
-): SubmitFunction {
+// refusal goes through the ordinary action handling to put its reason on the page.
+export function createInPlace(clear: () => void): SubmitFunction {
 	return () =>
 		async ({ result }) => {
 			if (result.type !== 'success') return applyAction(result);
 			clear();
-			onReport(reportOfResult(result));
 			await invalidateAll();
 		};
 }

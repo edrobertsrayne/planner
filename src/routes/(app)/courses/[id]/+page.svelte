@@ -7,9 +7,7 @@
 	import { classTone } from '$lib/class-tone';
 	import { courseHref } from '$lib/client/back';
 	import { createInPlace, createThenSelect, submitWithValue } from '$lib/client/enhance';
-	import type { WriteReport } from '$lib/server/planner';
 	import RenameableRow from '$lib/components/renameable-row.svelte';
-	import RewindReport from '$lib/components/rewind-report.svelte';
 	import ReorderButtons from '$lib/components/reorder-buttons.svelte';
 	import TagChips from '$lib/components/tag-chips.svelte';
 	import { Badge } from '$lib/components/ui/badge/index.js';
@@ -24,18 +22,14 @@
 
 	const tone = $derived(classTone(data.course.tone));
 	const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+	const standalone = (n: number) =>
+		n === 1
+			? 'Its 1 Lesson becomes a Standalone Lesson.'
+			: `Its ${n} Lessons become Standalone Lessons.`;
 
 	// Each create box clears itself once the write lands, so the next name can be typed straight in.
 	let newTopicName = $state('');
 	let newLessonTitle = $state('');
-
-	// A Lesson created in place leaves `form` alone (see createInPlace), so its report is held
-	// here. Any later action answer replaces it.
-	let createdReport = $state<WriteReport | null>(null);
-	$effect(() => {
-		void form;
-		createdReport = null;
-	});
 
 	// From `md` up the plan is written; below it, it is read: no rename, menu, reorder or create box.
 	const wide = new MediaQuery('min-width: 768px', true);
@@ -129,7 +123,7 @@
 							kind: 'course',
 							id: data.course.id,
 							name: data.course.name,
-							description: `Its ${plural(data.topics.length, 'Topic')} go. Its ${plural(data.lessonTotal, 'Lesson')} become Standalone Lessons.`
+							description: `${data.topics.length === 1 ? 'Its 1 Topic goes.' : `Its ${data.topics.length} Topics go.`} ${standalone(data.lessonTotal)}`
 						},
 						data.topics.length === 0
 					),
@@ -141,7 +135,6 @@
 	{#if form?.error}
 		<p role="alert" class="mb-3 text-sm text-destructive">{form.error}</p>
 	{/if}
-	<RewindReport report={createdReport ?? form?.report} />
 
 	<!-- From `xl` the Topics and the chosen Topic's Lessons sit side by side. Below it one column
 	     shows at a time: the Topic list until the address names a Topic, then its Lessons. -->
@@ -266,7 +259,7 @@
 											kind: 'topic',
 											id: shown.id,
 											name: shown.name,
-											description: `Its ${plural(data.lessons.length, 'Lesson')} become Standalone Lessons. Every Class keeps them in its Sequence.`
+											description: `${standalone(data.lessons.length)} Every Class keeps ${data.lessons.length === 1 ? 'it' : 'them'} in its Sequence.`
 										},
 										data.lessons.length === 0
 									),
@@ -317,10 +310,7 @@
 						method="POST"
 						action="?/createLesson"
 						class="border-t px-4 py-3"
-						use:enhance={createInPlace(
-							() => (newLessonTitle = ''),
-							(report) => (createdReport = report)
-						)}
+						use:enhance={createInPlace(() => (newLessonTitle = ''))}
 					>
 						<input type="hidden" name="topicId" value={data.shown.id} />
 						<Input

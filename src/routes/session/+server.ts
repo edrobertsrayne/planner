@@ -17,9 +17,10 @@ export const POST: RequestHandler = async ({ request }) => {
 	const body = await request.json();
 	const occasion = occasionOf(body);
 	const note = typeof body.note === 'string' && body.note.length > 0 ? body.note : null;
+	if (typeof body.lessonId !== 'string' || !body.lessonId) error(400, 'lessonId is required.');
 
 	try {
-		writeTeachingNote(db, { ...occasion, note });
+		writeTeachingNote(db, { ...occasion, lessonId: body.lessonId, note });
 	} catch (e) {
 		refusal(e);
 	}

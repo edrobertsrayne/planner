@@ -58,6 +58,16 @@
 	let removingPlacement = $state(false);
 	let removeError = $state<string | null>(null);
 
+	// Take a fresh detail. The note belongs to the Lesson, not the occasion, so when a response
+	// changes the Lesson shown (Place, Remove placement, a Continuation moving the schedule),
+	// the note is reopened for the new Lesson.
+	function showDetail(d: SessionDetail) {
+		const before = detail?.lesson?.id ?? null;
+		detail = d;
+		if ((d.lesson?.id ?? null) === before) return;
+		note = d.lesson ? notes.open({ ...occasion, lessonId: d.lesson.id }, d.note) : '';
+	}
+
 	$effect(() => {
 		const { classId, date, period } = occasion;
 		let current = true;
@@ -82,8 +92,7 @@
 				// A later click on a different Session can resolve before this one — only apply the
 				// response if it's still the occasion this effect was fetching for.
 				if (!current) return;
-				detail = d;
-				note = notes.open(occasion, d.note);
+				showDetail(d);
 			})
 			.catch((status) => {
 				// 400/404 mean the occasion names no Session (a period that is not a whole number,
@@ -100,6 +109,7 @@
 	});
 
 	function markContinuation() {
+		notes.flush();
 		const target = occasion;
 		continuing = true;
 		continuationError = null;
@@ -115,7 +125,7 @@
 			})
 			.then((d) => {
 				if (target !== occasion) return;
-				detail = d;
+				showDetail(d);
 				continuing = false;
 				continuationReport = d.report;
 				toast.success('Lesson continued onto the next Available Slot.');
@@ -128,6 +138,7 @@
 	}
 
 	function removeContinuationNow() {
+		notes.flush();
 		const target = occasion;
 		removingContinuation = true;
 		continuationError = null;
@@ -143,7 +154,7 @@
 			})
 			.then((d) => {
 				if (target !== occasion) return;
-				detail = d;
+				showDetail(d);
 				removingContinuation = false;
 				continuationReport = d.report;
 				toast.success('Continuation removed.');
@@ -159,6 +170,7 @@
 		const target = occasion;
 		const title = placeTitle.trim();
 		if (!title) return;
+		notes.flush();
 		placing = true;
 		placeError = null;
 		fetch('/session/placement', {
@@ -172,7 +184,7 @@
 			})
 			.then((d) => {
 				if (target !== occasion) return;
-				detail = d;
+				showDetail(d);
 				placing = false;
 				placeTitle = '';
 			})
@@ -187,6 +199,7 @@
 		const target = occasion;
 		const id = detail?.placement?.id;
 		if (!id) return;
+		notes.flush();
 		removingPlacement = true;
 		removeError = null;
 		fetch('/session/placement', {
@@ -200,7 +213,7 @@
 			})
 			.then((d) => {
 				if (target !== occasion) return;
-				detail = d;
+				showDetail(d);
 				removingPlacement = false;
 			})
 			.catch((e: Error) => {
@@ -297,6 +310,7 @@
 		<div class="flex min-w-0 flex-col gap-5 lg:order-2 {started ? 'order-1' : 'order-2'}">
 			<!-- An Open Slot has no Lesson, so it has no note (ADR-0026). -->
 			{#if detail.lesson}
+				{@const lessonId = detail.lesson.id}
 				<section data-note>
 					<div class="mb-1.5 flex items-baseline justify-between gap-2">
 						<span class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
@@ -325,7 +339,7 @@
 						placeholder="Notes on this Session…"
 						onchange={(markdown) => {
 							note = markdown;
-							notes.edit(occasion, markdown);
+							notes.edit({ ...occasion, lessonId }, markdown);
 						}}
 					/>
 				</section>

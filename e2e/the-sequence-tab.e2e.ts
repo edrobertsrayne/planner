@@ -2,16 +2,24 @@ import { test, expect, type Page } from '@playwright/test';
 import { isoDate, login, resetTo, runFixture } from './helpers.ts';
 import { BEARER, FIXTURE_COURSE, openPage, standingKey } from './the-planning-api/helpers.ts';
 
-// The Sequence tab, By week (the default) and List (`layout=list`). The 9C/Sc1 Class of the standard state gets one Topic of 14
-// Lessons ("Move A" to "Move N"), assigned through Assign Topic. 9B/Sc1 has a taught Lesson.
-// This file resets the database first, so the files after it start from the standard state.
+// The Sequence tab, By week (the default) and List (`layout=list`). The 9C/Sc1 Class of the standard
+// state gets one Topic of 14 Lessons ("Move A" to "Move N"), assigned through Assign Topic.
+// 9B/Sc1 has a taught Lesson.
+// This file resets the database first. It leaves the Moves Topic with 14 Lessons, Move A taught on
+// 9C/Sc1, and the standalone Lessons "Week quiz" and "Starter" in 9C/Sc1's Sequence.
 
-test.beforeAll(() => resetTo('standard'));
+// A failure stops the rest: each group builds on the state the one before it left.
+test.describe.configure({ mode: 'serial' });
+
+let classCId = '';
+
+test.beforeAll(() => {
+	resetTo('standard');
+	classCId = runFixture('find-class-id', '9C/Sc1');
+});
 
 const LETTERS = 'ABCDEFGHIJKLMN'.split('');
 const titleOf = (letter: string) => `Move ${letter}`;
-
-let classCId = '';
 
 // The Class page of a Class, on its Sequence tab, as a List.
 async function openSequence(page: Page, classId = classCId) {
@@ -108,7 +116,6 @@ test.describe.serial('moving Lessons in a Sequence by drag', () => {
 			.first()
 			.click();
 		await expect(page).toHaveURL(/\/classes\/[^/]+$/);
-		classCId = page.url().split('/').pop()!;
 		await page.getByRole('tab', { name: /^Sequence/ }).click();
 		await page.getByRole('button', { name: 'Assign Topic' }).click();
 		await page.getByRole('menuitem', { name: /^Moves / }).click();
@@ -253,7 +260,7 @@ test.describe.serial('the By week layout', () => {
 		// The layout button goes back, and the address says so.
 		await page.getByRole('button', { name: 'By week' }).click();
 		await expect(page.locator('[data-sequence-weeks]')).toBeVisible();
-		await expect(page).not.toHaveURL(/layout=/);
+		await expect(page).toHaveURL(/layout=week/);
 	});
 
 	test('a mouse drag takes the target Slot, with a live preview, and a drag back undoes it', async ({

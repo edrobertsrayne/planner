@@ -3,7 +3,7 @@
 // each Class holds its own Sequence (ADR-0026). A Lesson's Length is a scheduling input, so
 // a change to it re-derives every Class that reaches the Lesson, on the same write, with no
 // separate recompute step (issue #31).
-import { and, asc, eq, inArray, lt, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { Database } from 'bun:sqlite';
 import { nextTone } from '$lib/class-tone';
 import * as schema from '../db/schema';
@@ -12,6 +12,7 @@ import { combineReports, rederive, type Db, type WriteReport } from './derive';
 import { nextPosition, swapTargets, type Direction } from './ordering';
 import { deleteAttachmentsOfLesson } from './attachments';
 import { Refused } from './refused';
+import { fixedLessonIds } from './sequence';
 import { lessonBody, lessonLength, lessonStatus, linkUrl, required } from './fields';
 
 // Course and Topic names carry an explicit uniqueness rule (issue #131, §6 of the planning API
@@ -577,11 +578,10 @@ function rederiveHolders(db: Db, lessonId: string, today: string): WriteReport {
 }
 
 // Removes a Lesson entirely, along with its Links, and re-derives every Class that held it.
-// Refuses when a Class has already been taught this Lesson: the historical Session rows
-// reference it (ADR-0002), so deleting it would erase part of the record of what happened —
-// the taught-by block in the Lesson editor is what warns Ed before he tries this and it fails.
-// The refusal carries the way out in teacher terms — Detach — usable at the form and the API
-// alike; the API spec names the PATCH route separately.
+// Refuses when a Lesson is Fixed for any Class (a Session on or before today, the rule in
+// `fixedLessonIds`): the historical Session rows reference it (ADR-0002), so deleting it would
+// erase part of the record of what happened — the taught-by block in the Lesson editor is what
+// warns Ed before he tries this and it fails.
 // Refuses too while any Placement names the Lesson (ADR-0022): the "no mark" answer to whether a
 // Standalone Lesson is schedulable depends entirely on a `placement` row naming it, so deleting
 // one out from under a live Placement would leave that row naming a Lesson that no longer exists.
@@ -607,9 +607,7 @@ export function deleteLesson(
 	if (classesTaughtLesson(db, { lessonId: id, today }).length > 0) {
 		throw new Refused(
 			'conflict',
-			row.topicId !== null
-				? 'A Class has already been taught this Lesson, so it cannot be removed. Detach it from its Topic instead.'
-				: 'A Class has already been taught this Lesson, so it cannot be removed.'
+			'A Class has already been taught this Lesson, so it cannot be removed.'
 		);
 	}
 
@@ -679,20 +677,19 @@ export function moveLesson(
 	db.update(schema.lesson).set({ position: a.position }).where(eq(schema.lesson.id, b.id)).run();
 }
 
-// Which Classes have already been taught this Lesson, before `today` — the taught-by block in
-// the Lesson editor, so Ed knows an edit here touches a plan already in use, and what makes
-// deleteLesson refuse.
+// Which Classes have this Lesson Fixed — a Session for it on or before `today`, the one rule in
+// `fixedLessonIds`. It is the taught-by block in the Lesson editor, so Ed knows an edit here
+// touches a plan already in use, and what makes deleteLesson refuse.
 export function classesTaughtLesson(
 	db: Db,
 	{ lessonId, today }: { lessonId: string; today: string }
 ) {
 	return db
-		.selectDistinct({ id: schema.classes.id, label: schema.classes.label })
-		.from(schema.session)
-		.innerJoin(schema.classes, eq(schema.classes.id, schema.session.classId))
-		.where(and(eq(schema.session.lessonId, lessonId), lt(schema.session.date, today)))
+		.select({ id: schema.classes.id, label: schema.classes.label })
+		.from(schema.classes)
 		.orderBy(asc(schema.classes.label))
-		.all();
+		.all()
+		.filter((c) => fixedLessonIds(db, c.id, today).has(lessonId));
 }
 
 // Appended at the next position in its Lesson's order, same as a Lesson within a Topic.

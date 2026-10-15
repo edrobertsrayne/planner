@@ -93,9 +93,13 @@ test.describe('the tablet layout (touch, about 800×1180)', () => {
 		await expect(mondayCell).not.toContainText('Assembly');
 	});
 
-	test('the Class tabs keep a 44 px target on touch', async ({ page }) => {
+	test('the Class tabs and the Sequence drag grips keep a 44 px target on touch', async ({
+		page
+	}) => {
 		await openClassPage(page);
 		await expectHitArea44(page, 'Overview', 'tab');
+		await page.getByRole('tab', { name: /^Sequence/ }).click();
+		await expectBox44(page.getByRole('button', { name: /^Drag / }).first());
 	});
 });
 

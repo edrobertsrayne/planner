@@ -408,6 +408,24 @@ describe('the Session panel', () => {
 		expect(sessionDetail(db, { ...occasion, today: '2026-09-03' })?.note).toBeNull();
 	});
 
+	test('a note naming another Lesson than the occasion holds is refused', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [lesson] = makeLessons(db, topic.id, 1);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+		const occasion = { classId: classA.id, date: '2026-09-03', period: 5 };
+
+		refused(
+			() => writeTeachingNote(db, { ...occasion, lessonId: 'les_other', note: 'wrong Lesson' }),
+			'invalid',
+			'This Session now has a different Lesson. Reload to see it.'
+		);
+		expect(db.select().from(schema.teachingNote).all()).toEqual([]);
+
+		writeTeachingNote(db, { ...occasion, lessonId: lesson.id, note: 'right Lesson' });
+		expect(teachingNoteOf(db, classA.id, lesson.id)).toBe('right Lesson');
+	});
+
 	test('a blank body stores no Teaching note', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');

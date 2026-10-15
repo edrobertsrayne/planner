@@ -436,7 +436,7 @@ describe("an Attachment's lifecycle follows its Lesson", () => {
 		refused(
 			() => deleteLesson(db, { id: lesson.id, today: '2026-09-10', dir: atDir }),
 			'conflict',
-			'A Class has already been taught this Lesson, so it cannot be removed. Detach it from its Topic instead.'
+			'A Class has already been taught this Lesson, so it cannot be removed.'
 		);
 		expect(attachmentsOf(db, lesson.id).map((a) => a.id)).toEqual([attachment.id]);
 		expect(existsSync(join(atDir, attachment.id))).toBe(true);

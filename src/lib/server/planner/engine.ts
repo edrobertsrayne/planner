@@ -1,6 +1,7 @@
 // THE ENGINE. Pure: no DOM, no clock, no I/O, nothing from SvelteKit or Drizzle. Lifted from the
 // prototype validated against the real 2026/27 calendar (prototype/scheduling-engine,
-// prototypes/scheduling/PROTOTYPE-scheduling-engine.html) per ADR-0007 and ADR-0010.
+// prototypes/scheduling/PROTOTYPE-scheduling-engine.html) per ADR-0007; each Class lays its own
+// Sequence (ADR-0026).
 import { addDays } from '$lib/date';
 
 export interface Term {
@@ -152,7 +153,7 @@ const demandFor = (lesson: LessonInput, classId: string, continuations: Continua
 	lesson.length +
 	continuations.filter((c) => c.lessonId === lesson.id && c.classId === classId).length;
 
-// The Lesson-parts still owed to this Class, in Assigned-Topic order then Lesson order.
+// The Lesson-parts still owed to this Class, in the Class's Sequence order (ADR-0026).
 export function remainingParts(
 	lessons: LessonInput[],
 	classId: string,
@@ -192,8 +193,9 @@ export function layOut(
 // each claims the first `length` Available Slots at-or-after its own anchor from whatever the
 // stream still holds, so a later Placement whose anchor collides with an earlier one's claim
 // shifts right past it, never refused. `delivered` is the same record `remainingParts` reads for
-// Topic Lessons — a Placement's Lesson never appears in the Topic stream (it has no Topic), so
-// the two never contend for the same entry; read from a local copy, never written back onto the
+// the Sequence. A Lesson is never both Placed on a Class and held in its Sequence: Assign Topic
+// skips a Placed Lesson, and Place Lesson always makes a new Lesson. So the two never contend for
+// the same entry. It is read from a local copy, never written back onto the
 // caller's map, so this stays the one pure function in the system with no hidden side effect on a
 // shared record. Still needed within the loop itself: the same Lesson may be placed twice on one
 // Class (ADR-0022), and the earlier-anchored Placement's already-taught parts must stop counting

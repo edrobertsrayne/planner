@@ -1,8 +1,8 @@
 // The Teaching note's persistence rules (#89), as a module the panel calls rather than logic
 // inline in the component — this is the second of the rebuild's two test seams. Autosave on a
 // roughly 1s debounce; every exit flushes and none of them waits for the write; a failed write
-// leaves a localStorage draft keyed by the occasion, which wins over server state on reopen and
-// clears once a save is confirmed.
+// leaves a localStorage draft keyed by Class and Lesson (the Teaching note's own key, ADR-0026),
+// which wins over server state on reopen and clears once a save is confirmed.
 //
 // Deliberately framework-free: no Svelte, no DOM globals at import time. Storage is resolved
 // lazily so the module can be constructed during SSR and tested in plain node with a map.
@@ -15,31 +15,39 @@ export interface Occasion {
 	period: number;
 }
 
+// An occasion and the Lesson the panel shows on it. The occasion is where the write is sent;
+// the Lesson is what the note belongs to, and the server refuses the write if the occasion has
+// since moved to another Lesson.
+export interface NoteTarget extends Occasion {
+	lessonId: string;
+}
+
 export interface StorageLike {
 	getItem(key: string): string | null;
 	setItem(key: string, value: string): void;
 	removeItem(key: string): void;
 }
 
-export function draftKey(occasion: Occasion): string {
-	return `session-note:${occasion.classId}~${occasion.date}~${occasion.period}`;
+// The prefix differs from the old per-occasion drafts, so those are ignored.
+export function draftKey(target: NoteTarget): string {
+	return `session-note-lesson:${target.classId}~${target.lessonId}`;
 }
 
 export interface SessionNotesOptions {
 	// Writes one note to the server. Rejecting is what marks the save failed.
-	write: (occasion: Occasion, note: string) => Promise<void>;
+	write: (target: NoteTarget, note: string) => Promise<void>;
 	// Where drafts live. Defaults to localStorage, resolved per operation; returning null (SSR,
 	// tests) disables drafts without disabling autosave.
 	storage?: () => StorageLike | null;
-	onFailure?: (occasion: Occasion, note: string, error: unknown) => void;
+	onFailure?: (target: NoteTarget, note: string, error: unknown) => void;
 }
 
 export interface SessionNotes {
-	// Begin showing an occasion: flushes whatever was left pending, then returns the note to
-	// display — the local draft if one exists, else the server's, else empty.
-	open(occasion: Occasion, serverNote: string | null): string;
+	// Begin showing a Lesson on an occasion: flushes whatever was left pending, then returns the
+	// note to display — the local draft if one exists, else the server's, else empty.
+	open(target: NoteTarget, serverNote: string | null): string;
 	// Record typing: schedules the debounced autosave.
-	edit(occasion: Occasion, note: string): void;
+	edit(target: NoteTarget, note: string): void;
 	// Write any pending edits now. Never blocks: the caller does not wait for the network.
 	flush(): void;
 }
@@ -56,7 +64,7 @@ export function createSessionNotes(options: SessionNotesOptions): SessionNotes {
 
 	// Edits not yet handed to the network. A snapshot is taken from it on save, so edits made
 	// while a write is in flight form a fresh batch that a later debounce or flush still sends.
-	let buffer: { occasion: Occasion; note: string } | null = null;
+	let buffer: { target: NoteTarget; note: string } | null = null;
 	let timer: ReturnType<typeof setTimeout> | null = null;
 
 	function cancelTimer() {
@@ -66,8 +74,8 @@ export function createSessionNotes(options: SessionNotesOptions): SessionNotes {
 		}
 	}
 
-	// Writes are fired and forgotten, so they can settle out of order. Each occasion counts its
-	// attempts, and only the newest attempt for an occasion may clear its draft on success or
+	// Writes are fired and forgotten, so they can settle out of order. Each draft key counts its
+	// attempts, and only the newest attempt for a key may clear its draft on success or
 	// set one on failure — an older attempt failing after a newer one confirmed must not stamp
 	// a stale note over the good save.
 	const attempts = new Map<string, number>();
@@ -75,12 +83,12 @@ export function createSessionNotes(options: SessionNotesOptions): SessionNotes {
 	function saveNow() {
 		cancelTimer();
 		if (!buffer) return;
-		const { occasion, note } = buffer;
+		const { target, note } = buffer;
 		buffer = null;
-		const key = draftKey(occasion);
+		const key = draftKey(target);
 		const attempt = (attempts.get(key) ?? 0) + 1;
 		attempts.set(key, attempt);
-		void write(occasion, note).then(
+		void write(target, note).then(
 			() => {
 				if (attempts.get(key) !== attempt) return;
 				attempts.delete(key);
@@ -92,20 +100,20 @@ export function createSessionNotes(options: SessionNotesOptions): SessionNotes {
 				// Twice, deliberately: the toast lets the failure outlive the panel that has already
 				// closed; the draft means nothing was lost even so.
 				storage()?.setItem(key, note);
-				onFailure?.(occasion, note, error);
+				onFailure?.(target, note, error);
 			}
 		);
 	}
 
 	return {
-		open(occasion, serverNote) {
-			// Leaving an occasion — by switching or by closing — always flushes first, whatever
+		open(target, serverNote) {
+			// Leaving a Lesson — by switching or by closing — always flushes first, whatever
 			// brought the panel here.
 			saveNow();
-			return storage()?.getItem(draftKey(occasion)) ?? serverNote ?? '';
+			return storage()?.getItem(draftKey(target)) ?? serverNote ?? '';
 		},
-		edit(occasion, note) {
-			buffer = { occasion, note };
+		edit(target, note) {
+			buffer = { target, note };
 			cancelTimer();
 			timer = setTimeout(saveNow, DEBOUNCE_MS);
 		},

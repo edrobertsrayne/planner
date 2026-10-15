@@ -42,7 +42,7 @@ test.describe('the Course and Topic editors', () => {
 
 		await page.getByRole('button', { name: 'Topic actions' }).click();
 		await page.getByRole('menuitem', { name: 'Delete Topic' }).click();
-		await expect(page.getByRole('dialog')).toContainText('1 Lesson become Standalone Lessons');
+		await expect(page.getByRole('dialog')).toContainText('1 Lesson becomes a Standalone Lesson');
 		await page.getByRole('button', { name: 'Cancel' }).click();
 		await expect(link).toBeVisible();
 

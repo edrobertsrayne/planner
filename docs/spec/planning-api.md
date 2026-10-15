@@ -26,13 +26,13 @@ These are ruled out of this effort. They are listed so an implementer does not a
 
 - Everything in the **Scheduling** half: Class, Timetable, Slot, Session, Sequence, Teaching note,
   Continuation, and Readiness. A Sequence has no endpoint: a Lesson reaches a Class through the
-  browser.
+  browser. A Standalone Lesson reaches a Class's Sequence only through the browser (Add Lesson,
+  ADR-0026).
 - Reordering: `moveLesson` and `moveLink` get no endpoint. Order is set by creation order.
 - Whole-Course Import. Import handles one Topic per request.
 - Update-by-reimport. Import is create-only. To change an imported Topic, delete it and import
   again, or edit it in the Courses view. A deleted Topic leaves its old Lessons as Standalone
   Lessons, so a re-import makes new Lessons beside them.
-- Scheduling a Standalone Lesson directly to a Class (ADR-0015 leaves this for a later effort).
 - OAuth, multi-user support, rate limiting, and API versioning.
 
 ## 2. Authentication
@@ -228,8 +228,8 @@ and must collide.
 
 ### 3.7 The current date
 
-`createLesson`, `editLesson` and `deleteLesson` all take a `today` argument
-and re-derive the schedule. Route handlers must supply it from the server clock, in the school's
+`editLesson` and `deleteLesson` take a `today` argument and re-derive the Classes that hold or
+Place the Lesson. Route handlers must supply it from the server clock, in the school's
 local date, exactly as the existing form actions do. It is never a request field. An agent must not
 be able to move the planner's idea of today.
 
@@ -359,8 +359,8 @@ that name.
 
 → 200, `Topic`. → 404. → 409 on a collision inside the same Course.
 
-`courseId` is **not** accepted. No caller needs to move a Topic between Courses, and the seam can
-take the move later.
+`courseId` is **not** accepted. The browser can file a Topic in another Course (`moveTopicToCourse`,
+Move to… on the Course page). The API does not expose it.
 
 **`DELETE /api/topics/:id`** → 204. → 404.
 
@@ -449,19 +449,12 @@ Lesson was in another Topic or Standalone. Filing changes no Sequence and no Pla
 
 ```json
 {
-	"error": "A Class has already been taught this Lesson, so it cannot be removed. Detach it from its Topic instead."
+	"error": "A Class has already been taught this Lesson, so it cannot be removed."
 }
 ```
 
-This is today's rule, unchanged. The message names the way out in the teacher's own terms —
-Detach — usable at the Courses form and this API alike; the form action shows the same message,
-and an agent that gets a bare refusal will try again rather than detach, except when the Lesson
-is already Standalone (its `topicId` is already `null`), where there is no Topic to detach it
-from:
-
-```json
-{ "error": "A Class has already been taught this Lesson, so it cannot be removed." }
-```
+This is today's rule, unchanged. Detach no longer helps: a Detach files the Lesson and leaves it in
+every Sequence, so the message does not suggest it. A Standalone Lesson gets the same message.
 
 → **409** if a Placement names the Lesson (ADR-0022):
 

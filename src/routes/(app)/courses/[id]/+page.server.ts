@@ -13,7 +13,6 @@ import {
 	moveTopicToCourse,
 	renameCourse,
 	renameTopic,
-	reportOf,
 	tagsByLesson,
 	topicsOf
 } from '$lib/server/planner';
@@ -131,7 +130,7 @@ export const actions: Actions = {
 		const title = String(data.get('title') ?? '');
 		try {
 			const created = createLesson(db, { topicId, title });
-			return { lesson: created.lesson, report: reportOf(created) };
+			return { lesson: created.lesson };
 		} catch (error) {
 			return refusal(error);
 		}

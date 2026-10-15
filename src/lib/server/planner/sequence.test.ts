@@ -113,6 +113,26 @@ describe('Assign Topic', () => {
 		).toEqual([]);
 	});
 
+	test('does not skip a Lesson that a Placement names on a different Class', () => {
+		const { db, course, classA, classB } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const lessons = makeLessons(db, topic.id, 2);
+		const [anchor] = classSchedule(db, { classId: classB.id, today }).openSlots;
+		db.insert(schema.placement)
+			.values({
+				classId: classB.id,
+				date: anchor.date,
+				slotId: anchor.slotId,
+				lessonId: lessons[1].id
+			})
+			.run();
+
+		const report = assignTopic(db, { classId: classA.id, topicId: topic.id, today });
+
+		expect(report.added.map((l) => l.id)).toEqual(lessons.map((l) => l.id));
+		expect(report.skipped).toEqual([]);
+	});
+
 	test("refuses a Topic outside the Class's Course", () => {
 		const { db, classA } = setUp();
 		const [otherCourse] = db
@@ -1014,5 +1034,51 @@ describe('the By week view', () => {
 			{ topicId: waves.id, name: 'Waves', untaught: 0 },
 			{ topicId: forces.id, name: 'Forces', untaught: 3 }
 		]);
+	});
+});
+
+describe('the Sequence view flags', () => {
+	test('onlyHere is true for a Standalone Lesson only this Class holds, not for one shared or a Topic Lesson', () => {
+		const { db, course, classA, classB } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [topicLesson] = makeLessons(db, topic.id, 1);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today });
+		const mine = addLesson(db, { classId: classA.id, title: 'Mine', today }).lesson;
+		const shared = addLesson(db, { classId: classA.id, title: 'Shared', today }).lesson;
+		db.insert(schema.classLesson)
+			.values({ classId: classB.id, lessonId: shared.id, position: 0 })
+			.run();
+
+		const flags = new Map(
+			sequenceView(db, { classId: classA.id, today })!.entries.map((e) => [e.lessonId, e.onlyHere])
+		);
+
+		expect(flags.get(mine.id)).toBe(true);
+		expect(flags.get(shared.id)).toBe(false);
+		expect(flags.get(topicLesson.id)).toBe(false);
+	});
+
+	test('counted includes a Topic Lesson in the Sequence and one Placed on this Class', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const lessons = makeLessons(db, topic.id, 3);
+		const [anchor] = classSchedule(db, { classId: classA.id, today }).openSlots;
+		db.insert(schema.placement)
+			.values({
+				classId: classA.id,
+				date: anchor.date,
+				slotId: anchor.slotId,
+				lessonId: lessons[1].id
+			})
+			.run();
+		db.insert(schema.classLesson)
+			.values({ classId: classA.id, lessonId: lessons[0].id, position: 0 })
+			.run();
+
+		const option = sequenceView(db, { classId: classA.id, today })!.topics.find(
+			(t) => t.id === topic.id
+		)!;
+
+		expect(option).toMatchObject({ lessonCount: 3, counted: 2 });
 	});
 });

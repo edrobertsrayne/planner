@@ -21,6 +21,7 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import { toast } from 'svelte-sonner';
 	import { topicColour } from '$lib/topic-colour';
+	import { touchTarget } from '$lib/components/ui/touch-target';
 	import SequenceWeeks from './SequenceWeeks.svelte';
 	import type {
 		DateChange,
@@ -70,7 +71,7 @@
 
 	const byWeek = $derived(page.url.searchParams.get('layout') !== 'list');
 	const setLayout = (layout: 'week' | 'list') =>
-		replaceQuery(withParam(page.url, 'layout', layout === 'list' ? 'list' : null));
+		replaceQuery(withParam(page.url, 'layout', layout));
 
 	let assignForm = $state<HTMLFormElement | undefined>();
 	// The Lessons that × or bulk Remove asks about. The dialog stays until the write is done or Ed
@@ -204,6 +205,8 @@
 	);
 
 	function dragStart(event: PointerEvent, lessonId: string) {
+		if (dragging || !event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0))
+			return;
 		event.preventDefault();
 		// A drag on a picked Lesson carries the selection, in its order; any other carries one Lesson.
 		grabbedId = lessonId;
@@ -419,7 +422,7 @@
 			{assigned.added === 0
 				? `Added no Lessons from ${assigned.topicName}.`
 				: `Added ${plural(assigned.added, 'Lesson')} from ${assigned.topicName}.`}
-			{#each assigned.skipped as skip (skip.title)}
+			{#each assigned.skipped as skip, i (i)}
 				Skipped “{skip.title}”: {REASONS[skip.reason]}.
 			{/each}
 		</p>
@@ -528,7 +531,7 @@
 					{:else}
 						<button
 							type="button"
-							class="flex w-7 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground"
+							class="{touchTarget} flex w-7 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground"
 							aria-label="Drag {entry.title}"
 							onpointerdown={(event) => dragStart(event, entry.lessonId)}
 						>
@@ -660,13 +663,18 @@
 				<form
 					method="POST"
 					action="?/removeLessons"
-					use:enhance={() =>
-						async ({ result, update }) => {
+					use:enhance={() => {
+						const gone = removing?.map((e) => e.lessonId) ?? [];
+						return async ({ result, update }) => {
 							removing = null;
 							if (result.type === 'failure')
 								toast.error(failureReason(result, 'Could not remove.'));
-							else await update({ invalidateAll: true });
-						}}
+							else {
+								selected = selected.filter((id) => !gone.includes(id));
+								await update({ invalidateAll: true });
+							}
+						};
+					}}
 				>
 					<input type="hidden" name="classId" value={classId} />
 					<input type="hidden" name="lessonIds" value={removing.map((e) => e.lessonId).join(',')} />

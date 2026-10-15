@@ -65,8 +65,9 @@
 
 	// A Lesson that a Sequence holds asks first. The action answers with `needsConfirm` and the
 	// reason, which names the Classes; the dialog then posts the same delete with `confirmed`.
-	let confirmDelete = $state<string | null>(null);
-	const onDelete: SubmitFunction = () => {
+	let confirmDelete = $state<{ id: string; reason: string } | null>(null);
+	const onDelete: SubmitFunction = ({ formData }) => {
+		const id = String(formData.get('id'));
 		return async ({ result, update }) => {
 			confirmDelete = null;
 			if (result.type === 'success') {
@@ -78,7 +79,7 @@
 				}
 				await back();
 			} else if (result.type === 'failure' && result.data?.needsConfirm) {
-				confirmDelete = failureReason(result, 'Delete this Lesson?');
+				confirmDelete = { id, reason: failureReason(result, 'Delete this Lesson?') };
 			} else if (result.type === 'failure') {
 				toast.error(failureReason(result, 'Could not delete the Lesson.'));
 			} else {
@@ -103,6 +104,7 @@
 		await goto(resolve(`/lessons/${id}${query}`), { replaceState: true });
 	}
 	function stepWithKey(e: KeyboardEvent) {
+		if (confirmDelete) return;
 		if (e.ctrlKey || e.metaKey || e.altKey) return;
 		if (e.key !== '[' && e.key !== ']') return;
 		const focused = document.activeElement as HTMLElement | null;
@@ -669,7 +671,7 @@
 		<Dialog.Header>
 			<Dialog.Title>Delete this Lesson?</Dialog.Title>
 			<Dialog.Description>
-				{confirmDelete}
+				{confirmDelete?.reason}
 			</Dialog.Description>
 		</Dialog.Header>
 		<Dialog.Footer>
@@ -677,7 +679,7 @@
 				Cancel
 			</Button>
 			<form method="POST" action="?/deleteLesson" use:enhance={onDelete}>
-				<input type="hidden" name="id" value={lesson.id} />
+				<input type="hidden" name="id" value={confirmDelete?.id} />
 				<input type="hidden" name="confirmed" value="true" />
 				<Button type="submit" variant="destructive" size="sm" class="h-7">Delete</Button>
 			</form>

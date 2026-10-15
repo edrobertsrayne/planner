@@ -727,7 +727,7 @@ describe('reordering and moving Lessons', () => {
 		).not.toThrow();
 	});
 
-	test('refuses to delete a Lesson that a Class has already been taught, pointing at Detach', () => {
+	test('refuses to delete a Lesson that a Class has already been taught', () => {
 		const { db, course, classA, atDir: dir } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		const lessons = makeLessons(db, topic.id, 1);
@@ -737,21 +737,18 @@ describe('reordering and moving Lessons', () => {
 		refused(
 			() => deleteLesson(db, { id: lessons[0].id, today: '2026-09-10', dir }),
 			'conflict',
-			'A Class has already been taught this Lesson, so it cannot be removed. Detach it from its Topic instead.'
+			'A Class has already been taught this Lesson, so it cannot be removed.'
 		);
 	});
 
-	test('refuses to delete a taught Standalone Lesson, which has no Topic to detach from', () => {
+	test('refuses to delete a Lesson with a Session today, even confirmed', () => {
 		const { db, course, classA, atDir: dir } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		const lessons = makeLessons(db, topic.id, 1);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 
-		// Detach the taught Lesson, then try again: no Topic now, so no detach hint.
-		editLesson(db, { id: lessons[0].id, change: { topicId: null }, today: '2026-09-10' });
-
 		refused(
-			() => deleteLesson(db, { id: lessons[0].id, today: '2026-09-10', dir }),
+			() => deleteLesson(db, { id: lessons[0].id, today: '2026-09-03', dir, confirmed: true }),
 			'conflict',
 			'A Class has already been taught this Lesson, so it cannot be removed.'
 		);
@@ -785,8 +782,9 @@ describe('reordering and moving Lessons', () => {
 			const { db, course, classA, classB, atDir: dir } = setUp();
 			const topic = makeTopic(db, course.id, 'Forces');
 			const lessons = makeLessons(db, topic.id, 4);
-			assignTopic(db, { classId: classA.id, topicId: topic.id, today: TODAY });
-			assignTopic(db, { classId: classB.id, topicId: topic.id, today: TODAY });
+			// A boundary after TODAY keeps every Session in the future, so no Lesson is Fixed yet.
+			assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-04' });
+			assignTopic(db, { classId: classB.id, topicId: topic.id, today: '2026-09-04' });
 			return { db, classA, classB, lessons, dir };
 		}
 
@@ -836,7 +834,7 @@ describe('reordering and moving Lessons', () => {
 			refused(
 				() => deleteLesson(db, { id: lessons[0].id, today: '2026-09-10', dir, confirmed: true }),
 				'conflict',
-				'A Class has already been taught this Lesson, so it cannot be removed. Detach it from its Topic instead.'
+				'A Class has already been taught this Lesson, so it cannot be removed.'
 			);
 		});
 
@@ -1230,7 +1228,10 @@ describe('who has been taught a Lesson', () => {
 		expect(classesTaughtLesson(db, { lessonId: lessons[0].id, today })).toEqual([
 			expect.objectContaining({ id: classA.id, label: classA.label })
 		]);
-		expect(classesTaughtLesson(db, { lessonId: lessons[0].id, today: '2026-09-03' })).toEqual([]);
+		expect(classesTaughtLesson(db, { lessonId: lessons[0].id, today: '2026-09-02' })).toEqual([]);
+		expect(classesTaughtLesson(db, { lessonId: lessons[0].id, today: '2026-09-03' })).toEqual([
+			expect.objectContaining({ id: classA.id })
+		]);
 
 		// Assigned with a boundary after the query date, so every Session it creates is dated on or
 		// after 20 Sep — none of them can be history as of the 10 Sep query below.

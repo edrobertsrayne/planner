@@ -946,8 +946,8 @@ describe('Readiness dies with its pairing', () => {
 		const { db, course, classA, classB, atDir: dir } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		const [l1, l2] = makeLessons(db, topic.id, 2);
-		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
-		assignTopic(db, { classId: classB.id, topicId: topic.id, today: '2026-09-03' });
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-04' });
+		assignTopic(db, { classId: classB.id, topicId: topic.id, today: '2026-09-04' });
 
 		setReadiness(db, l1.id, classA.id, true);
 		setReadiness(db, l1.id, classB.id, true);
