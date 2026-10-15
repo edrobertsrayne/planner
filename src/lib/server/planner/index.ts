@@ -11,7 +11,8 @@
 //   derive.ts       feeding the engine from the database and persisting its answer
 //   ordering.ts     the `position` arithmetic the four ordered things share
 //   timetable.ts    Slots: which Class holds which Period, over which dates
-//   sequence.ts     a Class's Sequence: its Lessons in its own order, and its Teaching notes
+//   sequence.ts     a Class's Sequence: its Lessons in its own order
+//   teaching-notes.ts  the Teaching note of a Class and Lesson: read, write, end with the pairing
 //   classes.ts      a Class, and how far through its Sequence it has got
 //   disruptions.ts  Blocked Days and Blocked Slots
 //   placement.ts    Placement: a Standalone Lesson put directly onto a Class, no Topic behind it
@@ -58,7 +59,6 @@ export {
 	removeFromSequence,
 	sequenceLessonIds,
 	sequenceView,
-	teachingNoteOf,
 	type DateChange,
 	type SequenceEntry,
 	type SkipReason,
@@ -67,6 +67,8 @@ export {
 	type WeekCell,
 	type WeekRow
 } from './sequence';
+
+export { teachingNoteOf } from './teaching-notes';
 
 export { blockDay, blockSlot, unblockDay, unblockSlot } from './disruptions';
 
