@@ -56,6 +56,7 @@ describe('every scheduling write answers with its Rewind report', () => {
 		// notes 14 Sep P3: Lesson 5. Continuing 3 Sep P5 pushes Lesson 5 to the next Slot.
 		writeTeachingNote(db, {
 			classId: classA.id,
+			lessonId: lessons[4].id,
 			date: '2026-09-14',
 			period: 3,
 			note: 'cover needed'
@@ -264,6 +265,7 @@ describe('placementsMoved', () => {
 		rederive(db, classA.id, '2026-09-01');
 		writeTeachingNote(db, {
 			classId: classA.id,
+			lessonId: lesson.id,
 			date: anchor.date,
 			period: anchor.period,
 			note: 'Went well'

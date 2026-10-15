@@ -157,6 +157,7 @@ describe('replacing the Terms', () => {
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 		writeTeachingNote(db, {
 			classId: classA.id,
+			lessonId: lesson.id,
 			date: '2026-09-03',
 			period: 5,
 			note: 'went badly — redo the practical'

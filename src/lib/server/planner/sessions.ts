@@ -152,7 +152,7 @@ export function sessionDetail(
 // moved to another Lesson, the write is `invalid` too, so a note never lands on the wrong one.
 export function writeTeachingNote(
 	db: Db,
-	{ note, lessonId, ...occasion }: Occasion & { note: string | null; lessonId?: string }
+	{ note, lessonId, ...occasion }: Occasion & { note: string | null; lessonId: string }
 ) {
 	const [row] = db
 		.select({ lessonId: schema.session.lessonId })
@@ -161,7 +161,7 @@ export function writeTeachingNote(
 		.all();
 	if (!row?.lessonId)
 		throw new Refused('invalid', 'An Open Slot has no Lesson to write a note on.');
-	if (lessonId !== undefined && lessonId !== row.lessonId)
+	if (lessonId !== row.lessonId)
 		throw new Refused('invalid', 'This Session now has a different Lesson. Reload to see it.');
 
 	setTeachingNote(db, occasion.classId, row.lessonId, lessonBody(note));

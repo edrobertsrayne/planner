@@ -179,6 +179,7 @@ describe('the Classes view', () => {
 		// P5, Lesson 2 on P6 — both taught by the time `today` moves past them.
 		writeTeachingNote(db, {
 			classId: classA.id,
+			lessonId: lessons[1].id,
 			date: '2026-09-03',
 			period: 6,
 			note: 'went well'
@@ -210,7 +211,13 @@ describe('the Classes view', () => {
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 
 		// The Lesson fills 3 Sep P5 and P6. The note goes on the first part.
-		writeTeachingNote(db, { classId: classA.id, date: '2026-09-03', period: 5, note: 'ramps' });
+		writeTeachingNote(db, {
+			classId: classA.id,
+			lessonId: first.id,
+			date: '2026-09-03',
+			period: 5,
+			note: 'ramps'
+		});
 
 		const [lane] = classLanes(db, { today: '2026-09-05', classId: classA.id });
 		expect(lane.lastTaught).toMatchObject({ title: first.title, period: 6, note: 'ramps' });

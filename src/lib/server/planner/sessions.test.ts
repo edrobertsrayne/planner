@@ -374,11 +374,12 @@ describe('the Session panel', () => {
 	test('a note is written against the occasion, saved and reopened', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
-		makeLessons(db, topic.id, 1);
+		const [lesson] = makeLessons(db, topic.id, 1);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 
 		writeTeachingNote(db, {
 			classId: classA.id,
+			lessonId: lesson.id,
 			date: '2026-09-03',
 			period: 5,
 			note: 'went badly — redo the practical'
@@ -401,7 +402,12 @@ describe('the Session panel', () => {
 		const occasion = { classId: classA.id, date: '2026-09-03', period: 5 };
 
 		refused(
-			() => writeTeachingNote(db, { ...occasion, note: 'covered by a colleague' }),
+			() =>
+				writeTeachingNote(db, {
+					...occasion,
+					lessonId: 'les_none',
+					note: 'covered by a colleague'
+				}),
 			'invalid',
 			'An Open Slot has no Lesson to write a note on.'
 		);
@@ -433,12 +439,12 @@ describe('the Session panel', () => {
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 		const occasion = { classId: classA.id, date: '2026-09-03', period: 5 };
 
-		writeTeachingNote(db, { ...occasion, note: '  \n ' });
+		writeTeachingNote(db, { ...occasion, lessonId: lesson.id, note: '  \n ' });
 		expect(teachingNoteOf(db, classA.id, lesson.id)).toBeNull();
 		expect(db.select().from(schema.teachingNote).all()).toEqual([]);
 
-		writeTeachingNote(db, { ...occasion, note: 'went badly' });
-		writeTeachingNote(db, { ...occasion, note: '  ' });
+		writeTeachingNote(db, { ...occasion, lessonId: lesson.id, note: 'went badly' });
+		writeTeachingNote(db, { ...occasion, lessonId: lesson.id, note: '  ' });
 		expect(teachingNoteOf(db, classA.id, lesson.id)).toBeNull();
 	});
 
@@ -449,10 +455,10 @@ describe('the Session panel', () => {
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 		const occasion = { classId: classA.id, date: '2026-09-03', period: 5 };
 
-		writeTeachingNote(db, { ...occasion, note: 'went badly' });
+		writeTeachingNote(db, { ...occasion, lessonId: lesson.id, note: 'went badly' });
 		expect(teachingNoteOf(db, classA.id, lesson.id)).toBe('went badly');
 
-		writeTeachingNote(db, { ...occasion, note: '' });
+		writeTeachingNote(db, { ...occasion, lessonId: lesson.id, note: '' });
 		expect(teachingNoteOf(db, classA.id, lesson.id)).toBeNull();
 		expect(sessionDetail(db, { ...occasion, today: '2026-09-03' })?.note).toBeNull();
 		expect(db.select().from(schema.teachingNote).all()).toEqual([]);
@@ -461,12 +467,13 @@ describe('the Session panel', () => {
 	test('both parts of a Length-2 Lesson share one Teaching note', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
-		makeLessons(db, topic.id, 1, 2);
+		const [lesson] = makeLessons(db, topic.id, 1, 2);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 
 		// The two parts sit on 3 Sep P5 and P6.
 		writeTeachingNote(db, {
 			classId: classA.id,
+			lessonId: lesson.id,
 			date: '2026-09-03',
 			period: 5,
 			note: 'finish the circuit next time'
@@ -484,7 +491,7 @@ describe('the Session panel', () => {
 	test("a Continuation's extra Session shares the Lesson's Teaching note", () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
-		makeLessons(db, topic.id, 1);
+		const [lesson] = makeLessons(db, topic.id, 1);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 		recordContinuation(db, {
 			classId: classA.id,
@@ -495,6 +502,7 @@ describe('the Session panel', () => {
 
 		writeTeachingNote(db, {
 			classId: classA.id,
+			lessonId: lesson.id,
 			date: '2026-09-03',
 			period: 5,
 			note: 'needed a second Period'
@@ -520,6 +528,7 @@ describe('the Session panel', () => {
 		// The note is on P6: Lesson 2, as actually taught.
 		writeTeachingNote(db, {
 			classId: classA.id,
+			lessonId: lessons[1].id,
 			date: '2026-09-03',
 			period: 6,
 			note: 'went badly — redo the practical'
@@ -565,7 +574,13 @@ describe('the Session panel', () => {
 		const topic = makeTopic(db, course.id, 'Forces');
 		const [lesson] = makeLessons(db, topic.id, 1);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
-		writeTeachingNote(db, { classId: classA.id, date: '2026-09-03', period: 5, note: 'trip next' });
+		writeTeachingNote(db, {
+			classId: classA.id,
+			lessonId: lesson.id,
+			date: '2026-09-03',
+			period: 5,
+			note: 'trip next'
+		});
 
 		blockDay(db, { date: '2026-09-03', note: 'Snow day', today: '2026-09-10' });
 
@@ -584,7 +599,13 @@ describe('the Session panel', () => {
 		const topic = makeTopic(db, course.id, 'Forces');
 		const [lesson] = makeLessons(db, topic.id, 1);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-01' });
-		writeTeachingNote(db, { classId: classA.id, date: '2026-09-03', period: 5, note: 'trip next' });
+		writeTeachingNote(db, {
+			classId: classA.id,
+			lessonId: lesson.id,
+			date: '2026-09-03',
+			period: 5,
+			note: 'trip next'
+		});
 
 		deleteLesson(db, { id: lesson.id, today: '2026-09-01', dir: atDir, confirmed: true });
 
@@ -622,6 +643,7 @@ describe('the Session panel', () => {
 		rederive(db, classA.id, today);
 		writeTeachingNote(db, {
 			classId: classA.id,
+			lessonId: lesson.id,
 			date: first.date,
 			period: first.period,
 			note: 'went well'
