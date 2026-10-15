@@ -1,5 +1,6 @@
 import { fail } from '@sveltejs/kit';
 import { TERM_NAMES } from '$lib/calendar/generate-teaching-weeks';
+import { defaultWeek } from '$lib/calendar/default-week';
 import { today } from '$lib/date';
 import { client, db } from '$lib/server/db/client';
 import { refusal } from '$lib/server/form';
@@ -9,7 +10,6 @@ import {
 	blockDay,
 	blockSlot,
 	calendarWeek,
-	defaultWeek,
 	replaceTerms,
 	teachingWeeks,
 	unblockDay,

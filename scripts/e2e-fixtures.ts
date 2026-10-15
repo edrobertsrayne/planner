@@ -22,7 +22,8 @@ import { rmSync } from 'node:fs';
 import { and, eq } from 'drizzle-orm';
 import { inTransaction, openDatabase } from '../src/lib/server/db/index.ts';
 import * as schema from '../src/lib/server/db/schema.ts';
-import { defaultWeek, rederive, teachingWeeks } from '../src/lib/server/planner/derive.ts';
+import { defaultWeek } from '../src/lib/calendar/default-week.ts';
+import { rederive, teachingWeeks } from '../src/lib/server/planner/derive.ts';
 import {
 	assignTopic,
 	attachmentsDir,
