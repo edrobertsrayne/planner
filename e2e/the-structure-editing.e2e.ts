@@ -118,19 +118,12 @@ test.describe('the Course and Topic editors', () => {
 		await expect(page).toHaveURL(/\/courses$/);
 	});
 
-	test('Delete Course asks before it deletes, and a Course with Classes refuses', async ({
-		page
-	}) => {
+	test('a Course with Classes refuses at once, without asking', async ({ page }) => {
 		await openCourse(page);
 		await page.getByRole('button', { name: 'Course actions' }).click();
 		await page.getByRole('menuitem', { name: 'Delete Course' }).click();
-		await page.getByRole('button', { name: 'Cancel' }).click();
-		await expect(page.getByRole('heading', { level: 1, name: 'KS3 Science' })).toBeVisible();
-
-		await page.getByRole('button', { name: 'Course actions' }).click();
-		await page.getByRole('menuitem', { name: 'Delete Course' }).click();
-		await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
 		await expect(page.getByRole('alert')).toContainText('A Class follows this Course');
+		await expect(page.getByRole('dialog')).toHaveCount(0);
 	});
 });
 
