@@ -1,3 +1,9 @@
+# Work goes on a branch. main changes only through a merged PR.
+if [ "$(git symbolic-ref --short -q HEAD)" = "main" ]; then
+	echo "pre-commit: you are on main. Create a branch first: git switch -c <branch>" >&2
+	exit 1
+fi
+
 # Format and lint the staged files only; CI checks the whole tree.
 # Serial, because the Prettier and ESLint globs overlap and both write files.
 bunx lint-staged --concurrent false

@@ -15,7 +15,9 @@ When you find a simpler approach than the one agreed, say so before you build it
 
 ## Tests
 
-Run every check with `bun run test`. You can run one e2e file alone: `bun run test:e2e -- e2e/the-backup.e2e.ts`.
+While you work, run the unit and e2e files for the code you change. Run one e2e file alone with `bun run test:e2e -- e2e/the-backup.e2e.ts`.
+Run the full suite, `bun run test`, once when the work is complete. The pre-push hook runs `bun run check` and the unit tests. CI runs the full suite on each PR.
+Before you say that a PR passes, read its CI result with `gh pr checks <number>`.
 Each e2e file starts with `test.beforeAll(() => resetTo('standard'))`, or `resetTo('empty')` for the first-run wizard.
 `resetTo` in `e2e/helpers.ts` clears the e2e database and writes a known state. No file depends on another file.
 Put this call first in each new e2e file. If a file needs more data, make that data in the file.

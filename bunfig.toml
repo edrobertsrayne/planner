@@ -1,0 +1,3 @@
+# `bun test` is not this repo's test runner. The preload stops it and names the right command.
+[test]
+preload = ['./scripts/bun-test-guard.ts']
