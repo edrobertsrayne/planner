@@ -1,24 +1,22 @@
 import { eq } from 'drizzle-orm';
 import { describe, expect, test } from 'vitest';
+import { runway } from './engine';
 import { makeLessons, makeTopic, setUp } from './fixtures';
 import {
 	activeSlots,
 	assignTopic,
-	assignedTopicsOf,
 	calendarWeek,
 	classDetail,
 	classLanes,
 	classSchedule,
 	createClass,
 	listClasses,
-	moveAssignedTopic,
-	unassignTopic,
-	writeSessionNote
+	writeTeachingNote
 } from './index';
 import * as schema from '../db/schema';
 
 describe('reading a Class schedule back', () => {
-	test('lays Assigned-Topic Lessons onto the Class Available Slots in order', () => {
+	test('lays the Sequence onto the Class Available Slots in order', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		const lessons = makeLessons(db, topic.id, 3);
@@ -92,7 +90,7 @@ describe('Class Tones are assigned at creation, never derived (ADR-0013)', () =>
 });
 
 describe('running out of Available Slots', () => {
-	test('a Class whose Assigned Topics outrun the year reports unplaced Lessons rather than dropping them', () => {
+	test('a Class whose Sequence outruns the year reports unplaced Lessons rather than dropping them', () => {
 		const { db, course, classB } = setUp();
 		const topic = makeTopic(db, course.id, 'Everything');
 		// 10C/Ph2 has 2 Periods a fortnight; a 300-Lesson Topic cannot fit in one academic year.
@@ -168,74 +166,6 @@ describe('assigning Topics to a Class', () => {
 			assignTopic(db, { classId: classA.id, topicId: ownTopic.id, today: '2026-09-03' })
 		).not.toThrow();
 	});
-
-	test('accumulates one at a time, in the order assigned, shown as the shelf', () => {
-		const { db, course, classA } = setUp();
-		const forces = makeTopic(db, course.id, 'Forces');
-		const waves = makeTopic(db, course.id, 'Waves');
-
-		assignTopic(db, { classId: classA.id, topicId: forces.id, today: '2026-09-03' });
-		assignTopic(db, { classId: classA.id, topicId: waves.id, today: '2026-09-03' });
-
-		const shelf = assignedTopicsOf(db, classA.id);
-		expect(shelf.map((a) => a.topicName)).toEqual(['Forces', 'Waves']);
-	});
-
-	test('reorders freely, and the order is the teaching order', () => {
-		const { db, course, classA } = setUp();
-		const forces = makeTopic(db, course.id, 'Forces');
-		makeLessons(db, forces.id, 2);
-		const waves = makeTopic(db, course.id, 'Waves');
-		const wavesLessons = makeLessons(db, waves.id, 2);
-
-		assignTopic(db, { classId: classA.id, topicId: forces.id, today: '2026-09-03' });
-		assignTopic(db, {
-			classId: classA.id,
-			topicId: waves.id,
-			today: '2026-09-03'
-		});
-		const wavesRow = assignedTopicsOf(db, classA.id).find((a) => a.topicId === waves.id)!;
-
-		moveAssignedTopic(db, {
-			classId: classA.id,
-			id: wavesRow.id,
-			direction: 'up',
-			today: '2026-09-03'
-		});
-
-		const shelf = assignedTopicsOf(db, classA.id);
-		expect(shelf.map((a) => a.topicName)).toEqual(['Waves', 'Forces']);
-
-		const schedule = classSchedule(db, { classId: classA.id, today: '2026-09-03' });
-		// Moving Waves up makes its Lesson the first taught — the teaching order is the shelf.
-		expect(schedule.scheduled[0].lessonId).toBe(wavesLessons[0].id);
-	});
-
-	test('unassigns a Topic the Class has not reached', () => {
-		const { db, course, classA } = setUp();
-		const forces = makeTopic(db, course.id, 'Forces');
-		makeLessons(db, forces.id, 3);
-
-		assignTopic(db, { classId: classA.id, topicId: forces.id, today: '2026-09-03' });
-		const row = assignedTopicsOf(db, classA.id)[0];
-
-		unassignTopic(db, { classId: classA.id, id: row.id, today: '2026-09-03' });
-
-		expect(assignedTopicsOf(db, classA.id)).toEqual([]);
-	});
-
-	test('refuses to unassign a Topic the Class has already been taught', () => {
-		const { db, course, classA } = setUp();
-		const forces = makeTopic(db, course.id, 'Forces');
-		makeLessons(db, forces.id, 3);
-
-		assignTopic(db, { classId: classA.id, topicId: forces.id, today: '2026-09-03' });
-		const row = assignedTopicsOf(db, classA.id)[0];
-
-		expect(() =>
-			unassignTopic(db, { classId: classA.id, id: row.id, today: '2026-09-10' })
-		).toThrow(/already been taught/);
-	});
 });
 
 describe('the Classes view', () => {
@@ -247,8 +177,9 @@ describe('the Classes view', () => {
 
 		// classA's first Available Slot is 3 Sep's Thursday double (P5, P6): Lesson 1 lands on
 		// P5, Lesson 2 on P6 — both taught by the time `today` moves past them.
-		writeSessionNote(db, {
+		writeTeachingNote(db, {
 			classId: classA.id,
+			lessonId: lessons[1].id,
 			date: '2026-09-03',
 			period: 6,
 			note: 'went well'
@@ -259,8 +190,6 @@ describe('the Classes view', () => {
 		const [lane] = classLanes(db, { today: '2026-09-05', classId: classA.id });
 
 		expect(lane.classId).toBe(classA.id);
-		expect(lane.taught).toBe(2);
-		expect(lane.total).toBe(3);
 		expect(lane.lastTaught).toMatchObject({
 			date: '2026-09-03',
 			period: 6,
@@ -269,19 +198,39 @@ describe('the Classes view', () => {
 			note: 'went well'
 		});
 		expect(lane.nextUp).toMatchObject({ title: lessons[2].title, topicName: 'Forces' });
-		expect(lane.unplacedCount).toBe(0);
+		expect(lane.runway.lessonsRemaining).toBe(0);
 		expect(lane.runway).toEqual(
 			classSchedule(db, { classId: classA.id, today: '2026-09-05' }).runway
 		);
 	});
 
-	test('a Class with no Assigned Topics has nothing taught, nothing queued, and an untouched Runway', () => {
+	test('the lane shows the Teaching note of the Lesson, whichever of its Sessions carries it', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [first] = makeLessons(db, topic.id, 2, 2);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+
+		// The Lesson fills 3 Sep P5 and P6. The note goes on the first part.
+		writeTeachingNote(db, {
+			classId: classA.id,
+			lessonId: first.id,
+			date: '2026-09-03',
+			period: 5,
+			note: 'ramps'
+		});
+
+		const [lane] = classLanes(db, { today: '2026-09-05', classId: classA.id });
+		expect(lane.lastTaught).toMatchObject({ title: first.title, period: 6, note: 'ramps' });
+		expect(
+			db.select().from(schema.teachingNote).where(eq(schema.teachingNote.classId, classA.id)).all()
+		).toMatchObject([{ lessonId: first.id, body: 'ramps' }]);
+	});
+
+	test('a Class with an empty Sequence has nothing taught, nothing queued, and an untouched Runway', () => {
 		const { db, classA } = setUp();
 
 		const [lane] = classLanes(db, { today: '2026-09-03', classId: classA.id });
 
-		expect(lane.taught).toBe(0);
-		expect(lane.total).toBe(0);
 		expect(lane.lastTaught).toBeNull();
 		expect(lane.nextUp).toBeNull();
 		// Every Available Slot is Open — the Runway date is the first of them, straight away.
@@ -289,7 +238,7 @@ describe('the Classes view', () => {
 		expect(lane.runway.lessonsRemaining).toBe(0);
 	});
 
-	test('a Class whose Assigned Topics outrun the year reports its unplaced count on the lane', () => {
+	test('a Class whose Sequence outruns the year reports its unplaced count on the lane', () => {
 		const { db, course, classB } = setUp();
 		const topic = makeTopic(db, course.id, 'Everything');
 		makeLessons(db, topic.id, 300);
@@ -297,8 +246,25 @@ describe('the Classes view', () => {
 
 		const [lane] = classLanes(db, { today: '2026-09-03', classId: classB.id });
 
-		expect(lane.unplacedCount).toBeGreaterThan(0);
-		expect(lane.runway.lessonsRemaining).toBe(lane.unplacedCount);
+		const { unplaced } = classSchedule(db, { classId: classB.id, today: '2026-09-03' });
+		expect(lane.runway.lessonsRemaining).toBeGreaterThan(0);
+		expect(lane.runway.lessonsRemaining).toBe(new Set(unplaced.map((p) => p.lessonId)).size);
+	});
+
+	test('the Runway counts a Lesson past the end once, however many parts it has', () => {
+		const result = {
+			boundary: '2026-09-03',
+			history: [],
+			scheduled: [],
+			openSlots: [],
+			strandedPlacementIds: [],
+			unplaced: [
+				{ lessonId: 'a', part: 1, of: 2 },
+				{ lessonId: 'a', part: 2, of: 2 },
+				{ lessonId: 'b', part: 1, of: 1 }
+			]
+		};
+		expect(runway(result)).toEqual({ date: null, lessonsRemaining: 2 });
 	});
 
 	test('a lane carries the Tone stored on the Class, so the tile can colour itself', () => {

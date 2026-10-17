@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { BEARER, apiKey, keysOf } from './helpers.ts';
-import { nextSaturday, nextWeekday, plusDays, resetTo, todayIso } from '../helpers.ts';
+import { apiKey, keysOf } from './helpers.ts';
+import { BEARER, nextSaturday, nextWeekday, plusDays, resetTo, todayIso } from '../helpers.ts';
 
 // Covers the three Blocked Day endpoints over real HTTP (issues #159 and #165): the key check,
-// the Rewind's at-risk report beside each write, the weekend and duplicate refusals, and removal
+// the Rewind's report beside each write, the weekend and duplicate refusals, and removal
 // by date.
 
 test.beforeAll(() => resetTo('standard'));
@@ -42,7 +42,7 @@ test.describe.serial('the Blocked Day endpoints', () => {
 		expect(created.status()).toBe(201);
 		const report = await created.json();
 		expect(report.blockedDay).toEqual({ date: inset, note: null });
-		expect(report.report.atRisk).toEqual([]);
+		expect(report.report).toEqual({ placementsMoved: [] });
 
 		// A weekend is a 400 where an already-blocked date is a 409 — the two must be
 		// distinguishable, and the teacher is told which.
@@ -94,7 +94,7 @@ test.describe.serial('the Blocked Day endpoints', () => {
 
 		const removed = await request.delete(`/api/blocked-days/${inset}`, { headers: BEARER(token) });
 		expect(removed.status()).toBe(200);
-		expect((await removed.json()).report.atRisk).toEqual([]);
+		expect((await removed.json()).report).toEqual({ placementsMoved: [] });
 
 		const remaining = await request.get('/api/blocked-days', { headers: BEARER(token) });
 		expect((await remaining.json()).blockedDays.map((d: { date: string }) => d.date)).toEqual([

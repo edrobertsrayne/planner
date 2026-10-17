@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { BEARER, apiKey, keysOf } from './helpers.ts';
-import { resetTo } from '../helpers.ts';
+import { apiKey, keysOf } from './helpers.ts';
+import { BEARER, resetTo } from '../helpers.ts';
 
 // Covers the two Course endpoints over real HTTP (issue #159): the key gate every route shares,
 // probed here against the Course routes, then the status codes, the uniqueness and validation

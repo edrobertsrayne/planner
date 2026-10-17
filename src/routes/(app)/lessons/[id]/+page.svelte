@@ -12,6 +12,7 @@
 	import UnlinkIcon from '@lucide/svelte/icons/unlink';
 	import XIcon from '@lucide/svelte/icons/x';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import MarkdownEditor from '$lib/components/markdown-editor.svelte';
@@ -62,7 +63,32 @@
 		};
 	};
 
-	// Stepping follows the Topic's order and stops at both ends. It replaces the history entry, so
+	// A Lesson that a Sequence holds asks first. The action answers with `needsConfirm` and the
+	// reason, which names the Classes; the dialog then posts the same delete with `confirmed`.
+	let confirmDelete = $state<{ id: string; reason: string } | null>(null);
+	const onDelete: SubmitFunction = ({ formData }) => {
+		const id = String(formData.get('id'));
+		return async ({ result, update }) => {
+			confirmDelete = null;
+			if (result.type === 'success') {
+				toast.success('Lesson deleted.');
+				// This page goes with the Lesson, so the report outlives it as a toast.
+				const report = reportOfResult(result);
+				if (hasReport(report)) {
+					toast.custom(RewindReport, { componentProps: { report }, duration: 20000 });
+				}
+				await back();
+			} else if (result.type === 'failure' && result.data?.needsConfirm) {
+				confirmDelete = { id, reason: failureReason(result, 'Delete this Lesson?') };
+			} else if (result.type === 'failure') {
+				toast.error(failureReason(result, 'Could not delete the Lesson.'));
+			} else {
+				await update();
+			}
+		};
+	};
+
+	// Stepping follows the Class's Sequence, or the Topic's order without a Class, and stops at both ends. It replaces the history entry, so
 	// one browser Back leaves the Lesson editor however far Ed has stepped. It waits for a save
 	// in flight (a click blurs the field first), since `beforeNavigate` would otherwise cancel the
 	// move and redo it as a plain `goto` that pushes an entry.
@@ -74,9 +100,11 @@
 	async function step(id: string | null) {
 		if (!id) return;
 		await saving;
-		await goto(resolve(`/lessons/${id}`), { replaceState: true });
+		const query = data.stepClass ? `?class=${data.stepClass.id}` : '';
+		await goto(resolve(`/lessons/${id}${query}`), { replaceState: true });
 	}
 	function stepWithKey(e: KeyboardEvent) {
+		if (confirmDelete) return;
 		if (e.ctrlKey || e.metaKey || e.altKey) return;
 		if (e.key !== '[' && e.key !== ']') return;
 		const focused = document.activeElement as HTMLElement | null;
@@ -139,7 +167,11 @@
 				>
 					<ChevronLeftIcon />
 				</Button>
-				<span class="tabular-nums">Lesson {index + 1} of {data.siblingIds.length}</span>
+				<span class="tabular-nums"
+					>Lesson {index + 1} of {data.siblingIds.length}{data.stepClass
+						? ` in ${data.stepClass.label}`
+						: ''}</span
+				>
 				<Button
 					variant="ghost"
 					size="icon-sm"
@@ -265,6 +297,37 @@
 									>
 										{#each data.topics as t (t.id)}
 											<option value={t.id}>{t.name}</option>
+										{/each}
+									</select>
+								</form>
+							{/if}
+
+							{#if !data.topic && data.topicChoices.some((g) => g.topics.length)}
+								<label for="lesson-topic" class="text-muted-foreground">Topic</label>
+								<form
+									method="POST"
+									action="?/moveLessonToTopic"
+									use:enhance={() => {
+										return async ({ update }) => update({ reset: false });
+									}}
+								>
+									<input type="hidden" name="id" value={lesson.id} />
+									<select
+										id="lesson-topic"
+										name="topicId"
+										value=""
+										class="w-full rounded-md border border-input bg-background px-2 py-1 text-sm pointer-coarse:min-h-11"
+										onchange={(e) => e.currentTarget.form?.requestSubmit()}
+									>
+										<option value="" disabled>Choose a Topic…</option>
+										{#each data.topicChoices as group (group.id)}
+											{#if group.topics.length}
+												<optgroup label={group.course}>
+													{#each group.topics as t (t.id)}
+														<option value={t.id}>{t.name}</option>
+													{/each}
+												</optgroup>
+											{/if}
 										{/each}
 									</select>
 								</form>
@@ -482,27 +545,7 @@
 					</div>
 
 					<div class="flex flex-wrap items-center gap-1 border-t pt-3 max-lg:order-4">
-						<form
-							method="POST"
-							action="?/deleteLesson"
-							use:enhance={() => {
-								return async ({ result, update }) => {
-									if (result.type === 'success') {
-										toast.success('Lesson deleted.');
-										// This page goes with the Lesson, so the report outlives it as a toast.
-										const report = reportOfResult(result);
-										if (hasReport(report)) {
-											toast.custom(RewindReport, { componentProps: { report }, duration: 20000 });
-										}
-										await back();
-									} else if (result.type === 'failure') {
-										toast.error(failureReason(result, 'Could not delete the Lesson.'));
-									} else {
-										await update();
-									}
-								};
-							}}
-						>
+						<form method="POST" action="?/deleteLesson" use:enhance={onDelete}>
 							<input type="hidden" name="id" value={lesson.id} />
 							<Button
 								type="submit"
@@ -617,3 +660,29 @@
 		{/if}
 	{/key}
 </div>
+
+<Dialog.Root
+	open={confirmDelete !== null}
+	onOpenChange={(open) => {
+		if (!open) confirmDelete = null;
+	}}
+>
+	<Dialog.Content class="sm:max-w-md">
+		<Dialog.Header>
+			<Dialog.Title>Delete this Lesson?</Dialog.Title>
+			<Dialog.Description>
+				{confirmDelete?.reason}
+			</Dialog.Description>
+		</Dialog.Header>
+		<Dialog.Footer>
+			<Button variant="outline" size="sm" class="h-7" onclick={() => (confirmDelete = null)}>
+				Cancel
+			</Button>
+			<form method="POST" action="?/deleteLesson" use:enhance={onDelete}>
+				<input type="hidden" name="id" value={confirmDelete?.id} />
+				<input type="hidden" name="confirmed" value="true" />
+				<Button type="submit" variant="destructive" size="sm" class="h-7">Delete</Button>
+			</form>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>

@@ -131,7 +131,7 @@ test.describe.serial('the Calendar setup mode', () => {
 		await expect(page.getByRole('button', { name: 'Set up year' })).toBeVisible();
 	});
 
-	test('saving applies the six Terms all at once and reports plainly when nothing was put at risk', async () => {
+	test('saving applies the six Terms all at once and says plainly that the year is saved', async () => {
 		await page.getByRole('button', { name: 'Set up year' }).click();
 
 		// Extend the year by four weeks, this time for real.
@@ -139,9 +139,8 @@ test.describe.serial('the Calendar setup mode', () => {
 		await page.getByLabel('Summer 2 closing date').fill(plusDays(savedCloses, 28));
 		await page.getByRole('button', { name: 'Save year' }).click();
 
-		// Back on the week grid, with the empty at-risk report said plainly rather than left to
-		// read as silence.
-		await expect(page.getByText('The year is saved. No Sessions were put at risk.')).toBeVisible();
+		// Back on the week grid, with the save said plainly rather than left to read as silence.
+		await expect(page.getByText('The year is saved.')).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Set up year' })).toBeVisible();
 		await expect(page.locator('[data-week-preview]')).toHaveCount(0);
 
@@ -154,8 +153,8 @@ test.describe.serial('the Calendar setup mode', () => {
 	test('a Blocked Day is added from setup mode, refused where the date cannot be one, and removed', async () => {
 		await page.getByRole('button', { name: 'Set up year' }).click();
 
-		// A weekday inside the second Term, with no Session noted on it — so adding it says
-		// plainly that nothing was put at risk, and the week it falls in loses a teaching day.
+		// A weekday inside the second Term — so adding it says plainly that no Placement moved,
+		// and the week it falls in loses a teaching day.
 		// Holds on any real-world day the suite runs on: nextWeekday absorbs a Saturday or Sunday
 		// "today" by stepping forward at most two days, and the second Term (isoDate(-14) to
 		// isoDate(56) in teaching-flows.e2e.ts) is wide enough around day 40 to swallow that step.

@@ -5,7 +5,7 @@ description: Seeded demo database and a running, logged-in app. Use for a UI pro
 
 # Demo database
 
-`scripts/demo-db.ts` builds a fresh database through the planner seam: three Classes, two Courses, Lessons with markdown and maths bodies, taught Sessions from the last two weeks, a queue ahead, and one Session note. The user is created through `/setup`, as a real install does. Leave `dev.db` alone; it is the user's.
+`scripts/demo-db.ts` builds a fresh database through the planner seam: three Classes, two Courses, Lessons with markdown and maths bodies, taught Sessions from the last two weeks, untaught Lessons ahead, and one Teaching note. The user is created through `/setup`, as a real install does. Leave `dev.db` alone; it is the user's.
 
 ## Steps
 

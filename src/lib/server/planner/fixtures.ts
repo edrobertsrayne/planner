@@ -1,9 +1,12 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { eq } from 'drizzle-orm';
 import { afterEach, expect } from 'vitest';
 import { openDatabase, runMigrations } from '../db';
 import * as schema from '../db/schema';
+import { rederive, type Db } from './derive';
+import { writeOrder } from './sequence';
 import { addSlot, attachmentsDir, createClass, Refused, type RefusalKind } from './index';
 
 // Asserts the call is refused the one way the seam refuses: a `Refused` throw carrying the
@@ -103,4 +106,21 @@ export function setUpAuthoring() {
 	const { client, db } = openDatabase(join(dir, 'test.db'));
 	runMigrations(client, 'drizzle');
 	return { db, client, dir, atDir: attachmentsDir(join(dir, 'test.db')) };
+}
+
+// Writes a Class's Sequence in the given Lesson order, then re-derives the Class from `today`.
+// For a Sequence the Sequence writes would refuse, such as Lessons of another Course (Assign Topic
+// is `invalid` for them). It replaces every `class_lesson` row of the Class.
+export function setSequence(
+	db: Db,
+	classId: string,
+	lessonIds: string[],
+	today = '2026-09-03'
+): void {
+	db.delete(schema.classLesson).where(eq(schema.classLesson.classId, classId)).run();
+	lessonIds.forEach((lessonId) =>
+		db.insert(schema.classLesson).values({ classId, lessonId, position: 0 }).run()
+	);
+	writeOrder(db, classId, lessonIds);
+	rederive(db, classId, today);
 }

@@ -108,13 +108,20 @@ export const lessonActions = {
 	},
 
 	// The seam writes the reason: a Lesson a Class has already been taught refuses with the Detach
-	// hint, and one a Placement names with the Placement way out.
+	// hint, and one a Placement names with the Placement way out. A Lesson that a Sequence holds
+	// asks first: the answer carries `needsConfirm`, and the page asks again with `confirmed`.
 	deleteLesson: async ({ request }) => {
 		const data = await request.formData();
 		const id = trimmed(data, 'id');
 		try {
-			const result = deleteLesson(db, { id, today: today(), dir: attachmentsDir(DATABASE_URL) });
+			const result = deleteLesson(db, {
+				id,
+				today: today(),
+				dir: attachmentsDir(DATABASE_URL),
+				confirmed: trimmed(data, 'confirmed') === 'true'
+			});
 			if (!result) return fail(404, { error: 'No such Lesson.' });
+			if ('needsConfirm' in result) return fail(409, { error: result.reason, needsConfirm: true });
 			return { report: reportOf(result) };
 		} catch (error) {
 			return refusal(error);

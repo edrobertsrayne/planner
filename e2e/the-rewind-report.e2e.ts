@@ -1,21 +1,22 @@
 import { test, expect, type Page } from '@playwright/test';
-import { expectToast, resetTo } from './helpers.ts';
 import {
 	BEARER,
 	FIXTURE_CLASS_LABEL,
 	FIXTURE_COURSE,
 	openPage,
+	resetTo,
 	standingKey
-} from './the-planning-api/helpers.ts';
+} from './helpers.ts';
 
-// A Lesson written in front of a noted future Session reaches the teacher as one Rewind report
-// (issue #357). It gives 9C/Sc1 from the standard state (Tuesday P3, Open Slots) two Topics of
-// one Lesson each in KS3 Science, notes the Session that the second Topic's Lesson fills, and
-// undoes all of it at the end.
+// A Teaching note follows its Lesson when a write moves the Lesson (ADR-0026), and writing a
+// Lesson changes no Class's dates. It gives 9C/Sc1 from the standard state (Tuesday P3, Open
+// Slots) one Topic of one Lesson and one Topic of two Lessons in KS3 Science, assigns them
+// through the Sequence tab, notes the Session that the first Lesson of the second Topic fills,
+// and undoes all of it at the end.
 
 test.beforeAll(() => resetTo('standard'));
 
-test.describe.serial('the Rewind report after a Lesson write', () => {
+test.describe.serial('a Teaching note and the Sequence after a Lesson write', () => {
 	let page: Page;
 	let token = '';
 	let courseId = '';
@@ -37,15 +38,27 @@ test.describe.serial('the Rewind report after a Lesson write', () => {
 		await expect(page).toHaveURL(/\/classes\/[^/]+$/);
 	}
 
-	async function openNoteOfSecondSession() {
-		await openFixtureClass();
-		const next = page
+	function nextSessions() {
+		return page
 			.locator('section')
-			.filter({ has: page.getByRole('heading', { name: 'Next Sessions' }) });
-		await next.locator('li').nth(1).getByRole('link').first().click();
-		const note = page.getByLabel('How it went');
-		await expect(note).toBeVisible();
-		return note;
+			.filter({ has: page.getByRole('heading', { name: 'Next Sessions' }) })
+			.locator('li');
+	}
+
+	// The Session page of the nth Session the Class teaches next.
+	async function openNextSession(index: number) {
+		await openFixtureClass();
+		await nextSessions().nth(index).getByRole('link').first().click();
+		await expect(page.getByRole('button', { name: 'Back' })).toBeVisible();
+	}
+
+	// × on a card of the Sequence tab takes the Lesson out of this Class and keeps the Lesson.
+	async function removeFromSequence(title: string) {
+		await openFixtureClass();
+		await page.getByRole('tab', { name: /^Sequence/ }).click();
+		await page.getByRole('button', { name: `Remove ${title}` }).click();
+		await page.getByRole('dialog').getByRole('button', { name: 'Remove', exact: true }).click();
+		await expect(page.locator('[data-remove-result]')).toContainText('Removed 1 Lesson.');
 	}
 
 	test.beforeAll(async ({ browser }) => {
@@ -56,42 +69,40 @@ test.describe.serial('the Rewind report after a Lesson write', () => {
 			await page.request.get('/api/courses', { headers: BEARER(token) })
 		).json();
 		courseId = courses.find((c: { name: string }) => c.name === FIXTURE_COURSE).id;
-		for (const [name, lesson] of [
-			['Rewind A', 'A one'],
-			['Rewind B', 'B one']
-		]) {
+		for (const [name, titles] of [
+			['Rewind A', ['A one']],
+			['Rewind B', ['B one', 'B two']]
+		] as const) {
 			const topic = await post(`/api/courses/${courseId}/topics`, { name });
 			topicIds.push(topic.id);
-			await post(`/api/topics/${topic.id}/lessons`, { title: lesson });
+			for (const title of titles) await post(`/api/topics/${topic.id}/lessons`, { title });
 		}
 
 		await openFixtureClass();
-		for (const name of ['Rewind A', 'Rewind B']) {
-			await page.getByRole('button', { name: 'Assign next Topic' }).click();
-			await page.getByRole('option', { name }).click();
-			await expect(page.getByRole('button', { name: `Unassign ${name}` })).toBeVisible();
+		await page.getByRole('tab', { name: /^Sequence/ }).click();
+		for (const [name, added] of [
+			['Rewind A', 'Added 1 Lesson'],
+			['Rewind B', 'Added 2 Lessons']
+		]) {
+			await page.getByRole('button', { name: 'Assign Topic' }).click();
+			await page.getByRole('menuitem', { name: new RegExp(`^${name} `) }).click();
+			await expect(page.getByText(`${added} from ${name}.`)).toBeVisible();
 		}
 
 		// The second Session the Class teaches carries 'B one'. Note it.
-		const note = await openNoteOfSecondSession();
+		await openNextSession(1);
+		const note = page.getByLabel('How it went');
+		await expect(note).toBeVisible();
 		await note.click();
 		await note.pressSequentially('book the ripple tank');
 		await page.getByRole('button', { name: 'Back' }).click();
 	});
 
 	test.afterAll(async () => {
-		// The note goes first, so the Rewind of the unassigns sweeps the Session row away.
-		const note = await openNoteOfSecondSession();
-		await note.click();
-		await page.keyboard.press('ControlOrMeta+a');
-		await page.keyboard.press('Delete');
-		await page.getByRole('button', { name: 'Back' }).click();
+		// Remove takes each Lesson out of the Class's Sequence, with its Teaching note, and keeps
+		// the Lesson. The Class has no Sequence again, and the Lessons then delete without a confirm.
+		for (const title of ['A one', 'B one', 'B two']) await removeFromSequence(title);
 
-		await openFixtureClass();
-		for (const name of ['Rewind A', 'Rewind B']) {
-			await page.getByRole('button', { name: `Unassign ${name}` }).click();
-			await expect(page.getByRole('button', { name: `Unassign ${name}` })).toHaveCount(0);
-		}
 		for (const id of topicIds) {
 			const lessons = await (
 				await page.request.get(`/api/topics/${id}/lessons`, { headers: BEARER(token) })
@@ -104,37 +115,53 @@ test.describe.serial('the Rewind report after a Lesson write', () => {
 		await page.close();
 	});
 
-	async function openTopic() {
-		await page.goto(`/courses/${courseId}?topic=${topicIds[0]}`);
-		await expect(page.getByRole('link', { name: 'A one', exact: true })).toBeVisible();
-	}
+	test('a Lesson moved in front of a noted Lesson moves its Teaching note to the new date', async () => {
+		await openFixtureClass();
+		await page.goto(`${page.url()}?layout=list`);
+		await page.getByRole('tab', { name: /^Sequence/ }).click();
+		const titles = page.locator('[data-sequence] [data-title]');
+		await expect(titles).toHaveText(['A one', 'B one', 'B two']);
 
-	test('adding a Lesson in front of a noted Session shows the report', async () => {
-		await openTopic();
+		// 'B two' takes the place of 'B one': 'B one' moves from the second Session to the third.
+		const grip = await page.getByRole('button', { name: 'Drag B two' }).boundingBox();
+		const card = await page
+			.locator('[data-sequence] > li')
+			.filter({ hasText: 'B one' })
+			.boundingBox();
+		await page.mouse.move(grip!.x + grip!.width / 2, grip!.y + grip!.height / 2);
+		await page.mouse.down();
+		await page.mouse.move(card!.x + card!.width / 2, card!.y + card!.height / 2, { steps: 6 });
+		await page.mouse.up();
+		await expect(titles).toHaveText(['A one', 'B two', 'B one']);
+
+		// The note went with 'B one' to the third Session, and the second Session has none.
+		await openNextSession(2);
+		await expect(page.locator('main')).toContainText('B one');
+		await expect(page.getByLabel('How it went')).toHaveText('book the ripple tank');
+		await page.getByRole('button', { name: 'Back' }).click();
+
+		await nextSessions().nth(1).getByRole('link').first().click();
+		await expect(page.locator('main')).toContainText('B two');
+		await expect(page.getByLabel('How it went')).toHaveText('');
+		await page.getByRole('button', { name: 'Back' }).click();
+	});
+
+	test('a Lesson added in a Topic changes no date in the Class', async () => {
+		await openFixtureClass();
+		const before = await nextSessions().allInnerTexts();
+		expect(before[0]).toContain('A one');
+
+		await page.goto(`/courses/${courseId}?topic=${topicIds[1]}`);
+		await expect(page.getByRole('link', { name: 'B one', exact: true })).toBeVisible();
 		const box = page.getByPlaceholder('New Lesson title — press Enter');
-		await box.fill('A extra');
+		await box.fill('B extra');
 		await box.press('Enter');
-
-		await expect(page.getByText(/The Rewind changed the Lesson on .* noted Session/)).toBeVisible();
-		await expect(
-			page.getByText(new RegExp(`${FIXTURE_CLASS_LABEL} · .* P\\d — now B one`))
-		).toBeVisible();
+		await expect(page.getByRole('link', { name: 'B extra', exact: true })).toBeVisible();
 		await expect(box).toBeFocused();
-	});
 
-	test('moving a Lesson in front of a noted Session shows the report', async () => {
-		await openTopic();
-		await expect(page.getByText('The Rewind changed the Lesson')).toHaveCount(0);
-		await page.getByRole('button', { name: 'Move A extra up' }).click();
-
-		await expect(page.getByText(/The Rewind changed the Lesson on .* noted Session/)).toBeVisible();
-	});
-
-	test('deleting a Lesson in front of a noted Session shows the report', async () => {
-		await openTopic();
-		await page.getByRole('link', { name: 'A extra', exact: true }).click();
-		await page.getByRole('button', { name: 'Delete Lesson' }).click();
-
-		await expectToast(page, 'The Rewind changed the Lesson on');
+		// The new Lesson joins no Sequence: the Class has the same Sessions and three Lessons.
+		await openFixtureClass();
+		expect(await nextSessions().allInnerTexts()).toEqual(before);
+		await expect(page.getByRole('tab', { name: 'Sequence 3' })).toBeVisible();
 	});
 });

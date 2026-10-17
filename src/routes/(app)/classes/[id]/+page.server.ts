@@ -5,7 +5,6 @@ import { refusal, trimmed } from '$lib/server/form';
 import {
 	academicYearStart,
 	activeSlots,
-	assignedTopicsOf,
 	assignTopic,
 	classDetail,
 	classLanes,
@@ -13,15 +12,24 @@ import {
 	datedSlotsOf,
 	holderAt,
 	listClasses,
-	moveAssignedTopic,
+	addLesson,
+	moveLessons,
 	takeSlot,
 	clearSlot,
+	removeFromSequence,
 	renameClass,
 	reportOf,
 	setSlotRoom,
-	topicsOf,
-	unassignTopic
+	sequenceView
 } from '$lib/server/planner';
+import {
+	addedLine,
+	assignedLine,
+	changeLine,
+	removedLine,
+	skippedLine,
+	type SequenceResult
+} from '$lib/sequence-text';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ params, url }) => {
@@ -46,8 +54,7 @@ export const load: PageServerLoad = ({ params, url }) => {
 		on,
 		grid: activeSlots(db, on),
 		datedSlots: datedSlotsOf(db, selected.id),
-		assignedTopics: assignedTopicsOf(db, selected.id),
-		courseTopics: topicsOf(db, selected.courseId),
+		sequence: sequenceView(db, { classId: selected.id, today: today() }),
 		// Labels the grid needs for a Slot held by another Class — the grid itself carries only
 		// classId (activeSlots' shape is unchanged), so the label is looked up here.
 		classes: listClasses(db)
@@ -100,8 +107,85 @@ export const actions: Actions = {
 		const topicId = trimmed(data, 'topicId');
 		if (!topicId) return fail(400, { error: 'Pick a Topic to assign.' });
 		try {
-			const report = assignTopic(db, { classId, topicId, today: today() });
-			return { report };
+			const result = assignTopic(db, { classId, topicId, today: today() });
+			return {
+				report: reportOf(result),
+				sequenceResult: {
+					kind: 'assign',
+					lines: [
+						assignedLine(result.added.length, result.topicName),
+						...result.skipped.map(({ title, reason }) => skippedLine(title, reason))
+					],
+					changed: [],
+					ringed: []
+				} satisfies SequenceResult
+			};
+		} catch (error) {
+			return refusal(error);
+		}
+	},
+
+	moveLessons: async ({ request }) => {
+		const data = await request.formData();
+		const classId = trimmed(data, 'classId');
+		const targetId = trimmed(data, 'targetId');
+		const lessonIds = trimmed(data, 'lessonIds').split(',').filter(Boolean);
+		try {
+			const result = moveLessons(db, { classId, lessonIds, targetId, today: today() });
+			return {
+				report: reportOf(result),
+				sequenceResult: {
+					kind: 'move',
+					lines: [changeLine(result.changed.length)],
+					changed: result.changed,
+					ringed: lessonIds
+				} satisfies SequenceResult
+			};
+		} catch (error) {
+			return refusal(error);
+		}
+	},
+
+	removeLessons: async ({ request }) => {
+		const data = await request.formData();
+		const classId = trimmed(data, 'classId');
+		const lessonIds = trimmed(data, 'lessonIds').split(',').filter(Boolean);
+		try {
+			const result = removeFromSequence(db, { classId, lessonIds, today: today() });
+			return {
+				report: reportOf(result),
+				sequenceResult: {
+					kind: 'remove',
+					lines: [removedLine(lessonIds.length), changeLine(result.changed.length)],
+					changed: result.changed,
+					ringed: []
+				} satisfies SequenceResult
+			};
+		} catch (error) {
+			return refusal(error);
+		}
+	},
+
+	addLesson: async ({ request }) => {
+		const data = await request.formData();
+		const classId = trimmed(data, 'classId');
+		const afterLessonId = trimmed(data, 'afterLessonId') || null;
+		try {
+			const result = addLesson(db, {
+				classId,
+				title: String(data.get('title') ?? ''),
+				afterLessonId,
+				today: today()
+			});
+			return {
+				report: reportOf(result),
+				sequenceResult: {
+					kind: 'add',
+					lines: [addedLine(result.lesson.title), changeLine(result.changed.length)],
+					changed: result.changed,
+					ringed: []
+				} satisfies SequenceResult
+			};
 		} catch (error) {
 			return refusal(error);
 		}
@@ -112,27 +196,5 @@ export const actions: Actions = {
 		const slot = setSlotRoom(db, { id: trimmed(data, 'id'), room: String(data.get('room') ?? '') });
 		if (!slot) return fail(404, { error: 'No such Slot.' });
 		return { slot };
-	},
-
-	unassignTopic: async ({ request }) => {
-		const data = await request.formData();
-		const classId = trimmed(data, 'classId');
-		const id = trimmed(data, 'id');
-		try {
-			const report = unassignTopic(db, { classId, id, today: today() });
-			return { report };
-		} catch (error) {
-			return refusal(error);
-		}
-	},
-
-	moveAssignedTopic: async ({ request }) => {
-		const data = await request.formData();
-		const classId = trimmed(data, 'classId');
-		const id = trimmed(data, 'id');
-		const direction = trimmed(data, 'direction');
-		if (direction !== 'up' && direction !== 'down') return fail(400, { error: 'Bad direction.' });
-		const report = moveAssignedTopic(db, { classId, id, direction, today: today() });
-		return { report };
 	}
 };

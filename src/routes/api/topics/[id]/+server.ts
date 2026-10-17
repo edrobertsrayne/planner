@@ -1,10 +1,9 @@
 import { json } from '@sveltejs/kit';
-import { today } from '$lib/date';
-import { DATABASE_URL, db } from '$lib/server/db/client';
+import { db } from '$lib/server/db/client';
 import { topic } from '$lib/server/db/schema';
 import { requireApiKey } from '$lib/server/api-key';
 import { refusalJson, requireExisting, stringField } from '$lib/server/api-helpers';
-import { renameTopic, deleteTopic, attachmentsDir } from '$lib/server/planner';
+import { renameTopic, deleteTopic } from '$lib/server/planner';
 import { eq } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
@@ -58,10 +57,7 @@ export const DELETE: RequestHandler = async (event) => {
 	if (auth) return auth;
 
 	try {
-		const result = deleteTopic(db, event.params.id, {
-			today: today(),
-			dir: attachmentsDir(DATABASE_URL)
-		});
+		const result = deleteTopic(db, event.params.id);
 
 		// An unknown id is a URL miss — the route's own 404, not the seam's. The confirm question
 		// is the one failure that is not a refusal; the API never confirms, so it stays a 409.

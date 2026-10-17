@@ -2,19 +2,14 @@ import { fail } from '@sveltejs/kit';
 import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
 import { refusal, trimmed } from '$lib/server/form';
-import { assignTopic, classLanes, createClass, listCourses, topicsOf } from '$lib/server/planner';
+import { classLanes, createClass, listCourses } from '$lib/server/planner';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = () => {
 	const courses = listCourses(db);
 	const lanes = classLanes(db, { today: today() });
 
-	const courseTopics: Record<string, ReturnType<typeof topicsOf>> = {};
-	for (const courseId of new Set(lanes.map((l) => l.courseId))) {
-		courseTopics[courseId] = topicsOf(db, courseId);
-	}
-
-	return { courses, lanes, courseTopics };
+	return { courses, lanes };
 };
 
 export const actions: Actions = {
@@ -25,19 +20,6 @@ export const actions: Actions = {
 		if (!courseId) return fail(400, { error: 'A Class needs a Course.' });
 		try {
 			return { class: createClass(db, { label, courseId }) };
-		} catch (error) {
-			return refusal(error);
-		}
-	},
-
-	assignTopic: async ({ request }) => {
-		const data = await request.formData();
-		const classId = trimmed(data, 'classId');
-		const topicId = trimmed(data, 'topicId');
-		if (!topicId) return fail(400, { error: 'Pick a Topic to assign.' });
-		try {
-			const report = assignTopic(db, { classId, topicId, today: today() });
-			return { report };
 		} catch (error) {
 			return refusal(error);
 		}

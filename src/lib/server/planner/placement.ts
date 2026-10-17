@@ -9,6 +9,7 @@ import { and, eq } from 'drizzle-orm';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import { rederive, rewindBoundary, type Db, type WriteReport } from './derive';
+import { endPairing } from './teaching-notes';
 import { isRealDate } from '$lib/date';
 import { Refused } from './refused';
 import { required } from './fields';
@@ -62,9 +63,9 @@ export function placeLesson(
 // (ADR-0022) and there is no such guard anywhere else in the system. The Lesson itself survives,
 // left standing as a Standalone Lesson no Placement names.
 //
-// Readiness for the (Lesson, Class) pairing dies with the Placement, mirroring the rule
-// unassignTopic already enforces — but only once no other Placement still names that same pair,
-// since the same Lesson may be placed twice on one Class on two dates.
+// Readiness and the Teaching note for the (Lesson, Class) pairing die with the Placement — but
+// only once no other Placement still names that same pair, since the same Lesson may be placed
+// twice on one Class on two dates. A taught Placement can still be removed; its note goes.
 export function removePlacement(db: Db, { id, today }: { id: string; today: string }) {
 	const [row] = db.select().from(schema.placement).where(eq(schema.placement.id, id)).all();
 	if (!row) return null;
@@ -79,11 +80,7 @@ export function removePlacement(db: Db, { id, today }: { id: string; today: stri
 		)
 		.all();
 	if (!survivor) {
-		db.delete(schema.readiness)
-			.where(
-				and(eq(schema.readiness.lessonId, row.lessonId), eq(schema.readiness.classId, row.classId))
-			)
-			.run();
+		endPairing(db, row.classId, [row.lessonId]);
 	}
 
 	return rederive(db, row.classId, rewindBoundary(row.date, today));

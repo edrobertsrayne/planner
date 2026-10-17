@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { cpSync, mkdtempSync, mkdirSync, readdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
@@ -10,6 +10,14 @@ let dir: string;
 afterEach(() => {
 	if (dir) rmSync(dir, { recursive: true, force: true });
 });
+
+// The plan tables of the databases the old-database tests build by hand: the Sequence migration
+// empties them, so they must exist.
+const oldPlanTables = `
+	CREATE TABLE assigned_topic (id text PRIMARY KEY);
+	CREATE TABLE session (id text PRIMARY KEY, note text);
+	CREATE TABLE continuation (id text PRIMARY KEY);
+`;
 
 test('booting against a fresh empty file produces the complete schema', () => {
 	dir = mkdtempSync(join(tmpdir(), 'planner-db-'));
@@ -33,7 +41,8 @@ test('booting against a fresh empty file produces the complete schema', () => {
 		'lesson_tag',
 		'attachment',
 		'class',
-		'assigned_topic',
+		'class_lesson',
+		'teaching_note',
 		'slot',
 		'session',
 		'term',
@@ -108,6 +117,7 @@ test('the tone backfill walks existing Classes in creation order and wraps past 
 			closes text NOT NULL
 		);
 		CREATE TABLE slot (id text PRIMARY KEY);
+		${oldPlanTables}
 		CREATE TABLE teaching_week (
 			id text PRIMARY KEY,
 			week_commencing text NOT NULL,
@@ -169,6 +179,7 @@ test('the Course tone backfill walks existing Courses in creation order, apart f
 			closes text NOT NULL
 		);
 		CREATE TABLE slot (id text PRIMARY KEY);
+		${oldPlanTables}
 		CREATE TABLE teaching_week (
 			id text PRIMARY KEY,
 			week_commencing text NOT NULL,
@@ -227,6 +238,8 @@ test('the lesson status migration writes draft as default for existing lessons a
 			closes text NOT NULL
 		);
 		CREATE TABLE slot (id text PRIMARY KEY);
+		CREATE TABLE class (id text PRIMARY KEY);
+		${oldPlanTables}
 		CREATE TABLE teaching_week (
 			id text PRIMARY KEY,
 			week_commencing text NOT NULL,
@@ -253,6 +266,65 @@ test('the lesson status migration writes draft as default for existing lessons a
 			)
 			.run();
 	}).toThrow(/CHECK constraint failed/i);
+});
+
+test('the Sequence migration resets the plan and keeps content and the calendar', () => {
+	dir = mkdtempSync(join(tmpdir(), 'planner-db-'));
+	const { client } = openDatabase(join(dir, 'sequence-migration.db'));
+	const last = '20261015000000_class_sequence';
+
+	// Every migration before the Sequence one, in a folder of its own.
+	const folder = join(dir, 'migrations');
+	mkdirSync(folder);
+	for (const name of readdirSync('drizzle')) {
+		if (name !== last) cpSync(join('drizzle', name), join(folder, name), { recursive: true });
+	}
+	runMigrations(client, folder);
+
+	const run = (sql: string) => client.prepare(sql).run();
+	run("INSERT INTO course (id, name) VALUES ('c1', 'Physics')");
+	run("INSERT INTO topic (id, name, course_id) VALUES ('t1', 'Forces', 'c1')");
+	run("INSERT INTO lesson (id, topic_id, title, position) VALUES ('l1', 't1', 'Speed', 1)");
+	run("INSERT INTO class (id, label, course_id) VALUES ('k1', '9A', 'c1')");
+	run("INSERT INTO slot (id, class_id, week, day, period) VALUES ('s1', 'k1', 'A', 1, 1)");
+	run("INSERT INTO term (id, opens, closes) VALUES ('tm1', '2026-09-01', '2026-12-18')");
+	run("INSERT INTO blocked_day (id, date) VALUES ('b1', '2026-10-01')");
+	run("INSERT INTO assigned_topic (id, class_id, topic_id, position) VALUES ('a1', 'k1', 't1', 1)");
+	run(
+		"INSERT INTO session (id, class_id, date, period, lesson_id, note) VALUES ('x1', 'k1', '2026-09-03', 1, 'l1', 'went well')"
+	);
+	run("INSERT INTO continuation (id, session_id) VALUES ('co1', 'x1')");
+	run(
+		"INSERT INTO placement (id, class_id, date, slot_id, lesson_id) VALUES ('p1', 'k1', '2026-09-10', 's1', 'l1')"
+	);
+	run("INSERT INTO readiness (id, lesson_id, class_id) VALUES ('r1', 'l1', 'k1')");
+
+	cpSync(join('drizzle', last), join(folder, last), { recursive: true });
+	runMigrations(client, folder);
+
+	const count = (table: string) =>
+		(client.prepare(`SELECT count(*) AS n FROM ${table}`).get() as { n: number }).n;
+	for (const kept of ['course', 'topic', 'lesson', 'class', 'slot', 'term', 'blocked_day'])
+		expect(count(kept), kept).toBe(1);
+	for (const emptied of [
+		'continuation',
+		'session',
+		'placement',
+		'readiness',
+		'class_lesson',
+		'teaching_note'
+	])
+		expect(count(emptied), emptied).toBe(0);
+
+	const names = (sql: string) =>
+		client
+			.prepare<{ name: string }, []>(sql)
+			.all()
+			.map((row) => row.name);
+	expect(names("SELECT name FROM sqlite_master WHERE type = 'table'")).not.toContain(
+		'assigned_topic'
+	);
+	expect(names("SELECT name FROM pragma_table_info('session')")).not.toContain('note');
 });
 
 describe('runMigrations', () => {

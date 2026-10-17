@@ -54,8 +54,7 @@
 			}
 		};
 
-	// Adding and removing a Blocked Day each Rewind, and each says what it put at risk — a plain
-	// statement when the answer is nothing, because silence would read as an unapplied write.
+	// Adding and removing a Blocked Day each Rewind, and each names the Placements it moved — a plain statement when the answer is none, because silence would read as an unapplied write.
 	// The page data is refreshed without applying the action result, so the report renders here
 	// and the grid's own reporting stays exactly as it was. The actions answer with the report
 	// and nothing else, so typing it here once reads it without a cast — the same read the save
@@ -167,7 +166,7 @@
 
 			<RewindReport
 				report={dayReport}
-				none="No Sessions were put at risk."
+				none="No Placements moved."
 				class="mt-2 text-sm text-muted-foreground"
 			/>
 

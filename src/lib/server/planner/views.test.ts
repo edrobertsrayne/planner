@@ -7,7 +7,6 @@ import {
 	setSlotRoom,
 	agenda,
 	agendaLookBack,
-	assignedTopicsOf,
 	assignTopic,
 	attachTag,
 	blockDay,
@@ -23,7 +22,8 @@ import {
 	sessionDetail,
 	setReadiness,
 	teachingWeeks,
-	unassignTopic,
+	placeLesson,
+	removePlacement,
 	unblockDay
 } from './index';
 import * as schema from '../db/schema';
@@ -919,61 +919,42 @@ describe('the Agenda carries the tick', () => {
 });
 
 describe('Readiness dies with its pairing', () => {
-	test("unassignTopic clears that Class's marks across the Topic and no other Class's", () => {
-		const { db, course, classA, classB } = setUp();
-		const topic1 = makeTopic(db, course.id, 'Forces');
-		const [l1, l2] = makeLessons(db, topic1.id, 2);
-		const topic2 = makeTopic(db, course.id, 'Energy');
-		const [l3] = makeLessons(db, topic2.id, 1);
-
-		assignTopic(db, { classId: classA.id, topicId: topic1.id, today: '2026-09-03' });
-		assignTopic(db, { classId: classA.id, topicId: topic2.id, today: '2026-09-03' });
-		assignTopic(db, { classId: classB.id, topicId: topic1.id, today: '2026-09-03' });
-
-		// Mark readiness for both classes on topic 1 lessons, and class A on topic 2 lesson
-		setReadiness(db, l1.id, classA.id, true);
-		setReadiness(db, l2.id, classA.id, true);
-		setReadiness(db, l3.id, classA.id, true);
-		setReadiness(db, l1.id, classB.id, true);
-		setReadiness(db, l2.id, classB.id, true);
-
-		// Unassign topic1 from classA
-		const [assignedTopic1] = assignedTopicsOf(db, classA.id).filter(
-			(at) => at.topicId === topic1.id
-		);
-		unassignTopic(db, { classId: classA.id, id: assignedTopic1.id, today: '2026-09-03' });
-
-		// Check database readiness rows:
-		// classA's marks on l1 and l2 are gone, while l3 remains
-		const classAReadiness = db
+	test("removePlacement clears that Class's marks on the Lesson and no other Class's", () => {
+		const { db, client, classA, classB } = setUp();
+		const mondaySlot = db
 			.select()
-			.from(schema.readiness)
-			.where(eq(schema.readiness.classId, classA.id))
-			.all();
-		expect(classAReadiness.map((r) => r.lessonId)).toEqual([l3.id]);
+			.from(schema.slot)
+			.all()
+			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3)!;
+		const { lesson } = placeLesson(db, client, {
+			classId: classA.id,
+			date: '2026-09-14',
+			slotId: mondaySlot.id,
+			title: 'Assembly',
+			today: '2026-09-03'
+		});
+		setReadiness(db, lesson.id, classA.id, true);
+		setReadiness(db, lesson.id, classB.id, true);
+		const [placement] = db.select().from(schema.placement).all();
 
-		// classB's marks on l1 and l2 are still intact
-		const classBReadiness = db
-			.select()
-			.from(schema.readiness)
-			.where(eq(schema.readiness.classId, classB.id))
-			.all();
-		expect(classBReadiness.map((r) => r.lessonId).sort()).toEqual([l1.id, l2.id].sort());
+		removePlacement(db, { id: placement.id, today: '2026-09-03' });
+
+		expect(db.select().from(schema.readiness).all()).toMatchObject([{ classId: classB.id }]);
 	});
 
 	test('deleteLesson takes its marks', () => {
 		const { db, course, classA, classB, atDir: dir } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		const [l1, l2] = makeLessons(db, topic.id, 2);
-		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
-		assignTopic(db, { classId: classB.id, topicId: topic.id, today: '2026-09-03' });
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-04' });
+		assignTopic(db, { classId: classB.id, topicId: topic.id, today: '2026-09-04' });
 
 		setReadiness(db, l1.id, classA.id, true);
 		setReadiness(db, l1.id, classB.id, true);
 		setReadiness(db, l2.id, classA.id, true);
 
 		// Delete lesson l1
-		deleteLesson(db, { id: l1.id, today: '2026-09-03', dir });
+		deleteLesson(db, { id: l1.id, today: '2026-09-03', dir, confirmed: true });
 
 		// Readiness rows for l1 are deleted
 		const l1Readiness = db

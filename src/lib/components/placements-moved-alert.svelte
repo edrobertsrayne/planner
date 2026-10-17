@@ -4,8 +4,7 @@
 	import type { PlacementMoved } from '$lib/server/planner';
 
 	// A Placement pushed off its anchor by a write that removed the Slot it was on (a Blocked
-	// Day/Slot, a Topic re-derive, or a Rewind) — surfaced unconditionally, unlike AtRiskAlert,
-	// since a Placement carries no note to make silence safe (ADR-0022).
+	// Day/Slot or a Rewind) — surfaced unconditionally (ADR-0022).
 	let { placementsMoved }: { placementsMoved: PlacementMoved[] } = $props();
 </script>
 

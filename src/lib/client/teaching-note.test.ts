@@ -1,8 +1,24 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { createSessionNotes, draftKey, type Occasion, type StorageLike } from './session-note';
+import {
+	createTeachingNotes,
+	draftKey,
+	type NoteTarget,
+	type TeachingNotes,
+	type StorageLike
+} from './teaching-note';
 
-const occasionA: Occasion = { classId: 'cls_a', date: '2026-08-23', period: 2 };
-const occasionB: Occasion = { classId: 'cls_b', date: '2026-08-24', period: 5 };
+const occasionA: NoteTarget = {
+	classId: 'cls_a',
+	date: '2026-08-23',
+	period: 2,
+	lessonId: 'les_1'
+};
+const occasionB: NoteTarget = {
+	classId: 'cls_b',
+	date: '2026-08-24',
+	period: 5,
+	lessonId: 'les_2'
+};
 
 function memoryStorage(): StorageLike {
 	const entries = new Map<string, string>();
@@ -18,13 +34,13 @@ function memoryStorage(): StorageLike {
 }
 
 interface Harness {
-	write: ReturnType<typeof vi.fn<(occasion: Occasion, note: string) => Promise<void>>>;
+	write: ReturnType<typeof vi.fn<(target: NoteTarget, note: string) => Promise<void>>>;
 	onFailure: ReturnType<typeof vi.fn>;
 	storage: StorageLike;
 }
 
-function harness(writeImpl?: (occasion: Occasion, note: string) => Promise<void>): Harness & {
-	notes: ReturnType<typeof createSessionNotes>;
+function harness(writeImpl?: (target: NoteTarget, note: string) => Promise<void>): Harness & {
+	notes: TeachingNotes;
 } {
 	const storage = memoryStorage();
 	const write = vi.fn(writeImpl ?? (() => Promise.resolve()));
@@ -33,7 +49,7 @@ function harness(writeImpl?: (occasion: Occasion, note: string) => Promise<void>
 		storage,
 		write,
 		onFailure,
-		notes: createSessionNotes({ write, storage: () => storage, onFailure })
+		notes: createTeachingNotes({ write, storage: () => storage, onFailure })
 	};
 }
 
@@ -46,9 +62,24 @@ afterEach(() => {
 });
 
 describe('draft keys', () => {
-	test('are keyed by the occasion — Class, date and Period', () => {
-		expect(draftKey(occasionA)).toBe('session-note:cls_a~2026-08-23~2');
+	test('are keyed by Class and Lesson', () => {
+		expect(draftKey(occasionA)).toBe('teaching-note:cls_a~les_1');
 		expect(draftKey(occasionB)).not.toBe(draftKey(occasionA));
+	});
+
+	test('are the same for one Lesson on another date or Period', () => {
+		expect(draftKey({ ...occasionA, date: '2026-09-01', period: 4 })).toBe(draftKey(occasionA));
+	});
+
+	test('differ for another Lesson on the same occasion', () => {
+		expect(draftKey({ ...occasionA, lessonId: 'les_9' })).not.toBe(draftKey(occasionA));
+	});
+
+	test('ignore a draft left under the old per-occasion key', () => {
+		const h = harness();
+		h.storage.setItem('session-note:cls_a~2026-08-23~2', 'stale');
+
+		expect(h.notes.open(occasionA, 'server state')).toBe('server state');
 	});
 });
 

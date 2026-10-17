@@ -243,4 +243,61 @@ describe('Readiness and a removed Placement', () => {
 		removePlacement(db, { id: second.id, today });
 		expect(readinessRows()).toHaveLength(0);
 	});
+
+	test('the Teaching note survives while a second Placement names the pair, and dies with the last', () => {
+		const { db, client, classA, classB } = setUp();
+		const today = '2026-09-03';
+		const slots = db.select().from(schema.slot).all();
+		const mondaySlot = slots.find(
+			(s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3
+		)!;
+		const wednesdaySlot = slots.find(
+			(s) => s.classId === classA.id && s.week === 'A' && s.day === 3 && s.period === 1
+		)!;
+
+		const { lesson } = placeLesson(db, client, {
+			classId: classA.id,
+			date: '2026-09-14',
+			slotId: mondaySlot.id,
+			title: 'Assembly',
+			today
+		});
+		db.insert(schema.placement)
+			.values({
+				classId: classA.id,
+				date: '2026-09-16',
+				slotId: wednesdaySlot.id,
+				lessonId: lesson.id
+			})
+			.run();
+		// The same Lesson on another Class has a note of its own.
+		db.insert(schema.teachingNote)
+			.values([
+				{ classId: classA.id, lessonId: lesson.id, body: 'Hall B' },
+				{ classId: classB.id, lessonId: lesson.id, body: 'Other class' }
+			])
+			.run();
+		const notes = () =>
+			db
+				.select()
+				.from(schema.teachingNote)
+				.all()
+				.map((n) => [n.classId, n.body]);
+
+		const [first] = db
+			.select()
+			.from(schema.placement)
+			.where(eq(schema.placement.date, '2026-09-14'))
+			.all();
+		removePlacement(db, { id: first.id, today });
+		expect(notes()).toHaveLength(2);
+
+		const [second] = db
+			.select()
+			.from(schema.placement)
+			.where(eq(schema.placement.date, '2026-09-16'))
+			.all();
+		removePlacement(db, { id: second.id, today });
+		expect(notes()).toEqual([[classB.id, 'Other class']]);
+	});
 });
