@@ -13,6 +13,10 @@ This planner has one user and one school year. Build the simplest thing that mee
 
 When you find a simpler approach than the one agreed, say so before you build it.
 
+## Coding standards
+
+Follow `CODING_STANDARDS.md` for all code. It sets the principles (single responsibility, KISS, YAGNI), the Svelte best practices, the code quality review rules and the code smells.
+
 ## Tests
 
 While you work, run the unit and e2e files for the code you change. Run one e2e file alone with `bun run test:e2e -- e2e/the-backup.e2e.ts`.
@@ -55,5 +59,4 @@ Example: `gh pr create --title "..." --body-file body.md --attach screenshots/ho
 ## Communication style
 
 - Give brief context before the main point.
-- Write in ASD-STE100 Simplified Technical English: short sentences, one instruction per sentence, active voice, approved words only.
 - Use the terms in `GLOSSARY.md`. Do not use the synonyms that it lists to avoid.
