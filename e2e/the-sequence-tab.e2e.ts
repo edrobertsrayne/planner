@@ -252,10 +252,11 @@ test.describe.serial('the By week layout', () => {
 		await expect(page.locator('[data-sequence]')).toHaveCount(0);
 		await expect(page.locator('[data-week]').first()).toContainText(/Week [AB]/);
 		expect(await weekOrder(page)).toEqual(expected(LETTERS));
-		// A row of Topic chips, and one line for the other free Slots.
+		// A row of Topic chips, and one line for the other free Slots. Their count depends on the
+		// weekday of the run (1 at a weekend), so the line may be singular.
 		await expect(page.locator('[data-topic-chip]')).toHaveText(/Moves\s*14/);
 		await expect(page.locator('[data-free-after]')).toContainText(
-			'other free Slots to the end of the year'
+			/\d+ other free Slots? to the end of the year/
 		);
 		// Nothing is past the end of the year, and no Lesson is taught.
 		await expect(page.locator('[data-past-end]')).toHaveCount(0);
