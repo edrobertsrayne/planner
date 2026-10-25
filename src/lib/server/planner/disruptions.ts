@@ -8,11 +8,8 @@ import { isRealDate, weekday } from '$lib/date';
 import { Refused } from './refused';
 import { required } from './fields';
 
-// A Blocked Day removes every Slot on that date for every Class. Any Session that carried a note
-// and was relabelled by the re-derivation is reported back as `atRisk`, rather than silently
-// changed, so the teacher can be told. A Placement this closure pushes off its anchor is reported
-// too, unconditionally, through `placementsMoved` — it carries no note, so the `atRisk` gate
-// alone cannot cover it (ADR-0022).
+// A Blocked Day removes every Slot on that date for every Class. A Placement this closure pushes
+// off its anchor is reported back through `placementsMoved` (ADR-0022).
 //
 // The same rules every door on the seam applies — the setup-mode list, the grid popover and the
 // API: a malformed date and a weekend date are `invalid`, a date already blocked is a `conflict`,

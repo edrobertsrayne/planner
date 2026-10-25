@@ -1,6 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { BEARER, standingKey, openPage } from './helpers.ts';
-import { resetTo } from '../helpers.ts';
+import { BEARER, openPage, resetTo, standingKey } from '../helpers.ts';
 
 // Covers the API key card's two controls — Copy, and Regenerate behind its confirmation (issue
 // #184): copy puts the exact token on the clipboard, cancelling the confirmation leaves the key

@@ -1,146 +1,40 @@
-import { eq } from 'drizzle-orm';
 import { describe, expect, test } from 'vitest';
 import { makeLessons, makeTopic, setUp } from './fixtures';
 import {
-	assignedTopicsOf,
 	assignTopic,
 	classSchedule,
 	createLesson,
 	deleteLesson,
-	moveAssignedTopic,
 	moveLesson,
 	recordContinuation,
 	sessionDetail,
-	unassignTopic,
-	writeSessionNote
+	teachingNoteOf,
+	writeTeachingNote
 } from './index';
 import { rederive, rewindBoundary, scheduleFor } from './derive';
 import * as schema from '../db/schema';
 
-// ADR-0007: a Session whose Lesson changed is reported rather than silently relabelled. Every
-// scheduling write now answers with that report itself, so no caller can drop it — these pin
-// the writes that used to discard theirs.
+// Every scheduling write answers with its Rewind report, so no caller can drop it. The report
+// lists the Placements a Rewind moved, and nothing else: a Teaching note follows its Lesson
+// (ADR-0026), so no noted Session is at risk.
 describe('every scheduling write answers with its Rewind report', () => {
-	test('assignTopic answers an empty report when it gives a noted Open Slot its first Lesson — a gain, not a loss', () => {
+	test('assignTopic answers with the Lessons it added and an empty report', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
-		makeLessons(db, topic.id, 1);
-
-		// An Open Slot is still an occasion (ADR-0002), so the teacher may have noted it.
-		writeSessionNote(db, {
-			classId: classA.id,
-			date: '2026-09-03',
-			period: 5,
-			note: 'fire drill during P5'
-		});
+		makeLessons(db, topic.id, 2);
 
 		const report = assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 
-		// Nothing recorded was lost — the occasion simply gains teaching — so the fill is
-		// deliberately silent; the note must stay put regardless.
-		expect(report.atRisk).toEqual([]);
-		const detail = sessionDetail(db, {
-			classId: classA.id,
-			date: '2026-09-03',
-			period: 5,
-			today: '2026-09-03'
-		});
-		expect(detail?.note).toBe('fire drill during P5');
-		expect(detail?.lesson?.title).toBe('Lesson 1');
+		expect(report.placementsMoved).toEqual([]);
+		expect(report.added.map((l) => l.title)).toEqual(['Lesson 1', 'Lesson 2']);
+		expect(report.skipped).toEqual([]);
 	});
 
-	test('unassignTopic reports a noted Session whose Lesson the removal pulls back off', () => {
-		const { db, course, classA } = setUp();
-		const forces = makeTopic(db, course.id, 'Forces');
-		makeLessons(db, forces.id, 2);
-		const waves = makeTopic(db, course.id, 'Waves');
-		const wavesLessons = makeLessons(db, waves.id, 1);
-		db.update(schema.lesson)
-			.set({ title: 'Waves intro' })
-			.where(eq(schema.lesson.id, wavesLessons[0].id))
-			.run();
-
-		assignTopic(db, { classId: classA.id, topicId: forces.id, today: '2026-09-01' });
-		assignTopic(db, { classId: classA.id, topicId: waves.id, today: '2026-09-01' });
-
-		// Forces' two Lessons take 3 Sep P5 and P6; Waves' single Lesson queues on 8 Sep P2 —
-		// still untaught, so the Topic can be removed, and noted.
-		const queued = classSchedule(db, { classId: classA.id, today: '2026-09-01' }).scheduled[2];
-		writeSessionNote(db, {
-			classId: classA.id,
-			date: queued.date,
-			period: queued.period,
-			note: 'need the ripple tank booked'
-		});
-
-		const row = assignedTopicsOf(db, classA.id).find((a) => a.topicId === waves.id)!;
-		const report = unassignTopic(db, { classId: classA.id, id: row.id, today: '2026-09-01' });
-
-		expect(report?.atRisk).toHaveLength(1);
-		expect(report?.atRisk[0]).toMatchObject({
-			classId: classA.id,
-			date: queued.date,
-			period: queued.period,
-			lessonTitle: 'Waves intro'
-		});
-	});
-
-	test('moveAssignedTopic reports a noted Session whose Lesson the reorder swapped', () => {
-		const { db, course, classA } = setUp();
-		const forces = makeTopic(db, course.id, 'Forces');
-		const forcesLessons = makeLessons(db, forces.id, 1);
-		db.update(schema.lesson)
-			.set({ title: 'Forces intro' })
-			.where(eq(schema.lesson.id, forcesLessons[0].id))
-			.run();
-		const waves = makeTopic(db, course.id, 'Waves');
-		makeLessons(db, waves.id, 1);
-
-		assignTopic(db, { classId: classA.id, topicId: forces.id, today: '2026-09-03' });
-		assignTopic(db, { classId: classA.id, topicId: waves.id, today: '2026-09-03' });
-
-		const second = classSchedule(db, { classId: classA.id, today: '2026-09-03' }).scheduled[1];
-		writeSessionNote(db, {
-			classId: classA.id,
-			date: second.date,
-			period: second.period,
-			note: 'equipment needed'
-		});
-
-		const row = assignedTopicsOf(db, classA.id).find((a) => a.topicId === waves.id)!;
-		const report = moveAssignedTopic(db, {
-			classId: classA.id,
-			id: row.id,
-			direction: 'up',
-			today: '2026-09-03'
-		});
-
-		expect(report.atRisk).toHaveLength(1);
-		// The report names the Lesson the noted occasion USED to carry — what the note was
-		// written against — so the teacher can judge whether the note still applies.
-		expect(report.atRisk[0]).toMatchObject({
-			classId: classA.id,
-			date: second.date,
-			period: second.period,
-			lessonTitle: 'Lesson 1'
-		});
-	});
-
-	test('recordContinuation reports a noted Session the widened Lesson displaces', () => {
+	test('recordContinuation answers with an empty report', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		makeLessons(db, topic.id, 5);
-
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-01' });
-
-		// Five Lessons fill 3 Sep P5, 3 Sep P6, 8 Sep P2, 11 Sep P4 and 14 Sep P3. The teacher
-		// notes 14 Sep P3; continuing 3 Sep P5 widens Lesson 1 onto it and pushes Lesson 5 right.
-		writeSessionNote(db, {
-			classId: classA.id,
-			date: '2026-09-14',
-			period: 3,
-			note: 'cover needed'
-		});
 
 		const report = recordContinuation(db, {
 			classId: classA.id,
@@ -149,110 +43,89 @@ describe('every scheduling write answers with its Rewind report', () => {
 			today: '2026-09-13'
 		});
 
-		expect(report.atRisk).toHaveLength(1);
-		expect(report.atRisk[0]).toMatchObject({
+		expect(report).toEqual({ placementsMoved: [] });
+	});
+
+	test('a Continuation keeps the Teaching note of the Lesson it pushes right', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const lessons = makeLessons(db, topic.id, 5);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-01' });
+
+		// Five Lessons fill 3 Sep P5, 3 Sep P6, 8 Sep P2, 11 Sep P4 and 14 Sep P3. The teacher
+		// notes 14 Sep P3: Lesson 5. Continuing 3 Sep P5 pushes Lesson 5 to the next Slot.
+		writeTeachingNote(db, {
 			classId: classA.id,
+			lessonId: lessons[4].id,
 			date: '2026-09-14',
 			period: 3,
-			lessonTitle: 'Lesson 5'
+			note: 'cover needed'
 		});
+		recordContinuation(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			period: 5,
+			today: '2026-09-13'
+		});
+
+		expect(teachingNoteOf(db, classA.id, lessons[4].id)).toBe('cover needed');
+		const schedule = classSchedule(db, { classId: classA.id, today: '2026-09-13' });
+		const lesson5 = [...schedule.history, ...schedule.scheduled].find(
+			(s) => s.lessonId === lessons[4].id
+		)!;
+		expect(lesson5.date > '2026-09-14' || lesson5.period !== 3).toBe(true);
+		const detail = sessionDetail(db, {
+			classId: classA.id,
+			date: lesson5.date,
+			period: lesson5.period,
+			today: '2026-09-13'
+		});
+		expect(detail?.note).toBe('cover needed');
 	});
 });
 
-// A Lesson write in front of a noted future Session changes the Lesson that Session carries, so
-// the write must answer with it (ADR-0007).
-describe('a Lesson write in front of a noted Session reports that Session', () => {
+// Authoring writes that touch a Sequence answer with the same report. Creating and moving a
+// Lesson re-derive nothing (ADR-0026).
+describe('a Lesson write answers with the Rewind report', () => {
 	const today = '2026-09-01';
 
-	test('createLesson', () => {
+	test('createLesson answers with the Lesson only and changes no Sequence', () => {
 		const { db, course, classA } = setUp();
 		const forces = makeTopic(db, course.id, 'Forces');
 		makeLessons(db, forces.id, 1);
-		const waves = makeTopic(db, course.id, 'Waves');
-		const [wavesLesson] = makeLessons(db, waves.id, 1);
-		db.update(schema.lesson)
-			.set({ title: 'Waves intro' })
-			.where(eq(schema.lesson.id, wavesLesson.id))
-			.run();
 		assignTopic(db, { classId: classA.id, topicId: forces.id, today });
-		assignTopic(db, { classId: classA.id, topicId: waves.id, today });
-		const noted = classSchedule(db, { classId: classA.id, today }).scheduled[1];
-		writeSessionNote(db, {
-			classId: classA.id,
-			date: noted.date,
-			period: noted.period,
-			note: 'ripple tank'
-		});
+		const before = classSchedule(db, { classId: classA.id, today });
 
-		const { lesson, atRisk } = createLesson(db, { topicId: forces.id, title: 'Extra', today });
+		const result = createLesson(db, { topicId: forces.id, title: 'Extra' });
 
-		expect(lesson.title).toBe('Extra');
-		expect(atRisk).toHaveLength(1);
-		expect(atRisk[0]).toMatchObject({
-			classId: classA.id,
-			date: noted.date,
-			period: noted.period,
-			lessonTitle: 'Waves intro'
-		});
+		expect(result.lesson.title).toBe('Extra');
+		expect(Object.keys(result)).toEqual(['lesson']);
+		expect(classSchedule(db, { classId: classA.id, today })).toEqual(before);
 	});
 
-	test('moveLesson', () => {
+	test('moveLesson changes no Sequence', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		const lessons = makeLessons(db, topic.id, 2);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today });
-		const noted = classSchedule(db, { classId: classA.id, today }).scheduled[1];
-		writeSessionNote(db, {
-			classId: classA.id,
-			date: noted.date,
-			period: noted.period,
-			note: 'equipment'
-		});
+		const before = classSchedule(db, { classId: classA.id, today });
 
-		const report = moveLesson(db, {
-			topicId: topic.id,
-			id: lessons[1].id,
-			direction: 'up',
-			today
-		});
+		moveLesson(db, { topicId: topic.id, id: lessons[1].id, direction: 'up' });
 
-		expect(report.atRisk).toHaveLength(1);
-		expect(report.atRisk[0]).toMatchObject({
-			date: noted.date,
-			period: noted.period,
-			lessonTitle: 'Lesson 2'
-		});
+		expect(classSchedule(db, { classId: classA.id, today })).toEqual(before);
 	});
 
-	test('deleteLesson', () => {
+	test('deleteLesson of a Lesson in a Sequence re-derives the Class and answers with an empty report', () => {
 		const { db, course, classA, atDir } = setUp();
-		const forces = makeTopic(db, course.id, 'Forces');
-		const forcesLessons = makeLessons(db, forces.id, 2);
-		const waves = makeTopic(db, course.id, 'Waves');
-		const [wavesLesson] = makeLessons(db, waves.id, 1);
-		db.update(schema.lesson)
-			.set({ title: 'Waves intro' })
-			.where(eq(schema.lesson.id, wavesLesson.id))
-			.run();
-		assignTopic(db, { classId: classA.id, topicId: forces.id, today });
-		assignTopic(db, { classId: classA.id, topicId: waves.id, today });
-		const noted = classSchedule(db, { classId: classA.id, today }).scheduled[2];
-		writeSessionNote(db, {
-			classId: classA.id,
-			date: noted.date,
-			period: noted.period,
-			note: 'ripple tank'
-		});
+		const topic = makeTopic(db, course.id, 'Forces');
+		const lessons = makeLessons(db, topic.id, 3);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today });
 
-		const result = deleteLesson(db, { id: forcesLessons[1].id, today, dir: atDir });
+		const result = deleteLesson(db, { id: lessons[1].id, today, dir: atDir, confirmed: true });
 
-		expect(result?.lesson.title).toBe('Lesson 2');
-		expect(result?.atRisk).toHaveLength(1);
-		expect(result?.atRisk[0]).toMatchObject({
-			date: noted.date,
-			period: noted.period,
-			lessonTitle: 'Waves intro'
-		});
+		expect(result).toMatchObject({ placementsMoved: [] });
+		const scheduled = classSchedule(db, { classId: classA.id, today }).scheduled;
+		expect(scheduled.map((s) => s.lessonId)).toEqual([lessons[0].id, lessons[2].id]);
 	});
 });
 
@@ -375,7 +248,7 @@ describe('placementsMoved', () => {
 		expect(moved.date > anchor.date).toBe(true);
 	});
 
-	test("a Rewind crossing a Placement's date reports its noted Session the same way an ordinary relabel already is", () => {
+	test("a Rewind crossing a Placement's date keeps the Teaching note with the Placement's Lesson", () => {
 		const { db, classA } = setUp();
 		const [lesson] = db
 			.insert(schema.lesson)
@@ -390,27 +263,29 @@ describe('placementsMoved', () => {
 			.values({ classId: classA.id, date: anchor.date, slotId: anchor.slotId, lessonId: lesson.id })
 			.run();
 		rederive(db, classA.id, '2026-09-01');
-
-		// A note written against the Placement's own occasion, exactly as any taught Session's is.
-		writeSessionNote(db, {
+		writeTeachingNote(db, {
 			classId: classA.id,
+			lessonId: lesson.id,
 			date: anchor.date,
 			period: anchor.period,
 			note: 'Went well'
 		});
 
-		// A Blocked Day entered after the fact, on the Placement's own date — a Rewind whose
-		// boundary crosses it, the same as it would for a Topic Lesson's Session.
+		// A Blocked Day entered after the fact, on the Placement's own date: a Rewind whose
+		// boundary crosses it.
 		db.insert(schema.blockedDay).values({ date: anchor.date }).run();
 		const report = rederive(db, classA.id, anchor.date);
 
-		expect(report.atRisk).toHaveLength(1);
-		expect(report.atRisk[0]).toMatchObject({
+		expect(report.placementsMoved).toHaveLength(1);
+		expect(report.placementsMoved[0].date > anchor.date).toBe(true);
+		const moved = sessionDetail(db, {
 			classId: classA.id,
-			date: anchor.date,
-			period: anchor.period,
-			lessonTitle: 'Revision'
+			date: report.placementsMoved[0].date,
+			period: report.placementsMoved[0].period,
+			today: anchor.date
 		});
+		expect(moved?.lesson?.title).toBe('Revision');
+		expect(moved?.note).toBe('Went well');
 	});
 
 	test('a Placement dated before the boundary is history, and live input again once a Rewind crosses back before it', () => {

@@ -1,9 +1,7 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { today } from '$lib/date';
-import { DATABASE_URL, db } from '$lib/server/db/client';
+import { db } from '$lib/server/db/client';
 import { refusal, trimmed } from '$lib/server/form';
 import {
-	attachmentsDir,
 	courseSummary,
 	createLesson,
 	createTopic,
@@ -12,9 +10,9 @@ import {
 	lessonsOf,
 	listCourses,
 	moveLesson,
+	moveTopicToCourse,
 	renameCourse,
 	renameTopic,
-	reportOf,
 	tagsByLesson,
 	topicsOf
 } from '$lib/server/planner';
@@ -35,6 +33,7 @@ export const load: PageServerLoad = ({ params, url }) => {
 
 	return {
 		course,
+		otherCourses: listCourses(db).filter((c) => c.id !== course.id),
 		topics: topics.map((t) => ({ ...t, lessonCount: lessonCounts.get(t.id) ?? 0 })),
 		lessonTotal: [...lessonCounts.values()].reduce((sum, n) => sum + n, 0),
 		classes,
@@ -66,13 +65,9 @@ export const actions: Actions = {
 		const data = await request.formData();
 		const id = trimmed(data, 'id');
 		try {
-			const result = deleteCourse(db, id, {
-				today: today(),
-				confirmed: trimmed(data, 'confirmed') === 'true',
-				dir: attachmentsDir(DATABASE_URL)
-			});
+			const result = deleteCourse(db, id, { confirmed: trimmed(data, 'confirmed') === 'true' });
 			if (!result) return fail(404, { error: 'No such Course.' });
-			if ('needsConfirm' in result) return fail(409, { error: result.reason });
+			if ('needsConfirm' in result) return fail(409, { error: result.reason, needsConfirm: true });
 		} catch (error) {
 			return refusal(error);
 		}
@@ -103,17 +98,26 @@ export const actions: Actions = {
 		}
 	},
 
+	moveTopic: async ({ request }) => {
+		const data = await request.formData();
+		const id = trimmed(data, 'id');
+		const courseId = trimmed(data, 'courseId');
+		try {
+			const topic = moveTopicToCourse(db, { id, courseId });
+			if (!topic) return fail(404, { error: 'No such Topic.' });
+			return { topic };
+		} catch (error) {
+			return refusal(error);
+		}
+	},
+
 	deleteTopic: async ({ request }) => {
 		const data = await request.formData();
 		const id = trimmed(data, 'id');
 		try {
-			const result = deleteTopic(db, id, {
-				today: today(),
-				confirmed: trimmed(data, 'confirmed') === 'true',
-				dir: attachmentsDir(DATABASE_URL)
-			});
+			const result = deleteTopic(db, id, { confirmed: trimmed(data, 'confirmed') === 'true' });
 			if (!result) return fail(404, { error: 'No such Topic.' });
-			if ('needsConfirm' in result) return fail(409, { error: result.reason });
+			if ('needsConfirm' in result) return fail(409, { error: result.reason, needsConfirm: true });
 			return {};
 		} catch (error) {
 			return refusal(error);
@@ -125,8 +129,8 @@ export const actions: Actions = {
 		const topicId = trimmed(data, 'topicId');
 		const title = String(data.get('title') ?? '');
 		try {
-			const created = createLesson(db, { topicId, title, today: today() });
-			return { lesson: created.lesson, report: reportOf(created) };
+			const created = createLesson(db, { topicId, title });
+			return { lesson: created.lesson };
 		} catch (error) {
 			return refusal(error);
 		}
@@ -138,6 +142,6 @@ export const actions: Actions = {
 		const id = trimmed(data, 'id');
 		const direction = trimmed(data, 'direction');
 		if (direction !== 'up' && direction !== 'down') return fail(400, { error: 'Bad direction.' });
-		return { report: moveLesson(db, { topicId, id, direction, today: today() }) };
+		moveLesson(db, { topicId, id, direction });
 	}
 };

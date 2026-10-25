@@ -7,14 +7,15 @@
 	import { replaceQuery } from '$lib/client/enhance';
 	import { formatDate } from '$lib/date';
 	import { withParam } from '$lib/query';
+	import { untrack } from 'svelte';
 	import RenameableRow from '$lib/components/renameable-row.svelte';
 	import RewindReport from '$lib/components/rewind-report.svelte';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
-	import AssignedTopics from './AssignedTopics.svelte';
-	import ClassProgress from './ClassProgress.svelte';
+	import LaneSummary from './LaneSummary.svelte';
 	import NextSessions from './NextSessions.svelte';
+	import SequenceTab from './SequenceTab.svelte';
 	import SlotRooms from './SlotRooms.svelte';
 	import TimetableGrid from './TimetableGrid.svelte';
 	import type { PageProps } from './$types';
@@ -24,7 +25,13 @@
 	// The Timetable reads and writes from a tablet up; on a phone Overview is the only view, so
 	// the rename pencil — the page's other edit — follows the Course page's rule.
 	const md = new MediaQuery('min-width: 768px', true);
-	let tab = $state<'overview' | 'timetable'>('overview');
+	// A reload of a Sequence layout, or a form submission without JavaScript that wrote the
+	// Sequence, lands on the Sequence tab again.
+	let tab = $state<'overview' | 'timetable' | 'sequence'>(
+		untrack(() =>
+			page.url.searchParams.has('layout') || form?.sequenceResult ? 'sequence' : 'overview'
+		)
+	);
 
 	// The "Timetable as at" date sets one parameter and keeps the rest, like every filter
 	// (withParam, issue #338).
@@ -102,15 +109,16 @@
 			<Tabs.Trigger value="timetable">
 				Timetable <span class="text-xs tabular-nums opacity-60">{slotCount}</span>
 			</Tabs.Trigger>
+			<Tabs.Trigger value="sequence">
+				Sequence <span class="text-xs tabular-nums opacity-60"
+					>{data.sequence?.entries.length ?? 0}</span
+				>
+			</Tabs.Trigger>
 		</Tabs.List>
 	</Tabs.Root>
 
 	<!-- Overview always shows on a phone (story 116): the class stays written above. -->
-	<div
-		class="mt-4 grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] {tab === 'overview'
-			? ''
-			: 'md:hidden'}"
-	>
+	<div class="mt-4 {tab === 'overview' ? '' : 'md:hidden'}">
 		<div class="min-w-0 space-y-6">
 			{#if data.nextSessions.length}
 				<!-- The next five Sessions lead Overview (issue #348); each opens the Session page,
@@ -119,19 +127,27 @@
 			{/if}
 			{#if data.lane}
 				<div class="rounded-xl border p-4">
-					<ClassProgress classId={data.class.id} lane={data.lane} />
+					<LaneSummary classId={data.class.id} lane={data.lane} />
 				</div>
 			{/if}
 		</div>
-		<div class="min-w-0">
-			<AssignedTopics
+	</div>
+
+	<!-- The Sequence from a tablet up only, like the Timetable. -->
+	{#if data.sequence}
+		<div class={tab === 'sequence' ? 'max-md:hidden' : 'hidden'}>
+			<SequenceTab
 				classId={data.class.id}
 				classLabel={data.class.label}
-				assigned={data.assignedTopics}
-				courseTopics={data.courseTopics}
+				entries={data.sequence.entries}
+				topics={data.sequence.topics}
+				weeks={data.sequence.weeks}
+				freeAfter={data.sequence.freeAfter}
+				chips={data.sequence.chips}
+				sequenceResult={form?.sequenceResult ?? null}
 			/>
 		</div>
-	</div>
+	{/if}
 
 	<!-- The Timetable from a tablet up only (story 116): hidden below `md`, and unless its tab
 	     is on above `md`. -->

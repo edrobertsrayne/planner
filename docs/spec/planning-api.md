@@ -24,13 +24,15 @@ no editorial decision.
 
 These are ruled out of this effort. They are listed so an implementer does not add them by reflex.
 
-- Everything in the **Scheduling** half: Class, Timetable, Slot, Session, Assigned Topic,
-  Continuation, and Readiness.
+- Everything in the **Scheduling** half: Class, Timetable, Slot, Session, Sequence, Teaching note,
+  Continuation, and Readiness. A Sequence has no endpoint: a Lesson reaches a Class through the
+  browser. A Standalone Lesson reaches a Class's Sequence only through the browser (Add Lesson,
+  ADR-0026).
 - Reordering: `moveLesson` and `moveLink` get no endpoint. Order is set by creation order.
 - Whole-Course Import. Import handles one Topic per request.
 - Update-by-reimport. Import is create-only. To change an imported Topic, delete it and import
-  again, or edit it in the Courses view.
-- Scheduling a Standalone Lesson directly to a Class (ADR-0015 leaves this for a later effort).
+  again, or edit it in the Courses view. A deleted Topic leaves its old Lessons as Standalone
+  Lessons, so a re-import makes new Lessons beside them.
 - OAuth, multi-user support, rate limiting, and API versioning.
 
 ## 2. Authentication
@@ -226,18 +228,19 @@ and must collide.
 
 ### 3.7 The current date
 
-`createLesson`, `editLesson` and `deleteLesson` all take a `today` argument
-and re-derive the schedule. Route handlers must supply it from the server clock, in the school's
+`editLesson` and `deleteLesson` take a `today` argument and re-derive the Classes that hold or
+Place the Lesson. Route handlers must supply it from the server clock, in the school's
 local date, exactly as the existing form actions do. It is never a request field. An agent must not
 be able to move the planner's idea of today.
 
 ### 3.8 Re-derivation
 
-Writing a Lesson re-derives every Class assigned its Topic. This is already true of the authoring
-functions and is not changed here.
+Each Class holds its own Sequence of Lessons (ADR-0026). A write to the Topic's Lessons changes no
+Sequence, so it moves no date: creating a Lesson, filing it, and the order of a Topic's Lessons
+re-derive nothing. A change of a Lesson's Length re-derives each Class that holds the Lesson in its
+Sequence or by a Placement.
 
-**Import must re-derive once, at the end**, not once per Lesson. Calling `createLesson` in a loop
-would re-derive N times for one request. Insert the rows directly, then call `rederiveTopic` once.
+**Import re-derives nothing.** A new Topic is in no Sequence, so no Class has a date to change.
 
 ## 4. The records
 
@@ -317,7 +320,9 @@ This is the lookup list. An agent that knows a Course by name and needs its id s
 → **409** if the Course holds any Topic:
 
 ```json
-{ "error": "This Course still holds Topics. Remove them first." }
+{
+	"error": "Delete KS3 Science? Its 2 Topics go. Its 12 Lessons become Standalone Lessons. Every Class keeps them in its Sequence."
+}
 ```
 
 → **409** if any Class follows the Course:
@@ -356,22 +361,21 @@ that name.
 
 → 200, `Topic`. → 404. → 409 on a collision inside the same Course.
 
-`courseId` is **not** accepted. Moving a Topic between Courses would move every Class's Assigned
-Topic with it. That is a scheduling act, and scheduling is out of scope.
+`courseId` is **not** accepted. The browser can file a Topic in another Course (`moveTopicToCourse`,
+Move to… on the Course page). The API does not expose it.
 
 **`DELETE /api/topics/:id`** → 204. → 404.
 
 → **409** if the Topic holds any Lesson:
 
 ```json
-{ "error": "This Topic still holds Lessons. Remove or detach them first." }
+{
+	"error": "Delete Forces? Its 12 Lessons become Standalone Lessons. Every Class keeps them in its Sequence."
+}
 ```
 
-→ **409** if the Topic is assigned to any Class:
-
-```json
-{ "error": "This Topic is assigned to a Class, so it cannot be removed." }
-```
+The API has no confirm, so a Topic with Lessons is refused. In the browser, Delete Topic asks first and
+then detaches: the Lessons become Standalone Lessons, and every Sequence keeps them.
 
 **`GET /api/topics/:id/lessons`** → 200, `Lesson[]`, ordered by `position`. → 404.
 
@@ -386,8 +390,8 @@ Lessons are ordered within their Topic (ADR-0010), so this order is meaningful a
 Only `title` is required. `body` defaults to null, `length` to 1, `status` to `"draft"`.
 
 → 201, `Lesson` with `links: []` and a `report` field, appended at the end of the Topic's order. `report`
-is the Rewind report of the new Lesson: `{ "atRisk": [...], "placementsMoved": [...] }`. → 404 if
-the Topic does not exist.
+is the report of the write: `{ "placementsMoved": [] }`. A new Lesson is in no Sequence, so it
+moves no date and the list is always empty. → 404 if the Topic does not exist.
 
 **There is no 409 here.** Lesson titles are not unique and gain no constraint. One Topic may hold
 two Lessons called "Revision".
@@ -436,16 +440,12 @@ its children, because a Lesson without its Links is not the plan.
 
 Accepts `title`, `body`, `length`, `status` and `topicId`. All optional. See section 3.4.
 
-→ 200, `{ "lesson": Lesson, "report": { "atRisk": [...], "placementsMoved": [...] } }`. The
-`Lesson` has no `links`. `report` is the Rewind report of the change; both lists are empty when
-the change moves no date. A change that sets nothing is a no-op: it returns the stored Lesson and an
+→ 200, `{ "lesson": Lesson, "report": { "placementsMoved": [...] } }`. The
+`Lesson` has no `links`. `report` is the report of the change; the list is empty when
+the change moves no Placement. A change that sets nothing is a no-op: it returns the stored Lesson and an
 empty report. → 404 if the Lesson, or a named `topicId`, does not exist.
-→ **409** if `topicId` names a Topic and the Lesson's current `topicId` is `null` — Detach is
-one-way (ADR-0022), so a Standalone Lesson may never re-attach:
-
-```json
-{ "error": "A Standalone Lesson cannot rejoin a Topic." }
-```
+A `topicId` that names a Topic files the Lesson there, at the end of the Topic's order, whether the
+Lesson was in another Topic or Standalone. Filing changes no Sequence and no Placement.
 
 **`DELETE /api/lessons/:id`** → 204. → 404.
 
@@ -453,24 +453,25 @@ one-way (ADR-0022), so a Standalone Lesson may never re-attach:
 
 ```json
 {
-	"error": "A Class has already been taught this Lesson, so it cannot be removed. Detach it from its Topic instead."
+	"error": "A Class has already been taught this Lesson, so it cannot be removed."
 }
 ```
 
-This is today's rule, unchanged. The message names the way out in the teacher's own terms —
-Detach — usable at the Courses form and this API alike; the form action shows the same message,
-and an agent that gets a bare refusal will try again rather than detach, except when the Lesson
-is already Standalone (its `topicId` is already `null`), where there is no Topic to detach it
-from:
-
-```json
-{ "error": "A Class has already been taught this Lesson, so it cannot be removed." }
-```
+This is today's rule, unchanged. Detach no longer helps: a Detach files the Lesson and leaves it in
+every Sequence, so the message does not suggest it. A Standalone Lesson gets the same message.
 
 → **409** if a Placement names the Lesson (ADR-0022):
 
 ```json
 { "error": "A Placement names this Lesson, so it cannot be removed. Remove the Placement first." }
+```
+
+→ **409** if the Sequence of any Class holds the Lesson (ADR-0026). The error names the Classes. The
+API has no confirm; in the browser, Delete Lesson asks first and then deletes the Lesson with its
+entries, its Readiness and its Teaching notes:
+
+```json
+{ "error": "This Lesson is in 9B/Sc1 and 9C/Sc1's Sequences. Delete it?" }
 ```
 
 Deleting a Lesson deletes its Links.
@@ -494,18 +495,16 @@ PATCH /api/lessons/b204...
 { "topicId": null }
 ```
 
-The Lesson keeps its title, body, Links and Length. It leaves every Class's Lesson stream, because
-that stream is reached through `assignedTopic → topic → lesson` and a null `topic_id` cannot join.
-Every Session that already taught it still names it. This is ADR-0015.
+The Lesson keeps its title, body, Links and Length. It changes no Sequence: every Class that holds
+the Lesson in its Sequence keeps it, with its Readiness and its Teaching note, and a Placement of it
+stays. Every Session that already taught it still names it. This is ADR-0015 and ADR-0026.
 
 Detach is allowed whether or not the Lesson has been taught. Delete and Detach are one rule each,
 and neither is aware of the other.
 
-> **Amended (ADR-0022).** Re-attaching is retired: `{ "topicId": "3a77..." }` on a Lesson whose
-> current `topicId` is `null` now returns 409, not 200. A Standalone Lesson reaches a Class only
-> through a Placement, on a date the teacher chose; letting it silently regain a Topic mid-Placement
-> was the loophole this closes. Detach is one-way. Moving a Lesson _between_ two Topics — both
-> `topicId`s non-null — is untouched.
+> **Amended (ADR-0026).** Detach is two-way. `{ "topicId": "3a77..." }` on a Standalone Lesson files
+> it in that Topic, at the end of the Topic's order, and answers 200. Filing changes no Sequence,
+> Readiness or Placement, so no date moves.
 
 ### 5.5 Link
 
@@ -537,7 +536,7 @@ refused; the message is the refusal's own. A refused upload writes no row and no
 
 An Attachment is read through its Lesson (`attachments` on `GET /api/lessons/:id`, in `position`
 order). There is no list or download endpoint: downloads stay browser-only at `/attachments/:id`.
-Import does not take Attachments. An Attachment write never changes the schedule or `atRisk`.
+Import does not take Attachments. An Attachment write never changes the schedule.
 
 ### 5.6 Import
 
@@ -596,14 +595,14 @@ Response, **201**:
 		{ "id": "d551...", "title": "Revision", "position": 1, "links": [] },
 		{ "id": "e6a2...", "title": "Revision", "position": 2, "links": [] }
 	],
-	"report": { "atRisk": [], "placementsMoved": [] }
+	"report": { "placementsMoved": [] }
 }
 ```
 
 **The response must carry every created Lesson id.** Two Lessons in one Topic may share a title, so
 an id is the only way for the caller to name what it just made. `courseCreated` tells the caller
-whether it made a Course by accident from a mistyped name. `report` is the Rewind report of the
-import. A new Topic is assigned to no Class, so it is always empty.
+whether it made a Course by accident from a mistyped name. `report` is the report of the
+import. A new Topic is in no Sequence, so it is always empty.
 
 Failures:
 
@@ -619,7 +618,8 @@ Topic, and no Lesson behind. Wrap the whole thing in one `db.transaction`. `bun:
 synchronous, so this is a plain synchronous transaction with no partial-await hazard.
 
 There is no `PUT` and no merge. Import is create-only. Re-importing a changed Topic means deleting
-the Topic and importing again, or hand-editing in the Courses view.
+the Topic and importing again, or hand-editing in the Courses view. The deleted Topic's old Lessons
+stay as Standalone Lessons, and every Sequence keeps them.
 
 ## 6. Uniqueness
 
@@ -684,30 +684,31 @@ are used as they are:
 
 ### 7.1 Gaps to fill in `authoring.ts`
 
-| what           | why                                                                                 |
-| -------------- | ----------------------------------------------------------------------------------- |
-| `courseById`   | No read-one exists. `GET /api/courses/:id` needs it.                                |
-| `topicById`    | Same, for `GET /api/topics/:id`.                                                    |
-| `deleteCourse` | Does not exist. Must refuse when the Course holds Topics or a Class follows it.     |
-| `deleteTopic`  | Does not exist. Must refuse when the Topic holds Lessons or is assigned to a Class. |
-| `editLesson`   | One partial change to one Lesson, for the Lesson editor and PATCH alike (#356).     |
-| `importTopic`  | New. One transaction, direct inserts, one `rederiveTopic` at the end.               |
+| what           | why                                                                                |
+| -------------- | ---------------------------------------------------------------------------------- |
+| `courseById`   | No read-one exists. `GET /api/courses/:id` needs it.                               |
+| `topicById`    | Same, for `GET /api/topics/:id`.                                                   |
+| `deleteCourse` | Does not exist. Must refuse when the Course holds Topics or a Class follows it.    |
+| `deleteTopic`  | Does not exist. Must refuse when the Topic holds Lessons (the API has no confirm). |
+| `editLesson`   | One partial change to one Lesson, for the Lesson editor and PATCH alike (#356).    |
+| `importTopic`  | New. One transaction, direct inserts, no re-derive: a new Topic is in no Sequence. |
 
 ### 7.2 Signatures to change
 
 - **`editLesson`** accepts `topicId: string | null`. A null target is Detach: it sets the column
-  and re-derives every Class that reached the Lesson through its old Topic.
+  and re-derives nothing: Detach changes no Sequence.
 - **`deleteLesson`** refuses a taught or placed Lesson by throwing `Refused('conflict', …)` — the
   message written at the seam, the status mapped by the door (`src/lib/server/planner/refused.ts`).
-  An id the URL names but the database does not returns `undefined`, and the route answers its own 404.
+  A Lesson that a Sequence holds returns `{ needsConfirm: true, reason }` instead, and the API door
+  answers it with 409 and the `reason`. An id the URL names but the database does not returns `undefined`, and the route answers its own 404.
 
 ### 7.3 The three joins from ADR-0015
 
 Making `lesson.topic_id` nullable breaks three inner joins. They must become **left** joins, and
 `topicName` becomes nullable at each:
 
-- `lessonNames` in `derive.ts` — feeds the Agenda, the Calendar grid, the Class lanes, the at-risk
-  report.
+- `lessonNames` in `derive.ts` — feeds the Agenda, the Calendar grid, the Class lanes, the report
+  of a Placement that moved.
 - `sessionDetail` in `sessions.ts` — feeds the Session page.
 - `planningStream` in `views.ts` — feeds the Planning tab.
 
@@ -754,6 +755,7 @@ Not a full plan, but the cases that carry the decisions:
   collide with a "Forces" in a different Course.
 - Two Lessons called "Revision" import into one Topic, and the response carries two different ids.
 - `DELETE /api/lessons/:id` on a taught Lesson returns 409, and the Lesson is still there.
+- `DELETE /api/lessons/:id` on a Lesson that a Class's Sequence holds returns 409 and names the Class.
 - `PATCH /api/lessons/:id` with `{"topicId": null}` on a taught Lesson succeeds, and the Session
   that taught it still shows the Lesson title with no Topic name.
 - `DELETE /api/courses/:id` on a Course a Class follows returns 409, not 500.

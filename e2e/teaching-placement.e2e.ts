@@ -26,6 +26,12 @@ async function openSessionAndExpect(page: Page) {
 	await expect(page.getByLabel('How it went')).toBeVisible();
 }
 
+// An Open Slot has no Lesson, so its Session page has no note field (ADR-0026).
+async function openOpenSlotAndExpect(page: Page) {
+	await expect(page.getByRole('button', { name: 'Back' })).toBeVisible();
+	await expect(page.getByLabel('How it went')).toHaveCount(0);
+}
+
 async function expectSessionClosed(page: Page) {
 	await expect(page.getByRole('button', { name: 'Back' })).toBeHidden();
 }
@@ -61,7 +67,7 @@ test.describe.serial('Placing and removing a Lesson', () => {
 		const cell = page.locator('td').filter({ hasText: '9C/Sc1' });
 
 		await page.getByRole('link', { name: '9C/Sc1 Open Slot' }).click();
-		await openSessionAndExpect(page);
+		await openOpenSlotAndExpect(page);
 		await expect(page.getByRole('heading', { name: 'Place a Lesson' })).toBeVisible();
 		await expect(
 			page.getByText(
@@ -140,7 +146,7 @@ test.describe.serial('Placing and removing a Lesson', () => {
 		await expect(page.getByRole('menuitem', { name: 'Open 9C/Sc1, P3 to place…' })).toBeVisible();
 		await page.getByRole('menuitem', { name: 'Open 9C/Sc1, P3 to place…' }).click();
 
-		await openSessionAndExpect(page);
+		await openOpenSlotAndExpect(page);
 		await expect(page.locator('main')).toContainText('9C/Sc1');
 		await expect(page.getByRole('heading', { name: 'Place a Lesson' })).toBeVisible();
 
@@ -160,7 +166,7 @@ test.describe.serial('Placing and removing a Lesson', () => {
 		const cell = page.locator('td').filter({ hasText: '9C/Sc1' });
 
 		await page.getByRole('link', { name: '9C/Sc1 Open Slot' }).click();
-		await openSessionAndExpect(page);
+		await openOpenSlotAndExpect(page);
 		await page.getByRole('textbox', { name: 'Lesson title' }).fill('Forced-move rehearsal');
 		await page.getByRole('button', { name: 'Place' }).click();
 		await expect(page.getByText('Standalone Lesson · Placed')).toBeVisible();

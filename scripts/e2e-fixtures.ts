@@ -22,7 +22,8 @@ import { rmSync } from 'node:fs';
 import { and, eq } from 'drizzle-orm';
 import { inTransaction, openDatabase } from '../src/lib/server/db/index.ts';
 import * as schema from '../src/lib/server/db/schema.ts';
-import { defaultWeek, rederive, teachingWeeks } from '../src/lib/server/planner/derive.ts';
+import { defaultWeek } from '../src/lib/calendar/default-week.ts';
+import { rederive, teachingWeeks } from '../src/lib/server/planner/derive.ts';
 import {
 	assignTopic,
 	attachmentsDir,
@@ -84,8 +85,8 @@ function seedStandard() {
 	// Next Up.
 	const course = createCourse(db, { name: 'KS3 Science' });
 	const forces = createTopic(db, { courseId: course.id, name: 'Forces' });
-	const speed = createLesson(db, { topicId: forces.id, title: 'Speed', today: now }).lesson;
-	createLesson(db, { topicId: forces.id, title: 'Motion', today: now });
+	const speed = createLesson(db, { topicId: forces.id, title: 'Speed' }).lesson;
+	createLesson(db, { topicId: forces.id, title: 'Motion' });
 	const classA = createClass(db, { label: '9B/Sc1', courseId: course.id });
 	const classB = createClass(db, { label: '9C/Sc1', courseId: course.id });
 	// The Week letter the Calendar opens on (the one covering today), so the Slots land on a
@@ -144,35 +145,49 @@ switch (command) {
 			throw new Error('Usage: mark-taught <classId> <date> <period> <lessonId> [note]');
 		}
 		db.insert(schema.session)
-			.values({ classId, date, period: Number(periodRaw), lessonId, note })
+			.values({ classId, date, period: Number(periodRaw), lessonId })
 			.run();
+		// The note is the Teaching note of the Class and Lesson (ADR-0026).
+		if (note) db.insert(schema.teachingNote).values({ classId, lessonId, body: note }).run();
 		// A taught Lesson is delivered: the queue from today relabels to match, as every
 		// scheduling write in the app rederives (ADR-0007). Without this the materialized
 		// Sessions ahead of today disagree with the derivation the Agenda reads.
 		rederive(db, classId, today());
 		break;
 	}
-	// Takes a past Session back out, so a later file's Term save has no noted Session to report.
+	// Takes a past Session back out, with the Teaching note that mark-taught wrote for its Lesson.
 	case 'unmark-taught': {
 		const [classId, date, periodRaw] = args;
 		if (!classId || !date || !periodRaw) {
 			throw new Error('Usage: unmark-taught <classId> <date> <period>');
 		}
-		db.delete(schema.session)
-			.where(
-				and(
-					eq(schema.session.classId, classId),
-					eq(schema.session.date, date),
-					eq(schema.session.period, Number(periodRaw))
+		const taught = and(
+			eq(schema.session.classId, classId),
+			eq(schema.session.date, date),
+			eq(schema.session.period, Number(periodRaw))
+		);
+		const [row] = db
+			.select({ lessonId: schema.session.lessonId })
+			.from(schema.session)
+			.where(taught)
+			.all();
+		if (row?.lessonId) {
+			db.delete(schema.teachingNote)
+				.where(
+					and(
+						eq(schema.teachingNote.classId, classId),
+						eq(schema.teachingNote.lessonId, row.lessonId)
+					)
 				)
-			)
-			.run();
+				.run();
+		}
+		db.delete(schema.session).where(taught).run();
 		// The delivery it carried comes back: relabel the queue, as mark-taught does.
 		rederive(db, classId, today());
 		break;
 	}
 	// An assignment the API under test cannot make: the API has no Class endpoints, and the spec
-	// needs a Topic the delete route must refuse because a Class follows it.
+	// needs a Lesson the delete route must refuse because a Class's Sequence holds it.
 	case 'assign-topic': {
 		const [classLabel, topicId] = args;
 		if (!classLabel || !topicId) throw new Error('Usage: assign-topic <classLabel> <topicId>');
@@ -182,7 +197,7 @@ switch (command) {
 			.where(eq(schema.classes.label, classLabel))
 			.all();
 		if (!row) throw new Error(`No Class labelled ${classLabel}`);
-		db.insert(schema.assignedTopic).values({ classId: row.id, topicId, position: 0 }).run();
+		assignTopic(db, { classId: row.id, topicId, today: today() });
 		break;
 	}
 	// A Class following one Course, for the delete-Course refusal the API cannot set up either:

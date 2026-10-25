@@ -1,15 +1,21 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import type { SubmitFunction } from '@sveltejs/kit';
+	import { tick } from 'svelte';
 	import { resolve } from '$app/paths';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import { classTone } from '$lib/class-tone';
 	import { courseHref } from '$lib/client/back';
-	import { createInPlace, createThenSelect } from '$lib/client/enhance';
-	import type { WriteReport } from '$lib/server/planner';
+	import {
+		createInPlace,
+		createThenSelect,
+		failureReason,
+		submitWithValue
+	} from '$lib/client/enhance';
+	import { plural } from '$lib/plural';
 	import RenameableRow from '$lib/components/renameable-row.svelte';
-	import RewindReport from '$lib/components/rewind-report.svelte';
 	import ReorderButtons from '$lib/components/reorder-buttons.svelte';
 	import TagChips from '$lib/components/tag-chips.svelte';
 	import { Badge } from '$lib/components/ui/badge/index.js';
@@ -23,26 +29,47 @@
 	let { data, form }: PageProps = $props();
 
 	const tone = $derived(classTone(data.course.tone));
-	const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 	// Each create box clears itself once the write lands, so the next name can be typed straight in.
 	let newTopicName = $state('');
 	let newLessonTitle = $state('');
 
-	// A Lesson created in place leaves `form` alone (see createInPlace), so its report is held
-	// here. Any later action answer replaces it.
-	let createdReport = $state<WriteReport | null>(null);
-	$effect(() => {
-		void form;
-		createdReport = null;
-	});
-
 	// From `md` up the plan is written; below it, it is read: no rename, menu, reorder or create box.
 	const wide = new MediaQuery('min-width: 768px', true);
 
-	// A delete always asks first. The dialog's form carries `confirmed`, so nothing is removed
-	// before it is answered.
-	let pendingDelete = $state<{ kind: 'course' | 'topic'; id: string; name: string } | null>(null);
+	// A delete is asked unconfirmed first. The action answers `needsConfirm` with the reason when
+	// Lessons would be detached, and the dialog then posts the delete with `confirmed`. An empty
+	// Topic or Course goes at once.
+	let pendingDelete = $state<{
+		kind: 'course' | 'topic';
+		id: string;
+		name: string;
+		description: string;
+	} | null>(null);
+	let deleteForm = $state<HTMLFormElement>();
+	let deleteAction = $state('?/deleteTopic');
+	let asked: { kind: 'course' | 'topic'; id: string; name: string } | null = null;
+
+	// Move to… files the shown Topic in another Course. One hidden form carries the chosen Course.
+	let moveForm = $state<HTMLFormElement>();
+
+	async function submitDelete(kind: 'course' | 'topic', id: string, name: string): Promise<void> {
+		asked = { kind, id, name };
+		deleteAction = kind === 'topic' ? '?/deleteTopic' : '?/deleteCourse';
+		await tick();
+		submitWithValue(deleteForm, 'id', id);
+	}
+
+	const answerDelete: SubmitFunction = () => {
+		const target = asked;
+		return async ({ result, update }) => {
+			if (target && result.type === 'failure' && result.data?.needsConfirm) {
+				pendingDelete = { ...target, description: failureReason(result, 'Delete it?') };
+			} else {
+				await update();
+			}
+		};
+	};
 </script>
 
 <svelte:head><title>{data.course.name}</title></svelte:head>
@@ -105,7 +132,7 @@
 		{#if wide.current}
 			{@render menu(
 				'Course actions',
-				() => (pendingDelete = { kind: 'course', id: data.course.id, name: data.course.name }),
+				() => submitDelete('course', data.course.id, data.course.name),
 				'Delete Course'
 			)}
 		{/if}
@@ -114,7 +141,6 @@
 	{#if form?.error}
 		<p role="alert" class="mb-3 text-sm text-destructive">{form.error}</p>
 	{/if}
-	<RewindReport report={createdReport ?? form?.report} />
 
 	<!-- From `xl` the Topics and the chosen Topic's Lessons sit side by side. Below it one column
 	     shows at a time: the Topic list until the address names a Topic, then its Lessons. -->
@@ -201,13 +227,39 @@
 								{plural(data.lessons.length, 'Lesson')}
 							</p>
 							<p class="mt-1 text-[11px] text-muted-foreground">
-								Changes move dates for every Class teaching this Topic
+								Assign Topic adds these Lessons to a Class in this order
 							</p>
 						</div>
+						{#if wide.current && data.otherCourses.length}
+							<form
+								bind:this={moveForm}
+								method="POST"
+								action="?/moveTopic"
+								use:enhance
+								class="hidden"
+							>
+								<input type="hidden" name="id" value={shown.id} />
+								<input type="hidden" name="courseId" />
+							</form>
+							<DropdownMenu.Root>
+								<DropdownMenu.Trigger
+									class="{touchTarget} shrink-0 rounded px-1 text-xs text-muted-foreground hover:text-foreground"
+								>
+									Move to…
+								</DropdownMenu.Trigger>
+								<DropdownMenu.Content align="end">
+									{#each data.otherCourses as c (c.id)}
+										<DropdownMenu.Item onSelect={() => submitWithValue(moveForm, 'courseId', c.id)}
+											>{c.name}</DropdownMenu.Item
+										>
+									{/each}
+								</DropdownMenu.Content>
+							</DropdownMenu.Root>
+						{/if}
 						{#if wide.current}
 							{@render menu(
 								'Topic actions',
-								() => (pendingDelete = { kind: 'topic', id: shown.id, name: shown.name }),
+								() => submitDelete('topic', shown.id, shown.name),
 								'Delete Topic'
 							)}
 						{/if}
@@ -255,10 +307,7 @@
 						method="POST"
 						action="?/createLesson"
 						class="border-t px-4 py-3"
-						use:enhance={createInPlace(
-							() => (newLessonTitle = ''),
-							(report) => (createdReport = report)
-						)}
+						use:enhance={createInPlace(() => (newLessonTitle = ''))}
 					>
 						<input type="hidden" name="topicId" value={data.shown.id} />
 						<Input
@@ -282,7 +331,8 @@
 <ConfirmDeleteDialog
 	bind:target={pendingDelete}
 	action={pendingDelete?.kind === 'topic' ? '?/deleteTopic' : '?/deleteCourse'}
-	description={pendingDelete?.kind === 'topic'
-		? 'Deleting it removes the Lessons it holds.'
-		: 'Deleting it removes its Topics and their Lessons.'}
 />
+
+<form method="POST" action={deleteAction} use:enhance={answerDelete} bind:this={deleteForm} hidden>
+	<input type="hidden" name="id" />
+</form>

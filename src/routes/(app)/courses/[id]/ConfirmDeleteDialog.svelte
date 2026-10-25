@@ -3,18 +3,16 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 
-	// The delete ask for a Course or a Topic, shown before any delete runs. Its form posts
-	// `confirmed`, so the seam cascades into the children at once; the API keeps its own unconfirmed
-	// 409 question. `target` is null when no delete is pending; setting it opens the dialog, and
-	// confirming or cancelling clears it back to null.
+	// The delete ask for a Course or a Topic that still holds Lessons. The unconfirmed delete came
+	// back with `needsConfirm`, and `description` is the server's reason. Its form posts `confirmed`,
+	// so the seam detaches the Lessons at once. `target` is null when no delete is pending; setting
+	// it opens the dialog, and confirming or cancelling clears it back to null.
 	let {
 		target = $bindable(null),
-		action,
-		description
+		action
 	}: {
-		target: { id: string; name: string } | null;
+		target: { id: string; name: string; description: string } | null;
 		action: string;
-		description: string;
 	} = $props();
 </script>
 
@@ -27,7 +25,7 @@
 	<Dialog.Content class="sm:max-w-md">
 		<Dialog.Header>
 			<Dialog.Title>Delete "{target?.name}"?</Dialog.Title>
-			<Dialog.Description>{description}</Dialog.Description>
+			<Dialog.Description>{target?.description}</Dialog.Description>
 		</Dialog.Header>
 		<Dialog.Footer>
 			<Button variant="outline" size="sm" class="h-7" onclick={() => (target = null)}>

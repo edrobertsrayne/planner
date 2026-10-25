@@ -27,7 +27,7 @@ import {
 	createLink,
 	createTopic,
 	replaceTerms,
-	writeSessionNote
+	writeTeachingNote
 } from '../src/lib/server/planner/index.ts';
 import { today } from '../src/lib/date.ts';
 import { EMAIL, PASSWORD } from '../e2e/helpers.ts';
@@ -55,7 +55,7 @@ function seed(path: string | undefined) {
 		[electricity.id, ELECTRICITY]
 	] as const) {
 		for (const { links, ...lesson } of lessons) {
-			const created = createLesson(db, { topicId, ...lesson, status: 'planned', today: since });
+			const created = createLesson(db, { topicId, ...lesson, status: 'planned' });
 			for (const link of links ?? []) createLink(db, { lessonId: created.lesson.id, ...link });
 		}
 	}
@@ -96,7 +96,7 @@ function seed(path: string | undefined) {
 		for (const topicId of topics) assignTopic(db, { classId: cls.id, topicId, today: since });
 	}
 
-	// One note on the last taught Session, for the Session page and the Class page "Last taught".
+	// One Teaching note on the last taught Session, for the Session page and the Class page "Last taught".
 	const classId = created.get('9B/Sc1')!;
 	const [last] = db
 		.select()
@@ -105,11 +105,12 @@ function seed(path: string | undefined) {
 		.orderBy(desc(schema.session.date), desc(schema.session.period))
 		.limit(1)
 		.all();
-	if (last) {
-		writeSessionNote(db, {
+	if (last?.lessonId) {
+		writeTeachingNote(db, {
 			classId,
 			date: last.date,
 			period: last.period,
+			lessonId: last.lessonId,
 			note: 'Ran out of time for the plenary. Recap $F = ma$ next lesson.'
 		});
 	}

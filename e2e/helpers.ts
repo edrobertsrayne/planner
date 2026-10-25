@@ -1,4 +1,10 @@
-import { expect, type BrowserContext, type Locator, type Page } from '@playwright/test';
+import {
+	expect,
+	type Browser,
+	type BrowserContext,
+	type Locator,
+	type Page
+} from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 
 // Helpers the e2e files share. Not a test file: `testMatch` in playwright.config.ts only takes
@@ -30,6 +36,29 @@ export async function login(page: Page, path = '/') {
 	await expect(page).toHaveURL('/');
 	session = await page.context().cookies();
 	if (path !== '/') await page.goto(path);
+}
+
+// The Course and Class of the standard state. A Class follows the Course, so the delete route's
+// Class refusal is reachable.
+export const FIXTURE_COURSE = 'KS3 Science';
+export const FIXTURE_CLASS_LABEL = '9C/Sc1';
+
+export const BEARER = (token: string) => ({ Authorization: `Bearer ${token}` });
+
+// Opens a page and logs the one user in.
+export async function openPage(browser: Browser): Promise<Page> {
+	const page = await browser.newPage();
+	await login(page);
+	return page;
+}
+
+// Reads the standing key from the Settings card. The token is shown in full, in a read-only
+// field — there is no Generate step and no one-time display to catch it from.
+export async function standingKey(page: Page): Promise<string> {
+	await page.goto('/settings');
+	const field = page.getByLabel('API key');
+	await expect(field).toBeVisible();
+	return (await field.inputValue()).trim();
 }
 
 // Clears e2e.db and its Attachments, then writes one known state, so a file runs alone or in

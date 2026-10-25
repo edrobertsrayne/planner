@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { BEARER, apiKey } from './helpers.ts';
-import { resetTo } from '../helpers.ts';
+import { apiKey } from './helpers.ts';
+import { BEARER, resetTo } from '../helpers.ts';
 
 // Covers the one Import endpoint over real HTTP (issue #159): the whole-or-nothing transaction,
 // Course reuse by name, the ambiguity and collision refusals, the rejected Import that leaves

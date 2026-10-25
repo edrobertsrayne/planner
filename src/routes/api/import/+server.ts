@@ -1,7 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { client, db } from '$lib/server/db/client';
 import { requireApiKey } from '$lib/server/api-key';
-import { today } from '$lib/date';
 import { refusalJson, stringField } from '$lib/server/api-helpers';
 import { importTopic } from '$lib/server/planner/authoring';
 import type { RequestHandler } from './$types';
@@ -56,17 +55,7 @@ export const POST: RequestHandler = async (event) => {
 	const courseName = typeof data.course.name === 'string' ? data.course.name : undefined;
 
 	try {
-		const created = importTopic(
-			db,
-			client,
-			{
-				courseId,
-				courseName,
-				topicName,
-				lessons
-			},
-			today()
-		);
+		const created = importTopic(db, client, { courseId, courseName, topicName, lessons });
 
 		return json(
 			{
@@ -74,7 +63,7 @@ export const POST: RequestHandler = async (event) => {
 				courseCreated: created.courseCreated,
 				topic: created.topic,
 				lessons: created.lessons,
-				report: created.report
+				report: { placementsMoved: [] }
 			},
 			{ status: 201 }
 		);

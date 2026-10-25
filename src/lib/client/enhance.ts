@@ -27,14 +27,17 @@ export function failureReason(result: ActionResult, fallback: string): string {
 	return typeof reason === 'string' ? reason : fallback;
 }
 
-// The seam writes its refusals for Ed to read — "This Topic has already been taught and cannot be
-// unassigned." — so a failure shows that reason and leaves the page as it was. Anything else
-// refreshes.
-export function onFail(fallback: string): SubmitFunction {
+// The seam writes its refusals for Ed to read — "This Lesson was taught, so it cannot be
+// removed." — so a failure shows that reason and leaves the page as it was. Anything else runs
+// `onSuccess`, if given, and refreshes.
+export function onFail(fallback: string, onSuccess?: () => void): SubmitFunction {
 	return () =>
 		async ({ result, update }) => {
 			if (result.type === 'failure') toast.error(failureReason(result, fallback));
-			else await update({ invalidateAll: true });
+			else {
+				onSuccess?.();
+				await update({ invalidateAll: true });
+			}
 		};
 }
 
@@ -62,23 +65,18 @@ export function reportOfResult(result: ActionResult): WriteReport | null {
 
 // Whether a report has anything to show. A toast for an empty report would be blank.
 export function hasReport(report: WriteReport | null): report is WriteReport {
-	return !!report && (report.atRisk.length > 0 || report.placementsMoved.length > 0);
+	return !!report && report.placementsMoved.length > 0;
 }
 
 // A create box that stays where it is: the new row appears in the list above it, and the box is
 // ready for the next entry. `applyAction` ends a success with SvelteKit's own `reset_focus`, which
 // takes the caret out of the box — so a success refreshes the data and nothing else, and only a
-// refusal goes through the ordinary action handling to put its reason on the page. The write's
-// Rewind report, if it answered with one, goes to `onReport` instead of the page's `form`.
-export function createInPlace(
-	clear: () => void,
-	onReport: (report: WriteReport | null) => void
-): SubmitFunction {
+// refusal goes through the ordinary action handling to put its reason on the page.
+export function createInPlace(clear: () => void): SubmitFunction {
 	return () =>
 		async ({ result }) => {
 			if (result.type !== 'success') return applyAction(result);
 			clear();
-			onReport(reportOfResult(result));
 			await invalidateAll();
 		};
 }

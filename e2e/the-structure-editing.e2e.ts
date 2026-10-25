@@ -23,7 +23,7 @@ test.beforeAll(() => resetTo('standard'));
 test.describe('the Course and Topic editors', () => {
 	test.use({ viewport: { width: 1280, height: 720 } });
 
-	test('a long Topic title wraps in full, and Delete Topic asks before it deletes', async ({
+	test('a long Topic title wraps in full, and Delete Topic asks before it detaches its Lessons', async ({
 		page
 	}) => {
 		await openCourse(page);
@@ -35,8 +35,14 @@ test.describe('the Course and Topic editors', () => {
 		await expect(link).toBeVisible();
 		expect(await link.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
 
+		const lessonBox = page.getByPlaceholder('New Lesson title — press Enter');
+		await lessonBox.fill('Wrap check');
+		await lessonBox.press('Enter');
+		await expect(page.getByRole('link', { name: 'Wrap check', exact: true })).toBeVisible();
+
 		await page.getByRole('button', { name: 'Topic actions' }).click();
 		await page.getByRole('menuitem', { name: 'Delete Topic' }).click();
+		await expect(page.getByRole('dialog')).toContainText('1 Lesson becomes a Standalone Lesson');
 		await page.getByRole('button', { name: 'Cancel' }).click();
 		await expect(link).toBeVisible();
 
@@ -44,21 +50,80 @@ test.describe('the Course and Topic editors', () => {
 		await page.getByRole('menuitem', { name: 'Delete Topic' }).click();
 		await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
 		await expect(link).toHaveCount(0);
+
+		// The Lesson stayed, with no Topic. Delete it, so no Standalone Lesson is left behind.
+		await page.goto(`/lessons/${runFixture('find-lesson-id', 'Wrap check')}`);
+		await page.getByRole('button', { name: 'Delete Lesson' }).click();
+		await expectToast(page, 'Lesson deleted.');
 	});
 
-	test('Delete Course asks before it deletes, and a Course with Classes refuses', async ({
-		page
-	}) => {
+	test('an empty Topic is deleted at once, with no question', async ({ page }) => {
+		await openCourse(page);
+		const box = page.getByPlaceholder('New Topic name — press Enter');
+		await box.fill('Empty Topic');
+		await box.press('Enter');
+		const link = page.getByRole('link', { name: 'Empty Topic' });
+		await expect(link).toBeVisible();
+
+		await page.getByRole('button', { name: 'Topic actions' }).click();
+		await page.getByRole('menuitem', { name: 'Delete Topic' }).click();
+		await expect(link).toHaveCount(0);
+		await expect(page.getByRole('dialog')).toHaveCount(0);
+	});
+
+	test('Move to… files a Topic in another Course and refuses a name clash', async ({ page }) => {
+		await login(page, '/courses');
+		const courseBox = page.getByPlaceholder('New Course name — press Enter');
+		await courseBox.fill('Move target');
+		await courseBox.press('Enter');
+		await expect(page.getByRole('heading', { level: 1, name: 'Move target' })).toBeVisible();
+
+		await openCourse(page);
+		const topicBox = page.getByPlaceholder('New Topic name — press Enter');
+		await topicBox.fill('Mover');
+		await topicBox.press('Enter');
+		const link = page.getByRole('link', { name: /^Mover/ });
+		await expect(link).toBeVisible();
+
+		await page.getByRole('button', { name: 'Move to…' }).click();
+		await page.getByRole('menuitem', { name: 'Move target' }).click();
+		await expect(link).toHaveCount(0);
+
+		await page.goto('/courses');
+		await page.getByRole('link', { name: 'Move target' }).click();
+		await expect(page.getByRole('link', { name: /^Mover/ })).toBeVisible();
+
+		// A second Topic of the same name in KS3 Science cannot move into Move target.
+		await openCourse(page);
+		await topicBox.fill('Mover');
+		await topicBox.press('Enter');
+		await expect(link).toBeVisible();
+		await page.getByRole('button', { name: 'Move to…' }).click();
+		await page.getByRole('menuitem', { name: 'Move target' }).click();
+		await expect(page.getByRole('alert')).toContainText(
+			'The Course "Move target" already holds a Topic called "Mover".'
+		);
+
+		// Leave nothing behind: both Topics are empty, so each goes at once.
+		await page.getByRole('button', { name: 'Topic actions' }).click();
+		await page.getByRole('menuitem', { name: 'Delete Topic' }).click();
+		await expect(link).toHaveCount(0);
+		await page.goto('/courses');
+		await page.getByRole('link', { name: 'Move target' }).click();
+		await page.getByRole('button', { name: 'Topic actions' }).click();
+		await page.getByRole('menuitem', { name: 'Delete Topic' }).click();
+		await expect(link).toHaveCount(0);
+		await page.getByRole('button', { name: 'Course actions' }).click();
+		await page.getByRole('menuitem', { name: 'Delete Course' }).click();
+		await expect(page).toHaveURL(/\/courses$/);
+	});
+
+	test('a Course with Classes refuses at once, without asking', async ({ page }) => {
 		await openCourse(page);
 		await page.getByRole('button', { name: 'Course actions' }).click();
 		await page.getByRole('menuitem', { name: 'Delete Course' }).click();
-		await page.getByRole('button', { name: 'Cancel' }).click();
-		await expect(page.getByRole('heading', { level: 1, name: 'KS3 Science' })).toBeVisible();
-
-		await page.getByRole('button', { name: 'Course actions' }).click();
-		await page.getByRole('menuitem', { name: 'Delete Course' }).click();
-		await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
 		await expect(page.getByRole('alert')).toContainText('A Class follows this Course');
+		await expect(page.getByRole('dialog')).toHaveCount(0);
 	});
 });
 
@@ -179,7 +244,7 @@ test.describe('the Lesson editor for a Standalone Lesson', () => {
 		return runFixture('create-standalone-lesson', title).trim();
 	}
 
-	test('the form has Draft/Planned, Length and Tags, Links and Attachments, and no Topic, steps or Placements', async ({
+	test('the form has Draft/Planned, Length and Tags, Links and Attachments, a Topic picker, and no steps or Placements', async ({
 		page
 	}) => {
 		const id = standaloneLesson('Revision carousel');
@@ -189,7 +254,7 @@ test.describe('the Lesson editor for a Standalone Lesson', () => {
 		await expect(page.getByText('Standalone Lesson', { exact: true })).toBeVisible();
 		await expect(page.getByRole('radio', { name: 'Planned' })).toBeVisible();
 		await expect(page.getByLabel('Length')).toBeVisible();
-		await expect(page.getByLabel('Topic', { exact: true })).toHaveCount(0);
+		await expect(page.getByLabel('Topic', { exact: true })).toHaveValue('');
 		await expect(page.getByRole('button', { name: 'Next Lesson' })).toHaveCount(0);
 		await expect(page.getByText(/^Lesson \d+ of \d+$/)).toHaveCount(0);
 
@@ -280,8 +345,13 @@ test.describe('Detach on the Lesson editor', () => {
 		expect(page.url()).toBe(url);
 		await expect(page.getByRole('textbox', { name: 'Lesson title' })).toHaveValue('Detachable');
 		await expect(page.getByText('Standalone Lesson', { exact: true })).toBeVisible();
-		await expect(page.getByLabel('Topic', { exact: true })).toHaveCount(0);
+		await expect(page.getByLabel('Topic', { exact: true })).toHaveValue('');
 		await expect(page.getByRole('button', { name: 'Detach from Topic' })).toHaveCount(0);
+
+		// A Standalone Lesson takes a Topic from a picker that lists every Topic, grouped by Course.
+		await page.getByLabel('Topic', { exact: true }).selectOption({ label: 'Forces' });
+		await expect(page.getByRole('button', { name: 'Detach from Topic' })).toBeVisible();
+		await expect(page.getByText('Standalone Lesson', { exact: true })).toHaveCount(0);
 
 		// Leave nothing behind for the tests that follow. It was opened from the Courses screen,
 		// so Back after the delete returns there.
