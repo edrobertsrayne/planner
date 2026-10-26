@@ -1,26 +1,20 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import CheckIcon from '@lucide/svelte/icons/check';
-	import GripVerticalIcon from '@lucide/svelte/icons/grip-vertical';
 	import ListChecksIcon from '@lucide/svelte/icons/list-checks';
-	import LockIcon from '@lucide/svelte/icons/lock';
 	import PlusIcon from '@lucide/svelte/icons/plus';
-	import XIcon from '@lucide/svelte/icons/x';
 	import { onFail, replaceQuery, submitWithValue } from '$lib/client/enhance';
+	import { createSequenceDrag, type DragSnapshot } from '$lib/client/sequence-drag';
+	import { lossSentence, type SequenceResult } from '$lib/sequence-text';
 	import { layOutSequence, type SlotFill } from '$lib/sequence-layout';
 	import { movedOrder } from '$lib/sequence-order';
 	import { withParam } from '$lib/query';
-	import { formatDateShort } from '$lib/date';
-	import { lossSentence, wasText, type SequenceResult } from '$lib/sequence-text';
-	import Markdown from '$lib/components/markdown.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import { topicColour } from '$lib/topic-colour';
-	import { touchTarget } from '$lib/components/ui/touch-target';
+	import SequenceListRow from './SequenceListRow.svelte';
 	import SequenceWeeks from './SequenceWeeks.svelte';
 	import TopicTag from './TopicTag.svelte';
 	import type { SequenceEntry, TopicChip, TopicOption, WeekRow } from '$lib/server/planner';
@@ -108,19 +102,28 @@
 
 	// A drag starts at a grip and uses pointer events, so one path serves a mouse and a finger. The
 	// grip has `touch-action: none`; the rest of the card still lets a finger scroll the page. The
-	// pointer is hit-tested on each move and on each auto-scroll step, because a Lesson can scroll
-	// under a pointer that is still. A fixed Lesson has no grip and no `data-drop`.
-	const EDGE = 80;
-	const SCROLL_STEP = 16;
-	let dragIds = $state<string[]>([]);
-	let grabbedId = $state<string | null>(null);
-	let overId = $state<string | null>(null);
-	let pointer = { x: 0, y: 0 };
-	let ghost = $state({ x: 0, y: 0 });
-	let scrolling = 0;
-
-	const dragging = $derived(dragIds.length > 0);
-	const dragged = $derived(entries.find((entry) => entry.lessonId === grabbedId));
+	// engine in `$lib/client/sequence-drag` hit-tests the cards on each move and each auto-scroll
+	// step, because a Lesson can scroll under a pointer that is still. A fixed Lesson has no grip
+	// and no `data-drop`.
+	let dragState = $state<DragSnapshot>({
+		ids: [],
+		grabbedId: null,
+		overId: null,
+		point: { x: 0, y: 0 }
+	});
+	const drag = createSequenceDrag({
+		onChange: (snapshot) => (dragState = snapshot),
+		onDrop: (lessonIds, target) => {
+			if (!moveForm) return;
+			(moveForm.elements.namedItem('lessonIds') as HTMLInputElement).value = lessonIds.join(',');
+			submitWithValue(moveForm, 'targetId', target);
+		}
+	});
+	const dragIds = $derived(dragState.ids);
+	const overId = $derived(dragState.overId);
+	const ghost = $derived(dragState.point);
+	const dragging = $derived(dragState.ids.length > 0);
+	const dragged = $derived(entries.find((entry) => entry.lessonId === dragState.grabbedId));
 	const order = $derived(entries.map((entry) => entry.lessonId));
 	// The new order if the drop happened now, or null when it would do nothing.
 	const proposal = $derived(overId ? movedOrder(order, dragIds, overId) : null);
@@ -156,11 +159,6 @@
 			.filter((id) => resting.pastEnd.includes(id) || layout.pastEnd.includes(id))
 	);
 
-	function hitTest() {
-		const el = document.elementFromPoint(pointer.x, pointer.y)?.closest<HTMLElement>('[data-drop]');
-		overId = el?.dataset.drop ?? null;
-	}
-
 	// Each card whose first Slot changed in the last Move, with its old date.
 	const was = $derived(new Map((sequenceResult?.changed ?? []).map((c) => [c.lessonId, c.was])));
 
@@ -169,52 +167,18 @@
 			return;
 		event.preventDefault();
 		// A drag on a picked Lesson carries the selection, in its order; any other carries one Lesson.
-		grabbedId = lessonId;
-		dragIds = selectMode && chosenIds.includes(lessonId) ? chosenIds : [lessonId];
-		pointer = { x: event.clientX, y: event.clientY };
-		ghost = pointer;
-		scrolling = requestAnimationFrame(scrollLoop);
-	}
-
-	function dragMove(event: PointerEvent) {
-		if (!dragging) return;
-		pointer = { x: event.clientX, y: event.clientY };
-		ghost = pointer;
-		hitTest();
-	}
-
-	// Near the top or bottom edge of the window, scroll a step and hit-test again.
-	function scrollLoop() {
-		const step =
-			pointer.y < EDGE ? -SCROLL_STEP : pointer.y > window.innerHeight - EDGE ? SCROLL_STEP : 0;
-		if (step !== 0) {
-			window.scrollBy(0, step);
-			hitTest();
-		}
-		scrolling = requestAnimationFrame(scrollLoop);
-	}
-
-	function dragEnd(drop: boolean) {
-		cancelAnimationFrame(scrolling);
-		const target = overId;
-		const lessonIds = dragIds;
-		const dropped = drop && proposal && target;
-		dragIds = [];
-		grabbedId = null;
-		overId = null;
-		if (!dropped || !moveForm) return;
-		(moveForm.elements.namedItem('lessonIds') as HTMLInputElement).value = lessonIds.join(',');
-		submitWithValue(moveForm, 'targetId', target);
+		const ids = selectMode && chosenIds.includes(lessonId) ? chosenIds : [lessonId];
+		drag.start(event, ids, lessonId);
 	}
 </script>
 
 <svelte:window
-	onpointermove={dragMove}
-	onpointerup={() => dragEnd(true)}
-	onpointercancel={() => dragEnd(false)}
+	onpointermove={(event) => drag.move(event)}
+	onpointerup={() => drag.end(true)}
+	onpointercancel={() => drag.end(false)}
 	onkeydown={(event) => {
 		if (event.key !== 'Escape') return;
-		if (dragging) dragEnd(false);
+		if (dragging) drag.end(false);
 		else if (selectMode && !removing) endSelect();
 	}}
 />
@@ -403,92 +367,23 @@
 	{:else}
 		<ol class="mt-3 divide-y rounded-xl border" data-sequence>
 			{#each entries as entry (entry.lessonId)}
-				<li
-					class="relative flex items-stretch {dragIds.includes(entry.lessonId)
-						? 'opacity-40'
-						: ''} {chosenIds.includes(entry.lessonId)
-						? 'ring-2 ring-primary ring-inset'
-						: ''} {!dragging && sequenceResult?.ringed.includes(entry.lessonId)
-						? 'ring-2 ring-amber-500 ring-inset'
-						: ''}"
-					style:background-color={topicColour(
-						entry.topicId,
-						chosenIds.includes(entry.lessonId) ? 0.45 : 0.12
-					)}
-					data-drop={entry.fixed ? undefined : entry.lessonId}
-					data-selected={chosenIds.includes(entry.lessonId) ? '' : undefined}
-				>
-					{#if dragging && proposal && overId === entry.lessonId}
-						<span
-							class="pointer-events-none absolute inset-x-0 z-10 h-0.5 bg-primary {lineAbove
-								? '-top-px'
-								: '-bottom-px'}"
-							data-drop-line
-						></span>
-					{/if}
-					{#if entry.fixed}
-						<span class="w-7 shrink-0"></span>
-					{:else}
-						<button
-							type="button"
-							class="{touchTarget} flex w-7 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground"
-							aria-label="Drag {entry.title}"
-							onpointerdown={(event) => dragStart(event, entry.lessonId)}
-						>
-							<GripVerticalIcon class="size-4" />
-						</button>
-					{/if}
-					<a
-						href={resolve(`/lessons/${entry.lessonId}?class=${classId}`)}
-						class="flex min-w-0 flex-1 flex-col gap-1 px-3 py-2 hover:bg-muted/40"
-						onclick={(event) => tapCard(event, entry)}
-					>
-						<span class="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-							<span class="text-sm font-medium" data-title>{entry.title}</span>
-							{#if chosenIds.includes(entry.lessonId)}
-								<CheckIcon class="size-3.5 self-center text-primary" aria-label="Selected" />
-							{/if}
-							{#if entry.topicName}
-								<TopicTag
-									topicId={entry.topicId}
-									name={entry.topicName}
-									class="gap-1.5 text-xs text-muted-foreground"
-								/>
-							{/if}
-							<span
-								class="ml-auto flex items-center gap-2 text-xs text-muted-foreground tabular-nums"
-							>
-								{#if entry.ready}
-									<span class="flex items-center gap-0.5" data-ready>
-										<CheckIcon class="size-3" aria-hidden="true" />Ready
-									</span>
-								{/if}
-								{#if entry.fixed}
-									<LockIcon class="size-3" aria-label="Fixed: already taught" />
-								{/if}
-								{#if !dragging && was.has(entry.lessonId)}
-									<span class="text-amber-700 dark:text-amber-400" data-was>
-										{wasText(was.get(entry.lessonId) ?? null)}
-									</span>
-								{/if}
-								{entry.firstDate ? formatDateShort(entry.firstDate) : 'past the end'}
-							</span>
-						</span>
-						{#if entry.note}
-							<Markdown source={entry.note} class="line-clamp-2 text-xs text-muted-foreground" />
-						{/if}
-					</a>
-					{#if !entry.fixed && !selectMode}
-						<button
-							type="button"
-							class="flex items-center px-3 text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-							aria-label={`Remove ${entry.title}`}
-							onclick={() => (removing = [entry])}
-						>
-							<XIcon class="size-4" aria-hidden="true" />
-						</button>
-					{/if}
-				</li>
+				<SequenceListRow
+					{classId}
+					{entry}
+					selected={chosenIds.includes(entry.lessonId)}
+					dragging={dragIds.includes(entry.lessonId)}
+					ringed={sequenceResult?.ringed.includes(entry.lessonId) ?? false}
+					was={was.get(entry.lessonId)}
+					{selectMode}
+					dropLine={dragging && proposal && overId === entry.lessonId
+						? lineAbove
+							? 'above'
+							: 'below'
+						: null}
+					onTap={tapCard}
+					onGrip={dragStart}
+					onRemove={(entry) => (removing = [entry])}
+				/>
 			{:else}
 				<li class="px-3 py-4 text-sm text-muted-foreground">
 					No Lessons in this Sequence yet. Use Assign Topic to add a Topic's Lessons.
