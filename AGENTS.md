@@ -35,7 +35,6 @@ A fresh worktree has no `node_modules`. Run `bun install` there before any check
 Commit and push to `main` directly. CI runs the full suite on each push. A new image goes to GHCR only when the suite passes.
 Open a PR only for a one-way change, or for a change that you think needs the teacher's approval first.
 A one-way change is hard to undo. Examples: a migration that deletes or changes data, a change to auth or the backup, or a change to stored data formats.
-`implement-spec` always opens a PR.
 
 ## Prototyping
 
