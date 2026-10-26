@@ -48,3 +48,49 @@ test.describe('the Lesson editor and Sequences', () => {
 		await expect(page.getByText(/^Lesson \d+ of \d+$/)).toBeVisible();
 	});
 });
+
+// #422: a plan typed with no blur, and a tab reloaded mid-sentence, both keep their words.
+test.describe('the Lesson editor saving a plan without a blur', () => {
+	test.use({ viewport: { width: 1280, height: 720 } });
+
+	const planOf = (page: import('@playwright/test').Page) =>
+		page.getByRole('textbox', { name: 'Notes & objectives' });
+	const bodyOf = (page: import('@playwright/test').Page) =>
+		page.locator('#lesson-form [name="body"]');
+
+	async function openBlank(page: import('@playwright/test').Page, title: string) {
+		const id = runFixture('create-standalone-lesson', title).trim();
+		await login(page, `/lessons/${id}`);
+		await expectLessonPage(page);
+		return id;
+	}
+
+	async function deleteLesson(page: import('@playwright/test').Page) {
+		await page.getByRole('button', { name: 'Delete Lesson' }).click();
+		await expect(page).not.toHaveURL(/\/lessons\//);
+	}
+
+	test('a plan typed and left alone is saved once typing pauses', async ({ page }) => {
+		await openBlank(page, 'Debounced plan');
+		const saved = page.waitForResponse((response) => response.url().includes('updateLesson'));
+		await planOf(page).click();
+		await page.keyboard.insertText('Cells and batteries');
+		await saved;
+
+		await page.reload();
+		await expectLessonPage(page);
+		await expect(bodyOf(page)).toHaveValue('Cells and batteries');
+		await deleteLesson(page);
+	});
+
+	test('a plan reloaded at once is flushed as the page unloads', async ({ page }) => {
+		await openBlank(page, 'Flushed plan');
+		await planOf(page).click();
+		await page.keyboard.insertText('Past papers');
+		await page.reload();
+
+		await expectLessonPage(page);
+		await expect(bodyOf(page)).toHaveValue('Past papers');
+		await deleteLesson(page);
+	});
+});

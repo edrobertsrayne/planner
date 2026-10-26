@@ -398,7 +398,8 @@ two Lessons called "Revision".
 
 ### 5.3 Lesson
 
-**`GET /api/lessons/:id`** → 200, a Lesson **with its Links and Attachments**:
+**`GET /api/lessons/:id`** → 200, the **whole Lesson** — its Topic and Course, Links, Tags and
+Attachments:
 
 ```json
 {
@@ -409,6 +410,9 @@ two Lessons called "Revision".
 	"status": "draft",
 	"length": 1,
 	"position": 0,
+	"topic": { "id": "3a77...", "name": "Forces", "courseId": "9c11..." },
+	"course": { "id": "9c11...", "name": "KS3 Science" },
+	"tags": [{ "id": "f2a1...", "name": "Practical" }],
 	"links": [
 		{
 			"id": "cc90...",
@@ -431,8 +435,11 @@ two Lessons called "Revision".
 }
 ```
 
-This mirrors `lessonDetail` in `authoring.ts`. The Lesson is the only record whose read includes
-its children, because a Lesson without its Links is not the plan.
+`topic` and `course` are `null` for a Standalone Lesson, and `course` is `null` for a Topic with no
+Course. `tags` carries each Tag's id as well as its name, so the editor can detach one. This is
+`lessonDetail` in the planner seam, the same read the Lesson editor and the Session page use; the
+Lesson is the only record whose read includes its children, because a Lesson without its Links is
+not the plan.
 
 → 404.
 

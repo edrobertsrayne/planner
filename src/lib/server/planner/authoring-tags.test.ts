@@ -62,7 +62,10 @@ describe('Tags on a Lesson', () => {
 		attachTag(db, { lessonId: lesson.id, name: 'Demonstration' });
 
 		expect(tagsOf(db, lesson.id)).toEqual(['Demonstration', 'Practical']);
-		expect(lessonDetail(db, lesson.id)!.tags).toEqual(['Demonstration', 'Practical']);
+		expect(lessonDetail(db, lesson.id)!.tags.map((tag) => tag.name)).toEqual([
+			'Demonstration',
+			'Practical'
+		]);
 	});
 
 	test('attaching the same Tag twice is idempotent, not a duplicate row', () => {

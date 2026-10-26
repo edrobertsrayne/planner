@@ -24,8 +24,10 @@
 	import TagBadge from '$lib/components/tag-badge.svelte';
 	import AttachmentRow from './AttachmentRow.svelte';
 	import LinkRow from './LinkRow.svelte';
+	import { onMount } from 'svelte';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import RewindReport from '$lib/components/rewind-report.svelte';
+	import { createLessonSaver } from '$lib/client/lesson-save';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -33,7 +35,9 @@
 
 	// A Standalone Lesson belongs to no Course, so Back with nowhere to go goes to Planning.
 	const back = useBack(() =>
-		data.course && data.topic ? courseHref(data.course.id, data.topic.id) : resolve('/planning')
+		data.lesson.course && data.lesson.topic
+			? courseHref(data.lesson.course.id, data.lesson.topic.id)
+			: resolve('/planning')
 	);
 
 	// Title and plan save on blur. Blurring the focused field before every move off this page, Back,
@@ -62,6 +66,33 @@
 			}
 		};
 	};
+
+	// Typed edits save once typing pauses, and the last unsent edit goes out as the page unloads, so
+	// a long plan written with no blur is never lost to a reload or a closed tab. Both send the same
+	// `?/updateLesson` form action the blur save does, so there is one write path (#422).
+	let lessonForm: HTMLFormElement | null = $state(null);
+	type ActionResult = { type?: string };
+	const saver = createLessonSaver({
+		save: async (keepalive) => {
+			if (!lessonForm) return;
+			// `keepalive` lets the request outlive the page; the reply is not read then, since
+			// there is no page left to show a refusal on.
+			const response = await fetch(lessonForm.action, {
+				method: 'POST',
+				body: new FormData(lessonForm),
+				keepalive,
+				headers: { 'x-sveltekit-action': 'true' }
+			});
+			if (keepalive) return;
+			const result: ActionResult = await response.json();
+			if (result.type !== 'success') throw new Error('The Lesson did not save.');
+		}
+	});
+	onMount(() => {
+		const flush = () => saver.flush();
+		window.addEventListener('pagehide', flush);
+		return () => window.removeEventListener('pagehide', flush);
+	});
 
 	// A Lesson that a Sequence holds asks first. The action answers with `needsConfirm` and the
 	// reason, which names the Classes; the dialog then posts the same delete with `confirmed`.
@@ -144,14 +175,14 @@
 			<ArrowLeftIcon data-icon="inline-start" />
 			Back
 		</Button>
-		{#if data.course && data.topic}
+		{#if data.lesson.course && data.lesson.topic}
 			<a
-				href={courseHref(data.course.id, data.topic.id)}
+				href={courseHref(data.lesson.course.id, data.lesson.topic.id)}
 				class="flex min-w-0 items-center gap-1 text-xs text-muted-foreground hover:text-foreground pointer-coarse:min-h-11"
 			>
-				<span class="max-w-60 truncate">{data.course.name}</span>
+				<span class="max-w-60 truncate">{data.lesson.course.name}</span>
 				<ChevronRightIcon class="size-3 shrink-0" />
-				<span class="max-w-80 truncate">{data.topic.name}</span>
+				<span class="max-w-80 truncate">{data.lesson.topic.name}</span>
 			</a>
 		{:else}
 			<span class="text-xs text-muted-foreground">Standalone Lesson</span>
@@ -201,6 +232,7 @@
 			     `form` attribute. Links and the rest are their own forms and cannot nest in this one. -->
 					<form
 						id="lesson-form"
+						bind:this={lessonForm}
 						method="POST"
 						action="?/updateLesson"
 						class="contents"
@@ -215,6 +247,7 @@
 							aria-label="Lesson title"
 							class="h-auto w-full border-0 bg-transparent px-0 py-1 text-2xl font-semibold tracking-tight shadow-none focus-visible:ring-0 max-lg:order-1 md:text-2xl"
 							placeholder="Lesson title…"
+							oninput={() => saver.edited()}
 							onblur={(e) => e.currentTarget.form?.requestSubmit()}
 						/>
 						<div class="mt-4 max-lg:order-3 max-lg:mt-0 max-lg:min-w-0">
@@ -225,6 +258,7 @@
 								placeholder="Objectives, what to set up, what went wrong last time…"
 								toolbarClass="sticky top-[68px] z-[5] bg-muted md:top-3 before:absolute before:-inset-x-px before:-top-3 before:h-3 before:bg-background before:content-['']"
 								bodyClass="min-h-[28rem] overflow-visible"
+								onchange={() => saver.edited()}
 								onblur={() =>
 									(document.getElementById('lesson-form') as HTMLFormElement).requestSubmit()}
 							/>
@@ -276,7 +310,7 @@
 								<span class="text-muted-foreground">Periods</span>
 							</div>
 
-							{#if data.topic}
+							{#if data.lesson.topic}
 								<label for="lesson-topic" class="text-muted-foreground">Topic</label>
 								<form
 									method="POST"
@@ -291,7 +325,7 @@
 									<select
 										id="lesson-topic"
 										name="topicId"
-										value={data.topic.id}
+										value={data.lesson.topic.id}
 										class="w-full rounded-md border border-input bg-background px-2 py-1 text-sm pointer-coarse:min-h-11"
 										onchange={(e) => e.currentTarget.form?.requestSubmit()}
 									>
@@ -302,7 +336,7 @@
 								</form>
 							{/if}
 
-							{#if !data.topic && data.topicChoices.some((g) => g.topics.length)}
+							{#if !data.lesson.topic && data.topicChoices.some((g) => g.topics.length)}
 								<label for="lesson-topic" class="text-muted-foreground">Topic</label>
 								<form
 									method="POST"
@@ -342,7 +376,7 @@
 						<section class="max-lg:order-4">
 							{@render heading('Tags')}
 							<div class="mt-1 flex flex-wrap gap-1">
-								{#each data.tags as tag (tag.id)}
+								{#each data.lesson.tags as tag (tag.id)}
 									<form method="POST" action="?/detachTag" use:enhance class="contents">
 										<input type="hidden" name="lessonId" value={lesson.id} />
 										<input type="hidden" name="tagId" value={tag.id} />
@@ -357,7 +391,7 @@
 										</TagBadge>
 									</form>
 								{/each}
-								{#if !data.tags.length}
+								{#if !data.lesson.tags.length}
 									<span class="px-1 py-1 text-xs text-muted-foreground">No Tags yet.</span>
 								{/if}
 							</div>
@@ -491,12 +525,12 @@
 						<section>
 							{@render heading('Attachments')}
 							<ul class="mt-1 space-y-1">
-								{#each data.attachments as attachment (attachment.id)}
+								{#each data.lesson.attachments as attachment (attachment.id)}
 									<li class="rounded-md bg-muted px-2 py-1.5 text-sm">
 										<AttachmentRow {attachment} />
 									</li>
 								{/each}
-								{#if !data.attachments.length}
+								{#if !data.lesson.attachments.length}
 									<li class="px-1 py-1 text-xs text-muted-foreground">No Attachments yet.</li>
 								{/if}
 							</ul>
@@ -557,7 +591,7 @@
 								Delete Lesson
 							</Button>
 						</form>
-						{#if data.topic}
+						{#if data.lesson.topic}
 							<form
 								method="POST"
 								action="?/detachLesson"
@@ -585,12 +619,12 @@
 			<div class="mt-3 space-y-3">
 				<h1 class="text-2xl font-semibold tracking-tight">{lesson.title}</h1>
 				<dl class="space-y-2">
-					{#if data.topic}
+					{#if data.lesson.topic}
 						<div
 							class="flex min-h-12 items-center justify-between gap-3 rounded-lg border px-4 py-2"
 						>
 							<dt class="text-muted-foreground">Topic</dt>
-							<dd class="min-w-0 truncate">{data.topic.name}</dd>
+							<dd class="min-w-0 truncate">{data.lesson.topic.name}</dd>
 						</div>
 					{/if}
 					<div class="flex min-h-12 items-center justify-between gap-3 rounded-lg border px-4 py-2">
@@ -601,9 +635,9 @@
 						<dt class="text-muted-foreground">Length</dt>
 						<dd>{lesson.length} {lesson.length === 1 ? 'Period' : 'Periods'}</dd>
 					</div>
-					{#if data.tags.length}
+					{#if data.lesson.tags.length}
 						<div class="flex min-h-12 flex-wrap items-center gap-1 rounded-lg border px-4 py-2">
-							{#each data.tags as tag (tag.id)}
+							{#each data.lesson.tags as tag (tag.id)}
 								<TagBadge name={tag.name} />
 							{/each}
 						</div>
@@ -635,11 +669,11 @@
 					</section>
 				{/if}
 
-				{#if data.attachments.length}
+				{#if data.lesson.attachments.length}
 					<section>
 						{@render heading('Attachments')}
 						<ul class="space-y-2">
-							{#each data.attachments as attachment (attachment.id)}
+							{#each data.lesson.attachments as attachment (attachment.id)}
 								<li>
 									<a
 										href={resolve('/attachments/[id]', { id: attachment.id })}

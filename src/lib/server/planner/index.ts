@@ -108,7 +108,6 @@ export {
 	deleteLesson,
 	deleteLink,
 	deleteTopic,
-	attachedTags,
 	attachTag,
 	detachTag,
 	editLesson,

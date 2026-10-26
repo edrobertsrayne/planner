@@ -5,8 +5,7 @@ import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import { classDetail } from './classes';
 import { rederive, type Db, type WriteReport } from './derive';
-import { linksOf, tagsOf, type LessonStatus } from './authoring';
-import { attachmentsOf } from './attachments';
+import { lessonDetail, type LessonDetail } from './authoring';
 import { Refused } from './refused';
 import { setTeachingNote, teachingNoteOf } from './teaching-notes';
 import { lessonBody } from './fields';
@@ -28,17 +27,9 @@ const atOccasion = ({ classId, date, period }: Occasion) =>
 
 export interface SessionDetail extends Occasion {
 	classLabel: string;
-	lesson: {
-		id: string;
-		title: string;
-		topicName: string | null;
-		body: string | null;
-		status: LessonStatus;
-		length: number;
-		links: ReturnType<typeof linksOf>;
-		tags: string[];
-		attachments: ReturnType<typeof attachmentsOf>;
-	} | null;
+	// The whole Lesson, read through the same seam function the editor and the API use. Readiness
+	// stays beside it: it belongs to this Class, not to the Lesson (ADR-0014).
+	lesson: LessonDetail | null;
 	ready: boolean | null;
 	note: string | null;
 	// The Placement naming this occasion's Lesson, if it has one — what the Session panel's
@@ -79,26 +70,9 @@ export function sessionDetail(
 	let note: string | null = null;
 	let placement: SessionDetail['placement'] = null;
 	if (row?.lessonId) {
-		const [lessonRow] = db
-			.select({
-				id: schema.lesson.id,
-				title: schema.lesson.title,
-				body: schema.lesson.body,
-				status: schema.lesson.status,
-				length: schema.lesson.length,
-				topicName: schema.topic.name
-			})
-			.from(schema.lesson)
-			.leftJoin(schema.topic, eq(schema.topic.id, schema.lesson.topicId))
-			.where(eq(schema.lesson.id, row.lessonId))
-			.all();
+		const lessonRow = lessonDetail(db, row.lessonId);
 		if (lessonRow) {
-			lesson = {
-				...lessonRow,
-				links: linksOf(db, row.lessonId),
-				tags: tagsOf(db, row.lessonId),
-				attachments: attachmentsOf(db, row.lessonId)
-			};
+			lesson = lessonRow;
 			const [readyRow] = db
 				.select()
 				.from(schema.readiness)

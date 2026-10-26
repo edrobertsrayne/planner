@@ -27,20 +27,35 @@ const baseDetail: SessionDetail = {
 	continuations: 0
 };
 
+// The Lesson the panel draws: the seam's whole-Lesson read, its parts at their simplest unless a
+// test names them.
+function lesson(
+	overrides: Partial<NonNullable<SessionDetail['lesson']>> = {}
+): NonNullable<SessionDetail['lesson']> {
+	return {
+		id: 'lesson-1',
+		topicId: null,
+		title: 'Forces recap',
+		body: null,
+		status: 'draft',
+		length: 1,
+		position: 0,
+		topic: null,
+		course: null,
+		links: [],
+		tags: [],
+		attachments: [],
+		...overrides
+	};
+}
+
 describe('the Session panel', () => {
 	test("lists the Lesson's Attachments read-only, each a download link with its size", async () => {
 		stubSessionFetch({
 			...baseDetail,
 			ready: true,
-			lesson: {
-				id: 'lesson-1',
-				title: 'Forces recap',
-				topicName: 'Forces',
+			lesson: lesson({
 				body: 'Recap Newton I',
-				status: 'draft',
-				length: 1,
-				links: [],
-				tags: [],
 				attachments: [
 					{
 						id: 'att-1',
@@ -59,7 +74,7 @@ describe('the Session panel', () => {
 						position: 1
 					}
 				]
-			}
+			})
 		});
 
 		const screen = await render(SessionBody, { occasion });
@@ -91,17 +106,7 @@ describe('the Session panel', () => {
 		stubSessionFetch({
 			...baseDetail,
 			ready: true,
-			lesson: {
-				id: 'lesson-1',
-				title: 'Forces recap',
-				topicName: 'Forces',
-				body: '## Aims\n\n- Recap **Newton I**',
-				status: 'draft',
-				length: 1,
-				links: [],
-				tags: [],
-				attachments: []
-			}
+			lesson: lesson({ body: '## Aims\n\n- Recap **Newton I**' })
 		});
 
 		const screen = await render(SessionBody, { occasion });
@@ -137,17 +142,7 @@ describe('the Session panel', () => {
 			...baseDetail,
 			canPlace: true,
 			ready: false,
-			lesson: {
-				id: 'lesson-1',
-				title: 'Forces recap',
-				topicName: 'Forces',
-				body: null,
-				status: 'draft',
-				length: 1,
-				links: [],
-				tags: [],
-				attachments: []
-			}
+			lesson: lesson()
 		});
 
 		const screen = await render(SessionBody, { occasion });
@@ -163,17 +158,7 @@ describe('the Session panel', () => {
 		stubSessionFetch({
 			...baseDetail,
 			placement: { id: 'placement-1' },
-			lesson: {
-				id: 'lesson-1',
-				title: 'Assembly',
-				topicName: null,
-				body: null,
-				status: 'draft',
-				length: 1,
-				links: [],
-				tags: [],
-				attachments: []
-			}
+			lesson: lesson({ title: 'Assembly' })
 		});
 
 		const screen = await render(SessionBody, { occasion });
@@ -186,17 +171,7 @@ describe('the Session panel', () => {
 		stubSessionFetch({
 			...baseDetail,
 			placement: { id: 'placement-1' },
-			lesson: {
-				id: 'lesson-1',
-				title: 'Assembly',
-				topicName: null,
-				body: 'Hand out the **slides**.',
-				status: 'draft',
-				length: 1,
-				links: [],
-				tags: [],
-				attachments: []
-			}
+			lesson: lesson({ title: 'Assembly', body: 'Hand out the **slides**.' })
 		});
 
 		const screen = await render(SessionBody, { occasion });
@@ -271,17 +246,7 @@ describe('the Session panel', () => {
 					JSON.stringify({
 						...baseDetail,
 						placement: { id: 'placement-1' },
-						lesson: {
-							id: 'lesson-1',
-							title: 'Assembly',
-							topicName: null,
-							body: null,
-							status: 'draft',
-							length: 1,
-							links: [],
-							tags: [],
-							attachments: []
-						}
+						lesson: lesson({ title: 'Assembly' })
 					}),
 					{ status: 200 }
 				)
@@ -305,18 +270,12 @@ describe('the Session panel', () => {
 	// note — here none — never the text of the Lesson it replaced, which the next keystroke
 	// would otherwise save under the wrong Lesson (issue #409).
 	test('a Place that changes the Lesson shows the new Lesson its own note', async () => {
-		const lesson = {
-			id: 'lesson-1',
+		const topicLesson = lesson({
 			title: 'Motion',
-			topicName: 'Forces',
-			body: null,
-			status: 'draft',
-			length: 1,
-			links: [],
-			tags: [],
-			attachments: []
-		};
-		const placed = { ...lesson, id: 'lesson-2', title: 'Assembly', topicName: null };
+			topic: { id: 'topic-1', name: 'Forces', courseId: 'course-1' },
+			course: { id: 'course-1', name: 'KS3 Science' }
+		});
+		const placed = { ...topicLesson, id: 'lesson-2', title: 'Assembly', topic: null, course: null };
 		const fetchMock = vi
 			.fn()
 			.mockResolvedValueOnce(
@@ -325,7 +284,7 @@ describe('the Session panel', () => {
 						...baseDetail,
 						canPlace: true,
 						note: 'Ratio tables went well',
-						lesson
+						lesson: topicLesson
 					}),
 					{ status: 200 }
 				)

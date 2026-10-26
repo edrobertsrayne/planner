@@ -1,12 +1,8 @@
 import { error } from '@sveltejs/kit';
-import { eq } from 'drizzle-orm';
 import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
-import * as schema from '$lib/server/db/schema';
 import { lessonActions } from '$lib/server/lesson-actions';
 import {
-	attachedTags,
-	attachmentsOf,
 	classDetail,
 	classesTaughtLesson,
 	lessonDetail,
@@ -23,12 +19,7 @@ export const load: PageServerLoad = ({ params, url }) => {
 	const lesson = lessonDetail(db, params.id);
 	if (!lesson) error(404, 'No such Lesson.');
 
-	const [topic] = lesson.topicId
-		? db.select().from(schema.topic).where(eq(schema.topic.id, lesson.topicId)).all()
-		: [];
-	const [course] = topic
-		? db.select().from(schema.course).where(eq(schema.course.id, topic.courseId)).all()
-		: [];
+	const { topic, course } = lesson;
 
 	// With a Class in the URL the editor steps through that Class's Sequence; without one, or when
 	// the Lesson is not in it, through the Topic's Lessons.
@@ -38,8 +29,6 @@ export const load: PageServerLoad = ({ params, url }) => {
 
 	return {
 		lesson,
-		course: course ?? null,
-		topic: topic ?? null,
 		// The Class whose Sequence the editor steps through, or null for Topic order.
 		stepClass: inSequence ? { id: cls.id, label: cls.label } : null,
 		// The Lessons to step through, for "Lesson n of N". A Standalone Lesson reached without a Class
@@ -50,9 +39,7 @@ export const load: PageServerLoad = ({ params, url }) => {
 		topicChoices: topic
 			? []
 			: listCourses(db).map((c) => ({ id: c.id, course: c.name, topics: topicsOf(db, c.id) })),
-		tags: attachedTags(db, lesson.id),
 		existingTagNames: listTagNames(db),
-		attachments: attachmentsOf(db, lesson.id),
 		taughtBy: classesTaughtLesson(db, { lessonId: lesson.id, today: today() })
 	};
 };

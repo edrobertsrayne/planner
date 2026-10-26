@@ -335,7 +335,24 @@ describe('the Lesson editor', () => {
 	test('reads a Lesson back with its Links, in position order', () => {
 		const { db, lesson } = setUpLesson();
 
-		expect(lessonDetail(db, lesson.id)).toEqual({ ...lesson, links: [], tags: [] });
+		const detail = lessonDetail(db, lesson.id)!;
+		expect(detail).toMatchObject({
+			...lesson,
+			topic: { name: 'Forces' },
+			course: { name: 'Year 9 Physics' },
+			links: [],
+			tags: [],
+			attachments: []
+		});
+	});
+
+	test('a Standalone Lesson reads back with no Topic and no Course', () => {
+		const { db, lesson } = setUpLesson();
+		editLesson(db, { id: lesson.id, change: { topicId: null }, today: '2026-09-03' });
+
+		const detail = lessonDetail(db, lesson.id)!;
+		expect(detail.topic).toBeNull();
+		expect(detail.course).toBeNull();
 	});
 
 	test('a Lesson holds a markdown body and a Length in Periods', () => {

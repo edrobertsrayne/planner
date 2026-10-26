@@ -126,14 +126,15 @@ test.describe.serial('the Lesson endpoints', () => {
 		});
 		expect(missingList.status()).toBe(404);
 
-		// GET /api/lessons/:id is the one read that includes children — a Lesson without its
-		// Links is not the plan.
+		// GET /api/lessons/:id is the whole Lesson — a Lesson without its Topic, Course, Links,
+		// Tags and Attachments is not the plan.
 		const detail = await request.get(`/api/lessons/${lessonAId}`, { headers: BEARER(token) });
 		expect(detail.status()).toBe(200);
 		const detailBody = await detail.json();
 		expect(keysOf(detailBody)).toEqual([
 			'attachments',
 			'body',
+			'course',
 			'id',
 			'length',
 			'links',
@@ -141,11 +142,18 @@ test.describe.serial('the Lesson endpoints', () => {
 			'status',
 			'tags',
 			'title',
+			'topic',
 			'topicId'
 		]);
 		expect(detailBody.links).toEqual([]);
 		expect(detailBody.attachments).toEqual([]);
 		expect(detailBody.tags).toEqual([]);
+		expect(detailBody.topic).toEqual({
+			id: topicOneId,
+			name: 'API Topic One',
+			courseId
+		});
+		expect(detailBody.course).toEqual({ id: courseId, name: 'API Test Course' });
 
 		const missingDetail = await request.get('/api/lessons/does-not-exist', {
 			headers: BEARER(token)

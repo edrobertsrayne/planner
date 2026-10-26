@@ -416,15 +416,12 @@ export function linkById(db: Db, id: string) {
 	return row;
 }
 
-// Same rows as attachedTags, names only — every Lesson-showing read outside the editor itself
-// (the editor needs attachedTags's ids to post to detachTag).
+// A Lesson's Tag names, for a list that shows many Lessons at once and never detaches one.
 export function tagsOf(db: Db, lessonId: string): string[] {
 	return attachedTags(db, lessonId).map((tag) => tag.name);
 }
 
-// Same rows as tagsOf, but carrying each Tag's id alongside its name — the Lesson editor's chip
-// list, which needs an id to post to detachTag. Every other Lesson-showing read is names only
-// (per the spec: tags are read-at-a-glance, never addressed by id outside the editor itself).
+// A Lesson's Tags with their ids — what `lessonDetail` carries, so the editor can post a detach.
 export function attachedTags(db: Db, lessonId: string): { id: string; name: string }[] {
 	return db
 		.select({ id: schema.tag.id, name: schema.tag.name })
@@ -502,12 +499,51 @@ export function detachTag(db: Db, { lessonId, tagId }: { lessonId: string; tagId
 		.run();
 }
 
-// The Lesson editor's full-detail read: the Lesson plus its Links, in position order. The page
-// loads compose Attachments onto this, and the bearer-key API does the same in its GET route.
-export function lessonDetail(db: Db, id: string) {
+// The whole Lesson, for every reader that shows one: the row, its Topic and Course (both null for a
+// Standalone Lesson or a Topic with no Course), its Links, its Tags with ids and its Attachments.
+// The editor, the bearer-key API and the Session panel all read a Lesson through here, so a new
+// part of a Lesson is added once (ADR-0025).
+export type LessonDetail = typeof schema.lesson.$inferSelect & {
+	topic: { id: string; name: string; courseId: string } | null;
+	course: { id: string; name: string } | null;
+	links: ReturnType<typeof linksOf>;
+	tags: { id: string; name: string }[];
+	attachments: ReturnType<typeof attachmentsOf>;
+};
+
+export function lessonDetail(db: Db, id: string): LessonDetail | null {
 	const [row] = db.select().from(schema.lesson).where(eq(schema.lesson.id, id)).all();
 	if (!row) return null;
-	return { ...row, links: linksOf(db, id), tags: tagsOf(db, id) };
+
+	// Readiness stays out: a Lesson is shared by every Class, and Readiness belongs to one pairing
+	// of Lesson and Class (ADR-0014).
+	const [topic] = row.topicId
+		? db
+				.select({
+					id: schema.topic.id,
+					name: schema.topic.name,
+					courseId: schema.topic.courseId
+				})
+				.from(schema.topic)
+				.where(eq(schema.topic.id, row.topicId))
+				.all()
+		: [];
+	const [course] = topic
+		? db
+				.select({ id: schema.course.id, name: schema.course.name })
+				.from(schema.course)
+				.where(eq(schema.course.id, topic.courseId))
+				.all()
+		: [];
+
+	return {
+		...row,
+		topic: topic ?? null,
+		course: course ?? null,
+		links: linksOf(db, id),
+		tags: attachedTags(db, id),
+		attachments: attachmentsOf(db, id)
+	};
 }
 
 // One change to one Lesson. The change names any of title, body, Length, status and Topic; a field

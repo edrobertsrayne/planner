@@ -221,7 +221,7 @@ describe('the Session panel', () => {
 			ready: false,
 			lesson: {
 				title: lesson.title,
-				topicName: 'Forces',
+				topic: { name: 'Forces' },
 				body: 'Recap Newton I'
 			}
 		});
@@ -253,7 +253,7 @@ describe('the Session panel', () => {
 			today: '2026-09-03'
 		});
 
-		expect(detail!.lesson!.tags).toEqual(['Practical']);
+		expect(detail!.lesson!.tags.map((tag) => tag.name)).toEqual(['Practical']);
 	});
 
 	test('opens on an Open Slot showing no plan, and still offers the note', () => {
@@ -306,7 +306,7 @@ describe('the Session panel', () => {
 			today: '2026-09-03'
 		});
 
-		expect(detail?.lesson?.topicName).toBe('Forces');
+		expect(detail?.lesson?.topic?.name).toBe('Forces');
 		expect(detail?.canPlace).toBe(true);
 	});
 
@@ -349,7 +349,7 @@ describe('the Session panel', () => {
 			today: '2026-09-03'
 		});
 		expect(placed?.lesson?.title).toBe('Assembly');
-		expect(placed?.lesson?.topicName).toBeNull();
+		expect(placed?.lesson?.topic).toBeNull();
 		expect(placed?.canPlace).toBe(false);
 
 		const [placementRow] = db

@@ -252,7 +252,7 @@ describe('attachment storage', () => {
 		expect(readdirSync(atDir)).toEqual([]);
 	});
 
-	test("attachmentsOf returns a Lesson's Attachments in position order, the read the Lesson editor's load composes with lessonDetail", () => {
+	test("a Lesson's Attachments read back in position order, through attachmentsOf and the whole-Lesson read", () => {
 		const { db, lesson, atDir } = setUpLesson();
 		const slides = createAttachment(
 			db,
@@ -277,7 +277,9 @@ describe('attachment storage', () => {
 		createLink(db, { lessonId: lesson.id, label: 'PhET', url: 'https://phet.example' });
 
 		expect(attachmentsOf(db, lesson.id).map((a) => a.id)).toEqual([slides.id, worksheet.id]);
-		expect(lessonDetail(db, lesson.id)!.links).toHaveLength(1);
+		const detail = lessonDetail(db, lesson.id)!;
+		expect(detail.attachments.map((a) => a.id)).toEqual([slides.id, worksheet.id]);
+		expect(detail.links).toHaveLength(1);
 	});
 
 	test('attachmentById resolves the row for a real id and is undefined for a lookup miss', () => {

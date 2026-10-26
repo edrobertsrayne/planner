@@ -188,10 +188,10 @@
 				<h2 class="text-lg leading-snug font-semibold">{detail.lesson.title}</h2>
 				{#if detail.placement}
 					<p class="mt-1 text-xs text-muted-foreground">Standalone Lesson · Placed</p>
-				{:else if detail.lesson.topicName}
-					<p class="mt-1 text-xs text-muted-foreground">{detail.lesson.topicName}</p>
+				{:else if detail.lesson.topic}
+					<p class="mt-1 text-xs text-muted-foreground">{detail.lesson.topic.name}</p>
 				{/if}
-				<TagChips tags={detail.lesson.tags} class="mt-2" />
+				<TagChips tags={detail.lesson.tags.map((tag) => tag.name)} class="mt-2" />
 			{:else}
 				<h2 class="text-lg font-semibold text-muted-foreground italic">Open Slot</h2>
 				<p class="mt-1 text-xs text-muted-foreground">No Lesson planned for this occasion.</p>

@@ -5,7 +5,6 @@ import { requireApiKey } from '$lib/server/api-key';
 import { lessonFields, readJson, refusalJson } from '$lib/server/api-helpers';
 import {
 	attachmentsDir,
-	attachmentsOf,
 	lessonDetail,
 	deleteLesson,
 	editLesson,
@@ -20,7 +19,7 @@ export const GET: RequestHandler = async (event) => {
 	const detail = lessonDetail(db, event.params.id);
 	if (!detail) return json({ error: 'Lesson not found.' }, { status: 404 });
 
-	return json({ ...detail, attachments: attachmentsOf(db, event.params.id) });
+	return json(detail);
 };
 
 export const PATCH: RequestHandler = async (event) => {
