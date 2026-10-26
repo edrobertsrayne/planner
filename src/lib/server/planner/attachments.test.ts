@@ -9,7 +9,7 @@ import {
 	deleteLesson,
 	editLesson,
 	lessonDetail
-} from './authoring';
+} from './index';
 import {
 	assignTopic,
 	Refused,

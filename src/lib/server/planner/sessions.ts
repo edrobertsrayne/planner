@@ -5,7 +5,7 @@ import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import { classDetail } from './classes';
 import { rederive, type Db, type WriteReport } from './derive';
-import { lessonDetail, type LessonDetail } from './authoring';
+import { lessonDetail, type LessonDetail } from './lessons';
 import { Refused } from './refused';
 import { setTeachingNote, teachingNoteOf } from './teaching-notes';
 import { lessonBody } from './fields';

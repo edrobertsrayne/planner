@@ -11,7 +11,7 @@ import {
 	listTagNames,
 	tagsByLesson
 } from './index';
-import { tagsOf } from './authoring';
+import { tagsOf } from './index';
 import * as schema from '../db/schema';
 
 // A Tag is a short, user-typed label reused by trimmed + case-insensitive name (issue #245).

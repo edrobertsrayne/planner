@@ -7,7 +7,8 @@ import { and, eq, gte, lt } from 'drizzle-orm';
 import { addDays, mondayOf, weekday } from '$lib/date';
 import { PERIODS } from '$lib/periods';
 import * as schema from '../db/schema';
-import { tagsByLesson, type LessonStatus } from './authoring';
+import type { LessonStatus } from './lessons';
+import { tagsByLesson } from './tags';
 import { lessonNames, loadCalendar, scheduleFor, type Db, type LessonName } from './derive';
 import {
 	agendaRows,

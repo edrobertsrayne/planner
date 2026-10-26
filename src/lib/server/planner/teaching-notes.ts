@@ -79,3 +79,15 @@ export function endPairing(db: Db, classId: string, lessonIds: string[]): void {
 			.run();
 	}
 }
+
+// Readiness is recorded per Class and Lesson (ADR-0014).
+// Ticking inserts the row, unticking deletes it; both idempotent. No re-derive.
+export function setReadiness(db: Db, lessonId: string, classId: string, ready: boolean): void {
+	if (ready) {
+		db.insert(schema.readiness).values({ lessonId, classId }).onConflictDoNothing().run();
+	} else {
+		db.delete(schema.readiness)
+			.where(and(eq(schema.readiness.lessonId, lessonId), eq(schema.readiness.classId, classId)))
+			.run();
+	}
+}

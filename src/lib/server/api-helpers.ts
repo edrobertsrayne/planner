@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import type { SQLiteTable, SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { Refused, refusalStatus } from './planner/refused';
-import type { LessonChange } from './planner/authoring';
+import type { LessonChange } from './planner/lessons';
 import type { Db } from './planner/derive';
 
 // The API door's one mapping of the seam's refusal: `{ error: message }` with the status the

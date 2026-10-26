@@ -19,7 +19,11 @@
 //   terms.ts        the six Terms, replaced as one document — the Week letter derives from them
 //   sessions.ts     one occasion: its detail, its note, its Continuation
 //   views.ts        the Agenda stream and the Calendar grid, across every Class
-//   authoring.ts    Courses, Topics, Lessons and Links
+//   courses.ts      Courses and Topics, the planning containers
+//   lessons.ts      Lessons: the plan, the whole-Lesson read and the delete rules
+//   links.ts        the URLs a Lesson points at
+//   tags.ts         short labels a Lesson may carry
+//   import.ts       one Topic, its Lessons and their Links, in one transaction
 //   attachments.ts  files a Lesson holds: the directory, the allow-list, the create
 //   refused.ts      the one refusal every write leaves by, and the kind→status table
 
@@ -96,40 +100,41 @@ export {
 } from './views';
 
 export {
-	classesTaughtLesson,
 	createCourse,
-	createLesson,
-	createLink,
 	courseById,
 	courseSummary,
 	courseTiles,
 	createTopic,
 	deleteCourse,
-	deleteLesson,
-	deleteLink,
 	deleteTopic,
-	attachTag,
-	detachTag,
-	editLesson,
-	lessonDetail,
-	lessonsOf,
-	linkById,
-	linksOf,
 	listCourses,
-	listTagNames,
-	moveLesson,
-	moveLink,
-	importTopic,
 	renameCourse,
 	renameTopic,
 	moveTopicToCourse,
-	setReadiness,
-	tagsByLesson,
 	topicById,
-	topicsOf,
-	updateLink,
-	type LessonChange
-} from './authoring';
+	topicsOf
+} from './courses';
+
+export {
+	classesTaughtLesson,
+	createLesson,
+	deleteLesson,
+	editLesson,
+	lessonDetail,
+	lessonsOf,
+	moveLesson,
+	type LessonChange,
+	type LessonDetail,
+	type LessonStatus
+} from './lessons';
+
+export { createLink, deleteLink, linkById, linksOf, moveLink, updateLink } from './links';
+
+export { attachTag, detachTag, listTagNames, tagsByLesson, tagsOf } from './tags';
+
+export { importTopic } from './import';
+
+export { setReadiness } from './teaching-notes';
 
 export {
 	attachmentById,
