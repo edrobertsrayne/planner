@@ -1,4 +1,8 @@
+import { PERIODS } from '$lib/periods';
 import type { CalendarCell } from '$lib/server/planner';
+
+// The Calendar screen imports the Periods from here, so the shared list is passed on.
+export { PERIODS };
 
 // One entry per (day, Period): the cell that starts there, a Period covered by an earlier cell's
 // rowspan (a Lesson with Length > 1), or genuinely free. A Blocked Day or Blocked Slot
@@ -6,8 +10,6 @@ import type { CalendarCell } from '$lib/server/planner';
 // cell at all (calendarWeek leaves it out), so "removed" and "never applicable" stay distinct.
 export type GridEntry =
 	{ type: 'start'; cell: CalendarCell } | { type: 'covered' } | { type: 'free' };
-
-export const PERIODS = [1, 2, 3, 4, 5, 6];
 
 // One line per Available Slot a day's menu offers to block: every non-blocked cell on the
 // date, read out per Slot in Period order — a Lesson over two Periods appears twice, once per

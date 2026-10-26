@@ -4,8 +4,9 @@
 // it lands on the previous evening, which would shift a Lesson by a day for anyone west of
 // Greenwich.
 //
-// Pure except for `today`, which is the one clock read in the codebase. The engine
-// (server/planner/engine.ts) imports `addDays` alone and stays clock-free.
+// Pure except for `today`, which is the one clock read in the codebase — the browser reads it
+// from here too, rather than calling the clock itself. The engine (server/planner/engine.ts)
+// imports `addDays` alone and stays clock-free.
 
 // The day `days` after `iso` — negative counts backwards.
 export function addDays(iso: string, days: number): string {
@@ -31,10 +32,17 @@ export function weekday(iso: string): number {
 	return new Date(`${iso}T00:00:00Z`).getUTCDay();
 }
 
+// The Monday of the calendar week `iso` falls in — the week a Teaching Week and a Calendar week
+// are keyed by. Sunday belongs to the week that began six days before it.
+export function mondayOf(iso: string): string {
+	return addDays(iso, -((weekday(iso) + 6) % 7));
+}
+
 // The scheduling boundary every write is measured from: re-derivation writes on and after this
-// date and never before it.
+// date and never before it. The Europe/London calendar day, because UTC would date a late-evening
+// BST write to yesterday; en-CA happens to format a date as YYYY-MM-DD.
 export function today(): string {
-	return new Date().toISOString().slice(0, 10);
+	return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
 }
 
 function format(iso: string, options: Intl.DateTimeFormatOptions): string {

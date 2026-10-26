@@ -6,7 +6,7 @@
 // setup mode's live preview) — one copy, so the preview can never derive a year the save would
 // not.
 
-import { addDays, weekday } from '$lib/date';
+import { addDays, mondayOf } from '$lib/date';
 
 // A Term is named by its position in the year, never stored: six Terms in date order are always
 // Autumn 1 through Summer 2, so a name can never contradict where the Term sits.
@@ -44,8 +44,7 @@ export function generateTeachingWeeks(
 	if (!firstTerm || !lastTerm) return [];
 
 	const weeks: GeneratedTeachingWeek[] = [];
-	const opensOn = weekday(firstTerm.opens);
-	let cursor = addDays(firstTerm.opens, opensOn === 0 ? -6 : 1 - opensOn);
+	let cursor = mondayOf(firstTerm.opens);
 	let letter: 'A' | 'B' = 'A';
 
 	while (cursor <= lastTerm.closes) {

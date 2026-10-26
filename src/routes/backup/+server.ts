@@ -1,4 +1,5 @@
 import { error } from '@sveltejs/kit';
+import { today } from '$lib/date';
 import { client, DATABASE_URL } from '$lib/server/db/client';
 import { createBackup } from '$lib/server/backup/backup';
 import type { RequestHandler } from './$types';
@@ -16,7 +17,7 @@ export const GET: RequestHandler = () => {
 		error(500, 'The Backup could not be made. An Attachment file may be missing.');
 	}
 	const { size, body } = backup;
-	const date = new Date().toISOString().slice(0, 10);
+	const date = today();
 
 	return new Response(body, {
 		headers: {
