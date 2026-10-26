@@ -16,8 +16,9 @@ import {
 
 test.beforeAll(() => resetTo('standard'));
 
-// Reads the standard state. It leaves `Tile Course <timestamp>` and a `Phone note <timestamp>`
-// note; everything else it makes it undoes.
+// Reads the standard state. It leaves `Tile Course <timestamp>`, a `Phone note <timestamp>`
+// note, and a `Grip target` Lesson at the end of 9B/Sc1's Sequence; everything else it makes it
+// undoes.
 //
 // Touch mode: Playwright's Chromium matches `(pointer: coarse)` as soon as `hasTouch` is true;
 // `isMobile` is not needed. Each describe sets its size and pointer with `test.use`.
@@ -96,10 +97,11 @@ test.describe('the tablet layout (touch, about 800×1180)', () => {
 	test('the Class tabs and the Sequence drag grips keep a 44 px target on touch', async ({
 		page
 	}) => {
+		runFixture('add-lesson', '9B/Sc1', 'Grip target');
 		await openClassPage(page);
 		await expectHitArea44(page, 'Overview', 'tab');
 		await page.getByRole('tab', { name: /^Sequence/ }).click();
-		await expectBox44(page.getByRole('button', { name: /^Drag / }).first());
+		await expectBox44(page.getByRole('button', { name: 'Drag Grip target' }));
 	});
 });
 

@@ -15,6 +15,7 @@
  *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts delete-class <label>
  *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts clear-terms
  *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts create-standalone-lesson <title>
+ *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts add-lesson <classLabel> <title>
  *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts place-lesson <lessonId> <classLabel> <date>
  *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts unplace-lesson <lessonId>
  */
@@ -25,6 +26,7 @@ import * as schema from '../src/lib/server/db/schema.ts';
 import { defaultWeek } from '../src/lib/calendar/default-week.ts';
 import { rederive, teachingWeeks } from '../src/lib/server/planner/derive.ts';
 import {
+	addLesson,
 	assignTopic,
 	attachmentsDir,
 	createAttachment,
@@ -32,6 +34,7 @@ import {
 	createCourse,
 	createLesson,
 	createTopic,
+	sequenceLessonIds,
 	takeSlot
 } from '../src/lib/server/planner/index.ts';
 import { today } from '../src/lib/date.ts';
@@ -230,6 +233,26 @@ switch (command) {
 		if (!title) throw new Error('Usage: create-standalone-lesson <title>');
 		const [row] = db.insert(schema.lesson).values({ title, position: 0 }).returning().all();
 		process.stdout.write(row.id);
+		break;
+	}
+	// A new Standalone Lesson at the end of the Class's Sequence. That puts at least one Lesson
+	// ahead of it on that Class's Slots, so it can never be today's Fixed Lesson. Prints its id.
+	case 'add-lesson': {
+		const [classLabel, title] = args;
+		if (!classLabel || !title) throw new Error('Usage: add-lesson <classLabel> <title>');
+		const [row] = db
+			.select({ id: schema.classes.id })
+			.from(schema.classes)
+			.where(eq(schema.classes.label, classLabel))
+			.all();
+		if (!row) throw new Error(`No Class labelled ${classLabel}`);
+		const { lesson } = addLesson(db, {
+			classId: row.id,
+			title,
+			afterLessonId: sequenceLessonIds(db, row.id).at(-1) ?? null,
+			today: today()
+		});
+		process.stdout.write(lesson.id);
 		break;
 	}
 	// A Placement on the Class's first Slot, written without a re-derive: only the refusal to

@@ -3,7 +3,8 @@ import { expectLessonPage, login, resetTo, runFixture } from './helpers.ts';
 
 // The Lesson editor's Sequence-aware controls (ADR-0026): Delete asks when a Class's Sequence
 // holds the Lesson, and a Standalone Lesson is filed in a Topic from the picker. Reads the
-// standard state, where 9B/Sc1 follows Forces (Speed, Motion).
+// standard state. The Delete test adds its own Lesson at the end of 9B/Sc1's Sequence: Motion is
+// Fixed on a day 9B/Sc1 has a Slot, and a Fixed Lesson refuses delete before it asks.
 
 test.beforeAll(() => resetTo('standard'));
 
@@ -13,7 +14,7 @@ test.describe('the Lesson editor and Sequences', () => {
 	test('Delete Lesson on a Lesson a Sequence holds names the Class, and Cancel keeps it', async ({
 		page
 	}) => {
-		const id = runFixture('find-lesson-id', 'Motion').trim();
+		const id = runFixture('add-lesson', '9B/Sc1', 'Delete target').trim();
 		await login(page, `/lessons/${id}`);
 		await expectLessonPage(page);
 
