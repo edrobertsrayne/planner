@@ -14,7 +14,8 @@ import {
 // state gets one Topic of 14 Lessons ("Move A" to "Move N"), assigned through Assign Topic.
 // 9B/Sc1 has a taught Lesson.
 // This file resets the database first. It leaves the Moves Topic with 14 Lessons, Move A taught on
-// 9C/Sc1, and the standalone Lessons "Week quiz" and "Starter" in 9C/Sc1's Sequence.
+// 9C/Sc1, and the standalone Lessons "Week quiz" and "Starter" in 9C/Sc1's Sequence, and 15 empty
+// Topics, "Spare Topic 01 with a long name" to "Spare Topic 15 …", in KS3 Science.
 
 // A failure stops the rest: each group builds on the state the one before it left.
 test.describe.configure({ mode: 'serial' });
@@ -590,5 +591,48 @@ test.describe.serial('Remove', () => {
 		await page.getByRole('button', { name: 'Assign Topic' }).click();
 		await page.getByRole('menuitem', { name: /^Moves / }).click();
 		await expect(page.locator('[data-assign-result]')).toContainText('Added 1 Lesson');
+	});
+});
+
+// The Assign Topic menu keeps each Topic on one line and scrolls when it passes the viewport.
+test.describe.serial('the Assign Topic menu', () => {
+	test.use({ viewport: { width: 1280, height: 600 } });
+
+	test.beforeAll(async ({ browser }) => {
+		const page = await openPage(browser);
+		const token = await standingKey(page);
+		const courses = await (
+			await page.request.get('/api/courses', { headers: BEARER(token) })
+		).json();
+		const courseId = courses.find((c: { name: string }) => c.name === FIXTURE_COURSE).id;
+		for (let n = 1; n <= 15; n++) {
+			const response = await page.request.post(`/api/courses/${courseId}/topics`, {
+				headers: BEARER(token),
+				data: { name: `Spare Topic ${String(n).padStart(2, '0')} with a long name` }
+			});
+			expect(response.ok()).toBe(true);
+		}
+		await page.close();
+	});
+
+	test('fits each Topic on one line, and scrolls to the last Topic', async ({ page }) => {
+		await login(page);
+		await openWeeks(page);
+		await page.getByRole('button', { name: 'Assign Topic' }).click();
+		const menu = page.getByRole('menu');
+		const items = menu.getByRole('menuitem');
+		await expect(items.first()).toBeVisible();
+
+		for (const item of await items.all()) {
+			expect((await item.boundingBox())!.height).toBeLessThan(40);
+		}
+		const box = (await menu.boundingBox())!;
+		expect(box.y + box.height).toBeLessThanOrEqual(600);
+		expect(await menu.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+
+		await expect(items.last()).not.toBeInViewport();
+		await menu.hover();
+		await page.mouse.wheel(0, 2000);
+		await expect(items.last()).toBeInViewport();
 	});
 });

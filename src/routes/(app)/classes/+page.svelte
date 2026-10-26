@@ -6,11 +6,36 @@
 	import PageHeader from '$lib/components/page-header.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import NewClassDialog from './NewClassDialog.svelte';
+	import AssignTopicMenu from '$lib/components/assign-topic-menu.svelte';
+	import RewindReport from '$lib/components/rewind-report.svelte';
+	import { failureReason, hasReport, reportOfResult } from '$lib/client/enhance';
+	import { toast } from 'svelte-sonner';
+	import type { SubmitFunction } from '@sveltejs/kit';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 
 	const courseName = (courseId: string) => data.courses.find((c) => c.id === courseId)?.name ?? '';
+
+	// Assign Topic answers with a toast naming the Class, because the tile has no room for the
+	// result; a Rewind report that moved Placements gets its own toast, as on the Lesson editor.
+	const assigned =
+		(classLabel: string): SubmitFunction =>
+		() =>
+		async ({ result, update }) => {
+			if (result.type === 'failure') {
+				toast.error(failureReason(result, 'Could not assign the Topic.'));
+				return;
+			}
+			if (result.type === 'success' && Array.isArray(result.data?.lines)) {
+				toast.success(`${classLabel}: ${result.data.lines.join(' ')}`);
+			}
+			const report = reportOfResult(result);
+			if (hasReport(report)) {
+				toast.custom(RewindReport, { componentProps: { report }, duration: 20000 });
+			}
+			await update({ invalidateAll: true });
+		};
 </script>
 
 <svelte:head><title>Classes</title></svelte:head>
@@ -88,6 +113,16 @@
 							</div>
 						</dl>
 					</a>
+
+					<!-- Assign Topic from the list; nothing is written on a phone, so not there. -->
+					<div class="flex justify-end border-t px-4 py-2 max-md:hidden">
+						<AssignTopicMenu
+							classId={lane.classId}
+							topics={data.topics[lane.classId] ?? []}
+							label="Assign Topic to {lane.classLabel}"
+							submit={assigned(lane.classLabel)}
+						/>
+					</div>
 				</li>
 			{/each}
 

@@ -25,10 +25,9 @@ import {
 } from '$lib/server/planner';
 import {
 	addedLine,
-	assignedLine,
+	assignLines,
 	changeLine,
 	removedLine,
-	skippedLine,
 	type SequenceResult
 } from '$lib/sequence-text';
 import type { Actions, PageServerLoad } from './$types';
@@ -128,10 +127,7 @@ export const actions: Actions = {
 				report: reportOf(result),
 				sequenceResult: {
 					kind: 'assign',
-					lines: [
-						assignedLine(result.added.length, result.topicName),
-						...result.skipped.map(({ title, reason }) => skippedLine(title, reason))
-					],
+					lines: assignLines(result),
 					changed: [],
 					ringed: []
 				} satisfies SequenceResult

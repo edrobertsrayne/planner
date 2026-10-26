@@ -354,6 +354,35 @@ export interface TopicOption {
 	counted: number;
 }
 
+// The Course's Topics, by name, each with how many of its Lessons this Class's Sequence or a
+// Placement on it already holds: what the Assign Topic menu lists.
+export function topicOptions(
+	db: Db,
+	{ classId, courseId }: { classId: string; courseId: string }
+): TopicOption[] {
+	const held = new Set([...sequenceLessonIds(db, classId), ...placedLessonIds(db, classId)]);
+	const topicLessons = db
+		.select({ id: schema.lesson.id, topicId: schema.lesson.topicId })
+		.from(schema.lesson)
+		.innerJoin(schema.topic, eq(schema.topic.id, schema.lesson.topicId))
+		.where(eq(schema.topic.courseId, courseId))
+		.all();
+	return db
+		.select({ id: schema.topic.id, name: schema.topic.name })
+		.from(schema.topic)
+		.where(eq(schema.topic.courseId, courseId))
+		.orderBy(asc(schema.topic.name))
+		.all()
+		.map((topic) => {
+			const lessons = topicLessons.filter((lesson) => lesson.topicId === topic.id);
+			return {
+				...topic,
+				lessonCount: lessons.length,
+				counted: lessons.filter((lesson) => held.has(lesson.id)).length
+			};
+		});
+}
+
 // The Sequence tab's read: the entries in order, and the Course's Topics with their counts.
 export function sequenceView(db: Db, { classId, today }: { classId: string; today: string }) {
 	const [cls] = db
@@ -422,27 +451,7 @@ export function sequenceView(db: Db, { classId, today }: { classId: string; toda
 			onlyHere: row.topicId === null && !elsewhere.has(row.lessonId)
 		}));
 
-	const held = new Set([...entries.map((e) => e.lessonId), ...placedLessonIds(db, classId)]);
-	const topicLessons = db
-		.select({ id: schema.lesson.id, topicId: schema.lesson.topicId })
-		.from(schema.lesson)
-		.innerJoin(schema.topic, eq(schema.topic.id, schema.lesson.topicId))
-		.where(eq(schema.topic.courseId, cls.courseId))
-		.all();
-	const topics: TopicOption[] = db
-		.select({ id: schema.topic.id, name: schema.topic.name })
-		.from(schema.topic)
-		.where(eq(schema.topic.courseId, cls.courseId))
-		.orderBy(asc(schema.topic.name))
-		.all()
-		.map((topic) => {
-			const lessons = topicLessons.filter((lesson) => lesson.topicId === topic.id);
-			return {
-				...topic,
-				lessonCount: lessons.length,
-				counted: lessons.filter((lesson) => held.has(lesson.id)).length
-			};
-		});
+	const topics = topicOptions(db, { classId, courseId: cls.courseId });
 
 	const { weeks, freeAfter } = weekRows(db, { classId, cal, result, fixed, entries });
 	const chips = new Map<string, TopicChip>();

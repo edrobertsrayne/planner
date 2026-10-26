@@ -63,6 +63,7 @@ export {
 	removeFromSequence,
 	sequenceLessonIds,
 	sequenceView,
+	topicOptions,
 	type DateChange,
 	type SequenceEntry,
 	type TopicChip,

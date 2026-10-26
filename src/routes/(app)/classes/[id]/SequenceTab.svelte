@@ -12,7 +12,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
+	import AssignTopicMenu from '$lib/components/assign-topic-menu.svelte';
 	import { topicColour } from '$lib/topic-colour';
 	import SequenceListRow from './SequenceListRow.svelte';
 	import SequenceWeeks from './SequenceWeeks.svelte';
@@ -49,7 +49,6 @@
 	const setLayout = (layout: 'week' | 'list') =>
 		replaceQuery(withParam(page.url, 'layout', layout));
 
-	let assignForm = $state<HTMLFormElement | undefined>();
 	// The Lessons that × or bulk Remove asks about. The dialog stays until the write is done or Ed
 	// cancels.
 	let removing = $state<SequenceEntry[] | null>(null);
@@ -218,38 +217,7 @@
 			>
 				<PlusIcon data-icon="inline-start" />Add Lesson
 			</Button>
-			<form
-				method="POST"
-				action="?/assignTopic"
-				bind:this={assignForm}
-				use:enhance={onFail('Could not assign the Topic.')}
-			>
-				<input type="hidden" name="classId" value={classId} />
-				<input type="hidden" name="topicId" />
-				<DropdownMenu.Root>
-					<DropdownMenu.Trigger>
-						{#snippet child({ props })}
-							<Button {...props} variant="outline" size="sm" class="h-7 text-xs">
-								<PlusIcon data-icon="inline-start" />Assign Topic
-							</Button>
-						{/snippet}
-					</DropdownMenu.Trigger>
-					<DropdownMenu.Content align="end">
-						{#each topics as topic (topic.id)}
-							{@const all = topic.counted === topic.lessonCount}
-							<DropdownMenu.Item
-								disabled={all}
-								onSelect={() => submitWithValue(assignForm, 'topicId', topic.id)}
-							>
-								{topic.name} ·
-								{all ? 'all' : `${topic.counted} of ${topic.lessonCount}`} in Sequence or Placed
-							</DropdownMenu.Item>
-						{:else}
-							<DropdownMenu.Item disabled>This Course has no Topics yet.</DropdownMenu.Item>
-						{/each}
-					</DropdownMenu.Content>
-				</DropdownMenu.Root>
-			</form>
+			<AssignTopicMenu {classId} {topics} submit={onFail('Could not assign the Topic.')} />
 		</div>
 	</div>
 

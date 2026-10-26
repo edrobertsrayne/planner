@@ -1,17 +1,45 @@
 import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
 import { refusal, trimmed } from '$lib/server/form';
-import { classLanes, createClass, listCourses } from '$lib/server/planner';
+import {
+	assignTopic,
+	classLanes,
+	createClass,
+	listCourses,
+	reportOf,
+	topicOptions
+} from '$lib/server/planner';
+import { assignLines } from '$lib/sequence-text';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = () => {
 	const courses = listCourses(db);
 	const lanes = classLanes(db, { today: today() });
 
-	return { courses, lanes };
+	const topics = Object.fromEntries(
+		lanes.map((lane) => [
+			lane.classId,
+			topicOptions(db, { classId: lane.classId, courseId: lane.courseId })
+		])
+	);
+
+	return { courses, lanes, topics };
 };
 
 export const actions: Actions = {
+	assignTopic: async ({ request }) => {
+		const data = await request.formData();
+		try {
+			const result = assignTopic(db, {
+				classId: trimmed(data, 'classId'),
+				topicId: trimmed(data, 'topicId'),
+				today: today()
+			});
+			return { report: reportOf(result), lines: assignLines(result) };
+		} catch (error) {
+			return refusal(error);
+		}
+	},
 	createClass: async ({ request }) => {
 		const data = await request.formData();
 		const label = String(data.get('label') ?? '');

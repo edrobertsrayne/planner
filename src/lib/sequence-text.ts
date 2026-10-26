@@ -49,5 +49,19 @@ const SKIP_REASONS = {
 export const skippedLine = (title: string, reason: keyof typeof SKIP_REASONS) =>
 	`Skipped “${title}”: ${SKIP_REASONS[reason]}.`;
 
+// Assign Topic's result: how many Lessons it added, then one line per Lesson it skipped.
+export const assignLines = ({
+	added,
+	topicName,
+	skipped
+}: {
+	added: unknown[];
+	topicName: string;
+	skipped: { title: string; reason: keyof typeof SKIP_REASONS }[];
+}) => [
+	assignedLine(added.length, topicName),
+	...skipped.map(({ title, reason }) => skippedLine(title, reason))
+];
+
 export const addedLine = (title: string) => `Added “${title}”.`;
 export const removedLine = (count: number) => `Removed ${plural(count, 'Lesson')}.`;
