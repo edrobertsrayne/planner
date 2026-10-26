@@ -63,5 +63,13 @@ form action calling `signInEmail` server-side, so it never passes through. Accep
 is reached over a private network or behind a proxy that throttles; if it is ever exposed directly
 to the internet, `/login` is an unthrottled password oracle and needs a per-IP throttle first.
 
+While no user exists, `/setup` and `/setup/restore` are open to anyone who reaches them, and a
+redirect to `/setup` tells a visitor that the instance is empty. The window is short: from the first
+deploy to the end of the wizard, and from `reset:credentials` to the next wizard. Accepted rather
+than gated by a one-time code (#404), which would be a second credential to read from the server
+for a door that stays open only for minutes. Restore is refused once planner data exists, so after
+a reset the exposure is the wizard alone: whoever finishes it first owns the data. Run
+`reset:credentials` only when ready to complete the wizard straight away.
+
 Whether a user exists is queried on every request rather than cached, so that deleting the row on a
 running server brings the wizard back without a restart.
