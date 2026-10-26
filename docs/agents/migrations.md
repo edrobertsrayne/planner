@@ -7,6 +7,12 @@ Re-check after a Bun upgrade; several of these are recent additions.
 The database runs with `PRAGMA foreign_keys = ON` (`src/lib/server/db/index.ts`). This changes what
 some statements are allowed to do, so it is part of every fact below.
 
+`runMigrations` turns foreign keys off before `BEGIN` for each pending migration, back on in a
+`finally`, and runs `PRAGMA foreign_key_check` inside the transaction before `COMMIT`. A rebuild of a
+referenced table therefore keeps its child rows, and a migration that leaves an orphan row is
+refused: it rolls back, is not recorded as applied, and the error names it. Do not write the pragma
+into a migration file; inside a transaction it has no effect.
+
 ## Verify, do not remember
 
 SQLite's `ALTER TABLE` gained abilities in recent versions, and most written guidance predates them.
@@ -52,8 +58,8 @@ exactly why this file says to test before designing around a limit.
 ## What ALTER TABLE cannot do
 
 **Add a column with `REFERENCES` and a non-NULL default**, while foreign keys are on. SQLite
-rejects it: `Cannot add a REFERENCES column with non-NULL default value`. Either add the column
-nullable, or turn foreign keys off for the statement and back on afterwards.
+rejects it: `Cannot add a REFERENCES column with non-NULL default value`. Add the column nullable
+instead, or write the migration so that `runMigrations` has foreign keys off around it.
 
 ## Drizzle
 
@@ -62,7 +68,8 @@ and the generated column is a plain `TEXT`. A guard the database keeps needs `ch
 
 **Read the SQL that `drizzle-kit` generates before committing it.** Its strategy for SQLite
 constraint changes is to rebuild the table — create, copy, drop, rename. That is rarely necessary
-given the facts above, and a rebuild of a table that other tables reference is worth avoiding.
+given the facts above, but it is safe: `runMigrations` runs with foreign keys off, so the drop does
+not cascade into the child rows, and the check afterwards refuses a rebuild that loses them.
 Replace a generated rebuild with the plain `ALTER TABLE` where one does the job.
 
 ## Hand-edited migrations are normal here

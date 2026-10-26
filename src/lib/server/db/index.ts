@@ -55,15 +55,25 @@ export function runMigrations(client: Database, migrationsFolder = 'drizzle') {
 
 	for (const migration of pending) {
 		try {
-			inTransaction(client, () => {
-				for (const statement of migration.sql) client.run(statement);
-				insertMigration.run(
-					migration.hash,
-					migration.folderMillis,
-					migration.name,
-					new Date().toISOString()
-				);
-			});
+			// Foreign keys cannot be turned off inside a transaction, and a table rebuild (create,
+			// copy, drop, rename) would otherwise cascade the drop into every child row.
+			client.run('PRAGMA foreign_keys = OFF');
+			try {
+				inTransaction(client, () => {
+					for (const statement of migration.sql) client.run(statement);
+					const orphans = client.prepare('PRAGMA foreign_key_check').all();
+					if (orphans.length > 0)
+						throw new Error(`it left ${orphans.length} row(s) naming a missing parent`);
+					insertMigration.run(
+						migration.hash,
+						migration.folderMillis,
+						migration.name,
+						new Date().toISOString()
+					);
+				});
+			} finally {
+				client.run('PRAGMA foreign_keys = ON');
+			}
 		} catch (cause) {
 			throw new Error(`Migration "${migration.name}" failed: ${(cause as Error).message}`, {
 				cause
