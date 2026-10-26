@@ -8,6 +8,11 @@ Add new entries at the top, dated:
 
 - YYYY-MM-DD: idea
 
+- 2026-10-26: A `kit.csp` with `script-src 'self'`, if Lesson bodies ever allow HTML. Ruled out
+  of #431: markdown-it runs with `html: false` and KaTeX with `trust: false`, so `{@html}` is safe.
+  The CSP would block mode-watcher's inline head script unless it carries the page nonce, and
+  without that script dark mode flashes light on every load.
+
 - 2026-10-26: Ask Railpack to build an image that runs as a non-root user and reports a healthcheck.
   Issue #413 asked for both in the Dockerfile, which ADR-0027 removed; the deployer sets the runtime
   values in Dokploy instead. A hung server is therefore still never restarted by the platform, and a
