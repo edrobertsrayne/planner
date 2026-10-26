@@ -8,6 +8,18 @@ import { runWithRequestState } from '@better-auth/core/context';
 import { crossSiteFormRefused, guardRedirect } from '$lib/server/guard';
 import { bodyTooLarge } from '$lib/server/body-limit';
 
+// Every response, pages and downloads alike: no file is sniffed into another type, a link out
+// carries no path from this app, and no page can be framed. A stored-XSS bug in a Lesson body is
+// then contained to the app's own origin (#431).
+const handleSecurityHeaders: Handle = ({ event, resolve }) => {
+	event.setHeaders({
+		'x-content-type-options': 'nosniff',
+		'referrer-policy': 'same-origin',
+		'content-security-policy': "frame-ancestors 'none'"
+	});
+	return resolve(event);
+};
+
 const handleBodyLimit: Handle = ({ event, resolve }) => {
 	if (bodyTooLarge({ pathname: event.url.pathname, headers: event.request.headers })) {
 		// The API answers every error as JSON with an `error` key (spec §3.2), including this one;
@@ -66,4 +78,10 @@ const handleGuard: Handle = async ({ event, resolve }) => {
 	return resolve(event);
 };
 
-export const handle: Handle = sequence(handleBodyLimit, handleCsrf, handleAuth, handleGuard);
+export const handle: Handle = sequence(
+	handleSecurityHeaders,
+	handleBodyLimit,
+	handleCsrf,
+	handleAuth,
+	handleGuard
+);
