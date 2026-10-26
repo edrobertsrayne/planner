@@ -157,6 +157,13 @@ Plain JSON. **No envelope.** A success returns the record, or the array, directl
 { "id": "9f1c...", "name": "Year 9 Physics" }
 ```
 
+A create returns its record. Only a write that can move a Session returns a report: the response is
+the record under its own name, with `report` beside it.
+
+```json
+{ "lesson": { "id": "b204...", "title": "..." }, "report": { "placementsMoved": [] } }
+```
+
 An error returns:
 
 ```json
@@ -391,9 +398,9 @@ Lessons are ordered within their Topic (ADR-0010), so this order is meaningful a
 
 Only `title` is required. `body` defaults to null, `length` to 1, `status` to `"draft"`.
 
-→ 201, `Lesson` with `links: []` and a `report` field, appended at the end of the Topic's order. `report`
-is the report of the write: `{ "placementsMoved": [] }`. A new Lesson is in no Sequence, so it
-moves no date and the list is always empty. → 404 if the Topic does not exist.
+→ 201, the `Lesson` record, appended at the end of the Topic's order. A new Lesson is in no
+Sequence and has no Placement, so it moves no date: there is no report. → 404 if the Topic does not
+exist.
 
 **There is no 409 here.** Lesson titles are not unique and gain no constraint. One Topic may hold
 two Lessons called "Revision".

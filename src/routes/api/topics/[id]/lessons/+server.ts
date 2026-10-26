@@ -34,7 +34,9 @@ export const POST: RequestHandler = async (event) => {
 			length: fields.length,
 			status: fields.status
 		});
-		return json({ ...created.lesson, links: [], report: { placementsMoved: [] } }, { status: 201 });
+		// A create answers its record and nothing else, like every other create. A new Lesson is in
+		// no Sequence and has no Placement, so it cannot move a Session: there is no report to carry.
+		return json(created.lesson, { status: 201 });
 	} catch (error) {
 		return refusalJson(error);
 	}

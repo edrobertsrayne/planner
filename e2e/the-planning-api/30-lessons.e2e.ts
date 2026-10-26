@@ -33,7 +33,7 @@ test.describe.serial('the Lesson endpoints', () => {
 		await page.close();
 	});
 
-	test('a Lesson is created with its defaults, listed in order, and only read in full with its Links', async ({
+	test('a Lesson is created with its defaults, listed in order, and only read in full with its children', async ({
 		request
 	}) => {
 		const bare = await request.post(`/api/topics/${topicOneId}/lessons`, {
@@ -43,6 +43,7 @@ test.describe.serial('the Lesson endpoints', () => {
 		expect(bare.status()).toBe(201);
 		const lessonA = await bare.json();
 		lessonAId = lessonA.id;
+		// A create answers its record and nothing else: no `links`, no `report` (issue #438).
 		expect(lessonA).toEqual({
 			id: lessonAId,
 			topicId: topicOneId,
@@ -50,9 +51,7 @@ test.describe.serial('the Lesson endpoints', () => {
 			body: null,
 			status: 'draft',
 			length: 1,
-			position: 0,
-			links: [],
-			report: { placementsMoved: [] }
+			position: 0
 		});
 
 		const full = await request.post(`/api/topics/${topicOneId}/lessons`, {
