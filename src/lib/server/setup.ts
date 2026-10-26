@@ -1,5 +1,7 @@
 import type { User } from 'better-auth';
 import { auth } from '$lib/server/auth';
+import { db } from '$lib/server/db/client';
+import * as schema from '$lib/server/db/schema';
 
 /**
  * First-run setup. This app has exactly one user (ADR-0001), created once by /setup and recovered
@@ -7,10 +9,14 @@ import { auth } from '$lib/server/auth';
  */
 
 /** Whether setup has happened. Queried per request rather than cached: `reset-credentials` deletes
- * the row on a running server, and the wizard has to come back without a restart. */
+ * the row on a running server, and the wizard has to come back without a restart.
+ *
+ * The count is one row, so it is read straight from the table. Going through the auth library
+ * needed its per-request state, which the guard runs outside — and the guard runs on every request,
+ * so a read that cannot fail there is worth the one query it already cost. */
 export async function hasUser() {
-	const ctx = await auth.$context;
-	return (await ctx.internalAdapter.countTotalUsers()) > 0;
+	const [row] = db.select({ id: schema.user.id }).from(schema.user).limit(1).all();
+	return row !== undefined;
 }
 
 /** The creation in flight, if any; see `createFirstUser`. */

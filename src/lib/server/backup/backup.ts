@@ -78,6 +78,9 @@ export function createBackup(
 		size: tarLength(files.map((file) => file.size)),
 		body: new ReadableStream<Uint8Array>({
 			async pull(controller) {
+				// A cancelled download can leave one pull in flight; writing after the response ended
+				// is an error the process does not survive, so the flag decides what happens next.
+				if (closed) return;
 				let step: IteratorResult<Uint8Array>;
 				try {
 					step = await chunks.next();
@@ -85,6 +88,7 @@ export function createBackup(
 					closeFiles();
 					throw cause;
 				}
+				if (closed) return;
 				const { done, value } = step;
 				if (done) {
 					closeFiles();

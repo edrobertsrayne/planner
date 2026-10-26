@@ -4,6 +4,7 @@ import { building } from '$app/environment';
 import { auth } from '$lib/server/auth';
 import { hasUser } from '$lib/server/setup';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
+import { runWithRequestState } from '@better-auth/core/context';
 import { crossSiteFormRefused, guardRedirect } from '$lib/server/guard';
 import { bodyTooLarge } from '$lib/server/body-limit';
 
@@ -36,7 +37,14 @@ const handleCsrf: Handle = async ({ event, resolve }) => {
 };
 
 const handleAuth: Handle = async ({ event, resolve }) => {
-	const session = await auth.api.getSession({ headers: event.request.headers });
+	// Reading the session also refreshes it, which is how a teacher who works every day is never
+	// signed out — and that path asks the auth library for its per-request state, which nothing else
+	// has set up on the way into the hook chain. The library's own endpoints wrap themselves the
+	// same way; without it the read throws and every page it guards answers 500. One state map per
+	// request, since the call sits outside any endpoint that would have made one.
+	const session = await runWithRequestState(new WeakMap(), () =>
+		auth.api.getSession({ headers: event.request.headers })
+	);
 
 	if (session) {
 		event.locals.user = session.user;
