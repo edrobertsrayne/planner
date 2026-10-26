@@ -2,12 +2,12 @@
 	import { resolve } from '$app/paths';
 	import { toast } from 'svelte-sonner';
 	import { formatWeekday, today } from '$lib/date';
-	import { formatSize } from '$lib/format-size';
 	import type { Occasion } from '$lib/client/session-href';
 	import { createTeachingNotes } from '$lib/client/teaching-note';
 	import type { SessionDetail, WriteReport } from '$lib/server/planner';
 	import RewindReport from '$lib/components/rewind-report.svelte';
 	import { Badge } from '$lib/components/ui/badge';
+	import LessonChildren from '$lib/components/lesson-children.svelte';
 	import TagChips from '$lib/components/tag-chips.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -217,38 +217,11 @@
 					</p>
 				{/if}
 
-				{#if detail.lesson.links.length}
-					<ul class="mt-4 space-y-1">
-						{#each detail.lesson.links as link (link.id)}
-							<li>
-								<a
-									href={link.url}
-									target="_blank"
-									rel="noopener noreferrer"
-									class="text-sm underline underline-offset-4">{link.label}</a
-								>
-							</li>
-						{/each}
-					</ul>
-				{/if}
-
-				{#if detail.lesson.attachments.length}
-					<ul class="mt-2 space-y-1">
-						{#each detail.lesson.attachments as attachment (attachment.id)}
-							<li class="flex items-baseline gap-2 text-sm">
-								<a
-									href={resolve('/attachments/[id]', { id: attachment.id })}
-									class="min-w-0 flex-1 truncate underline underline-offset-4"
-								>
-									{attachment.filename}
-								</a>
-								<span class="shrink-0 font-mono text-[10px] text-muted-foreground">
-									{formatSize(attachment.size)}
-								</span>
-							</li>
-						{/each}
-					</ul>
-				{/if}
+				<LessonChildren
+					links={detail.lesson.links}
+					attachments={detail.lesson.attachments}
+					variant="inline"
+				/>
 			</section>
 		{/if}
 

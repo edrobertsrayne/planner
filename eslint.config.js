@@ -41,7 +41,7 @@ export default defineConfig(
 	{
 		// A URL the teacher typed. It leaves the app, so resolve() must not touch it.
 		files: [
-			'src/lib/components/session-body.svelte',
+			'src/lib/components/lesson-children.svelte',
 			'src/routes/(app)/lessons/*/LinkRow.svelte',
 			'src/routes/(app)/lessons/*/+page.svelte'
 		],

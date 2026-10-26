@@ -16,13 +16,10 @@
 	import { MediaQuery } from 'svelte/reactivity';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import MarkdownEditor from '$lib/components/markdown-editor.svelte';
-	import LinkIcon from '@lucide/svelte/icons/link';
-	import PaperclipIcon from '@lucide/svelte/icons/paperclip';
-	import Markdown from '$lib/components/markdown.svelte';
-	import { formatSize } from '$lib/format-size';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.js';
 	import TagBadge from '$lib/components/tag-badge.svelte';
 	import AttachmentRow from './AttachmentRow.svelte';
+	import LessonReadView from './LessonReadView.svelte';
 	import LinkRow from './LinkRow.svelte';
 	import { onMount } from 'svelte';
 	import type { SubmitFunction } from '@sveltejs/kit';
@@ -310,7 +307,7 @@
 								<span class="text-muted-foreground">Periods</span>
 							</div>
 
-							{#if data.lesson.topic}
+							{#if data.lesson.topic || data.topicChoices.some((g) => g.topics.length)}
 								<label for="lesson-topic" class="text-muted-foreground">Topic</label>
 								<form
 									method="POST"
@@ -325,44 +322,26 @@
 									<select
 										id="lesson-topic"
 										name="topicId"
-										value={data.lesson.topic.id}
+										value={data.lesson.topic?.id ?? ''}
 										class="w-full rounded-md border border-input bg-background px-2 py-1 text-sm pointer-coarse:min-h-11"
 										onchange={(e) => e.currentTarget.form?.requestSubmit()}
 									>
-										{#each data.topics as t (t.id)}
-											<option value={t.id}>{t.name}</option>
-										{/each}
-									</select>
-								</form>
-							{/if}
-
-							{#if !data.lesson.topic && data.topicChoices.some((g) => g.topics.length)}
-								<label for="lesson-topic" class="text-muted-foreground">Topic</label>
-								<form
-									method="POST"
-									action="?/moveLessonToTopic"
-									use:enhance={() => {
-										return async ({ update }) => update({ reset: false });
-									}}
-								>
-									<input type="hidden" name="id" value={lesson.id} />
-									<select
-										id="lesson-topic"
-										name="topicId"
-										value=""
-										class="w-full rounded-md border border-input bg-background px-2 py-1 text-sm pointer-coarse:min-h-11"
-										onchange={(e) => e.currentTarget.form?.requestSubmit()}
-									>
-										<option value="" disabled>Choose a Topic…</option>
-										{#each data.topicChoices as group (group.id)}
-											{#if group.topics.length}
-												<optgroup label={group.course}>
-													{#each group.topics as t (t.id)}
-														<option value={t.id}>{t.name}</option>
-													{/each}
-												</optgroup>
-											{/if}
-										{/each}
+										{#if data.lesson.topic}
+											{#each data.topics as t (t.id)}
+												<option value={t.id}>{t.name}</option>
+											{/each}
+										{:else}
+											<option value="" disabled>Choose a Topic…</option>
+											{#each data.topicChoices as group (group.id)}
+												{#if group.topics.length}
+													<optgroup label={group.course}>
+														{#each group.topics as t (t.id)}
+															<option value={t.id}>{t.name}</option>
+														{/each}
+													</optgroup>
+												{/if}
+											{/each}
+										{/if}
 									</select>
 								</form>
 							{/if}
@@ -616,81 +595,7 @@
 			</div>
 		{:else}
 			<!-- Below `md` the Lesson is read, not written: no control here changes it. -->
-			<div class="mt-3 space-y-3">
-				<h1 class="text-2xl font-semibold tracking-tight">{lesson.title}</h1>
-				<dl class="space-y-2">
-					{#if data.lesson.topic}
-						<div
-							class="flex min-h-12 items-center justify-between gap-3 rounded-lg border px-4 py-2"
-						>
-							<dt class="text-muted-foreground">Topic</dt>
-							<dd class="min-w-0 truncate">{data.lesson.topic.name}</dd>
-						</div>
-					{/if}
-					<div class="flex min-h-12 items-center justify-between gap-3 rounded-lg border px-4 py-2">
-						<dt class="text-muted-foreground">Status</dt>
-						<dd>{lesson.status === 'planned' ? 'Planned' : 'Draft'}</dd>
-					</div>
-					<div class="flex min-h-12 items-center justify-between gap-3 rounded-lg border px-4 py-2">
-						<dt class="text-muted-foreground">Length</dt>
-						<dd>{lesson.length} {lesson.length === 1 ? 'Period' : 'Periods'}</dd>
-					</div>
-					{#if data.lesson.tags.length}
-						<div class="flex min-h-12 flex-wrap items-center gap-1 rounded-lg border px-4 py-2">
-							{#each data.lesson.tags as tag (tag.id)}
-								<TagBadge name={tag.name} />
-							{/each}
-						</div>
-					{/if}
-				</dl>
-
-				{#if lesson.body}
-					<Markdown source={lesson.body} class="rounded-lg border px-4 py-3" />
-				{/if}
-
-				{#if lesson.links.length}
-					<section>
-						{@render heading('Links')}
-						<ul class="space-y-2">
-							{#each lesson.links as link (link.id)}
-								<li>
-									<a
-										href={link.url}
-										target="_blank"
-										rel="noopener noreferrer"
-										class="flex min-h-12 items-center gap-3 rounded-lg border px-4 py-2"
-									>
-										<LinkIcon class="size-4 shrink-0 text-muted-foreground" />
-										<span class="min-w-0 flex-1 truncate">{link.label}</span>
-									</a>
-								</li>
-							{/each}
-						</ul>
-					</section>
-				{/if}
-
-				{#if data.lesson.attachments.length}
-					<section>
-						{@render heading('Attachments')}
-						<ul class="space-y-2">
-							{#each data.lesson.attachments as attachment (attachment.id)}
-								<li>
-									<a
-										href={resolve('/attachments/[id]', { id: attachment.id })}
-										class="flex min-h-12 items-center gap-3 rounded-lg border px-4 py-2"
-									>
-										<PaperclipIcon class="size-4 shrink-0 text-muted-foreground" />
-										<span class="min-w-0 flex-1 truncate">{attachment.filename}</span>
-										<span class="shrink-0 font-mono text-xs text-muted-foreground">
-											{formatSize(attachment.size)}
-										</span>
-									</a>
-								</li>
-							{/each}
-						</ul>
-					</section>
-				{/if}
-			</div>
+			<LessonReadView {lesson} />
 		{/if}
 	{/key}
 </div>

@@ -215,8 +215,15 @@ test.describe('the Lesson editor on a laptop', () => {
 		await page.getByRole('link', { name: /KS3 Science/ }).click();
 		await expect(page.getByRole('link', { name: 'Speed up', exact: true })).toBeVisible();
 
-		// Put the title back for the tests that follow.
+		// Put the title back for the tests that follow. The second half above fills the field the
+		// moment the click lands, where a person takes far longer: at Playwright speed the fill can
+		// reach the previous page's field, which the new Lesson's editor then replaces while it is
+		// focused. Removing a focused input fires no blur, so no save starts, and the old title
+		// stays (issue #453). Wait for the reopened Lesson before typing.
 		await page.getByRole('link', { name: 'Speed up', exact: true }).click();
+		await expect(page.getByRole('textbox', { name: 'Lesson title', exact: true })).toHaveValue(
+			'Speed up'
+		);
 		await page.getByRole('textbox', { name: 'Lesson title', exact: true }).fill('Speed');
 		await page.getByRole('button', { name: 'Back' }).click();
 		await expect(page.getByRole('link', { name: 'Speed', exact: true })).toBeVisible();
