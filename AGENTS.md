@@ -1,6 +1,7 @@
 # planner
 
-An electronic teacher planner. Self-hosted, single-user, UK state secondary school. Package manager: bun.
+An electronic teacher planner. Self-hosted, single-user, UK state secondary school.
+Package manager: bun.
 
 ## Favour the simple implementation
 
@@ -15,63 +16,30 @@ When you find a simpler approach than the one agreed, say so before you build it
 
 ## Coding standards
 
-Follow `CODING_STANDARDS.md` for all code. It sets the principles (single responsibility, KISS, YAGNI), the Svelte best practices, the code quality review rules and the code smells.
+Follow `CODING_STANDARDS.md` for all code.
 
 ## Tests
 
-Test each behaviour at the lowest level that can see it:
-
-- A unit test for logic in a plain module, and for every domain rule and refusal of the seam.
-- A component test (`*.svelte.test.ts`) for what a component draws from its props: wording, states, ARIA, hover and focus.
-- An e2e test only for what needs the running app: routing and the URL, a reload, Back, auth, a write and what the page then shows, files, a touch pointer, or layout inside the app shell.
-
-The check that no screen scrolls sideways is in `e2e/the-screen-widths.e2e.ts`. Add a new screen there; do not add a "fits the width" test elsewhere.
-
-While you work, run the unit and e2e files for the code you change. Run one e2e file alone with `bun run test:e2e -- e2e/the-backup.e2e.ts`.
-Run the full suite, `bun run test`, once when the work is complete. The pre-push hook runs `bun run check` and the unit tests. CI runs the full suite on each push to `main` and on each PR.
-Before you say that a push or a PR passes, read its CI result with `gh run list --branch <branch>` or `gh pr checks <number>`.
-Each e2e file starts with `test.beforeAll(() => resetTo('standard'))`, or `resetTo('empty')` for the first-run wizard.
-`resetTo` in `e2e/helpers.ts` clears the e2e database and writes a known state. No file depends on another file.
-Put this call first in each new e2e file. If a file needs more data, make that data in the file.
-Shared e2e helpers live in `e2e/helpers.ts`; import from there before you write a local copy.
-You can run a unit test file alone: `bun run test:unit -- --run <file>`.
-Install the test browser once per machine: `bunx playwright install chromium`.
-A fresh worktree has no `node_modules`. Run `bun install` there before any check or test.
+Test-driven: write a failing test (red), make it pass with the least code (green), then refactor.
+Test each behaviour at the lowest level that can see it: unit, then component
+(`*.svelte.test.ts`), then e2e only for what needs the running app (routing, reload, auth, writes,
+files, touch, app-shell layout).
 
 ## Commits and PRs
 
-Commit and push to `main` directly. CI runs the full suite on each push. Dokploy builds and deploys the app with Railpack (ADR-0027).
-Open a PR only for a one-way change, or for a change that you think needs the teacher's approval first.
-A one-way change is hard to undo. Examples: a migration that deletes or changes data, a change to auth or the backup, or a change to stored data formats.
-A PR merges only when the `test` and `Run linters` checks pass (the `main-protection` ruleset). Do not merge with `--admin` to skip them.
+Commit to `main`. Open a PR only for a one-way change (a migration that deletes or changes data,
+auth, the backup, stored data formats) or one the teacher should approve first.
 
 ## Prototyping
 
-Disable the auth guard in a prototype, unless the prototype tests the authentication pages.
-Before you ask the teacher about a prototype, serve it and open it in the teacher's browser (`xdg-open <url>`).
-Check first that the URL reaches your own server and that the login works.
+Disable the auth guard in a prototype, unless it tests the auth pages. Serve it and open it in the
+teacher's browser (`xdg-open <url>`) before asking about it.
 
-## Agent skills
+## Reference
 
-- Issues: GitHub Issues on `edrobertsrayne/planner` via `gh`. See `docs/agents/issue-tracker.md`.
-- Triage labels: each label string equals its role name. See `docs/agents/triage-labels.md`.
-- Domain: single context, `GLOSSARY.md` and `docs/adr/`. See `docs/agents/domain.md`.
-- Before you write a migration, read `docs/agents/migrations.md`.
-- Backlog: add ideas you put out of scope to `docs/backlog.md`. Read it before you propose a feature.
-
-## Attach files to issues and PRs
-
-Use `gh issue|pr create|edit|comment --attach <file>` to upload a local image or video.
-
-- Set alt text with `--attach 'path/to/image.png#Alt text'`. Videos have no alt text.
-- To place a file inside the body, write `![alt](path/to/image.png)` and attach the same path.
-  `gh` replaces the local path with the uploaded URL.
-  A video reference must be the only content in its paragraph.
-- `gh` appends each attached file that the body does not reference.
-
-Example: `gh pr create --title "..." --body-file body.md --attach screenshots/home.png`
-
-## Communication style
-
-- Give brief context before the main point.
-- Use the terms in `GLOSSARY.md`. Do not use the synonyms that it lists to avoid.
+- Issues: GitHub Issues via `gh` (`docs/agents/issue-tracker.md`); labels in
+  `docs/agents/triage-labels.md`.
+- Domain terms: `GLOSSARY.md`, `docs/adr/` (`docs/agents/domain.md`). Use its terms, never the
+  synonyms it lists to avoid.
+- Migrations: read `docs/agents/migrations.md` before writing one.
+- Backlog: put out-of-scope ideas in `docs/backlog.md`; read it before proposing a feature.
