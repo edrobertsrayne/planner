@@ -51,15 +51,17 @@ test.describe('the Session page on a phone', () => {
 	});
 
 	test('writes a Teaching note that a reload keeps', async ({ page }) => {
-		await openSessionWithLesson(page);
+		const path = await openSessionWithLesson(page);
 		const text = `Phone note ${Date.now()}`;
 		const field = page.getByLabel('How it went');
 		await field.click();
 		await field.pressSequentially(text);
-		// The note saves on leaving the page, so go Back and return to it.
+		// The note saves on leaving the page, so go Back and return to it. The reload waits for the
+		// forward navigation to land on the Session, or it can reload the page that went Back to.
 		await page.getByRole('button', { name: 'Back' }).click();
 		await expect(page).toHaveURL('/');
 		await page.goForward();
+		await expect(page).toHaveURL(path);
 		await page.reload();
 		await expect(page.getByLabel('How it went')).toHaveText(text);
 	});

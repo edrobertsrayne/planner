@@ -22,6 +22,7 @@ definition for the same app.
   full clone, `.git` included, so CI no longer passes the SHA in as a build argument.
 - The deployer sets the runtime configuration in Dokploy rather than in a compose file:
   `DATABASE_URL` (on a mounted volume, for example `/app/data/planner.db`), `BETTER_AUTH_SECRET`,
-  `ORIGIN` and `BETTER_AUTH_URL` (identical), `PROTOCOL_HEADER=x-forwarded-proto`,
-  `HOST_HEADER=x-forwarded-host`, and the domain's container port, `3000`.
+  `ORIGIN` and `BETTER_AUTH_URL` (identical), and the domain's container port, `3000`. With
+  `ORIGIN` set, the adapter ignores `PROTOCOL_HEADER` and `HOST_HEADER`, so neither is set. No host
+  port is published: the app is reached only through Dokploy's Traefik domain.
 - Migrations still run at startup, so the deployment needs no separate migrate step (ADR-0003).

@@ -47,6 +47,7 @@
 		"vitest-browser-svelte": "^2.1.1"
 	},
 	"dependencies": {
+		"@better-auth/core": "1.6.27",
 		"@tiptap/core": "^3.31.3",
 		"@tiptap/extension-mathematics": "^3.31.3",
 		"@tiptap/extensions": "^3.31.3",

@@ -21,7 +21,7 @@ test.describe('the Agenda on a laptop', () => {
 		await page.getByRole('link', { name: 'Open in Lesson editor' }).click();
 		await expectLessonPage(page);
 		const lessonUrl = page.url();
-		const title = page.getByRole('textbox', { name: 'Lesson title' });
+		const title = page.getByRole('textbox', { name: 'Lesson title', exact: true });
 		const original = await title.inputValue();
 		const longTitle =
 			'A very long Lesson title that has to wrap in full inside the Agenda row instead of being cut off, and it keeps going well past one line at every window size the teacher uses';

@@ -19,8 +19,11 @@ export default defineConfig({
 	},
 	webServer: {
 		// The scratch database and its attachment files are deleted before every run, so two
-		// consecutive suites see the same fresh state.
-		command: `rm -f ${DATABASE_URL} ${DATABASE_URL}-shm ${DATABASE_URL}-wal && rm -rf attachments && bun run build && bun run preview`,
+		// consecutive suites see the same fresh state. The suite runs the app the way the teacher's
+		// deployment does — the built server on Bun — rather than Vite's preview server, whose
+		// Node request pipeline answered a large download that the browser had abandoned by
+		// ending the process, taking every later file with it.
+		command: `rm -f ${DATABASE_URL} ${DATABASE_URL}-shm ${DATABASE_URL}-wal && rm -rf attachments && bun run build && bun run start`,
 		port: 4173,
 		// Never reuse a server already on this port — that could be the developer's own `bun run
 		// preview`, serving local.db, which is exactly what this file exists to keep the suite off.
@@ -30,6 +33,7 @@ export default defineConfig({
 			// The suite's server reads the scratch database (issue #40). A server on another database
 			// would hold a user of its own, so setup-wizard.e2e.ts would land on /login, not /setup.
 			DATABASE_URL,
+			PORT: '4173',
 			ORIGIN,
 			BETTER_AUTH_URL: ORIGIN,
 			BETTER_AUTH_SECRET: 'e2e-suite-secret-fixed-value-not-used-outside-tests'

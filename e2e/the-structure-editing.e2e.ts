@@ -149,7 +149,7 @@ test.describe('the Lesson editor on a laptop', () => {
 		// The save writes on blur and returns its refusal on `form`; the page must show it
 		// (the deleted Courses pane did).
 		await openLessonFromCourses(page);
-		const title = page.getByRole('textbox', { name: 'Lesson title' });
+		const title = page.getByRole('textbox', { name: 'Lesson title', exact: true });
 		// Spaces pass the browser's required check; the server refuses them.
 		await title.fill('   ');
 		await title.blur();
@@ -161,7 +161,9 @@ test.describe('the Lesson editor on a laptop', () => {
 		// otherwise: history.back() would leave the app or do nothing.
 		await openLesson(page);
 		await page.getByRole('button', { name: 'Next Lesson' }).click();
-		await expect(page.getByRole('textbox', { name: 'Lesson title' })).toHaveValue('Motion');
+		await expect(page.getByRole('textbox', { name: 'Lesson title', exact: true })).toHaveValue(
+			'Motion'
+		);
 		await page.getByRole('button', { name: 'Back' }).click();
 		await expect(page).toHaveURL(/\/courses\/[^/?]+\?topic=/);
 	});
@@ -177,7 +179,9 @@ test.describe('the Lesson editor on a laptop', () => {
 		// Stepping replaces the history entry: two steps, one Back out.
 		await next.click();
 		await expect(page.getByText(/^Lesson 2 of \d+$/)).toBeVisible();
-		await expect(page.getByRole('textbox', { name: 'Lesson title' })).toHaveValue('Motion');
+		await expect(page.getByRole('textbox', { name: 'Lesson title', exact: true })).toHaveValue(
+			'Motion'
+		);
 		await page.keyboard.press('[');
 		await expect(page.getByText(/^Lesson 1 of \d+$/)).toBeVisible();
 		await page.keyboard.press(']');
@@ -191,7 +195,7 @@ test.describe('the Lesson editor on a laptop', () => {
 		await expect(page.getByText(last)).toBeVisible();
 
 		// A field with focus keeps the keys.
-		const title = page.getByRole('textbox', { name: 'Lesson title' });
+		const title = page.getByRole('textbox', { name: 'Lesson title', exact: true });
 		const typed = await title.inputValue();
 		await title.click();
 		await page.keyboard.press('[');
@@ -205,14 +209,14 @@ test.describe('the Lesson editor on a laptop', () => {
 
 	test('a title edit followed at once by the breadcrumb is saved', async ({ page }) => {
 		await openLessonFromCourses(page);
-		const title = page.getByRole('textbox', { name: 'Lesson title' });
+		const title = page.getByRole('textbox', { name: 'Lesson title', exact: true });
 		await title.fill('Speed up');
 		await page.getByRole('link', { name: /KS3 Science/ }).click();
 		await expect(page.getByRole('link', { name: 'Speed up', exact: true })).toBeVisible();
 
 		// Put the title back for the tests that follow.
 		await page.getByRole('link', { name: 'Speed up', exact: true }).click();
-		await page.getByRole('textbox', { name: 'Lesson title' }).fill('Speed');
+		await page.getByRole('textbox', { name: 'Lesson title', exact: true }).fill('Speed');
 		await page.getByRole('button', { name: 'Back' }).click();
 		await expect(page.getByRole('link', { name: 'Speed', exact: true })).toBeVisible();
 	});
@@ -343,7 +347,9 @@ test.describe('Detach on the Lesson editor', () => {
 			page.locator('[data-sonner-toast]').filter({ hasText: 'Lesson detached from its Topic.' })
 		).toBeVisible();
 		expect(page.url()).toBe(url);
-		await expect(page.getByRole('textbox', { name: 'Lesson title' })).toHaveValue('Detachable');
+		await expect(page.getByRole('textbox', { name: 'Lesson title', exact: true })).toHaveValue(
+			'Detachable'
+		);
 		await expect(page.getByText('Standalone Lesson', { exact: true })).toBeVisible();
 		await expect(page.getByLabel('Topic', { exact: true })).toHaveValue('');
 		await expect(page.getByRole('button', { name: 'Detach from Topic' })).toHaveCount(0);

@@ -90,19 +90,19 @@ test.describe.serial('Placing and removing a Lesson', () => {
 			)
 		).toBeVisible();
 
-		await page.getByRole('textbox', { name: 'Lesson title' }).fill('Revision session');
+		await page.getByRole('textbox', { name: 'Lesson title', exact: true }).fill('Revision session');
 		await page.getByRole('button', { name: 'Place' }).click();
 
 		// The Session page shows the placed Lesson read-only: no title, plan, Length or
 		// Draft/Planned control (ADR-0022).
 		await expect(page.getByText('Standalone Lesson · Placed')).toBeVisible();
 		await expect(page.getByRole('heading', { name: 'Revision session' })).toBeVisible();
-		await expect(page.getByRole('textbox', { name: 'Lesson title' })).toHaveCount(0);
+		await expect(page.getByRole('textbox', { name: 'Lesson title', exact: true })).toHaveCount(0);
 		await expect(page.getByRole('radio', { name: 'Planned' })).toHaveCount(0);
 
 		// The plan is written in the Lesson editor.
 		await page.getByRole('link', { name: 'Open in Lesson editor' }).click();
-		await expect(page.getByRole('textbox', { name: 'Lesson title' })).toHaveValue(
+		await expect(page.getByRole('textbox', { name: 'Lesson title', exact: true })).toHaveValue(
 			'Revision session'
 		);
 		await page
@@ -182,7 +182,9 @@ test.describe.serial('Placing and removing a Lesson', () => {
 
 		await page.getByRole('link', { name: '9C/Sc1 Open Slot' }).click();
 		await openOpenSlotAndExpect(page);
-		await page.getByRole('textbox', { name: 'Lesson title' }).fill('Forced-move rehearsal');
+		await page
+			.getByRole('textbox', { name: 'Lesson title', exact: true })
+			.fill('Forced-move rehearsal');
 		await page.getByRole('button', { name: 'Place' }).click();
 		await expect(page.getByText('Standalone Lesson · Placed')).toBeVisible();
 		await page.getByRole('button', { name: 'Back' }).click();
@@ -268,7 +270,7 @@ test.describe.serial('Placing and removing a Lesson', () => {
 		await expect(page.getByLabel('How it went')).toHaveText(original);
 
 		// Place over the occasion. The Session now carries another Lesson, which has no note yet.
-		await page.getByRole('textbox', { name: 'Lesson title' }).fill('Note target');
+		await page.getByRole('textbox', { name: 'Lesson title', exact: true }).fill('Note target');
 		await page.getByRole('button', { name: 'Place' }).click();
 		await expect(page.getByText('Standalone Lesson · Placed')).toBeVisible();
 		await expect(page.getByRole('heading', { name: 'Note target' })).toBeVisible();

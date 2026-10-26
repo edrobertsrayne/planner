@@ -8,6 +8,22 @@ Add new entries at the top, dated:
 
 - YYYY-MM-DD: idea
 
+- 2026-10-26: A `kit.csp` with `script-src 'self'`, if Lesson bodies ever allow HTML. Ruled out
+  of #431: markdown-it runs with `html: false` and KaTeX with `trust: false`, so `{@html}` is safe.
+  The CSP would block mode-watcher's inline head script unless it carries the page nonce, and
+  without that script dark mode flashes light on every load.
+
+- 2026-10-26: Ask Railpack to build an image that runs as a non-root user and reports a healthcheck.
+  Issue #413 asked for both in the Dockerfile, which ADR-0027 removed; the deployer sets the runtime
+  values in Dokploy instead. A hung server is therefore still never restarted by the platform, and a
+  code-execution bug still runs as whichever user Railpack's image uses.
+
+- 2026-10-26: Clear the eleven dev-only advisories `bun audit` still reports, all pinned exactly by a
+  devDependency: `lodash` under `auth`'s chevrotain, `markdown-it` and `smol-toml` under
+  `markdownlint-cli2`, `@sveltejs/kit` and `cookie` (first fixed in kit 3.0.0, blocked by
+  `svelte-adapter-bun`), and `katex` under `markdownlint`. Needs major bumps or a Renovate policy.
+  Issue #414 fixed every production advisory.
+
 - 2026-10-10: Re-import a changed Topic in place, matching its Lessons by id or position. Ruled
   out in "What is a Topic with no Course, and where does the teacher see it?" (#376): Delete Topic
   now keeps its Lessons as Standalone Lessons, so delete-and-import-again leaves the old copies
