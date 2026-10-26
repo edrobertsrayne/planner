@@ -3,7 +3,7 @@ import { db } from '$lib/server/db/client';
 import { blockedDay } from '$lib/server/db/schema';
 import { requireApiKey } from '$lib/server/api-key';
 import { today } from '$lib/date';
-import { refusalJson } from '$lib/server/api-helpers';
+import { readJson, refusalJson } from '$lib/server/api-helpers';
 import { blockDay } from '$lib/server/planner';
 import { asc, eq } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
@@ -29,7 +29,8 @@ export const POST: RequestHandler = async (event) => {
 	const auth = await requireApiKey(event);
 	if (auth) return auth;
 
-	const data = await event.request.json();
+	const data = await readJson(event.request);
+	if (data instanceof Response) return data;
 
 	if (typeof data.date !== 'string') {
 		return json({ error: 'The "date" field is required.' }, { status: 400 });

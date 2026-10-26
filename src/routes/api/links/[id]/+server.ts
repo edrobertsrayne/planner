@@ -1,20 +1,19 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db/client';
-import { link } from '$lib/server/db/schema';
 import { requireApiKey } from '$lib/server/api-key';
-import { refusalJson, stringField } from '$lib/server/api-helpers';
-import { deleteLink, updateLink } from '$lib/server/planner/authoring';
-import { eq } from 'drizzle-orm';
+import { readJson, refusalJson, stringField } from '$lib/server/api-helpers';
+import { deleteLink, linkById, updateLink } from '$lib/server/planner';
 import type { RequestHandler } from './$types';
 
 export const PATCH: RequestHandler = async (event) => {
 	const auth = await requireApiKey(event);
 	if (auth) return auth;
 
-	const data = await event.request.json();
-
-	const [existing] = db.select().from(link).where(eq(link.id, event.params.id)).all();
+	const existing = linkById(db, event.params.id);
 	if (!existing) return json({ error: 'Link not found.' }, { status: 404 });
+
+	const data = await readJson(event.request);
+	if (data instanceof Response) return data;
 
 	// PATCH is partial: an absent field keeps its stored value, and the seam's rules run over
 	// the merged pair, the same as the Lesson editor's full update.

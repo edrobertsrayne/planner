@@ -1,17 +1,17 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db/client';
-import { course } from '$lib/server/db/schema';
 import { requireApiKey } from '$lib/server/api-key';
-import { refusalJson, requireExisting, stringField } from '$lib/server/api-helpers';
-import { topicsOf, createTopic } from '$lib/server/planner/authoring';
+import { readJson, refusalJson, stringField } from '$lib/server/api-helpers';
+import { courseById, topicsOf, createTopic } from '$lib/server/planner';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async (event) => {
 	const auth = await requireApiKey(event);
 	if (auth) return auth;
 
-	const missing = requireExisting(db, course, event.params.id, 'Course not found.');
-	if (missing) return missing;
+	if (!courseById(db, event.params.id)) {
+		return json({ error: 'Course not found.' }, { status: 404 });
+	}
 
 	const topics = topicsOf(db, event.params.id);
 	topics.sort((a, b) => a.name.localeCompare(b.name));
@@ -19,14 +19,14 @@ export const GET: RequestHandler = async (event) => {
 	return json(topics.map((t) => ({ id: t.id, name: t.name, courseId: t.courseId })));
 };
 
+// No existence check here: `createTopic` refuses a Course the database does not hold, and that
+// refusal is the route's 404.
 export const POST: RequestHandler = async (event) => {
 	const auth = await requireApiKey(event);
 	if (auth) return auth;
 
-	const missing = requireExisting(db, course, event.params.id, 'Course not found.');
-	if (missing) return missing;
-
-	const body = await event.request.json();
+	const body = await readJson(event.request);
+	if (body instanceof Response) return body;
 
 	const name = stringField(body.name, 'name');
 	if (name instanceof Response) return name;

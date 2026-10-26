@@ -16,7 +16,15 @@ export const POST: RequestHandler = async (event) => {
 	const missing = requireExisting(db, lesson, event.params.id, 'Lesson not found.');
 	if (missing) return missing;
 
-	const data = await event.request.formData();
+	// A request that is not multipart makes `formData()` throw; it is the same 400 as a multipart
+	// request with no `file` part, because the caller sent no file in either case.
+	let data: FormData;
+	try {
+		data = await event.request.formData();
+	} catch {
+		return json({ error: 'Send a "file" field with the file to attach.' }, { status: 400 });
+	}
+
 	const file = data.get('file');
 	if (!(file instanceof File) || !file.name) {
 		return json({ error: 'Send a "file" field with the file to attach.' }, { status: 400 });

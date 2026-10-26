@@ -1,6 +1,6 @@
 import { error, json } from '@sveltejs/kit';
 import { today } from '$lib/date';
-import { client, db } from '$lib/server/db/client';
+import { db } from '$lib/server/db/client';
 import {
 	classSchedule,
 	placeLesson,
@@ -33,7 +33,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		error(400, `${occasion.date} P${occasion.period} already holds a placed Lesson.`);
 
 	try {
-		const placed = placeLesson(db, client, {
+		const placed = placeLesson(db, {
 			classId: occasion.classId,
 			date: occasion.date,
 			slotId: slot.slotId,

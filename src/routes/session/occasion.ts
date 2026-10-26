@@ -2,7 +2,7 @@
 // so both Session endpoints take that triple rather than an id, and both narrow it here. Anything
 // that is not a complete occasion is a 400: there is no partial occasion to fall back to.
 import { error } from '@sveltejs/kit';
-import { Refused, refusalStatus } from '$lib/server/planner/refused';
+import { Refused, refusalStatus } from '$lib/server/planner';
 import type { Occasion } from '$lib/server/planner';
 
 export function occasionOf(input: { classId: unknown; date: unknown; period: unknown }): Occasion {

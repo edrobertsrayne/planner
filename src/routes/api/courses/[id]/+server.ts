@@ -1,45 +1,32 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db/client';
-import { course } from '$lib/server/db/schema';
 import { requireApiKey } from '$lib/server/api-key';
-import { refusalJson, requireExisting, stringField } from '$lib/server/api-helpers';
-import { renameCourse, deleteCourse } from '$lib/server/planner';
-import { eq } from 'drizzle-orm';
+import { readJson, refusalJson, stringField } from '$lib/server/api-helpers';
+import { courseById, renameCourse, deleteCourse } from '$lib/server/planner';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async (event) => {
 	const auth = await requireApiKey(event);
 	if (auth) return auth;
 
-	const [record] = db
-		.select({ id: course.id, name: course.name })
-		.from(course)
-		.where(eq(course.id, event.params.id))
-		.all();
+	const record = courseById(db, event.params.id);
+	if (!record) return json({ error: 'Course not found.' }, { status: 404 });
 
-	if (!record) {
-		return json({ error: 'Course not found.' }, { status: 404 });
-	}
-
-	return json(record);
+	return json({ id: record.id, name: record.name });
 };
 
 export const PATCH: RequestHandler = async (event) => {
 	const auth = await requireApiKey(event);
 	if (auth) return auth;
 
-	const missing = requireExisting(db, course, event.params.id, 'Course not found.');
-	if (missing) return missing;
+	const body = await readJson(event.request);
+	if (body instanceof Response) return body;
 
-	const body = await event.request.json();
-
+	// PATCH is partial: a body that names no field changes nothing and answers the stored record.
 	if (body.name === undefined) {
-		const [record] = db
-			.select({ id: course.id, name: course.name })
-			.from(course)
-			.where(eq(course.id, event.params.id))
-			.all();
-		return json(record);
+		const record = courseById(db, event.params.id);
+		if (!record) return json({ error: 'Course not found.' }, { status: 404 });
+		return json({ id: record.id, name: record.name });
 	}
 
 	const name = stringField(body.name, 'name');
@@ -47,9 +34,9 @@ export const PATCH: RequestHandler = async (event) => {
 
 	try {
 		const updated = renameCourse(db, { id: event.params.id, name });
-		if (!updated) {
-			return json({ error: 'Course not found.' }, { status: 404 });
-		}
+
+		// An unknown id is a URL miss — the route's own 404, not the seam's.
+		if (!updated) return json({ error: 'Course not found.' }, { status: 404 });
 		return json({ id: updated.id, name: updated.name });
 	} catch (error) {
 		return refusalJson(error);

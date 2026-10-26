@@ -2,15 +2,14 @@ import { json } from '@sveltejs/kit';
 import { today } from '$lib/date';
 import { DATABASE_URL, db } from '$lib/server/db/client';
 import { requireApiKey } from '$lib/server/api-key';
-import { refusalJson, stringField } from '$lib/server/api-helpers';
+import { lessonFields, readJson, refusalJson } from '$lib/server/api-helpers';
 import {
 	attachmentsDir,
 	attachmentsOf,
 	lessonDetail,
 	deleteLesson,
 	editLesson,
-	reportOf,
-	type LessonChange
+	reportOf
 } from '$lib/server/planner';
 import type { RequestHandler } from './$types';
 
@@ -28,41 +27,17 @@ export const PATCH: RequestHandler = async (event) => {
 	const auth = await requireApiKey(event);
 	if (auth) return auth;
 
-	const data = await event.request.json();
+	const body = await readJson(event.request);
+	if (body instanceof Response) return body;
 
-	const fields: LessonChange = {};
+	const fields = lessonFields(body);
+	if (fields instanceof Response) return fields;
 
-	if (data.title !== undefined) {
-		const title = stringField(data.title, 'title');
-		if (title instanceof Response) return title;
-		fields.title = title;
-	}
-
-	if (data.body !== undefined) {
-		if (data.body !== null && typeof data.body !== 'string') {
-			return json({ error: 'The "body" field must be a string or null.' }, { status: 400 });
-		}
-		fields.body = data.body;
-	}
-
-	if (data.length !== undefined) {
-		if (typeof data.length !== 'number') {
-			return json({ error: 'The "length" field must be a number.' }, { status: 400 });
-		}
-		fields.length = data.length;
-	}
-
-	if (data.status !== undefined) {
-		const status = stringField(data.status, 'status');
-		if (status instanceof Response) return status;
-		fields.status = status;
-	}
-
-	if (data.topicId !== undefined) {
-		if (data.topicId !== null && typeof data.topicId !== 'string') {
+	if (body.topicId !== undefined) {
+		if (body.topicId !== null && typeof body.topicId !== 'string') {
 			return json({ error: 'The "topicId" field must be a string or null.' }, { status: 400 });
 		}
-		fields.topicId = data.topicId;
+		fields.topicId = body.topicId;
 	}
 
 	try {

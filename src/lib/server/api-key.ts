@@ -1,4 +1,4 @@
-import { text } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db/client';
 import { apiKey } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
@@ -7,10 +7,7 @@ import type { RequestEvent } from '@sveltejs/kit';
 // A fresh Response per call — a Response body can be read only once, so a shared constant would
 // serve the first 401 and lock the body of every one after it.
 const UNAUTHORIZED = () =>
-	text('{"error":"Give a valid API key in the Authorization header."}', {
-		status: 401,
-		headers: { 'content-type': 'application/json' }
-	});
+	json({ error: 'Give a valid API key in the Authorization header.' }, { status: 401 });
 
 export async function requireApiKey(event: RequestEvent): Promise<Response | void> {
 	const header = event.request.headers.get('Authorization');
