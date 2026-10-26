@@ -21,12 +21,14 @@ jobs:
       issues: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
       - name: Run opencode
-        uses: anomalyco/opencode/github@latest
+        # Pinned to the v1.19.4 commit: this step runs with OPENCODE_API_KEY and id-token: write,
+        # so a new release must not reach it without review.
+        uses: anomalyco/opencode/github@148842ef7cb1bc34192b3fff57d0f9721ab9c801 # v1.19.4
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
         with:

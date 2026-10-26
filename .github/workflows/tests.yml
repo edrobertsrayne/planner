@@ -33,7 +33,7 @@ jobs:
       - name: Set up the environment
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 'latest'
+          bun-version: '1.4.0'
 
       - name: Cache bun dependencies
         uses: actions/cache@v4
@@ -57,3 +57,13 @@ jobs:
 
       - name: Run tests
         run: bun run test
+
+      # playwright.config.ts keeps a trace of every failed test in test-results/. Without this
+      # upload the only record of a failure is the console log.
+      - name: Upload Playwright traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7

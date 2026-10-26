@@ -84,10 +84,6 @@ export default defineConfig({
 				test: {
 					name: 'server',
 					environment: 'node',
-					// Every test file opens its own throwaway in-memory database (DATABASE_URL defaults at
-					// the top of this file), so nothing races a shared file. Kept on as cheap insurance;
-					// turning it off is untested.
-					fileParallelism: false,
 					include: ['src/**/*.{test,spec}.{js,ts}'],
 					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}']
 				}

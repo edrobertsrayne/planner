@@ -1,4 +1,4 @@
-import { error, redirect, type Handle } from '@sveltejs/kit';
+import { error, json, redirect, type Handle } from '@sveltejs/kit';
 import { sequence } from '@sveltejs/kit/hooks';
 import { building } from '$app/environment';
 import { auth } from '$lib/server/auth';
@@ -9,6 +9,11 @@ import { bodyTooLarge } from '$lib/server/body-limit';
 
 const handleBodyLimit: Handle = ({ event, resolve }) => {
 	if (bodyTooLarge({ pathname: event.url.pathname, headers: event.request.headers })) {
+		// The API answers every error as JSON with an `error` key (spec §3.2), including this one;
+		// a browser page keeps the framework's own error page.
+		if (event.url.pathname.startsWith('/api/')) {
+			return json({ error: 'The request body is too large.' }, { status: 413 });
+		}
 		error(413, 'The request body is too large.');
 	}
 	return resolve(event);
@@ -34,7 +39,6 @@ const handleAuth: Handle = async ({ event, resolve }) => {
 	const session = await auth.api.getSession({ headers: event.request.headers });
 
 	if (session) {
-		event.locals.session = session.session;
 		event.locals.user = session.user;
 	}
 

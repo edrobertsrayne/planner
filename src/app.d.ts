@@ -1,4 +1,4 @@
-import type { User, Session } from 'better-auth';
+import type { User } from 'better-auth';
 
 // Baked in at build time by vite.config.ts (see buildInfo there).
 declare global {
@@ -10,7 +10,6 @@ declare global {
 	namespace App {
 		interface Locals {
 			user?: User;
-			session?: Session;
 		}
 
 		// interface Error {}
