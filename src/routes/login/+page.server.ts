@@ -22,6 +22,6 @@ export const actions: Actions = {
 			throw error;
 		}
 
-		redirect(303, safeRedirectTarget(event.url.searchParams.get('redirectTo')));
+		redirect(303, safeRedirectTarget(event.url.searchParams.get('redirectTo'), event.url.origin));
 	}
 };

@@ -4,10 +4,16 @@ There is no "forgot password" link, and there never will be. This is a refusal, 
 
 The single user (ADR-0001) is created once, by a first-run wizard at `/setup`, which the request
 guard forces every route to when the `user` table is empty. Recovery is the same path, reached by
-emptying the table again:
+emptying the table again, in the container the app runs in:
 
 ```
-DATABASE_URL=local.db node scripts/reset-credentials.ts
+bun run reset:credentials
+```
+
+From a checkout, point the script at the database:
+
+```
+DATABASE_URL=local.db bun scripts/reset-credentials.ts
 ```
 
 That deletes the user row. `account` and `auth_session` cascade; nothing else in the schema
@@ -45,8 +51,12 @@ adapter, having checked in the same request that none exists.
 Losing the password without access to the server means losing access entirely. That is the
 intended shape: access to the planner is access to the machine.
 
-Two simultaneous submissions of the wizard are resolved by the `user.email` UNIQUE constraint
-rather than by a lock; the loser is redirected to `/login`.
+Two simultaneous submissions of the wizard share one in-flight creation, the same guard
+`/setup/restore` uses for its own check-and-write: the second waits for the first and is
+redirected to `/login`. The `user.email` UNIQUE constraint is not what resolves this — two
+submissions with different emails would both insert and leave a second working login. If writing
+the credential fails after the user row exists, the row is deleted again, so a half-made user
+cannot lock the wizard behind an account that nobody can sign in to.
 
 `/login` is not rate limited. better-auth's limiter only covers `/api/auth/*`, and login here is a
 form action calling `signInEmail` server-side, so it never passes through. Accepted while the app

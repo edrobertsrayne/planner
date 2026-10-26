@@ -65,21 +65,6 @@
 
 	// One alert serves both forms: whichever form is on the card owns the error shown above it.
 	const activeError = $derived(showRestore ? restoreError : form?.error);
-	const isNameInvalid = $derived(
-		Boolean(form?.error === 'Name and email are required.' && !form.name)
-	);
-	const isEmailInvalid = $derived(
-		Boolean(form?.error === 'Name and email are required.' && !form.email)
-	);
-	const isPasswordInvalid = $derived(
-		Boolean(
-			form?.error &&
-			(form.error.includes('least') || form.error === 'The two passwords do not match.')
-		)
-	);
-	const isConfirmPasswordInvalid = $derived(
-		Boolean(form?.error === 'The two passwords do not match.')
-	);
 </script>
 
 <svelte:head><title>Set up Planner</title></svelte:head>
@@ -134,7 +119,7 @@
 				{:else}
 					<form method="POST">
 						<Field.FieldGroup>
-							<Field.Field data-invalid={isNameInvalid ? true : undefined}>
+							<Field.Field data-invalid={form?.field === 'name' || undefined}>
 								<Field.FieldLabel for="name">Name</Field.FieldLabel>
 								<Input
 									id="name"
@@ -142,11 +127,11 @@
 									name="name"
 									value={form?.name ?? ''}
 									required
-									aria-invalid={isNameInvalid ? 'true' : undefined}
+									aria-invalid={form?.field === 'name' || undefined}
 								/>
 							</Field.Field>
 
-							<Field.Field data-invalid={isEmailInvalid ? true : undefined}>
+							<Field.Field data-invalid={form?.field === 'email' || undefined}>
 								<Field.FieldLabel for="email">Email</Field.FieldLabel>
 								<Input
 									id="email"
@@ -154,11 +139,11 @@
 									name="email"
 									value={form?.email ?? ''}
 									required
-									aria-invalid={isEmailInvalid ? 'true' : undefined}
+									aria-invalid={form?.field === 'email' || undefined}
 								/>
 							</Field.Field>
 
-							<Field.Field data-invalid={isPasswordInvalid ? true : undefined}>
+							<Field.Field data-invalid={form?.field === 'password' || undefined}>
 								<Field.FieldLabel for="password">Password</Field.FieldLabel>
 								<Input
 									id="password"
@@ -166,14 +151,14 @@
 									name="password"
 									autocomplete="new-password"
 									required
-									aria-invalid={isPasswordInvalid ? 'true' : undefined}
+									aria-invalid={form?.field === 'password' || undefined}
 								/>
 								<Field.FieldDescription>
 									There is no password reset by email — keep it somewhere safe.
 								</Field.FieldDescription>
 							</Field.Field>
 
-							<Field.Field data-invalid={isConfirmPasswordInvalid ? true : undefined}>
+							<Field.Field data-invalid={form?.field === 'confirmPassword' || undefined}>
 								<Field.FieldLabel for="confirmPassword">Confirm password</Field.FieldLabel>
 								<Input
 									id="confirmPassword"
@@ -181,7 +166,7 @@
 									name="confirmPassword"
 									autocomplete="new-password"
 									required
-									aria-invalid={isConfirmPasswordInvalid ? 'true' : undefined}
+									aria-invalid={form?.field === 'confirmPassword' || undefined}
 								/>
 							</Field.Field>
 
