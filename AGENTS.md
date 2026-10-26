@@ -20,8 +20,8 @@ Follow `CODING_STANDARDS.md` for all code. It sets the principles (single respon
 ## Tests
 
 While you work, run the unit and e2e files for the code you change. Run one e2e file alone with `bun run test:e2e -- e2e/the-backup.e2e.ts`.
-Run the full suite, `bun run test`, once when the work is complete. The pre-push hook runs `bun run check` and the unit tests. CI runs the full suite on each PR.
-Before you say that a PR passes, read its CI result with `gh pr checks <number>`.
+Run the full suite, `bun run test`, once when the work is complete. The pre-push hook runs `bun run check` and the unit tests. CI runs the full suite on each push to `main` and on each PR.
+Before you say that a push or a PR passes, read its CI result with `gh run list --branch <branch>` or `gh pr checks <number>`.
 Each e2e file starts with `test.beforeAll(() => resetTo('standard'))`, or `resetTo('empty')` for the first-run wizard.
 `resetTo` in `e2e/helpers.ts` clears the e2e database and writes a known state. No file depends on another file.
 Put this call first in each new e2e file. If a file needs more data, make that data in the file.
@@ -29,6 +29,13 @@ Shared e2e helpers live in `e2e/helpers.ts`; import from there before you write 
 You can run a unit test file alone: `bun run test:unit -- --run <file>`.
 Install the test browser once per machine: `bunx playwright install chromium`.
 A fresh worktree has no `node_modules`. Run `bun install` there before any check or test.
+
+## Commits and PRs
+
+Commit and push to `main` directly. CI runs the full suite on each push. A new image goes to GHCR only when the suite passes.
+Open a PR only for a one-way change, or for a change that you think needs the teacher's approval first.
+A one-way change is hard to undo. Examples: a migration that deletes or changes data, a change to auth or the backup, or a change to stored data formats.
+`implement-spec` always opens a PR.
 
 ## Prototyping
 
