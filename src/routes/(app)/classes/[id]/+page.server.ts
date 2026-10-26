@@ -81,10 +81,13 @@ export const actions: Actions = {
 		const week = trimmed(data, 'week') as 'A' | 'B';
 		const day = Number(data.get('day'));
 		const period = Number(data.get('period'));
-		const from = trimmed(data, 'from') || null;
-		const on = from ?? today();
+		// The grid always sends the date it is showing. Without one there is no safe edit: ending a
+		// Slot from the start of the year would delete it, and its Placements and Blocked Slots
+		// would stop the delete.
+		const from = trimmed(data, 'from');
+		if (!from) return fail(400, { error: 'Choose a date to change the Timetable.' });
 
-		const holder = holderAt(db, { week, day, period, on });
+		const holder = holderAt(db, { week, day, period, on: from });
 		try {
 			if (!holder) {
 				const taken = takeSlot(db, { classId, week, day, period, from, today: today() });

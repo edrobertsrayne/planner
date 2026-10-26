@@ -184,7 +184,7 @@ export function clearSlot(
 		week: 'A' | 'B';
 		day: number;
 		period: number;
-		from: string | null;
+		from: string;
 		today: string;
 	}
 ) {
@@ -192,7 +192,7 @@ export function clearSlot(
 		(s) => s.classId === classId && overlaps({ holdsFrom: clearFrom, holdsTo: null }, s)
 	);
 	if (!held) return null;
-	return endSlot(db, { id: held.id, from: clearFrom ?? MIN_DATE, today });
+	return endSlot(db, { id: held.id, from: clearFrom, today });
 }
 
 // The Timetable as it stands on one date, across every Class — what the Class page's grid

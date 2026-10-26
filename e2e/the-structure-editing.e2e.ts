@@ -8,6 +8,7 @@ import {
 	openLessonFromCourses,
 	openSessionWithLesson,
 	isoDate,
+	ORIGIN,
 	resetTo,
 	runFixture,
 	todayIso
@@ -487,6 +488,26 @@ test.describe('Rooms on the Class page', () => {
 		await openTimetable();
 		await expect(rooms.nth(0)).toHaveValue('');
 		await expect(rooms.nth(1)).toHaveValue('');
+	});
+});
+
+test.describe('the Timetable grid', () => {
+	test.use({ viewport: { width: 1280, height: 720 } });
+
+	// The grid always posts the date it shows, so no teacher can reach this: a hand-made or stale
+	// request with no date must fail as a bad request, never delete the Slot (#420).
+	test('a clear with no date is refused and leaves the Slot', async ({ page }) => {
+		await login(page);
+		const classId = runFixture('find-class-id', '9B/Sc1').trim();
+
+		const response = await page.request.post(`/classes/${classId}?/toggleSlot`, {
+			form: { classId, week: 'A', day: '1', period: '1' },
+			headers: { origin: ORIGIN }
+		});
+		expect(await response.json()).toMatchObject({ type: 'failure', status: 400 });
+
+		await page.goto(`/classes/${classId}`);
+		await expect(page.getByRole('tab', { name: /^Timetable/ })).toHaveAccessibleName(/3/);
 	});
 });
 
