@@ -41,7 +41,7 @@ function seed(path: string | undefined) {
 
 	const now = today();
 	const since = plusDays(now, -14);
-	replaceTerms(db, client, { terms: termsOf(now), today: since });
+	replaceTerms(db, { terms: termsOf(now), today: since });
 
 	const science = createCourse(db, { name: 'Year 9 Science' });
 	const forces = createTopic(db, { courseId: science.id, name: 'Forces' });

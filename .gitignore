@@ -31,6 +31,9 @@ test-results
 # vitest-browser screenshots
 __screenshots__
 
+# vitest's own snapshot attachments
+.vitest-attachments
+
 # SQLite
 *.db
 *.db-shm
