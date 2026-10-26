@@ -25,11 +25,32 @@
 	} = $props();
 
 	let editing = $state(false);
+	// Escape closes the field, and removing the focused input can still fire its blur handler; the
+	// flag tells that blur that the name was abandoned, not finished.
+	let abandoned = false;
 
 	function startEditing(e: MouseEvent) {
 		e.preventDefault();
 		e.stopPropagation();
+		abandoned = false;
 		editing = true;
+	}
+
+	// A name typed and then left saves, as Enter does: the same two rules whichever way the teacher
+	// leaves the field. An unchanged name closes with no request at all.
+	function saveOnBlur(e: FocusEvent & { currentTarget: HTMLInputElement }) {
+		if (abandoned) {
+			abandoned = false;
+			return;
+		}
+		// A submitted field closes and leaves the page, and its own removal can fire this blur
+		// afterwards with the old name still in the heading: there is nothing left to save.
+		if (!e.currentTarget.isConnected) return;
+		if (e.currentTarget.value === name) {
+			editing = false;
+			return;
+		}
+		e.currentTarget.form?.requestSubmit();
 	}
 </script>
 
@@ -57,10 +78,11 @@
 				onkeydown={(e) => {
 					if (e.key === 'Escape') {
 						e.preventDefault();
+						abandoned = true;
 						editing = false;
 					}
 				}}
-				onblur={() => (editing = false)}
+				onblur={saveOnBlur}
 			/>
 		</form>
 	{:else}
