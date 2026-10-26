@@ -7,6 +7,7 @@
 // same seam. The six are sorted by opening date before checking, so no caller has to order them.
 // Gap length and weekend boundaries are not policed — the generator counts weekdays only, so a
 // Saturday boundary is harmless, and nothing here has a view on how long a half-term break runs.
+import { asc } from 'drizzle-orm';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import { rederiveAllClasses, rewindBoundary, type Db, type WriteReport } from './derive';
@@ -15,10 +16,10 @@ import { Refused } from './refused';
 import type { TermInput } from '$lib/calendar/generate-teaching-weeks';
 
 // Deletes the six Terms, inserts the new six, and re-derives every Class — in one transaction,
-// taken from `db.$client` like every other write on this seam. The re-derivation runs from
-// the Rewind boundary of the earliest Term opening across the old and the new sets: a Term
-// change can flip every letter, so a minimal boundary is nearly always the whole year, and
-// computing it precisely would be complexity for nothing.
+// taken from `db.$client` like every other write on this seam. The re-derivation runs from the
+// Rewind boundary of the first Term that differs between the old and the new sets: Week letters
+// are assigned forward from the first Term, so a change to a later Term cannot change an earlier
+// week, and a save that changes nothing re-derives nothing (ADR-0007).
 //
 // Every rule the seam owns — the count, the two dates of each, and the sorted overlap check —
 // is an `invalid`: bad input, refused before the transaction opens. Anything unexpected throws
@@ -57,13 +58,27 @@ export function replaceTerms(
 		}
 	}
 
-	const oldOpens = db
-		.select({ opens: schema.term.opens })
+	const oldTerms = db
+		.select({ opens: schema.term.opens, closes: schema.term.closes })
 		.from(schema.term)
-		.all()
-		.map((row) => row.opens);
+		.orderBy(asc(schema.term.opens))
+		.all();
+
+	// The first position at which the two ordered sets disagree, by opening date or closing date.
+	// An old set that ran out, or a new one that does, disagrees from that position.
+	const differs = (i: number) =>
+		oldTerms[i]?.opens !== sorted[i]?.opens || oldTerms[i]?.closes !== sorted[i]?.closes;
+	const positions = Math.max(oldTerms.length, sorted.length);
+	let changedAt = 0;
+	while (changedAt < positions && !differs(changedAt)) changedAt++;
+	if (changedAt === positions) return { placementsMoved: [] };
+
+	// The earlier of the two dates the first changed Term held and now holds: anything before it
+	// is untouched by this save.
 	const boundary = rewindBoundary(
-		[...oldOpens, ...sorted.map((term) => term.opens)].reduce((a, b) => (b < a ? b : a)),
+		[oldTerms[changedAt]?.opens, sorted[changedAt]?.opens]
+			.filter((opens): opens is string => opens !== undefined)
+			.reduce((a, b) => (b < a ? b : a)),
 		today
 	);
 

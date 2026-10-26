@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'vitest';
+import { eq, lt } from 'drizzle-orm';
 import { failingCommit, makeLessons, makeTopic, refused, setUp, TERMS } from './fixtures';
 import {
 	assignTopic,
 	classSchedule,
+	editLesson,
 	replaceTerms,
 	sessionDetail,
 	teachingWeeks,
@@ -168,6 +170,63 @@ describe('replacing the Terms', () => {
 			today: '2026-09-14'
 		});
 		expect(detail?.note).toBe('went badly — redo the practical');
+	});
+
+	test('saving the same six again re-derives nothing', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [first] = makeLessons(db, topic.id, 4);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+
+		// Shorten a Lesson after it was taught. The record from September now disagrees with a
+		// fresh derivation, so a whole-year Rewind would rewrite what was taught; a save that
+		// changes no Term must leave it alone (ADR-0007).
+		const taught = db
+			.select()
+			.from(schema.session)
+			.where(eq(schema.session.classId, classA.id))
+			.all();
+		expect(taught.length).toBeGreaterThan(0);
+		editLesson(db, { id: first.id, change: { length: 2 }, today: '2026-10-01' });
+		const before = db
+			.select()
+			.from(schema.session)
+			.where(eq(schema.session.classId, classA.id))
+			.all();
+
+		const report = replaceTerms(db, { terms: TERMS, today: '2026-10-01' });
+
+		expect(report).toEqual({ placementsMoved: [] });
+		expect(
+			db.select().from(schema.session).where(eq(schema.session.classId, classA.id)).all()
+		).toEqual(before);
+	});
+
+	test('a change to only Summer 2 leaves every Session before it untouched', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [first] = makeLessons(db, topic.id, 20);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+		// As above: the taught September record now disagrees with a fresh derivation, so only a
+		// Rewind that reaches back to September could rewrite it.
+		editLesson(db, { id: first.id, change: { length: 2 }, today: '2026-10-01' });
+
+		const before = db
+			.select()
+			.from(schema.session)
+			.where(lt(schema.session.date, '2027-06-07'))
+			.all();
+		expect(before.length).toBeGreaterThan(0);
+
+		// Summer 2 closes a week earlier. Letters are assigned forward from the first Term, so no
+		// week before Summer 2 can change, and nothing taught before it may be rewritten.
+		const summer2 = TERMS.map((term, i) => (i === 5 ? { closes: '2027-07-12', ...term } : term));
+		const report = replaceTerms(db, { terms: summer2, today: '2026-10-01' });
+
+		expect(report).toEqual({ placementsMoved: [] });
+		expect(
+			db.select().from(schema.session).where(lt(schema.session.date, '2027-06-07')).all()
+		).toEqual(before);
 	});
 
 	test('answers with the placementsMoved report only', () => {
