@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Planner">
+	<rect width="512" height="512" rx="96" fill="#171717" />
+	<path
+		fill="#ffffff"
+		fill-rule="evenodd"
+		d="M138 128H282A92 92 0 0 1 282 312H194V384H138Zm56 56V256H282A36 36 0 0 0 282 184Z"
+	/>
+</svg>
