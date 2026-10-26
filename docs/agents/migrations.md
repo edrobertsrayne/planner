@@ -77,3 +77,13 @@ Replace a generated rebuild with the plain `ALTER TABLE` where one does the job.
 A generated migration may be edited, and one-off backfills are written by hand into the same file.
 See `drizzle/20260823000000_class_tone/` for the pattern: the `ALTER TABLE`, then the backfill
 `UPDATE`, with a comment saying what the backfill mirrors in the application code.
+
+## Keep the snapshot
+
+Every migration folder must keep the `snapshot.json` that `drizzle-kit generate` writes beside its
+SQL. `drizzle-kit` compares `schema.ts` with the newest snapshot, so a folder without one makes the
+next `db:generate` try to create tables that already exist. `drizzle/20261026000000_baseline_snapshot/`
+holds only a snapshot, no SQL: it is the baseline that reconnected the chain after the earlier
+folders were generated without one. `runMigrations` ignores a folder with no `migration.sql`. After
+any schema change, `bun run db:generate` must report no changes against a schema that just generated
+a migration.
