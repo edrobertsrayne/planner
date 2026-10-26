@@ -10,7 +10,8 @@ if (!env.DATABASE_URL) throw new Error('DATABASE_URL is not set');
 // consumer shares this module's value rather than re-reading the environment.
 export const DATABASE_URL = env.DATABASE_URL;
 
-let current = openDatabase(DATABASE_URL);
+// The build imports this module but runs no queries, and the database's folder (a mounted volume) may not exist yet.
+let current = openDatabase(building ? ':memory:' : DATABASE_URL);
 
 if (!building) {
 	removeLeftovers(DATABASE_URL);
