@@ -1,14 +1,10 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db/client';
-import { requireApiKey } from '$lib/server/api-key';
 import { readJson, refusalJson, stringField } from '$lib/server/api-helpers';
 import { topicById, renameTopic, deleteTopic } from '$lib/server/planner';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async (event) => {
-	const auth = await requireApiKey(event);
-	if (auth) return auth;
-
 	const record = topicById(db, event.params.id);
 	if (!record) return json({ error: 'Topic not found.' }, { status: 404 });
 
@@ -16,9 +12,6 @@ export const GET: RequestHandler = async (event) => {
 };
 
 export const PATCH: RequestHandler = async (event) => {
-	const auth = await requireApiKey(event);
-	if (auth) return auth;
-
 	const body = await readJson(event.request);
 	if (body instanceof Response) return body;
 
@@ -46,9 +39,6 @@ export const PATCH: RequestHandler = async (event) => {
 // A Topic with Lessons is a confirm question, which the API answers as its 409; an unknown id is
 // the route's own 404. Neither is a refusal, so nothing here can throw one.
 export const DELETE: RequestHandler = async (event) => {
-	const auth = await requireApiKey(event);
-	if (auth) return auth;
-
 	const result = deleteTopic(db, event.params.id);
 	if (!result) return json({ error: 'Topic not found.' }, { status: 404 });
 	if ('needsConfirm' in result) return json({ error: result.reason }, { status: 409 });
