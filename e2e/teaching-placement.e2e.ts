@@ -1,9 +1,12 @@
 import { test, expect, type Page } from '@playwright/test';
+import { formatDate } from '../src/lib/date.ts';
 import { EMAIL, PASSWORD, isoDate, mondayOf, plusDays, resetTo, weekdayOf } from './helpers.ts';
 
 // Covers the two doors a teacher places and removes a Lesson from (issue #254): an Open Slot's
 // Session page and the Calendar day menu, plus the Calendar tile's dashed-ring mark.
 // Reads 9C/Sc1 from the standard state: it has no Topic, so its Tuesday P3 Slot in every week is an Open Slot.
+// The last test reads 9B/Sc1's next Session instead — a Topic Lesson — and leaves the Teaching
+// note it types there.
 test.beforeAll(() => resetTo('standard'));
 
 // The next Tuesday on or after `iso` — 9C/Sc1's one weekly Slot, in every Teaching Week letter.
@@ -34,6 +37,18 @@ async function openOpenSlotAndExpect(page: Page) {
 
 async function expectSessionClosed(page: Page) {
 	await expect(page.getByRole('button', { name: 'Back' })).toBeHidden();
+}
+
+// Types into the Teaching note and waits for its autosave — a roughly 1 s debounce — to answer,
+// so a reload reads what was written rather than racing the write.
+async function typeNote(page: Page, text: string) {
+	const note = page.getByLabel('How it went');
+	await note.click();
+	const saved = page.waitForResponse(
+		(r) => r.url().endsWith('/session') && r.request().method() === 'POST'
+	);
+	await note.pressSequentially(text);
+	await saved;
 }
 
 test.describe.serial('Placing and removing a Lesson', () => {
@@ -184,11 +199,11 @@ test.describe.serial('Placing and removing a Lesson', () => {
 		await expect(
 			page.getByText(
 				new RegExp(
-					`9C/Sc1 · Forced-move rehearsal — was ${tuesday} P\\d+, now ${shiftedTuesday} P\\d+`
+					`9C/Sc1 · Forced-move rehearsal — was ${formatDate(tuesday)} P\\d+, now ${formatDate(shiftedTuesday)} P\\d+`
 				)
 			)
 		).toBeVisible();
-		// A Blocked Day renders as a single "Blocked day" panel with no per-Class content — the
+		// A Blocked Day renders as a single "Blocked Day" panel with no per-Class content — the
 		// day head's own data-day-kind flips to "blocked", and the per-Class cell the Lesson sat
 		// in disappears entirely, rather than a per-Class label search a whole-day block never
 		// carries (and which would still pass with the Lesson left rendered).
@@ -230,5 +245,44 @@ test.describe.serial('Placing and removing a Lesson', () => {
 		await expect(page.getByText('Place a Lesson', { exact: true })).toBeHidden();
 		await expect(page.getByRole('menuitem', { name: /to place…$/ })).toHaveCount(0);
 		await page.keyboard.press('Escape');
+	});
+
+	// A Teaching note belongs to the Class and the Lesson (ADR-0026), so Placing a Lesson over the
+	// occasion a Topic Lesson holds changes whose note the editor shows. The editor takes its text
+	// once, on mount, so the panel must remount it for the new Lesson: otherwise the next keystroke
+	// saves the Topic Lesson's text as the placed Lesson's note, with nothing said (issue #409).
+	test('placing a Lesson over a noted Topic Lesson gives the placed Lesson its own note, and the Topic Lesson keeps its own', async () => {
+		// 9B/Sc1's next Session carries Motion, the one Lesson left in its Sequence, so this
+		// occasion is today or ahead whatever day the suite runs. The Class page's Next Sessions
+		// reaches it every day of the year, where the Agenda's week-long horizon does not.
+		await page.goto('/classes');
+		await page.getByRole('link').filter({ hasText: '9B/Sc1' }).first().click();
+		const next = page.locator('section').filter({ hasText: 'Next Sessions' });
+		await next.getByRole('link').filter({ hasText: 'Motion' }).first().click();
+		await openSessionAndExpect(page);
+		await expect(page.getByRole('heading', { name: 'Motion' })).toBeVisible();
+
+		const original = 'Ratio tables went well';
+		await typeNote(page, original);
+		await page.reload();
+		await expect(page.getByLabel('How it went')).toHaveText(original);
+
+		// Place over the occasion. The Session now carries another Lesson, which has no note yet.
+		await page.getByRole('textbox', { name: 'Lesson title' }).fill('Note target');
+		await page.getByRole('button', { name: 'Place' }).click();
+		await expect(page.getByText('Standalone Lesson · Placed')).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Note target' })).toBeVisible();
+		await expect(page.getByLabel('How it went')).toHaveText('');
+
+		const placed = 'Placed note typed';
+		await typeNote(page, placed);
+		await page.reload();
+		await expect(page.getByLabel('How it went')).toHaveText(placed);
+
+		// Remove the placement: the occasion carries Motion again, and its own note with it —
+		// never the text just written for the placed Lesson.
+		await page.getByRole('button', { name: 'Remove placement' }).click();
+		await expect(page.getByRole('heading', { name: 'Motion' })).toBeVisible();
+		await expect(page.getByLabel('How it went')).toHaveText(original);
 	});
 });

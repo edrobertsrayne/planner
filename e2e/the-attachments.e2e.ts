@@ -1,21 +1,11 @@
 import { test, expect, type Page } from '@playwright/test';
 import { readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { EMAIL, PASSWORD, expectToast, resetTo } from './helpers.ts';
+import { EMAIL, MB, PASSWORD, expectToast, resetTo, signIn } from './helpers.ts';
 
 test.beforeAll(() => resetTo('standard'));
 
 // Adds its own Topic and Lesson, so the Attachments section starts empty.
-
-const MB = 1024 * 1024;
-
-async function login(page: Page, email: string, password: string) {
-	await page.goto('/login');
-	await page.getByLabel('Email').fill(email);
-	await page.getByLabel('Password').fill(password);
-	await page.getByRole('button', { name: 'Log in' }).click();
-	await expect(page).toHaveURL('/');
-}
 
 // The driver supplies the file the native picker would: setting files on the hidden input
 // fires its change, and the upload submits at once.
@@ -28,7 +18,9 @@ test.describe.serial('Attachments on Lessons', () => {
 
 	test.beforeAll(async ({ browser }) => {
 		page = await browser.newPage();
-		await login(page, EMAIL, PASSWORD);
+		await page.goto('/login');
+		await signIn(page, EMAIL, PASSWORD);
+		await expect(page).toHaveURL('/');
 
 		// A Topic and a Lesson of this spec's own, so the Attachments section starts empty and
 		// no earlier fixture is touched.

@@ -447,8 +447,10 @@ test.describe('Rooms on the Class page', () => {
 		const classId = runFixture('find-class-id', '9B/Sc1').trim();
 		const openTimetable = async () => {
 			await page.goto(`/classes/${classId}`);
-			await page.waitForLoadState('networkidle');
 			await page.getByRole('tab', { name: /^Timetable/ }).click();
+			// The tab's own control is drawn only once the tab is open, so this is the save's end state
+			// as well as the click's: no fixed wait between the two.
+			await expect(page.getByLabel('Timetable as at — pick any date')).toBeVisible();
 		};
 		await openTimetable();
 		const rooms = page.getByLabel(/^Room for Week/);
@@ -458,14 +460,12 @@ test.describe('Rooms on the Class page', () => {
 		const first = saved();
 		await rooms.nth(0).press('Tab');
 		await first;
-		await page.waitForLoadState('networkidle');
 		await expect(rooms.nth(1)).toBeFocused();
 
 		await page.keyboard.type('S14');
 		const second = saved();
 		await page.keyboard.press('Tab');
 		await second;
-		await page.waitForLoadState('networkidle');
 
 		await openTimetable();
 		await expect(rooms.nth(0)).toHaveValue('S12');

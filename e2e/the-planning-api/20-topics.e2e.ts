@@ -86,6 +86,14 @@ test.describe.serial('the Topic endpoints', () => {
 			data: { name: 'Orphan' }
 		});
 		expect(missingCourse.status()).toBe(404);
+
+		// A name that is not a string is the door's refusal, never the seam's.
+		const notAString = await request.post(`/api/courses/${courseId}/topics`, {
+			headers: BEARER(token),
+			data: { name: 42 }
+		});
+		expect(notAString.status()).toBe(400);
+		expect(await notAString.json()).toEqual({ error: 'The "name" field must be a string.' });
 	});
 
 	test('a Topic reads back, lists sorted by name, renames, and ignores courseId', async ({
@@ -144,5 +152,25 @@ test.describe.serial('the Topic endpoints', () => {
 		});
 		expect(courseIdField.status()).toBe(200);
 		expect((await courseIdField.json()).courseId).not.toBe(emptyCourseId);
+
+		// A rename with a name that is not a string is the door's refusal.
+		const notAString = await request.patch(`/api/topics/${topicTwoId}`, {
+			headers: BEARER(token),
+			data: { name: 42 }
+		});
+		expect(notAString.status()).toBe(400);
+		expect(await notAString.json()).toEqual({ error: 'The "name" field must be a string.' });
+
+		// An empty PATCH is a no-op: 200 with the unchanged record (§3.4).
+		const noop = await request.patch(`/api/topics/${topicTwoId}`, {
+			headers: BEARER(token),
+			data: {}
+		});
+		expect(noop.status()).toBe(200);
+		expect(await noop.json()).toEqual({
+			id: topicTwoId,
+			name: 'API Topic Two Renamed',
+			courseId
+		});
 	});
 });

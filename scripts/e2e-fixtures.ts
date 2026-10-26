@@ -38,14 +38,19 @@ import {
 	takeSlot
 } from '../src/lib/server/planner/index.ts';
 import { today } from '../src/lib/date.ts';
-import { EMAIL, PASSWORD, isoDate } from '../e2e/helpers.ts';
+import { DATABASE_URL, EMAIL, PASSWORD, isoDate } from '../e2e/helpers.ts';
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) throw new Error('DATABASE_URL is not set');
+// Bun loads `.env`, which names the developer's own database. A reset through that would wipe every
+// row of it and its Attachments, so this script writes the suite's scratch file and nothing else.
+if (process.env.DATABASE_URL !== DATABASE_URL) {
+	throw new Error(
+		`DATABASE_URL must be ${DATABASE_URL}, not ${process.env.DATABASE_URL ?? 'unset'}: this script only ever writes the e2e suite's scratch database`
+	);
+}
 
 const [command, ...args] = process.argv.slice(2);
 
-const { client, db } = openDatabase(databaseUrl);
+const { client, db } = openDatabase(DATABASE_URL);
 
 async function createUser(origin: string) {
 	const body = new URLSearchParams({
@@ -288,7 +293,7 @@ switch (command) {
 		createAttachment(
 			db,
 			{ lessonId, filename, mimeType, bytes: new TextEncoder().encode(content) },
-			attachmentsDir(databaseUrl)
+			attachmentsDir(DATABASE_URL)
 		);
 		break;
 	}
@@ -312,7 +317,7 @@ switch (command) {
 		});
 		client.run('PRAGMA foreign_keys = ON');
 		// The server makes the folder again on the next upload.
-		rmSync(attachmentsDir(databaseUrl), { recursive: true, force: true });
+		rmSync(attachmentsDir(DATABASE_URL), { recursive: true, force: true });
 		if (state === 'standard') {
 			await createUser(origin);
 			seedStandard();

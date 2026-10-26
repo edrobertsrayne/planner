@@ -3,7 +3,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { resetTo, runFixture } from './helpers.ts';
+import { login, MB, resetTo, runFixture } from './helpers.ts';
 
 test.beforeAll(() => resetTo('standard'));
 
@@ -11,21 +11,10 @@ test.beforeAll(() => resetTo('standard'));
 // a second, empty planner (instance B) from the same build on its own port and folder, because a
 // Restore needs an empty instance and the suite shares one database. B runs the built adapter with
 // the BODY_SIZE_LIMIT that the `start` script sets, which `bun run preview` never exercises.
-const EMAIL = 'teacher@example.com';
-const PASSWORD = 'a-very-long-password';
 const B = 'http://127.0.0.1:4174';
-const MB = 1024 * 1024;
 
 let instanceB: ChildProcess;
 let folder: string;
-
-async function login(page: Page, origin: string) {
-	await page.goto(`${origin}/login`);
-	await page.getByLabel('Email').fill(EMAIL);
-	await page.getByLabel('Password').fill(PASSWORD);
-	await page.getByRole('button', { name: 'Log in' }).click();
-	await expect(page).toHaveURL(`${origin}/`);
-}
 
 async function startB() {
 	folder = mkdtempSync(join(tmpdir(), 'planner-restore-'));
@@ -40,7 +29,9 @@ async function startB() {
 			BETTER_AUTH_SECRET: 'e2e-instance-b-secret-not-used-outside-tests',
 			BODY_SIZE_LIMIT: '100G'
 		},
-		stdio: 'ignore'
+		// B's own output rides the runner's, so a crash — a port already in use, a bad Restore —
+		// says why in the test log instead of only reporting that B exited.
+		stdio: 'inherit'
 	});
 	let exited = false;
 	instanceB.on('exit', () => (exited = true));
@@ -80,7 +71,7 @@ test.describe.serial('Back up and Restore', () => {
 	});
 
 	test('Settings warns that the Backup is secret and shows its expected size', async () => {
-		await login(page, 'http://localhost:4173');
+		await login(page);
 		await page.goto('/settings');
 
 		await expect(page.getByText(/Expected size: up to/)).toBeVisible();
@@ -135,7 +126,7 @@ test.describe.serial('Back up and Restore', () => {
 		await page.getByRole('button', { name: 'Restore', exact: true }).click();
 		await expect(page).toHaveURL(`${B}/login`);
 
-		await login(page, B);
+		await login(page, '/', B);
 		await page.goto(`${B}/courses`);
 		await expect(page.getByRole('link', { name: 'KS3 Science' })).toBeVisible();
 

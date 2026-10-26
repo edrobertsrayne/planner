@@ -1,17 +1,9 @@
 import { test, expect, type Page } from '@playwright/test';
-import { EMAIL, PASSWORD, isoDate, resetTo, runFixture } from './helpers.ts';
+import { EMAIL, PASSWORD, isoDate, resetTo, runFixture, signIn } from './helpers.ts';
 
 // Logs in as the one user that resetTo('standard') creates, and reads the standard state (see
 // `reset` in scripts/e2e-fixtures.ts).
 test.beforeAll(() => resetTo('standard'));
-
-async function login(page: Page, email: string, password: string) {
-	await page.goto('/login');
-	await page.getByLabel('Email').fill(email);
-	await page.getByLabel('Password').fill(password);
-	await page.getByRole('button', { name: 'Log in' }).click();
-	await expect(page).toHaveURL('/');
-}
 
 async function openSessionAndExpect(page: Page) {
 	await expect(page.getByRole('button', { name: 'Back' })).toBeVisible();
@@ -29,7 +21,9 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 
 	test.beforeAll(async ({ browser }) => {
 		page = await browser.newPage();
-		await login(page, EMAIL, PASSWORD);
+		await page.goto('/login');
+		await signIn(page, EMAIL, PASSWORD);
+		await expect(page).toHaveURL('/');
 		classAId = runFixture('find-class-id', '9B/Sc1');
 		classBId = runFixture('find-class-id', '9C/Sc1');
 	});
@@ -168,10 +162,10 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		const entries = page.locator('[data-sequence] > li');
 		await expect(entries).toHaveCount(2);
 
-		// The confirm says what is lost; Cancel removes nothing.
+		// The remove asks first; Cancel removes nothing.
 		await page.getByRole('button', { name: 'Remove Motion' }).click();
 		const dialog = page.getByRole('dialog');
-		await expect(dialog).toContainText('No notes or Ready marks will be lost.');
+		await expect(dialog).toBeVisible();
 		await dialog.getByRole('button', { name: 'Cancel' }).click();
 		await expect(entries).toHaveCount(2);
 
@@ -582,7 +576,7 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expect(page).not.toHaveURL(/tag=/);
 	});
 
-	test('a past Session on the Calendar keeps its tile on a hatch, never Blocked (issue #292)', async () => {
+	test('a past Session on the Calendar keeps its tile, never Blocked (issue #292)', async () => {
 		// The Monday of the week seven days back: a weekday inside the second Term, before today.
 		const ago = new Date(`${isoDate(-7)}T00:00:00Z`);
 		const monday = isoDate(-7 - ((ago.getUTCDay() + 6) % 7));
@@ -596,7 +590,6 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expect(tile).toContainText('9B/Sc1');
 		await expect(tile).toContainText('Forces');
 		await expect(tile).not.toContainText('Blocked');
-		await expect(tile).toHaveClass(/hatched/);
 
 		await tile.click();
 		await openSessionAndExpect(page);

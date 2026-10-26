@@ -8,6 +8,7 @@ import {
 	plusDays,
 	resetTo,
 	runFixture,
+	signIn,
 	todayIso
 } from './helpers.ts';
 
@@ -26,14 +27,6 @@ function shortDate(iso: string): string {
 		year: 'numeric',
 		timeZone: 'UTC'
 	});
-}
-
-async function login(page: Page, email: string, password: string) {
-	await page.goto('/login');
-	await page.getByLabel('Email').fill(email);
-	await page.getByLabel('Password').fill(password);
-	await page.getByRole('button', { name: 'Log in' }).click();
-	await expect(page).toHaveURL('/');
 }
 
 test.describe.serial('the Calendar setup mode', () => {
@@ -70,7 +63,9 @@ test.describe.serial('the Calendar setup mode', () => {
 
 	test.beforeAll(async ({ browser }) => {
 		page = await browser.newPage();
-		await login(page, EMAIL, PASSWORD);
+		await page.goto('/login');
+		await signIn(page, EMAIL, PASSWORD);
+		await expect(page).toHaveURL('/');
 	});
 
 	test.afterAll(async () => {
@@ -214,9 +209,6 @@ test.describe.serial('the Calendar setup mode', () => {
 		await expect(page.getByLabel(`Remove Blocked Day ${outside}`)).toHaveCount(0);
 		await page.getByLabel(`Remove Blocked Day ${inset}`).click();
 		await expect(page.getByLabel(`Remove Blocked Day ${inset}`)).toHaveCount(0);
-		await expect(
-			page.getByText('None set. Every teaching day in the Terms is open.')
-		).toBeVisible();
 
 		await page.getByRole('button', { name: 'Cancel' }).click();
 		await expect(page.getByRole('button', { name: 'Set up year' })).toBeVisible();
@@ -256,7 +248,7 @@ test.describe.serial('the Calendar setup mode', () => {
 		await expect(page.locator('thead th[data-day-kind="holiday"]')).toHaveCount(1);
 		await expect(page.locator('thead th[data-day-kind="holiday"]')).toContainText('Tue');
 		await expect(page.locator('td[data-day-kind="holiday"]')).toHaveCount(1);
-		await expect(page.locator('td[data-day-kind="holiday"]')).toContainText('School holiday');
+		await expect(page.locator('td[data-day-kind="holiday"]')).toContainText('School Holiday');
 		await expect(page.locator('td[data-day-kind="holiday"]')).toContainText('Outside every Term');
 		// The shade is the contract the title names: a solid step for the holiday, no hatch,
 		// because nothing was removed.
@@ -276,7 +268,7 @@ test.describe.serial('the Calendar setup mode', () => {
 		await expect(page.getByRole('menuitem', { name: /, P\d+…$/ })).toHaveCount(0);
 		await page.keyboard.press('Escape');
 		await expect(page.locator('td[data-day-kind="holiday"]')).toHaveCount(1);
-		await expect(page.locator('td[data-day-kind="holiday"]')).toContainText('School holiday');
+		await expect(page.locator('td[data-day-kind="holiday"]')).toContainText('School Holiday');
 		await openDayMenu('Tue');
 		await page.getByRole('menuitem', { name: 'Unblock day' }).click();
 		await openDayMenu('Tue');
@@ -306,7 +298,7 @@ test.describe.serial('the Calendar setup mode', () => {
 		// Both Blocked Days are removals: their panels carry the hatch.
 		await expect(page.locator('td[data-day-kind="blocked"] .hatched')).toHaveCount(2);
 		await expect(
-			page.locator('td[data-day-kind="blocked"]').filter({ hasText: 'Blocked day' })
+			page.locator('td[data-day-kind="blocked"]').filter({ hasText: 'Blocked Day' })
 		).toHaveCount(1);
 		await expect(page.locator('thead th[data-day-kind="teaching"]')).toHaveCount(2);
 

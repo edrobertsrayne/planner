@@ -1,10 +1,4 @@
-import {
-	expect,
-	type Browser,
-	type BrowserContext,
-	type Locator,
-	type Page
-} from '@playwright/test';
+import { expect, type Browser, type Cookie, type Locator, type Page } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 
 // Helpers the e2e files share. Not a test file: `testMatch` in playwright.config.ts only takes
@@ -18,24 +12,37 @@ export const PASSWORD = 'a-very-long-password';
 export const DATABASE_URL = 'e2e.db';
 export const ORIGIN = 'http://localhost:4173';
 
+// A megabyte, for the body-size limits the Attachments and Backup tests fill.
+export const MB = 1024 * 1024;
+
+// Fills the Login page the browser already shows and submits it. A test that expects a refusal, or
+// signs in as someone else, calls this itself; `login` wraps it with the destination and the
+// session it caches.
+export async function signIn(page: Page, email: string, password: string) {
+	await page.getByLabel('Email').fill(email);
+	await page.getByLabel('Password').fill(password);
+	await page.getByRole('button', { name: 'Log in' }).click();
+}
+
 // The form login runs once after each reset. Later tests reuse its session cookies, so each test
 // opens its page at once. sign-in-out.e2e.ts tests the form itself. If the stored session no
-// longer works (the guard sends the page to /login), the form runs again.
-let session: Awaited<ReturnType<BrowserContext['cookies']>> | undefined;
+// longer works (the guard sends the page to /login), the form runs again. `origin` names another
+// instance — the-backup.e2e.ts restores into its own copy — which gets a form login every time,
+// since the cached cookies belong to the suite's own server.
+let session: Cookie[] | undefined;
 
-export async function login(page: Page, path = '/') {
-	if (session) {
+export async function login(page: Page, path = '/', origin = ORIGIN) {
+	const target = new URL(path, origin).href;
+	if (origin === ORIGIN && session) {
 		await page.context().addCookies(session);
-		await page.goto(path);
+		await page.goto(target);
 		if (new URL(page.url()).pathname !== '/login') return;
 	}
-	await page.goto('/login');
-	await page.getByLabel('Email').fill(EMAIL);
-	await page.getByLabel('Password').fill(PASSWORD);
-	await page.getByRole('button', { name: 'Log in' }).click();
-	await expect(page).toHaveURL('/');
-	session = await page.context().cookies();
-	if (path !== '/') await page.goto(path);
+	await page.goto(new URL('/login', origin).href);
+	await signIn(page, EMAIL, PASSWORD);
+	await expect(page).toHaveURL(new URL('/', origin).href);
+	if (origin === ORIGIN) session = await page.context().cookies();
+	if (target !== new URL('/', origin).href) await page.goto(target);
 }
 
 // The Course and Class of the standard state. A Class follows the Course, so the delete route's

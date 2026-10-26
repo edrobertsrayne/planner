@@ -74,6 +74,19 @@ test.describe.serial('the Link endpoints', () => {
 		expect(wrongScheme.status()).toBe(400);
 		expect(await wrongScheme.json()).toEqual({ error: 'A Link must be an http(s) URL.' });
 
+		// A url and a label are strings at the door.
+		for (const [data, message] of [
+			[{ url: 42, label: 'Wrong type' }, 'The "url" field must be a string.'],
+			[{ url: 'https://example.com/', label: 42 }, 'The "label" field must be a string.']
+		] as const) {
+			const wrongType = await request.post(`/api/lessons/${lessonAId}/links`, {
+				headers: BEARER(token),
+				data
+			});
+			expect(wrongType.status()).toBe(400);
+			expect(await wrongType.json()).toEqual({ error: message });
+		}
+
 		const missingLesson = await request.post('/api/lessons/does-not-exist/links', {
 			headers: BEARER(token),
 			data: { url: 'https://example.com/', label: 'Orphan' }
@@ -116,6 +129,14 @@ test.describe.serial('the Link endpoints', () => {
 		});
 		expect(patchMissing.status()).toBe(404);
 		expect(await patchMissing.json()).toEqual({ error: 'Link not found.' });
+
+		// PATCH checks the type of each field it names, and keeps the other's stored value.
+		const wrongLabel = await request.patch(`/api/links/${linkOne.id}`, {
+			headers: BEARER(token),
+			data: { label: 42 }
+		});
+		expect(wrongLabel.status()).toBe(400);
+		expect(await wrongLabel.json()).toEqual({ error: 'The "label" field must be a string.' });
 
 		const remove = await request.delete(`/api/links/${linkTwo.id}`, { headers: BEARER(token) });
 		expect(remove.status()).toBe(204);

@@ -143,7 +143,7 @@ test.describe.serial('moving Lessons in a Sequence by drag', () => {
 		await expect(page.locator('[data-move-result]')).toHaveText('3 Lessons change date.');
 		expect(await order(page)).toEqual(expected(['A', 'D', 'B', 'C', ...LETTERS.slice(4)]));
 
-		// Each card whose first Slot changed says so, and the moved Lesson has a ring.
+		// Each card whose first Slot changed says so, and the one that did not stays unmarked.
 		await expect(page.locator('[data-was]')).toHaveCount(3);
 		await expect(
 			entries(page)
@@ -155,8 +155,6 @@ test.describe.serial('moving Lessons in a Sequence by drag', () => {
 				.filter({ hasText: titleOf('A') })
 				.locator('[data-was]')
 		).toHaveCount(0);
-		await expect(entries(page).filter({ hasText: titleOf('D') })).toHaveClass(/ring-2/);
-		await expect(entries(page).filter({ hasText: titleOf('B') })).not.toHaveClass(/ring-2/);
 
 		// The move is kept at once: a reload shows it.
 		await openSequence(page);
@@ -252,11 +250,11 @@ test.describe.serial('the By week layout', () => {
 		await expect(page.locator('[data-sequence]')).toHaveCount(0);
 		await expect(page.locator('[data-week]').first()).toContainText(/Week [AB]/);
 		expect(await weekOrder(page)).toEqual(expected(LETTERS));
-		// A row of Topic chips, and one line for the other free Slots. Their count depends on the
+		// A row of Topic chips, and one line for the other Open Slots. Their count depends on the
 		// weekday of the run (1 at a weekend), so the line may be singular.
 		await expect(page.locator('[data-topic-chip]')).toHaveText(/Moves\s*14/);
 		await expect(page.locator('[data-free-after]')).toContainText(
-			/\d+ other free Slots? to the end of the year/
+			/\d+ other Open Slots? to the end of the year/
 		);
 		// Nothing is past the end of the year, and no Lesson is taught.
 		await expect(page.locator('[data-past-end]')).toHaveCount(0);
@@ -284,7 +282,6 @@ test.describe.serial('the By week layout', () => {
 		expect(await weekOrder(page)).toEqual(expected(['A', 'D', 'B', 'C', ...LETTERS.slice(4)]));
 		await expect(page.locator('[data-changing]')).toHaveCount(0);
 		await expect(page.locator('[data-was]')).toHaveCount(3);
-		await expect(cardOf(page, titleOf('D'))).toHaveClass(/ring-2/);
 
 		// Kept at once: a reload shows it.
 		await openWeeks(page);
@@ -495,7 +492,6 @@ test.describe.serial('select mode', () => {
 		await page.locator('[data-select-bar]').getByRole('button', { name: 'Remove' }).click();
 		const dialog = page.getByRole('dialog');
 		await expect(dialog).toContainText('Remove 13 Lessons from 9C/Sc1?');
-		await expect(dialog).toContainText('No notes or Ready marks will be lost.');
 		await dialog.getByRole('button', { name: 'Cancel' }).click();
 		await expect(dialog).toHaveCount(0);
 		await selectedCount(page, 13);

@@ -90,6 +90,21 @@ test.describe.serial('the Lesson endpoints', () => {
 		expect(badStatus.status()).toBe(400);
 		expect(await badStatus.json()).toEqual({ error: 'A Lesson must be Draft or Planned.' });
 
+		// Each field of a Lesson is checked for its type at the door, with its own message.
+		for (const [data, message] of [
+			[{ title: 42 }, 'The "title" field must be a string.'],
+			[{ title: 'Bad body', body: 42 }, 'The "body" field must be a string or null.'],
+			[{ title: 'Bad length', length: '2' }, 'The "length" field must be a number.'],
+			[{ title: 'Bad status', status: 42 }, 'The "status" field must be a string.']
+		] as const) {
+			const wrongType = await request.post(`/api/topics/${topicOneId}/lessons`, {
+				headers: BEARER(token),
+				data
+			});
+			expect(wrongType.status()).toBe(400);
+			expect(await wrongType.json()).toEqual({ error: message });
+		}
+
 		const missingTopic = await request.post('/api/topics/does-not-exist/lessons', {
 			headers: BEARER(token),
 			data: { title: 'Orphan' }
@@ -222,6 +237,20 @@ test.describe.serial('the Lesson endpoints', () => {
 		});
 		expect(missingTopic.status()).toBe(404);
 		expect(await missingTopic.json()).toEqual({ error: 'Topic not found.' });
+
+		// A topicId must be a string or null, and the other fields stay type-checked on PATCH.
+		for (const [data, message] of [
+			[{ topicId: 42 }, 'The "topicId" field must be a string or null.'],
+			[{ body: 42 }, 'The "body" field must be a string or null.'],
+			[{ length: '2' }, 'The "length" field must be a number.']
+		] as const) {
+			const wrongType = await request.patch(`/api/lessons/${lessonBId}`, {
+				headers: BEARER(token),
+				data
+			});
+			expect(wrongType.status()).toBe(400);
+			expect(await wrongType.json()).toEqual({ error: message });
+		}
 	});
 
 	test('a Lesson detaches with a null topicId, and can be filed in a Topic again', async ({

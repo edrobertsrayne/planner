@@ -27,6 +27,8 @@ export default defineConfig({
 		reuseExistingServer: false,
 		timeout: 120_000,
 		env: {
+			// The suite's server reads the scratch database (issue #40). A server on another database
+			// would hold a user of its own, so setup-wizard.e2e.ts would land on /login, not /setup.
 			DATABASE_URL,
 			ORIGIN,
 			BETTER_AUTH_URL: ORIGIN,

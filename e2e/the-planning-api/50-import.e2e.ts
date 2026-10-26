@@ -4,8 +4,8 @@ import { BEARER, resetTo } from '../helpers.ts';
 
 // Covers the one Import endpoint over real HTTP (issue #159): the whole-or-nothing transaction,
 // Course reuse by name, the ambiguity and collision refusals, the rejected Import that leaves
-// nothing behind, and the Lesson and Link caps. Brings its own Course and Topic, so it leans on
-// no other file in the directory.
+// nothing behind, and the door's own type checks. Brings its own Course and Topic, so it leans
+// on no other file in the directory.
 
 test.beforeAll(() => resetTo('standard'));
 
@@ -117,6 +117,42 @@ test.describe.serial('the Topic import', () => {
 		expect(await collision.json()).toEqual({
 			error: 'The Course "API Import Course" already holds a Topic called "API Import Topic".'
 		});
+
+		// The door's type checks name the field by its path: a bad topic name is "topic.name", and
+		// a Lesson's fields are the same checks a single create runs.
+		const badTopicName = await request.post('/api/import', {
+			headers: BEARER(token),
+			data: { course: { name: 'API Import Course' }, topic: { name: 42, lessons: [] } }
+		});
+		expect(badTopicName.status()).toBe(400);
+		expect(await badTopicName.json()).toEqual({
+			error: 'The "topic.name" field must be a string.'
+		});
+
+		const badLessonTitle = await request.post('/api/import', {
+			headers: BEARER(token),
+			data: {
+				course: { name: 'API Import Course' },
+				topic: { name: 'API Typed Topic', lessons: [{ title: 42 }] }
+			}
+		});
+		expect(badLessonTitle.status()).toBe(400);
+		expect(await badLessonTitle.json()).toEqual({
+			error: 'The "title" field must be a string.'
+		});
+
+		const badLink = await request.post('/api/import', {
+			headers: BEARER(token),
+			data: {
+				course: { name: 'API Import Course' },
+				topic: {
+					name: 'API Typed Topic',
+					lessons: [{ title: 'Typed', links: [{ url: 42, label: 'Typed' }] }]
+				}
+			}
+		});
+		expect(badLink.status()).toBe(400);
+		expect(await badLink.json()).toEqual({ error: 'The "url" field must be a string.' });
 	});
 
 	test('a rejected Import leaves nothing behind', async ({ request }) => {

@@ -61,6 +61,14 @@ test.describe.serial('the Course endpoints', () => {
 		});
 		expect(empty.status()).toBe(400);
 		expect(await empty.json()).toEqual({ error: 'A Course needs a name.' });
+
+		// A name that is not a string is the door's refusal, never the seam's.
+		const notAString = await request.post('/api/courses', {
+			headers: BEARER(token),
+			data: { name: 42 }
+		});
+		expect(notAString.status()).toBe(400);
+		expect(await notAString.json()).toEqual({ error: 'The "name" field must be a string.' });
 	});
 
 	test('a Course reads back, lists ordered by name, renames, and 404s on an unknown id', async ({
@@ -108,5 +116,28 @@ test.describe.serial('the Course endpoints', () => {
 			data: { name: 'Whatever' }
 		});
 		expect(patchMissing.status()).toBe(404);
+
+		// A PATCH that names the Course renames it and answers the record.
+		const renamed = await request.patch(`/api/courses/${emptyCourseId}`, {
+			headers: BEARER(token),
+			data: { name: 'API Renamed Course' }
+		});
+		expect(renamed.status()).toBe(200);
+		expect(await renamed.json()).toEqual({ id: emptyCourseId, name: 'API Renamed Course' });
+
+		// An empty PATCH is a no-op: 200 with the unchanged record (§3.4).
+		const noop = await request.patch(`/api/courses/${emptyCourseId}`, {
+			headers: BEARER(token),
+			data: {}
+		});
+		expect(noop.status()).toBe(200);
+		expect(await noop.json()).toEqual({ id: emptyCourseId, name: 'API Renamed Course' });
+
+		// A DELETE of an id the URL names but the database does not hold is the route's own 404.
+		const deleteMissing = await request.delete('/api/courses/does-not-exist', {
+			headers: BEARER(token)
+		});
+		expect(deleteMissing.status()).toBe(404);
+		expect(await deleteMissing.json()).toEqual({ error: 'Course not found.' });
 	});
 });

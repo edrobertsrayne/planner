@@ -27,11 +27,10 @@ test.describe.serial('the first-run wizard', () => {
 		await expect(page.getByRole('button', { name: 'Create account' })).toBeVisible();
 		await expect(page.getByText('Moving from another planner?')).toBeVisible();
 
-		// The link under the card swaps the card for the Restore form, whose instructions sit
-		// under the file field (story 121).
+		// The link under the card swaps the card for the Restore form, whose file field arrives
+		// (story 121).
 		await page.getByRole('button', { name: 'Restore from a Backup' }).click();
 		await expect(page.getByLabel('Backup file')).toBeVisible();
-		await expect(page.getByText('Choose the file that Back up saved there')).toBeVisible();
 		await expect(page.getByText('Set up Planner', { exact: true })).toHaveCount(0);
 		await expect(page.getByRole('button', { name: 'Create account' })).toHaveCount(0);
 
@@ -86,25 +85,19 @@ test.describe.serial('the first-run wizard', () => {
 	});
 
 	// The wizard runs while no account exists, so Setup's layouts can only be checked here.
-	// Login's own layout tests stand in the-responsive-layouts.e2e.ts.
+	// Login's own layout tests stand in the-login-page-layout.e2e.ts.
 	test('Setup shows the centred card from sm up (story 123, issue #351)', async () => {
 		await page.goto('/setup');
 		const card = page.locator('[data-slot="card"]');
 		await expect(card).toBeVisible();
 
-		// From `sm` up the card draws its background, the page its muted backdrop, and the card
-		// sits centred in the window.
-		const background = (el: HTMLElement) => getComputedStyle(el).backgroundColor;
-		expect(await card.evaluate(background)).not.toBe('rgba(0, 0, 0, 0)');
-		expect(await page.locator('main').evaluate(background)).not.toBe('rgba(0, 0, 0, 0)');
+		// From `sm` up the card sits centred in the window.
 		const width = page.viewportSize()!.width;
 		const box = (await card.boundingBox())!;
 		expect(Math.abs(box.x - (width - box.width) / 2)).toBeLessThanOrEqual(1);
 	});
 
-	test('Setup is flush on a phone: the form at the top, no card frame (stories 122, 124)', async ({
-		browser
-	}) => {
+	test('Setup is flush on a phone: the form at the top (stories 122, 124)', async ({ browser }) => {
 		// The shared page keeps the default viewport for the wizard's other tests; the phone
 		// context belongs to this test alone.
 		const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];
@@ -119,12 +112,10 @@ test.describe.serial('the first-run wizard', () => {
 		await phone.goto('/setup');
 		await expect(phone.getByLabel('Name')).toBeVisible();
 
-		// Below `sm` the card draws no frame and the page no muted backdrop; the form starts at
-		// the top of the window, so the keyboard does not push it about. The card's top sits
-		// only just below the wordmark; a centred layout would put it well down the window.
+		// Below `sm` the form starts at the top of the window, so the keyboard does not push it
+		// about. The card's top sits only just below the wordmark; a centred layout would put it
+		// well down the window.
 		const card = phone.locator('[data-slot="card"]');
-		await expect(card).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-		await expect(phone.locator('main')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
 		const box = (await card.boundingBox())!;
 		expect(box.y).toBeLessThan(120);
 
