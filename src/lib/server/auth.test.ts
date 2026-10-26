@@ -1,4 +1,5 @@
 import { env } from '$env/dynamic/private';
+import { serializeSignedCookie } from 'better-call';
 import { beforeEach, describe, expect, test } from 'vitest';
 import { auth, assertOriginMatchesAuthUrl, MIN_PASSWORD_LENGTH } from './auth';
 import { createFirstUser, hasUser } from './setup';
@@ -27,6 +28,22 @@ beforeEach(async () => {
 	for (const user of await ctx.internalAdapter.listUsers())
 		await ctx.internalAdapter.deleteUser(user.id);
 });
+
+// The public sign-in endpoint is closed (ADR-0011), so the test signs in the way the app's form
+// action does — a session row, and the cookie better-auth signs for it — rather than through the
+// route it is testing.
+async function signInCookie(email: string) {
+	const ctx = await auth.$context;
+	const found = await ctx.internalAdapter.findUserByEmail(email);
+	if (!found) throw new Error(`No user ${email}`);
+	const session = await ctx.internalAdapter.createSession(found.user.id);
+	const serialized = await serializeSignedCookie(
+		ctx.authCookies.sessionToken.name,
+		session.token,
+		ctx.secret
+	);
+	return serialized.split(';')[0];
+}
 
 describe('assertOriginMatchesAuthUrl', () => {
 	test('refuses to start when ORIGIN and BETTER_AUTH_URL disagree, naming both', () => {
@@ -88,12 +105,7 @@ describe('the better-auth password rule', () => {
 	test('POST /api/auth/change-password refuses a password below the wizard’s minimum', async () => {
 		await createFirstUser({ email: 'teacher@example.com', password: PASSWORD, name: 'Teacher' });
 
-		const signIn = await post('/api/auth/sign-in/email', {
-			email: 'teacher@example.com',
-			password: PASSWORD
-		});
-		expect(signIn.status).toBe(200);
-		const cookie = signIn.headers.get('set-cookie')?.split(';')[0] ?? '';
+		const cookie = await signInCookie('teacher@example.com');
 
 		// better-auth's own default is 8, which is the hole this closes.
 		const refused = await post(
@@ -114,5 +126,18 @@ describe('the better-auth password rule', () => {
 			cookie
 		);
 		expect(accepted.status).toBe(200);
+	});
+});
+
+describe('the sign-in doors', () => {
+	test("better-auth's sign-in endpoint is closed; the form action is the only way in", async () => {
+		await createFirstUser({ email: 'teacher@example.com', password: PASSWORD, name: 'Teacher' });
+
+		const response = await post('/api/auth/sign-in/email', {
+			email: 'teacher@example.com',
+			password: PASSWORD
+		});
+
+		expect(response.status).toBe(404);
 	});
 });

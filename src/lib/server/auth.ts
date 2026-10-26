@@ -37,6 +37,10 @@ export const auth = betterAuth({
 	// better-auth by svelteKitHandler, so hooks.server.ts never sees it and cannot guard it. The
 	// single user is created once, by /setup, through the internal adapter — see setup.ts.
 	emailAndPassword: { enabled: true, disableSignUp: true, minPasswordLength: MIN_PASSWORD_LENGTH },
+	// The browser form at /login is the only sign-in door (ADR-0011). Better Auth's own
+	// `/api/auth/sign-in/email` would be a second one, reached without the form's throttle, and
+	// nothing in the app posts to it; server-side `auth.api.signInEmail` is unaffected.
+	disabledPaths: ['/sign-in/email'],
 	// The domain has its own `session` table (a taught occasion, ADR-0002) — better-auth's
 	// login session is renamed to avoid a table-name collision.
 	session: { modelName: 'authSession' },
