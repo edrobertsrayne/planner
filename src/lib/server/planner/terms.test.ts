@@ -220,7 +220,7 @@ describe('replacing the Terms', () => {
 
 		// Summer 2 closes a week earlier. Letters are assigned forward from the first Term, so no
 		// week before Summer 2 can change, and nothing taught before it may be rewritten.
-		const summer2 = TERMS.map((term, i) => (i === 5 ? { closes: '2027-07-12', ...term } : term));
+		const summer2 = TERMS.map((term, i) => (i === 5 ? { ...term, closes: '2027-07-12' } : term));
 		const report = replaceTerms(db, { terms: summer2, today: '2026-10-01' });
 
 		expect(report).toEqual({ placementsMoved: [] });
