@@ -58,10 +58,17 @@ submissions with different emails would both insert and leave a second working l
 the credential fails after the user row exists, the row is deleted again, so a half-made user
 cannot lock the wizard behind an account that nobody can sign in to.
 
-`/login` is not rate limited. better-auth's limiter only covers `/api/auth/*`, and login here is a
-form action calling `signInEmail` server-side, so it never passes through. Accepted while the app
-is reached over a private network or behind a proxy that throttles; if it is ever exposed directly
-to the internet, `/login` is an unthrottled password oracle and needs a per-IP throttle first.
+`/login` is throttled in memory, globally. It counts failed sign-ins inside the server process:
+five within fifteen minutes lock the form for a minute, during which every attempt — right or
+wrong — is refused before the password is tested, and a successful sign-in clears the count. The
+limit is global rather than per client address because the proxy sets no forwarded-for header, so
+every request looks the same; an attacker can therefore lock the teacher out for a minute at a
+time, and that is accepted over an unlimited password oracle. A restart forgets the count.
+
+The form is the only sign-in door. Better Auth's own `POST /api/auth/sign-in/email` would be a
+second one, reached straight through `svelteKitHandler` and outside the form's throttle, so
+`disabledPaths` closes it with a 404. The form action's server-side `auth.api.signInEmail` call is
+unaffected.
 
 While no user exists, `/setup` and `/setup/restore` are open to anyone who reaches them, and a
 redirect to `/setup` tells a visitor that the instance is empty. The window is short: from the first
