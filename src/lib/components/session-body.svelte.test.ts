@@ -299,4 +299,56 @@ describe('the Session panel', () => {
 			.element(screen.getByRole('button', { name: 'Remove placement' }))
 			.not.toBeDisabled();
 	});
+
+	// The editor seeds its text once, on mount, so the panel remounts it when the occasion's
+	// Lesson changes. Placing a Lesson over a Topic Lesson must show the placed Lesson's own
+	// note — here none — never the text of the Lesson it replaced, which the next keystroke
+	// would otherwise save under the wrong Lesson (issue #409).
+	test('a Place that changes the Lesson shows the new Lesson its own note', async () => {
+		const lesson = {
+			id: 'lesson-1',
+			title: 'Motion',
+			topicName: 'Forces',
+			body: null,
+			status: 'draft',
+			length: 1,
+			links: [],
+			tags: [],
+			attachments: []
+		};
+		const placed = { ...lesson, id: 'lesson-2', title: 'Assembly', topicName: null };
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce(
+				new Response(
+					JSON.stringify({
+						...baseDetail,
+						canPlace: true,
+						note: 'Ratio tables went well',
+						lesson
+					}),
+					{ status: 200 }
+				)
+			)
+			.mockResolvedValue(
+				new Response(
+					JSON.stringify({ ...baseDetail, placement: { id: 'placement-1' }, lesson: placed }),
+					{ status: 200 }
+				)
+			);
+		vi.stubGlobal('fetch', fetchMock);
+
+		const screen = await render(SessionBody, { occasion });
+		// The editor's own content, read straight off the DOM: the note is markdown, so its text
+		// is what the teacher sees in the box, not the payload's string.
+		const noteText = () =>
+			screen.container.querySelector('[aria-label="How it went"]')?.textContent?.trim();
+		await vi.waitFor(() => expect(noteText()).toBe('Ratio tables went well'));
+
+		await screen.getByRole('textbox', { name: 'Lesson title' }).fill('Assembly');
+		await screen.getByRole('button', { name: 'Place' }).click();
+
+		await expect.element(screen.getByRole('heading', { name: 'Assembly' })).toBeVisible();
+		await vi.waitFor(() => expect(noteText()).toBe(''));
+	});
 });

@@ -13,5 +13,5 @@ export const load: PageServerLoad = ({ url }) => {
 };
 
 export const actions: Actions = {
-	...lessonActions
+	setLessonStatus: lessonActions.setLessonStatus
 };

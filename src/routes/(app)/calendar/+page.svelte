@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { goto } from '$app/navigation';
+	import { goto, afterNavigate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import { classTone } from '$lib/class-tone';
 	import { formatDayMonth } from '$lib/date';
-	import { refresh } from '$lib/client/enhance';
+	import { onFail } from '$lib/client/enhance';
 	import { sessionHref } from '$lib/client/session-href';
 	import RewindReport from '$lib/components/rewind-report.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -59,14 +59,10 @@
 	let slotNote = $state<(AvailableSlotLine & { date: string }) | null>(null);
 
 	// A pick names a Slot in the week's data, so it dies when the week it names is no longer
-	// the one shown — a navigation, or a week with no grid. Clearing on every change of the
-	// week's data would drop the pick mid-refusal: the dialog's form reloads the week before
-	// it reads the answer, and a refused note would be discarded with the form. A week
-	// navigated away from and back to must not reopen the note form by itself.
-	$effect(() => {
-		const picked = slotNote;
-		if (picked && !data.week?.days.some((d) => d.date === picked.date)) slotNote = null;
-	});
+	// the one shown — a week navigated away from and back to must not reopen the note form by
+	// itself. A form's own reload is not a navigation, so a refused note keeps its dialog and
+	// what was typed in it.
+	afterNavigate(() => (slotNote = null));
 
 	// The day head's menu acts through one hidden form rather than three: a Blocked Day records
 	// no cause, so every act the menu offers is a single click, and the form's action and its
@@ -205,8 +201,14 @@
 	{:else if data.week}
 		<!-- One hidden form serves every day's menu: its action and its one field are set beside
 		     the value the moment a menu item names them, so one of each is enough no matter how
-		     many days or Blocked Slots the week holds. -->
-		<form bind:this={dayMenuForm} method="POST" use:enhance={refresh} class="hidden">
+		     many days or Blocked Slots the week holds. A refusal — a stale tab, a double click, a
+		     conflict — names its reason in a toast, as every other form on the app does. -->
+		<form
+			bind:this={dayMenuForm}
+			method="POST"
+			use:enhance={onFail('Could not change the day.')}
+			class="hidden"
+		>
 			<input bind:this={dayMenuField} type="hidden" />
 		</form>
 
@@ -342,7 +344,7 @@
 								{#if period === 1}
 									{@const blockedDay = blockedByDate.get(date)}
 									{@const headline =
-										dayKind === 'holiday' ? 'School holiday' : (blockedDay?.note ?? 'Blocked day')}
+										dayKind === 'holiday' ? 'School Holiday' : (blockedDay?.note ?? 'Blocked Day')}
 									{@const under = dayKind === 'holiday' ? 'Outside every Term' : 'No teaching'}
 									<td rowspan={PERIODS.length} class="h-16 align-middle" data-day-kind={dayKind}>
 										<div

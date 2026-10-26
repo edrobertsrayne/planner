@@ -18,7 +18,7 @@
 	let { data } = $props();
 
 	let pending = $state(false);
-	let invalid = $state(false);
+	let invalidField = $state<string>();
 	let regenerating = $state(false);
 	let confirmOpen = $state(false);
 	let copied = $state(false);
@@ -29,12 +29,12 @@
 		return async ({ result, update }) => {
 			pending = false;
 			if (result.type === 'failure') {
-				invalid = true;
+				invalidField = typeof result.data?.field === 'string' ? result.data.field : undefined;
 				toast.error(ToastMessage, {
 					componentProps: { text: failureReason(result, ''), role: 'alert' }
 				});
 			} else if (result.type === 'success') {
-				invalid = false;
+				invalidField = undefined;
 				toast.success(ToastMessage, {
 					componentProps: { text: 'Password changed.', role: 'status' }
 				});
@@ -95,7 +95,7 @@
 			<form method="POST" action="?/changePassword" use:enhance={onsubmit}>
 				<Card.Content>
 					<Field.Group>
-						<Field.Field data-invalid={invalid || undefined}>
+						<Field.Field data-invalid={invalidField === 'currentPassword' || undefined}>
 							<Field.Label for="current">Current password</Field.Label>
 							<Input
 								id="current"
@@ -104,11 +104,11 @@
 								autocomplete="current-password"
 								required
 								class="h-7"
-								aria-invalid={invalid || undefined}
+								aria-invalid={invalidField === 'currentPassword' || undefined}
 							/>
 						</Field.Field>
 
-						<Field.Field>
+						<Field.Field data-invalid={invalidField === 'newPassword' || undefined}>
 							<Field.Label for="new">New password</Field.Label>
 							<Input
 								id="new"
@@ -117,11 +117,12 @@
 								autocomplete="new-password"
 								required
 								class="h-7"
+								aria-invalid={invalidField === 'newPassword' || undefined}
 							/>
-							<Field.Description>At least 12 characters.</Field.Description>
+							<Field.Description>At least {data.minPasswordLength} characters.</Field.Description>
 						</Field.Field>
 
-						<Field.Field>
+						<Field.Field data-invalid={invalidField === 'confirmPassword' || undefined}>
 							<Field.Label for="confirm">Confirm new password</Field.Label>
 							<Input
 								id="confirm"
@@ -130,6 +131,7 @@
 								autocomplete="new-password"
 								required
 								class="h-7"
+								aria-invalid={invalidField === 'confirmPassword' || undefined}
 							/>
 						</Field.Field>
 					</Field.Group>

@@ -71,7 +71,7 @@
 	} = $props();
 
 	// Where "+ Add" on a week puts a Lesson: in front of the first Lesson that starts in the week
-	// (so the new one takes that Slot), else, when the week has only free Slots, at the end of the
+	// (so the new one takes that Slot), else, when the week has only Open Slots, at the end of the
 	// Sequence. Null in a week with no movable Slot (no "+ Add" there).
 	function addAnchor(row: Extract<WeekRow, { kind: 'week' }>): { after: string | null } | null {
 		const open = row.cells.find(
@@ -233,7 +233,7 @@
 										class="flex min-h-10 flex-1 items-center rounded-md border bg-muted/30 px-2 text-xs text-muted-foreground"
 										data-free
 									>
-										Free
+										Open Slot
 									</div>
 								{:else if cell.kind === 'taught' && entry}
 									<a
@@ -290,7 +290,7 @@
 
 	{#if weeks.length}
 		<p class="mt-2 text-xs text-muted-foreground" data-free-after>
-			{plural(freeAfter, 'other free Slot')} to the end of the year.
+			{plural(freeAfter, 'other Open Slot')} to the end of the year.
 		</p>
 	{/if}
 

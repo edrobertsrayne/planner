@@ -6,6 +6,7 @@
 	import PageHeader from '$lib/components/page-header.svelte';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { MediaQuery } from 'svelte/reactivity';
+	import { plural } from '$lib/plural';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -47,7 +48,7 @@
 						<span class="min-w-0">
 							<span class="block text-sm font-semibold">{course.name}</span>
 							<span class="block text-xs text-muted-foreground">
-								{course.topicCount} Topics · {course.lessonCount} Lessons
+								{plural(course.topicCount, 'Topic')} · {plural(course.lessonCount, 'Lesson')}
 							</span>
 						</span>
 					</span>

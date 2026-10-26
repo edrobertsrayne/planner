@@ -17,32 +17,31 @@
 	// `pick` null is closed, a picked Slot is open. The page owns the pick; writing it null
 	// here closes the dialog through its binding, and bits-ui hands focus back to where the
 	// dialog found it — the day's menu trigger.
-	let {
-		pick = $bindable(null)
-	}: {
-		pick: (AvailableSlotLine & { date: string }) | null;
-	} = $props();
+	type Pick = AvailableSlotLine & { date: string };
 
-	// The last pick, kept while the dialog fades out: `pick` is nulled before bits-ui's exit
-	// animation ends, so the title and the field's name read from this instead of blanking.
-	let shown = $state<(AvailableSlotLine & { date: string }) | null>(null);
-	$effect(() => {
-		if (pick) shown = pick;
-	});
-	const label = $derived(shown ? `Block ${shown.classLabel}, P${shown.period}` : '');
+	let { pick = $bindable(null) }: { pick: Pick | null } = $props();
+
+	// The pick the panel last opened on, kept only for the close animation: bits-ui leaves the
+	// content mounted while it fades out, and `pick` is null by then. The open animation's
+	// completion is where it is recorded.
+	let shown = $state<Pick | null>(null);
+	const viewed = $derived(pick ?? shown);
+	const label = $derived(viewed ? `Block ${viewed.classLabel}, P${viewed.period}` : '');
+
 	// The server's refusal — a note of spaces only passes the browser's required check but not
-	// the seam's — named under the field, so the teacher can correct what they typed. A
-	// refusal must not outlive its form: the message dies when the next pick opens.
-	let error = $state<string | null>(null);
-	$effect(() => {
-		if (pick !== null) error = null;
-	});
+	// the seam's — is named under the field, kept with the pick it answers: a new pick is a new
+	// object, so a refusal never outlives its form.
+	let refusal = $state<{ pick: Pick; message: string } | null>(null);
+	const error = $derived(refusal?.pick === pick ? refusal.message : null);
 </script>
 
 <Dialog.Root
 	open={pick !== null}
 	onOpenChange={(open) => {
 		if (!open) pick = null;
+	}}
+	onOpenChangeComplete={(open) => {
+		if (open) shown = pick;
 	}}
 >
 	<Dialog.Content class="sm:max-w-sm">
@@ -61,14 +60,14 @@
 					// dialog open with what was typed still in it, not silently discarded.
 					await update({ invalidateAll: true, reset: false });
 					if (result.type === 'success') pick = null;
-					else if (result.type === 'failure')
-						error = failureReason(result, 'The block was refused.');
+					else if (result.type === 'failure' && pick)
+						refusal = { pick, message: failureReason(result, 'The block was refused.') };
 				}}
 		>
-			{#if shown}
-				<input type="hidden" name="classId" value={shown.classId} />
-				<input type="hidden" name="date" value={shown.date} />
-				<input type="hidden" name="slotId" value={shown.slotId} />
+			{#if viewed}
+				<input type="hidden" name="classId" value={viewed.classId} />
+				<input type="hidden" name="date" value={viewed.date} />
+				<input type="hidden" name="slotId" value={viewed.slotId} />
 			{/if}
 			<Input name="note" aria-label={label} required placeholder="Why (required)" />
 			{#if error}

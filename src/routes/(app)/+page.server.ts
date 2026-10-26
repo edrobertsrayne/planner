@@ -1,4 +1,3 @@
-import { fail } from '@sveltejs/kit';
 import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
 import { trimmed } from '$lib/server/form';
@@ -31,9 +30,6 @@ export const actions: Actions = {
 		const data = await request.formData();
 		const lessonId = trimmed(data, 'lessonId');
 		const classId = trimmed(data, 'classId');
-		if (!lessonId || !classId) {
-			return fail(400, { error: 'lessonId and classId are required.' });
-		}
 		setReadiness(db, lessonId, classId, data.has('ready'));
 		return {};
 	}

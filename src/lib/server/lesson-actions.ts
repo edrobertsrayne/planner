@@ -24,7 +24,8 @@ const edited = <L>(result: { lesson: L } & WriteReport) => ({
 	report: reportOf(result)
 });
 
-// The lesson-editing actions the Lesson editor and Planning share.
+// The lesson-editing actions the Lesson editor posts. Planning shares only setLessonStatus, the
+// one status toggle its rows carry.
 export const lessonActions = {
 	updateLesson: async ({ request }) => {
 		const data = await request.formData();
@@ -58,7 +59,6 @@ export const lessonActions = {
 		const data = await request.formData();
 		const id = trimmed(data, 'id');
 		const topicId = trimmed(data, 'topicId');
-		if (!topicId) return fail(400, { error: 'Pick a Topic.' });
 		try {
 			const result = editLesson(db, { id, change: { topicId }, today: today() });
 			if (!result) return fail(404, { error: 'No such Lesson.' });
@@ -68,7 +68,8 @@ export const lessonActions = {
 		}
 	},
 
-	// One-way: the Lesson keeps its title, plan, Tags, Links and Attachments and leaves its Topic.
+	// The Lesson keeps its title, plan, Tags, Links and Attachments and leaves its Topic; a Topic
+	// can take it again (ADR-0026).
 	detachLesson: async ({ request }) => {
 		const data = await request.formData();
 		const id = trimmed(data, 'id');
@@ -149,7 +150,8 @@ export const lessonActions = {
 	attachTag: async ({ request }) => {
 		const data = await request.formData();
 		const lessonId = trimmed(data, 'lessonId');
-		const name = trimmed(data, 'name');
+		// The seam trims what it stores (ADR-0025).
+		const name = String(data.get('name') ?? '');
 		try {
 			attachTag(db, { lessonId, name });
 			return {};

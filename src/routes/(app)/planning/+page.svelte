@@ -72,7 +72,11 @@
 {#snippet statusToggle(lesson: Entry)}
 	<form method="POST" action="?/setLessonStatus" use:enhance class="contents">
 		<input type="hidden" name="id" value={lesson.id} />
-		<div class="flex shrink-0 overflow-hidden rounded-md border text-xs" role="group">
+		<div
+			class="flex shrink-0 overflow-hidden rounded-md border text-xs"
+			role="group"
+			aria-label="Status of {lesson.title}"
+		>
 			{#each RUNGS as rung (rung.key)}
 				{@const on = lesson.status === rung.key}
 				{@const tone = statusTone(rung.key)}

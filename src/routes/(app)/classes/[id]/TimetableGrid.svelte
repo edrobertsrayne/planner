@@ -3,6 +3,7 @@
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import { onFail } from '$lib/client/enhance';
 	import { formatDate } from '$lib/date';
+	import { PERIODS } from '$lib/periods';
 	import { Button } from '$lib/components/ui/button/index.js';
 
 	// The Timetable as it stands on one date: this Class's Periods, every other Class's shown
@@ -32,7 +33,6 @@
 	} = $props();
 
 	const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-	const PERIODS = [1, 2, 3, 4, 5, 6];
 	const WEEKS = ['A', 'B'] as const;
 
 	// One of three, whoever holds the position and whenever the grid is dated — so the markup
@@ -97,6 +97,7 @@
 								<td>
 									{#if cell.kind === 'other'}
 										<div
+											role="img"
 											class="flex h-9 w-full cursor-not-allowed items-center justify-center rounded-md bg-muted/60 text-[11px] text-muted-foreground/80 inset-ring inset-ring-border"
 											title="Held by {cell.label}"
 											aria-label={description}
@@ -105,6 +106,7 @@
 										</div>
 									{:else if readOnly && cell.kind === 'mine'}
 										<div
+											role="img"
 											class="flex h-9 w-full items-center justify-center rounded-md bg-primary/10 text-[11px] font-medium text-primary inset-ring inset-ring-primary/30"
 											aria-label={description}
 										>
@@ -112,6 +114,7 @@
 										</div>
 									{:else if readOnly}
 										<div
+											role="img"
 											class="h-9 w-full rounded-md border border-dashed opacity-40"
 											aria-label={description}
 										></div>

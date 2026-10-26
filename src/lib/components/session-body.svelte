@@ -70,157 +70,102 @@
 
 	$effect(() => {
 		const { classId, date, period } = occasion;
-		let current = true;
-		detail = null;
-		missing = false;
-		loadFailed = false;
-		continuing = false;
-		removingContinuation = false;
-		continuationError = null;
-		continuationReport = null;
-		placing = false;
-		placeTitle = '';
-		placeError = null;
-		removingPlacement = false;
-		removeError = null;
 		fetch(`/session?classId=${encodeURIComponent(classId)}&date=${date}&period=${period}`)
 			.then((r) => {
 				if (!r.ok) throw r.status;
 				return r.json();
 			})
-			.then((d: SessionDetail) => {
-				// A later click on a different Session can resolve before this one — only apply the
-				// response if it's still the occasion this effect was fetching for.
-				if (!current) return;
-				showDetail(d);
-			})
+			.then((d: SessionDetail) => showDetail(d))
 			.catch((status) => {
 				// 400/404 mean the occasion names no Session (a period that is not a whole number,
 				// an unknown Class). Anything else is a load that failed — a dropped connection, a
 				// server fault — and a draft note still waits in storage for the next load.
-				if (!current) return;
 				if (status === 400 || status === 404) missing = true;
 				else loadFailed = true;
 			});
-		return () => {
-			current = false;
-			notes.flush();
-		};
+		return () => notes.flush();
 	});
 
-	function markContinuation() {
+	// The four writes share one shape: a JSON body out, a detail back, and a refusal that carries
+	// the reason to show. The page remounts this body for each occasion, so an answer always
+	// belongs to the Session on screen and needs no staleness check.
+	async function post(
+		url: string,
+		method: 'POST' | 'DELETE',
+		body: unknown
+	): Promise<SessionDetail & { report?: WriteReport }> {
+		const r = await fetch(url, {
+			method,
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify(body)
+		});
+		if (!r.ok) throw new Error((await r.json().catch(() => null))?.message ?? 'Failed.');
+		return r.json();
+	}
+
+	async function markContinuation() {
 		notes.flush();
-		const target = occasion;
 		continuing = true;
 		continuationError = null;
 		continuationReport = null;
-		fetch('/session/continuation', {
-			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify(target)
-		})
-			.then(async (r) => {
-				if (!r.ok) throw new Error((await r.json().catch(() => null))?.message ?? 'Failed.');
-				return r.json() as Promise<SessionDetail & { report: WriteReport }>;
-			})
-			.then((d) => {
-				if (target !== occasion) return;
-				showDetail(d);
-				continuing = false;
-				continuationReport = d.report;
-				toast.success('Lesson continued onto the next Available Slot.');
-			})
-			.catch((e: Error) => {
-				if (target !== occasion) return;
-				continuing = false;
-				continuationError = e.message;
-			});
+		try {
+			const d = await post('/session/continuation', 'POST', occasion);
+			showDetail(d);
+			continuationReport = d.report ?? null;
+			toast.success('Lesson continued onto the next Available Slot.');
+		} catch (e) {
+			continuationError = (e as Error).message;
+		} finally {
+			continuing = false;
+		}
 	}
 
-	function removeContinuationNow() {
+	async function removeContinuationNow() {
 		notes.flush();
-		const target = occasion;
 		removingContinuation = true;
 		continuationError = null;
 		continuationReport = null;
-		fetch('/session/continuation', {
-			method: 'DELETE',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify(target)
-		})
-			.then(async (r) => {
-				if (!r.ok) throw new Error((await r.json().catch(() => null))?.message ?? 'Failed.');
-				return r.json() as Promise<SessionDetail & { report: WriteReport }>;
-			})
-			.then((d) => {
-				if (target !== occasion) return;
-				showDetail(d);
-				removingContinuation = false;
-				continuationReport = d.report;
-				toast.success('Continuation removed.');
-			})
-			.catch((e: Error) => {
-				if (target !== occasion) return;
-				removingContinuation = false;
-				continuationError = e.message;
-			});
+		try {
+			const d = await post('/session/continuation', 'DELETE', occasion);
+			showDetail(d);
+			continuationReport = d.report ?? null;
+			toast.success('Continuation removed.');
+		} catch (e) {
+			continuationError = (e as Error).message;
+		} finally {
+			removingContinuation = false;
+		}
 	}
 
-	function placeLessonNow() {
-		const target = occasion;
+	async function placeLessonNow() {
 		const title = placeTitle.trim();
 		if (!title) return;
 		notes.flush();
 		placing = true;
 		placeError = null;
-		fetch('/session/placement', {
-			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ ...target, title })
-		})
-			.then(async (r) => {
-				if (!r.ok) throw new Error((await r.json().catch(() => null))?.message ?? 'Failed.');
-				return r.json() as Promise<SessionDetail>;
-			})
-			.then((d) => {
-				if (target !== occasion) return;
-				showDetail(d);
-				placing = false;
-				placeTitle = '';
-			})
-			.catch((e: Error) => {
-				if (target !== occasion) return;
-				placing = false;
-				placeError = e.message;
-			});
+		try {
+			showDetail(await post('/session/placement', 'POST', { ...occasion, title }));
+			placeTitle = '';
+		} catch (e) {
+			placeError = (e as Error).message;
+		} finally {
+			placing = false;
+		}
 	}
 
-	function removePlacementNow() {
-		const target = occasion;
+	async function removePlacementNow() {
 		const id = detail?.placement?.id;
 		if (!id) return;
 		notes.flush();
 		removingPlacement = true;
 		removeError = null;
-		fetch('/session/placement', {
-			method: 'DELETE',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ ...target, id })
-		})
-			.then(async (r) => {
-				if (!r.ok) throw new Error((await r.json().catch(() => null))?.message ?? 'Failed.');
-				return r.json() as Promise<SessionDetail>;
-			})
-			.then((d) => {
-				if (target !== occasion) return;
-				showDetail(d);
-				removingPlacement = false;
-			})
-			.catch((e: Error) => {
-				if (target !== occasion) return;
-				removingPlacement = false;
-				removeError = e.message;
-			});
+		try {
+			showDetail(await post('/session/placement', 'DELETE', { ...occasion, id }));
+		} catch (e) {
+			removeError = (e as Error).message;
+		} finally {
+			removingPlacement = false;
+		}
 	}
 </script>
 
@@ -308,41 +253,46 @@
 		{/if}
 
 		<div class="flex min-w-0 flex-col gap-5 lg:order-2 {started ? 'order-1' : 'order-2'}">
-			<!-- An Open Slot has no Lesson, so it has no note (ADR-0026). -->
+			<!-- An Open Slot has no Lesson, so it has no note (ADR-0026). The editor takes its text
+			     once, on mount, so it is keyed on the Lesson: placing a Lesson over a Topic Lesson,
+			     or removing the placement, must show the note of the Lesson now on the occasion
+			     rather than leave the last one's text to be saved over it (issue #409). -->
 			{#if detail.lesson}
 				{@const lessonId = detail.lesson.id}
-				<section data-note>
-					<div class="mb-1.5 flex items-baseline justify-between gap-2">
-						<span class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-							How it went
-						</span>
-						{#if detail.placement}
-							<Button
-								variant="ghost"
-								size="sm"
-								class="h-6 px-2 text-xs text-destructive"
-								disabled={removingPlacement}
-								onclick={removePlacementNow}
-							>
-								{removingPlacement ? 'Removing…' : 'Remove placement'}
-							</Button>
-						{:else}
-							<span class="text-xs text-muted-foreground">stays with the Lesson</span>
+				{#key lessonId}
+					<section data-note>
+						<div class="mb-1.5 flex items-baseline justify-between gap-2">
+							<span class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+								How it went
+							</span>
+							{#if detail.placement}
+								<Button
+									variant="ghost"
+									size="sm"
+									class="h-6 px-2 text-xs text-destructive"
+									disabled={removingPlacement}
+									onclick={removePlacementNow}
+								>
+									{removingPlacement ? 'Removing…' : 'Remove placement'}
+								</Button>
+							{:else}
+								<span class="text-xs text-muted-foreground">stays with the Lesson</span>
+							{/if}
+						</div>
+						{#if removeError}
+							<p class="mb-1.5 text-xs text-destructive">{removeError}</p>
 						{/if}
-					</div>
-					{#if removeError}
-						<p class="mb-1.5 text-xs text-destructive">{removeError}</p>
-					{/if}
-					<MarkdownEditor
-						value={note}
-						label="How it went"
-						placeholder="Notes on this Session…"
-						onchange={(markdown) => {
-							note = markdown;
-							notes.edit({ ...occasion, lessonId }, markdown);
-						}}
-					/>
-				</section>
+						<MarkdownEditor
+							value={note}
+							label="How it went"
+							placeholder="How it went with this Class…"
+							onchange={(markdown) => {
+								note = markdown;
+								notes.edit({ ...occasion, lessonId }, markdown);
+							}}
+						/>
+					</section>
+				{/key}
 			{/if}
 
 			{#if detail.lesson && started}
@@ -430,6 +380,9 @@
 	<p class="mt-4 text-sm text-muted-foreground">
 		Couldn't load this Session. Check your connection and reload.
 	</p>
+{:else}
+	<!-- The fetch is the whole body, so without this the page reads as an empty Session. -->
+	<p class="mt-4 text-sm text-muted-foreground">Loading…</p>
 {/if}
 
 <svelte:window onpagehide={() => notes.flush()} />

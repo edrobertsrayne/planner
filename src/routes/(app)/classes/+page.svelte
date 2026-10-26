@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { classTone } from '$lib/class-tone';
-	import { formatDateShort } from '$lib/date';
+	import { runwayText } from '$lib/runway';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -78,17 +78,13 @@
 							</div>
 							<div class="flex gap-1.5">
 								<dt class="shrink-0 text-muted-foreground">Runway</dt>
-								{#if lane.runway.lessonsRemaining > 0}
-									<dd class="min-w-0 text-destructive">
-										{lane.runway.lessonsRemaining} Lesson{lane.runway.lessonsRemaining === 1
-											? ''
-											: 's'} past the end of the year
-									</dd>
-								{:else}
-									<dd class="min-w-0 tabular-nums">
-										{lane.runway.date ? formatDateShort(lane.runway.date) : 'open-ended'}
-									</dd>
-								{/if}
+								<dd
+									class="min-w-0 {lane.runway.lessonsRemaining > 0
+										? 'text-destructive'
+										: 'tabular-nums'}"
+								>
+									{runwayText(lane.runway)}
+								</dd>
 							</div>
 						</dl>
 					</a>

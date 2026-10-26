@@ -1,15 +1,13 @@
 <script lang="ts">
 	import { sessionHref } from '$lib/client/session-href';
 	import Markdown from '$lib/components/markdown.svelte';
-	import { formatDate } from '$lib/date';
+	import { runwayText } from '$lib/runway';
 	import type { ClassLane } from '$lib/server/planner';
 
 	// Last taught, Next up and the Runway: the same lane the Classes view shows, read from the same
 	// derived answer (issue #37). Last taught opens its Session — the note beneath it is what Ed
 	// wrote there.
 	let { classId, lane }: { classId: string; lane: ClassLane } = $props();
-
-	const remaining = $derived(lane.runway.lessonsRemaining);
 </script>
 
 <div>
@@ -40,15 +38,9 @@
 		</div>
 		<div>
 			<dt class="text-muted-foreground">Runway</dt>
-			{#if remaining > 0}
-				<dd class="font-medium text-destructive">
-					{remaining} Lesson{remaining === 1 ? '' : 's'} past the end of the year
-				</dd>
-			{:else}
-				<dd class="font-medium">
-					{lane.runway.date ? formatDate(lane.runway.date) : 'open-ended'}
-				</dd>
-			{/if}
+			<dd class="font-medium {lane.runway.lessonsRemaining > 0 ? 'text-destructive' : ''}">
+				{runwayText(lane.runway)}
+			</dd>
 		</div>
 	</dl>
 </div>

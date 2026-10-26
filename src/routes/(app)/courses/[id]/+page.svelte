@@ -109,7 +109,6 @@
 				name={data.course.name}
 				action="?/renameCourse"
 				hidden={{ id: data.course.id }}
-				heading
 				editable={wide.current}
 			/>
 			<p class="mt-1 text-xs text-muted-foreground">
@@ -219,7 +218,6 @@
 								name={data.shown.name}
 								action="?/renameTopic"
 								hidden={{ id: data.shown.id }}
-								heading
 								level={2}
 								editable={wide.current}
 							/>

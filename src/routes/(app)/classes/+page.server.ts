@@ -1,4 +1,3 @@
-import { fail } from '@sveltejs/kit';
 import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
 import { refusal, trimmed } from '$lib/server/form';
@@ -17,7 +16,6 @@ export const actions: Actions = {
 		const data = await request.formData();
 		const label = String(data.get('label') ?? '');
 		const courseId = trimmed(data, 'courseId');
-		if (!courseId) return fail(400, { error: 'A Class needs a Course.' });
 		try {
 			return { class: createClass(db, { label, courseId }) };
 		} catch (error) {

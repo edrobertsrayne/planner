@@ -39,7 +39,10 @@
 	} = $props();
 
 	// `value` seeds the editor once. The editor is the source of truth from then on: writing back
-	// into it on every keystroke would fight the caret.
+	// into it on every keystroke would fight the caret. A caller whose value can change under a
+	// mounted editor — the Session panel's note, when its Lesson changes (issue #409) — remounts
+	// the editor rather than relying on this to follow.
+	// svelte-ignore state_referenced_locally
 	let text = $state(value);
 	let host: HTMLDivElement | null = $state(null);
 	let editor = $state<Editor | null>(null);

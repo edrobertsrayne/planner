@@ -105,7 +105,6 @@ export const actions: Actions = {
 		const data = await request.formData();
 		const classId = trimmed(data, 'classId');
 		const topicId = trimmed(data, 'topicId');
-		if (!topicId) return fail(400, { error: 'Pick a Topic to assign.' });
 		try {
 			const result = assignTopic(db, { classId, topicId, today: today() });
 			return {

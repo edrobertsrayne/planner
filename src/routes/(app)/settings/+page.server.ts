@@ -1,12 +1,10 @@
 import { fail } from '@sveltejs/kit';
 import { APIError } from 'better-auth/api';
-import { auth } from '$lib/server/auth';
+import { auth, MIN_PASSWORD_LENGTH } from '$lib/server/auth';
 import { expectedBackupSize } from '$lib/server/backup/backup';
 import { client, db } from '$lib/server/db/client';
 import { apiKey } from '$lib/server/db/schema';
 import type { Actions, PageServerLoad } from './$types';
-
-const MIN_PASSWORD_LENGTH = 12;
 
 // The token is minted in one place, this file: the load mints the standing key when the database
 // has none, and the regenerate action mints its replacement. Both mint the same shape.
@@ -24,10 +22,10 @@ export const load: PageServerLoad = async () => {
 
 	const backupSize = expectedBackupSize(client);
 	const [key] = await db.select(columns).from(apiKey).limit(1);
-	if (key) return { key, backupSize };
+	if (key) return { key, backupSize, minPasswordLength: MIN_PASSWORD_LENGTH };
 
 	const [minted] = await db.insert(apiKey).values({ token: mintToken() }).returning(columns);
-	return { key: minted, backupSize };
+	return { key: minted, backupSize, minPasswordLength: MIN_PASSWORD_LENGTH };
 };
 
 export const actions: Actions = {
@@ -39,11 +37,15 @@ export const actions: Actions = {
 
 		if (newPassword.length < MIN_PASSWORD_LENGTH) {
 			return fail(400, {
+				field: 'newPassword' as const,
 				error: `Choose a password of at least ${MIN_PASSWORD_LENGTH} characters.`
 			});
 		}
 		if (newPassword !== confirmPassword) {
-			return fail(400, { error: 'The two passwords do not match.' });
+			return fail(400, {
+				field: 'confirmPassword' as const,
+				error: 'The two passwords do not match.'
+			});
 		}
 
 		try {
@@ -52,8 +54,15 @@ export const actions: Actions = {
 				headers: event.request.headers
 			});
 		} catch (error) {
-			if (error instanceof APIError) return fail(400, { error: 'Current password is incorrect.' });
-			throw error;
+			if (!(error instanceof APIError)) throw error;
+			// Only a wrong current password blames that field; anything else is better-auth's own
+			// reason, and blaming the field the teacher typed would be a lie.
+			if (error.body?.code === 'INVALID_PASSWORD')
+				return fail(400, {
+					field: 'currentPassword' as const,
+					error: 'Current password is incorrect.'
+				});
+			return fail(400, { error: error.message });
 		}
 
 		return { success: true };

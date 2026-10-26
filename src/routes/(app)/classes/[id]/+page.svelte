@@ -94,7 +94,6 @@
 				action="?/renameClass"
 				hidden={{ id: data.class.id }}
 				field="label"
-				heading
 				editable={md.current}
 			/>
 			<Badge variant="outline" class="mt-1">{data.class.courseName}</Badge>

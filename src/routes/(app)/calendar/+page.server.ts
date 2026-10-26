@@ -2,7 +2,7 @@ import { fail } from '@sveltejs/kit';
 import { TERM_NAMES } from '$lib/calendar/generate-teaching-weeks';
 import { defaultWeek } from '$lib/calendar/default-week';
 import { today } from '$lib/date';
-import { client, db } from '$lib/server/db/client';
+import { db } from '$lib/server/db/client';
 import { refusal } from '$lib/server/form';
 import { asc } from 'drizzle-orm';
 import * as schema from '$lib/server/db/schema';
@@ -114,7 +114,7 @@ export const actions: Actions = {
 		}));
 
 		try {
-			const report = replaceTerms(db, client, { terms, today: today() });
+			const report = replaceTerms(db, { terms, today: today() });
 			return { report, yearSaved: true };
 		} catch (error) {
 			return refusal(error);

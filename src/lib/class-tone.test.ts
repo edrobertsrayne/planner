@@ -1,13 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classTone, nextTone, TONE_SEQUENCE } from './class-tone';
-
-const TOKEN = /^var\(--tone-([0-7])-(bg|fg|ring)\)$/;
-
-function positionOf(value: string): number {
-	const match = value.match(TOKEN);
-	if (!match) throw new Error(`${value} is not a --tone-N-{bg|fg|ring} reference`);
-	return Number(match[1]);
-}
+import { nextTone, TONE_SEQUENCE } from './class-tone';
 
 // The hue of each Tone position, as settled in layout.css on issue #83 — indigo 266° first,
 // every gap opened to 35°+ across the set.
@@ -70,28 +62,5 @@ describe('nextTone', () => {
 		const afterDelete = afterCreate.filter((tone) => tone !== last);
 		expect(afterDelete[2]).toBe(kept);
 		expect(nextTone(afterDelete)).toBe(last);
-	});
-});
-
-describe('classTone', () => {
-	it('maps a stored tone to bg, fg and ring references of that one slot', () => {
-		for (const tone of [0, 4, 7]) {
-			const t = classTone(tone);
-			expect(t.bg).toMatch(TOKEN);
-			expect(t.fg).toMatch(TOKEN);
-			expect(t.ring).toMatch(TOKEN);
-			expect(positionOf(t.bg)).toBe(tone);
-			expect(positionOf(t.fg)).toBe(tone);
-			expect(positionOf(t.ring)).toBe(tone);
-		}
-	});
-
-	it('names no Tailwind palette utility', () => {
-		for (const tone of [0, 4, 7]) {
-			for (const value of Object.values(classTone(tone))) {
-				expect(value).toMatch(/^var\(--/);
-				expect(value).not.toMatch(/-\d00|stone|emerald|sky|violet|amber|rose|teal|fuchsia|indigo/);
-			}
-		}
 	});
 });

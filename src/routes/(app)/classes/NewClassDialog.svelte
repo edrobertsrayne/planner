@@ -20,11 +20,11 @@
 	} = $props();
 
 	let label = $state('');
-	let courseId = $state('');
+	let pickedCourseId = $state('');
 
-	$effect(() => {
-		if (!courses.some((c) => c.id === courseId)) courseId = courses[0]?.id ?? '';
-	});
+	// The first Course stands in until the teacher picks another: a Class needs one, and the
+	// list cannot change while the dialog is open.
+	const course = $derived(courses.find((c) => c.id === pickedCourseId) ?? courses[0]);
 </script>
 
 <Dialog.Root>
@@ -76,9 +76,14 @@
 
 				<Field.Field>
 					<Field.Label for="new-class-course">Course</Field.Label>
-					<Select.Root type="single" name="courseId" bind:value={courseId}>
+					<Select.Root
+						type="single"
+						name="courseId"
+						value={course?.id ?? ''}
+						onValueChange={(id) => (pickedCourseId = id)}
+					>
 						<Select.Trigger size="sm" id="new-class-course" class="w-full">
-							{courses.find((c) => c.id === courseId)?.name ?? 'Pick a Course'}
+							{course?.name ?? 'Pick a Course'}
 						</Select.Trigger>
 						<Select.Content>
 							{#each courses as course (course.id)}

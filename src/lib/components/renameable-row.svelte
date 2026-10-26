@@ -1,31 +1,25 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { classTone } from '$lib/class-tone';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { touchTarget } from '$lib/components/ui/touch-target.js';
 
+	// A page or panel heading that its own page can rename in place. Every caller is a heading;
+	// the pencil is the only control beside it.
 	let {
 		name,
-		selected = false,
-		href,
 		action,
 		hidden,
 		field = 'name',
-		heading = false,
 		level = 1,
-		tone,
 		editable = true
 	}: {
 		name: string;
-		selected?: boolean;
-		href?: string;
 		action: string;
 		hidden: Record<string, string>;
-		field?: 'name' | 'title' | 'label';
-		heading?: boolean;
+		// The field its action reads: a Class renames by `label`, a Course or a Topic by `name`.
+		field?: 'name' | 'label';
 		// The heading's rank, and so its size: a page title or a panel title.
 		level?: 1 | 2;
-		tone?: number;
 		// False shows the name with no pencil, to read the plan and not change it.
 		editable?: boolean;
 	} = $props();
@@ -39,12 +33,12 @@
 	}
 </script>
 
-<div class={heading ? 'group flex items-baseline gap-2' : 'group flex items-stretch'}>
+<div class="group flex items-baseline gap-2">
 	{#if editing}
 		<form
 			method="POST"
 			{action}
-			class={heading ? 'flex items-center gap-2' : 'flex flex-1 items-center px-4 py-1.5'}
+			class="flex items-center gap-2"
 			use:enhance={() => {
 				return async ({ result, update }) => {
 					await update();
@@ -57,7 +51,7 @@
 			{/each}
 			<Input
 				autofocus
-				class={heading ? 'h-8 w-56 text-lg font-semibold' : 'h-7'}
+				class="h-8 w-56 text-lg font-semibold"
 				name={field}
 				value={name}
 				onkeydown={(e) => {
@@ -70,42 +64,16 @@
 			/>
 		</form>
 	{:else}
-		{#if heading}
-			<svelte:element
-				this={level === 1 ? 'h1' : 'h2'}
-				class="min-w-0 font-semibold {level === 1 ? 'text-lg tracking-tight' : 'text-base'}"
-			>
-				{name}
-			</svelte:element>
-		{:else if href}
-			<a
-				{href}
-				class="flex flex-1 items-baseline px-4 py-2 text-sm hover:bg-accent {selected
-					? 'bg-accent font-medium'
-					: ''}"
-			>
-				{#if tone !== undefined}
-					{@const t = classTone(tone)}
-					<span
-						class="mr-2 size-2.5 shrink-0 self-center rounded-full ring-2"
-						style:background-color={t.bg}
-						style:--tw-ring-color={t.ring}
-						aria-hidden="true"
-					></span>
-				{/if}
-				<span class="min-w-0 flex-1 truncate">{name}</span>
-			</a>
-		{:else}
-			<span class="flex flex-1 items-baseline px-4 py-2 text-sm">
-				<span class="min-w-0 truncate">{name}</span>
-			</span>
-		{/if}
+		<svelte:element
+			this={level === 1 ? 'h1' : 'h2'}
+			class="min-w-0 font-semibold {level === 1 ? 'text-lg tracking-tight' : 'text-base'}"
+		>
+			{name}
+		</svelte:element>
 		{#if editable}
 			<button
 				type="button"
-				class="{touchTarget} shrink-0 {heading
-					? ''
-					: 'px-2'} text-xs text-muted-foreground row-control hover:text-foreground"
+				class="{touchTarget} shrink-0 text-xs text-muted-foreground row-control hover:text-foreground"
 				onclick={startEditing}
 				aria-label="Rename {name}"
 			>
