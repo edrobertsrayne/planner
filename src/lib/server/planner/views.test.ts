@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest';
 import { makeLessons, makeTopic, setUp } from './fixtures';
 import {
 	activeSlots,
+	addLesson,
 	addSlot,
 	setSlotRoom,
 	agenda,
@@ -359,6 +360,47 @@ describe('the Calendar', () => {
 
 		// Friday: neither Class holds a Slot there in Week A at all — genuinely free, not blocked.
 		expect(week?.cells.some((c) => c.date === '2026-09-04')).toBe(false);
+	});
+
+	// The bug the Admission rule fixes: a Standalone Lesson in a Sequence used to read as "already
+	// placed" because it has no Topic, which hid Place on its cell while the Session page offered
+	// it. `placeable` comes from the schedule's Placement ids, not from the Lesson's Topic.
+	test('placeable is true for a Standalone Lesson in a Sequence, and false once Placed', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [first] = makeLessons(db, topic.id, 1);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+		addLesson(db, {
+			classId: classA.id,
+			title: 'Revision',
+			afterLessonId: first.id,
+			today: '2026-09-03'
+		});
+
+		const at = (period: number) =>
+			calendarWeek(db, { weekCommencing: '2026-08-31', today: '2026-09-03' })?.cells.find(
+				(c) => c.date === '2026-09-03' && c.periodFrom === period && c.classId === classA.id
+			);
+
+		expect(at(6)).toMatchObject({
+			kind: 'lesson',
+			lesson: { title: 'Revision', topicName: null },
+			placeable: true
+		});
+
+		placeLesson(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			period: 6,
+			title: 'Assembly',
+			today: '2026-09-03'
+		});
+
+		expect(at(6)).toMatchObject({
+			kind: 'lesson',
+			lesson: { title: 'Assembly', topicName: null },
+			placeable: false
+		});
 	});
 
 	test('a Lesson with Length > 1 is one cell spanning its Periods, not two', () => {
@@ -929,7 +971,7 @@ describe('Readiness dies with its pairing', () => {
 		const { lesson } = placeLesson(db, {
 			classId: classA.id,
 			date: '2026-09-14',
-			slotId: mondaySlot.id,
+			period: mondaySlot.period,
 			title: 'Assembly',
 			today: '2026-09-03'
 		});

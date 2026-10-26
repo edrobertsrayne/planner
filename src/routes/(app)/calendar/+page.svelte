@@ -278,7 +278,7 @@
 												</DropdownMenu.Group>
 											{/if}
 											{#if date >= data.today}
-												{@const placeableSlots = availableSlots.filter((s) => !s.placed)}
+												{@const placeableSlots = availableSlots.filter((s) => s.placeable)}
 												{#if placeableSlots.length > 0}
 													<DropdownMenu.Separator />
 													<DropdownMenu.Group>

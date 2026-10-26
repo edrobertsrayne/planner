@@ -217,7 +217,7 @@ describe('one Lesson edit', () => {
 		return placeLesson(db, {
 			classId,
 			date: '2026-09-14',
-			slotId: mondaySlot.id,
+			period: mondaySlot.period,
 			title: 'Assembly',
 			today: '2026-09-03'
 		}).lesson;

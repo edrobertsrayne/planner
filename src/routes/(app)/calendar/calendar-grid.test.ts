@@ -18,6 +18,7 @@ function cell(overrides: Partial<CalendarCell> = {}): CalendarCell {
 		slotIds: ['s1'],
 		blockedDayId: null,
 		blockedSlotId: null,
+		placeable: true,
 		...overrides
 	};
 }
@@ -73,7 +74,7 @@ describe('toGrid', () => {
 describe('availableSlotLines', () => {
 	test('a Lesson of one Period offers its one Slot', () => {
 		expect(availableSlotLines([cell({ slotIds: ['s1'] })], '2026-08-31')).toEqual([
-			{ slotId: 's1', period: 1, classId: 'c1', classLabel: '9A/Ph1', placed: false }
+			{ slotId: 's1', period: 1, classId: 'c1', classLabel: '9A/Ph1', placeable: true }
 		]);
 	});
 
@@ -83,23 +84,35 @@ describe('availableSlotLines', () => {
 			'2026-08-31'
 		);
 		expect(slots).toEqual([
-			{ slotId: 's3', period: 3, classId: 'c1', classLabel: '9A/Ph1', placed: false },
-			{ slotId: 's4', period: 4, classId: 'c1', classLabel: '9A/Ph1', placed: false }
+			{ slotId: 's3', period: 3, classId: 'c1', classLabel: '9A/Ph1', placeable: true },
+			{ slotId: 's4', period: 4, classId: 'c1', classLabel: '9A/Ph1', placeable: true }
 		]);
 	});
 
 	test('an Open Slot is offered — the Period is taught even when no Lesson is scheduled', () => {
 		expect(availableSlotLines([cell({ kind: 'open', lesson: null })], '2026-08-31')).toEqual([
-			{ slotId: 's1', period: 1, classId: 'c1', classLabel: '9A/Ph1', placed: false }
+			{ slotId: 's1', period: 1, classId: 'c1', classLabel: '9A/Ph1', placeable: true }
 		]);
 	});
 
-	// A Lesson with no Topic name is a placed Standalone Lesson (issue #256) — the one Slot the
-	// Place-a-Lesson group leaves out, since a second Placement on one anchor collides.
-	test('a Slot already holding a placed Lesson is marked placed', () => {
+	// The cell's own answer, not a guess from the Lesson's Topic: an occasion that already holds a
+	// placed Lesson, or a past date, is not offered.
+	test('a cell that cannot take a Placement is marked so', () => {
 		expect(
-			availableSlotLines([cell({ lesson: { title: 'Assembly', topicName: null } })], '2026-08-31')
-		).toEqual([{ slotId: 's1', period: 1, classId: 'c1', classLabel: '9A/Ph1', placed: true }]);
+			availableSlotLines(
+				[cell({ placeable: false, lesson: { title: 'Assembly', topicName: null } })],
+				'2026-08-31'
+			)
+		).toEqual([{ slotId: 's1', period: 1, classId: 'c1', classLabel: '9A/Ph1', placeable: false }]);
+	});
+
+	test('a past Open Slot offers nothing to place', () => {
+		expect(
+			availableSlotLines(
+				[cell({ kind: 'open', lesson: null, past: true, placeable: false })],
+				'2026-08-31'
+			)
+		).toEqual([{ slotId: 's1', period: 1, classId: 'c1', classLabel: '9A/Ph1', placeable: false }]);
 	});
 
 	test('a Blocked cell offers nothing — its Slot is already gone', () => {

@@ -21,7 +21,15 @@ import {
 import { listClasses } from './classes';
 
 type ClassRow = ReturnType<typeof listClasses>[number];
-type Batch = { cls: ClassRow; rows: AgendaRow[]; history: SessionRecord[] };
+type Batch = {
+	cls: ClassRow;
+	rows: AgendaRow[];
+	history: SessionRecord[];
+	// Every occasion this Class's schedule fills from a Placement, keyed `date|period`: the one
+	// fact the Calendar needs to keep a day menu's Place line off an occasion that is already
+	// Placed, without guessing from the Lesson's Topic.
+	placed: Set<string>;
+};
 
 // Every Class's rows for one derived view. The Calendar and the Class list are loaded once for
 // the whole batch rather than re-read per Class.
@@ -36,7 +44,16 @@ function derivedRows(
 ): Batch[] {
 	return classes.map((cls) => {
 		const result = scheduleFor(db, { classId: cls.id, boundary: today, cal });
-		return { cls, rows: agendaRows(cls.id, result).filter(keep), history: result.history };
+		return {
+			cls,
+			rows: agendaRows(cls.id, result).filter(keep),
+			history: result.history,
+			placed: new Set(
+				result.scheduled
+					.filter((session) => session.placementId)
+					.map((session) => `${session.date}|${session.period}`)
+			)
+		};
 	});
 }
 
@@ -258,6 +275,10 @@ export interface CalendarCell {
 	slotIds: string[];
 	blockedDayId: string | null;
 	blockedSlotId: string | null;
+	// Whether the day menu may offer Place on this cell: today or later, not removed by a Blocked
+	// Day or Blocked Slot, and not already holding a placed Lesson. The Calendar reads this, and
+	// the seam's `placementAdmission` gives the same answer for one occasion (placement.ts).
+	placeable: boolean;
 }
 
 // The three states a day column in the Calendar can show: an ordinary teaching day, a Blocked
@@ -395,7 +416,8 @@ function uncoveredCells(
 				blockedNote: dayBlock?.note ?? slotBlock?.note ?? null,
 				slotIds: [slot.id],
 				blockedDayId: dayBlock?.id ?? null,
-				blockedSlotId: slotBlock?.id ?? null
+				blockedSlotId: slotBlock?.id ?? null,
+				placeable: !blocked && date >= today
 			});
 		}
 		return cells;
@@ -419,8 +441,9 @@ export function calendarWeek(
 
 	// Before `today` the engine lays nothing: those positions come from its `history`, the record.
 	const rooms = roomsBySlot(db);
-	const occupied = batches.map(({ cls, rows, history }) => ({
+	const occupied = batches.map(({ cls, rows, history, placed }) => ({
 		cls,
+		placed,
 		rows: [
 			...sessionRuns(history.filter((s) => dateSet.has(s.date))).map((run) => ({
 				...run,
@@ -434,7 +457,7 @@ export function calendarWeek(
 	]);
 
 	const covered = new Set<string>();
-	const cells: CalendarCell[] = occupied.flatMap(({ cls, rows }) =>
+	const cells: CalendarCell[] = occupied.flatMap(({ cls, rows, placed }) =>
 		rows.map((r): CalendarCell => {
 			for (let p = r.periodFrom; p <= r.periodTo; p++) covered.add(`${r.date}|${p}`);
 			return {
@@ -451,7 +474,8 @@ export function calendarWeek(
 				blockedNote: null,
 				slotIds: r.slotIds,
 				blockedDayId: null,
-				blockedSlotId: null
+				blockedSlotId: null,
+				placeable: r.date >= today && !placed.has(`${r.date}|${r.periodFrom}`)
 			};
 		})
 	);

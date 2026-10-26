@@ -160,7 +160,7 @@ describe('reordering and moving Lessons', () => {
 		const placed = placeLesson(db, {
 			classId: classA.id,
 			date: '2026-09-14',
-			slotId: mondaySlot.id,
+			period: mondaySlot.period,
 			title: 'Assembly',
 			today: '2026-09-03'
 		});
@@ -432,7 +432,7 @@ describe('content edits re-derive the schedule from today', () => {
 		const placed = placeLesson(db, {
 			classId: classA.id,
 			date: '2026-09-14',
-			slotId: classAMonday.id,
+			period: classAMonday.period,
 			title: 'Assembly',
 			today
 		});

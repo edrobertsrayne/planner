@@ -9,6 +9,7 @@ import { lessonDetail, type LessonDetail } from './lessons';
 import { Refused } from './refused';
 import { setTeachingNote, teachingNoteOf } from './teaching-notes';
 import { lessonBody } from './fields';
+import { placementAdmission } from './placement';
 
 // A Session is identified by its occasion (ADR-0002), never by row id, so every function here
 // takes the triple rather than an id.
@@ -35,11 +36,9 @@ export interface SessionDetail extends Occasion {
 	// The Placement naming this occasion's Lesson, if it has one — what the Session panel's
 	// Remove-placement button deletes by (issue #254).
 	placement: { id: string } | null;
-	// Whether the Session panel's Place-a-Lesson card should show. Placing is future-and-today
-	// only (placement.ts), never a correction to the past. A Topic Lesson already on the occasion
-	// is no refusal (issue #256): a Placement claims its Slot ahead of the Topic stream, so that
-	// Lesson and every Lesson after it shift right. A Placement already anchored here is the one
-	// refusal — a second one on the same anchor collides on `placement_anchor`.
+	// Whether the Session panel's Place-a-Lesson card should show: the seam's one admission answer
+	// for this occasion (placement.ts), the same value the Calendar's day menu reads, so the two
+	// screens can never offer and refuse different occasions.
 	canPlace: boolean;
 	// Continuations recorded on this occasion — what the rail's status line counts and "Remove one" removes.
 	continuations: number;
@@ -114,7 +113,7 @@ export function sessionDetail(
 					.all().length
 			: 0,
 		placement,
-		canPlace: occasion.date >= today && placement === null
+		canPlace: placementAdmission(db, { ...occasion, today }).admitted
 	};
 }
 

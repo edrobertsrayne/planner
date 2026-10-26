@@ -1,42 +1,23 @@
 import { error, json } from '@sveltejs/kit';
 import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
-import {
-	classSchedule,
-	placeLesson,
-	removePlacement,
-	reportOf,
-	sessionDetail
-} from '$lib/server/planner';
+import { placeLesson, removePlacement, reportOf, sessionDetail } from '$lib/server/planner';
 import { occasionOf, refusal } from '../occasion';
 import type { RequestHandler } from './$types';
 
 // The Place-a-Lesson card on the Session page and the Calendar day menu's Place-a-Lesson group
-// both talk to this one route (issue #254). The client never learns a Slot's id: POST resolves it
-// server-side from the Class's own schedule — its Open Slots and the Slots its Lessons already
-// hold alike (issue #256), since a Placement claims its Slot ahead of the Topic stream and
-// shift-rights whatever sat there. A Slot already holding a placed Lesson is the one refusal: a
-// second Placement on one anchor collides on `placement_anchor`, and both doors leave that Slot
-// out, so only a stale click reaches here. A placed Lesson is written in the Lesson editor.
+// both talk to this one route (issue #254). The client never learns a Slot's id: it names the
+// occasion, and the seam finds the Slot and owns every refusal (ADR-0025), so this door holds no
+// rule of its own. A placed Lesson is written in the Lesson editor.
 export const POST: RequestHandler = async ({ request }) => {
 	const body = await request.json();
 	const occasion = occasionOf(body);
 	const title = typeof body.title === 'string' ? body.title : '';
 
 	const now = today();
-	const { scheduled, openSlots } = classSchedule(db, { classId: occasion.classId, today: now });
-	const atOccasion = (s: { date: string; period: number }) =>
-		s.date === occasion.date && s.period === occasion.period;
-	const slot = openSlots.find(atOccasion) ?? scheduled.find(atOccasion);
-	if (!slot) error(400, `${occasion.date} P${occasion.period} is not an Available Slot.`);
-	if ('placementId' in slot && slot.placementId)
-		error(400, `${occasion.date} P${occasion.period} already holds a placed Lesson.`);
-
 	try {
 		const placed = placeLesson(db, {
-			classId: occasion.classId,
-			date: occasion.date,
-			slotId: slot.slotId,
+			...occasion,
 			title,
 			today: now
 		});

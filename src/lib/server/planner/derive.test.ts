@@ -465,7 +465,7 @@ describe('a scheduling write and its re-derivation commit together', () => {
 					placeLesson(failing, {
 						classId: fx.classA.id,
 						date: '2026-09-14',
-						slotId: slot.id,
+						period: slot.period,
 						title: 'Assembly',
 						today: '2026-09-03'
 					});
@@ -478,7 +478,7 @@ describe('a scheduling write and its re-derivation commit together', () => {
 				const { lesson } = placeLesson(db, {
 					classId: fx.classA.id,
 					date: '2026-09-14',
-					slotId: slot.id,
+					period: slot.period,
 					title: 'Assembly',
 					today: '2026-09-03'
 				});

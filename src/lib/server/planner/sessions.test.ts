@@ -337,7 +337,7 @@ describe('the Session panel', () => {
 		const result = placeLesson(db, {
 			classId: classA.id,
 			date: '2026-09-14',
-			slotId: mondaySlot.id,
+			period: mondaySlot.period,
 			title: 'Assembly',
 			today: '2026-09-03'
 		});

@@ -73,7 +73,7 @@ export {
 
 export { blockDay, blockSlot, unblockDay, unblockSlot } from './disruptions';
 
-export { placeLesson, removePlacement } from './placement';
+export { placeLesson, placementAdmission, removePlacement } from './placement';
 
 export { replaceTerms } from './terms';
 

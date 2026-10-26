@@ -205,7 +205,7 @@ describe('Move', () => {
 		const placed = placeLesson(db, {
 			classId: classA.id,
 			date: slot.date,
-			slotId: slot.slotId,
+			period: slot.period,
 			title: 'One-off',
 			today
 		});

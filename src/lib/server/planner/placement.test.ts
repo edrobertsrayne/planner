@@ -1,7 +1,16 @@
 import { eq } from 'drizzle-orm';
 import { describe, expect, test } from 'vitest';
 import { makeLessons, makeTopic, refused, setUp } from './fixtures';
-import { assignTopic, classSchedule, placeLesson, removePlacement, setReadiness } from './index';
+import {
+	assignTopic,
+	blockDay,
+	blockSlot,
+	classSchedule,
+	placeLesson,
+	placementAdmission,
+	removePlacement,
+	setReadiness
+} from './index';
 import * as schema from '../db/schema';
 
 describe('placing a Lesson', () => {
@@ -16,7 +25,7 @@ describe('placing a Lesson', () => {
 		const result = placeLesson(db, {
 			classId: classA.id,
 			date: '2026-09-14',
-			slotId: mondaySlot.id,
+			period: mondaySlot.period,
 			title: 'Assembly',
 			today: '2026-09-03'
 		});
@@ -40,7 +49,7 @@ describe('placing a Lesson', () => {
 		);
 	});
 
-	test('rolls back the freshly created Lesson when the Placement insert collides on a taken anchor', () => {
+	test('refuses a second Placement on the occasion a Placement already holds, creating no Lesson', () => {
 		const { db, classA } = setUp();
 		const mondaySlot = db
 			.select()
@@ -51,7 +60,7 @@ describe('placing a Lesson', () => {
 		placeLesson(db, {
 			classId: classA.id,
 			date: '2026-09-14',
-			slotId: mondaySlot.id,
+			period: mondaySlot.period,
 			title: 'Assembly',
 			today: '2026-09-03'
 		});
@@ -60,11 +69,11 @@ describe('placing a Lesson', () => {
 			placeLesson(db, {
 				classId: classA.id,
 				date: '2026-09-14',
-				slotId: mondaySlot.id,
+				period: mondaySlot.period,
 				title: 'Fire drill',
 				today: '2026-09-03'
 			})
-		).toThrow(/Failed query: insert into "placement"/);
+		).toThrow('2026-09-14 P3 already holds a placed Lesson.');
 
 		const lessons = db.select().from(schema.lesson).all();
 		expect(lessons).toHaveLength(1);
@@ -84,7 +93,7 @@ describe('placing a Lesson', () => {
 				placeLesson(db, {
 					classId: classA.id,
 					date: '2026-09-01',
-					slotId: mondaySlot.id,
+					period: mondaySlot.period,
 					title: 'Assembly',
 					today: '2026-09-03'
 				}),
@@ -113,7 +122,7 @@ describe('placing a Lesson', () => {
 		const result = placeLesson(db, {
 			classId: classA.id,
 			date: target.date,
-			slotId: target.slotId,
+			period: target.period,
 			title: 'Assembly',
 			today: '2026-09-03'
 		});
@@ -141,7 +150,7 @@ describe('removing a Placement', () => {
 		const placed = placeLesson(db, {
 			classId: classA.id,
 			date: '2026-09-14',
-			slotId: mondaySlot.id,
+			period: mondaySlot.period,
 			title: 'Assembly',
 			today: '2026-09-03'
 		});
@@ -176,7 +185,7 @@ describe('removing a Placement', () => {
 		placeLesson(db, {
 			classId: classA.id,
 			date: '2026-09-14',
-			slotId: mondaySlot.id,
+			period: mondaySlot.period,
 			title: 'Assembly',
 			today
 		});
@@ -203,7 +212,7 @@ describe('Readiness and a removed Placement', () => {
 		const { lesson } = placeLesson(db, {
 			classId: classA.id,
 			date: '2026-09-14',
-			slotId: mondaySlot.id,
+			period: mondaySlot.period,
 			title: 'Assembly',
 			today
 		});
@@ -233,7 +242,7 @@ describe('Readiness and a removed Placement', () => {
 		const { lesson } = placeLesson(db, {
 			classId: classA.id,
 			date: '2026-09-14',
-			slotId: mondaySlot.id,
+			period: mondaySlot.period,
 			title: 'Assembly',
 			today
 		});
@@ -256,5 +265,127 @@ describe('Readiness and a removed Placement', () => {
 		removePlacement(db, { id: placement.id, today });
 
 		expect(notes()).toEqual([[classB.id, 'Other class']]);
+	});
+});
+
+// ADR-0025: every Placement rule lives behind the seam, and the one admission answer feeds the
+// Session panel, the Calendar day menu and the door alike.
+describe('whether a Lesson may be placed on an occasion', () => {
+	const TODAY = '2026-09-03';
+
+	// The Monday of Week A, an occasion 9B/Sc1 holds P3 on.
+	const monday = (db: ReturnType<typeof setUp>['db'], classId: string) =>
+		db
+			.select()
+			.from(schema.slot)
+			.all()
+			.find((s) => s.classId === classId && s.week === 'A' && s.day === 1 && s.period === 3)!;
+
+	// The seam and the door agree: the admission's answer is exactly what placeLesson does.
+	function expectRefused(
+		db: ReturnType<typeof setUp>['db'],
+		occasion: { classId: string; date: string; period: number },
+		kind: 'invalid' | 'conflict',
+		reason: string
+	) {
+		expect(placementAdmission(db, { ...occasion, today: TODAY })).toEqual({
+			admitted: false,
+			kind,
+			reason
+		});
+		refused(() => placeLesson(db, { ...occasion, title: 'Clash', today: TODAY }), kind, reason);
+	}
+
+	test('an Open Slot is admitted, and the Lesson lands there', () => {
+		const { db, classA } = setUp();
+		const occasion = { classId: classA.id, date: '2026-09-14', period: 3 };
+		expect(placementAdmission(db, { ...occasion, today: TODAY })).toEqual({
+			admitted: true,
+			slotId: monday(db, classA.id).id
+		});
+
+		const placed = placeLesson(db, { ...occasion, title: 'Assembly', today: TODAY });
+		const schedule = classSchedule(db, { classId: classA.id, today: TODAY });
+		expect(schedule.scheduled).toContainEqual(
+			expect.objectContaining({ date: occasion.date, period: 3, lessonId: placed.lesson.id })
+		);
+	});
+
+	test('a Slot a Topic Lesson holds is admitted, and that Lesson shifts right', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [first, second] = makeLessons(db, topic.id, 3);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: TODAY });
+
+		const before = classSchedule(db, { classId: classA.id, today: TODAY }).scheduled;
+		const held = before.find((s) => s.lessonId === first.id)!;
+		const occasion = { classId: classA.id, date: held.date, period: held.period };
+		expect(placementAdmission(db, { ...occasion, today: TODAY }).admitted).toBe(true);
+
+		const placed = placeLesson(db, { ...occasion, title: 'Assembly', today: TODAY });
+		const after = classSchedule(db, { classId: classA.id, today: TODAY }).scheduled;
+		expect(after.slice(0, 2).map((s) => s.lessonId)).toEqual([placed.lesson.id, first.id]);
+		expect(after.map((s) => s.lessonId)).toContain(second.id);
+	});
+
+	test('an occasion that already holds a placed Lesson is a conflict', () => {
+		const { db, classA } = setUp();
+		const occasion = { classId: classA.id, date: '2026-09-14', period: 3 };
+		placeLesson(db, { ...occasion, title: 'Assembly', today: TODAY });
+
+		expectRefused(db, occasion, 'conflict', '2026-09-14 P3 already holds a placed Lesson.');
+	});
+
+	test('a Blocked Slot is not an Available Slot', () => {
+		const { db, classA } = setUp();
+		const slot = monday(db, classA.id);
+		blockSlot(db, {
+			classId: classA.id,
+			date: '2026-09-14',
+			slotId: slot.id,
+			note: 'Exam',
+			today: TODAY
+		});
+
+		expectRefused(
+			db,
+			{ classId: classA.id, date: '2026-09-14', period: 3 },
+			'invalid',
+			'2026-09-14 P3 is not an Available Slot.'
+		);
+	});
+
+	test('a Blocked Day is not an Available Slot', () => {
+		const { db, classA } = setUp();
+		blockDay(db, { date: '2026-09-14', note: 'INSET', today: TODAY });
+
+		expectRefused(
+			db,
+			{ classId: classA.id, date: '2026-09-14', period: 3 },
+			'invalid',
+			'2026-09-14 P3 is not an Available Slot.'
+		);
+	});
+
+	test('a Period the Class does not hold is not an Available Slot', () => {
+		const { db, classA } = setUp();
+
+		expectRefused(
+			db,
+			{ classId: classA.id, date: '2026-09-14', period: 1 },
+			'invalid',
+			'2026-09-14 P1 is not an Available Slot.'
+		);
+	});
+
+	test('a past date is refused by the admission, before any Slot is looked up', () => {
+		const { db, classA } = setUp();
+
+		expectRefused(
+			db,
+			{ classId: classA.id, date: '2026-09-01', period: 3 },
+			'invalid',
+			'"2026-09-01" is in the past. A Placement is made for today or a later date, never a past one.'
+		);
 	});
 });
