@@ -8,29 +8,12 @@ test.beforeAll(() => resetTo('standard'));
 // its size and pointer with `test.use`.
 //
 // Playwright counts an element at opacity 0 as visible, so a row control being shown is asserted on
-// its opacity: it is the only thing that tells a shown control from a hidden one.
+// its opacity: it is the only thing that tells a shown control from a hidden one. The mouse cases
+// (hidden until hover or focus) are in renameable-row.svelte.test.ts; touch is checked here.
 //
 // It leaves the `Tile Course <timestamp>` Course behind; everything else it makes it undoes.
 test.describe('the Courses screen on a laptop', () => {
 	test.use({ viewport: { width: 1280, height: 720 } });
-
-	test('a row control is hidden until the row is hovered or holds focus', async ({ page }) => {
-		await openCourse(page);
-		const pencil = page.getByRole('button', { name: /^Rename / }).first();
-		await expect(pencil).toHaveCSS('opacity', '0');
-
-		await pencil.focus();
-		await expect(pencil).toHaveCSS('opacity', '1');
-	});
-
-	test('a row control shows on hover', async ({ page }) => {
-		await openCourse(page);
-		const pencil = page.getByRole('button', { name: /^Rename / }).first();
-		await expect(pencil).toHaveCSS('opacity', '0');
-
-		await pencil.hover({ force: true });
-		await expect(pencil).toHaveCSS('opacity', '1');
-	});
 
 	test('a tile shows the Course and opens its page', async ({ page }) => {
 		await login(page, '/courses');
@@ -98,23 +81,6 @@ test.describe('the Courses screen on a tablet in landscape', () => {
 		await expectNoHorizontalScroll(page);
 	});
 });
-
-{
-	for (const [name, use] of [
-		['tablet portrait', { viewport: { width: 800, height: 1180 }, hasTouch: true }],
-		['tablet landscape', { viewport: { width: 1280, height: 800 }, hasTouch: true }]
-	] as const) {
-		test.describe(`the Courses screen on a ${name}`, () => {
-			test.use(use);
-
-			test('fits the width', async ({ page }) => {
-				await login(page, '/courses');
-				await expect(page.getByRole('link', { name: /KS3 Science/ })).toBeVisible();
-				await expectNoHorizontalScroll(page);
-			});
-		});
-	}
-}
 
 test.describe('the Courses screens on a phone write nothing', () => {
 	const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];

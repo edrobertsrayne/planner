@@ -35,23 +35,6 @@ test.describe('the Planning table on a laptop', () => {
 	});
 });
 
-{
-	for (const [name, use] of [
-		['tablet portrait', { viewport: { width: 800, height: 1180 }, hasTouch: true }],
-		['tablet landscape', { viewport: { width: 1280, height: 800 }, hasTouch: true }]
-	] as const) {
-		test.describe(`the Planning table on a ${name}`, () => {
-			test.use(use);
-
-			test('fits the width', async ({ page }) => {
-				await login(page, '/planning');
-				await expect(page.getByRole('link', { name: 'Speed', exact: true })).toBeVisible();
-				await expectNoHorizontalScroll(page);
-			});
-		});
-	}
-}
-
 test.describe('the Planning cards on a phone', () => {
 	// `defaultBrowserType` would force a new worker inside a describe, so take the other fields.
 	const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];

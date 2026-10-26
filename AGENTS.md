@@ -19,6 +19,14 @@ Follow `CODING_STANDARDS.md` for all code. It sets the principles (single respon
 
 ## Tests
 
+Test each behaviour at the lowest level that can see it:
+
+- A unit test for logic in a plain module, and for every domain rule and refusal of the seam.
+- A component test (`*.svelte.test.ts`) for what a component draws from its props: wording, states, ARIA, hover and focus.
+- An e2e test only for what needs the running app: routing and the URL, a reload, Back, auth, a write and what the page then shows, files, a touch pointer, or layout inside the app shell.
+
+The check that no screen scrolls sideways is in `e2e/the-screen-widths.e2e.ts`. Add a new screen there; do not add a "fits the width" test elsewhere.
+
 While you work, run the unit and e2e files for the code you change. Run one e2e file alone with `bun run test:e2e -- e2e/the-backup.e2e.ts`.
 Run the full suite, `bun run test`, once when the work is complete. The pre-push hook runs `bun run check` and the unit tests. CI runs the full suite on each push to `main` and on each PR.
 Before you say that a push or a PR passes, read its CI result with `gh run list --branch <branch>` or `gh pr checks <number>`.
