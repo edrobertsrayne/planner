@@ -31,8 +31,7 @@ Add new entries at the top, dated:
 
 - 2026-10-07: Ask whether stored Sessions still earn their place. Raised in "What may the teacher
   move across the taught boundary?" (#371): with taught Sequence entries locked and notes kept on
-  the Sequence entry, a relabel no longer strands a note, so `atRisk` may go and Sessions might be
-  derived on demand. Stored history still guards the past against later inputs, such as a Length
+  the Sequence entry, a relabel no longer strands a note, so Sessions might be derived on demand. Stored history still guards the past against later inputs, such as a Length
   edit to a taught Lesson. Beyond the per-Class order map (#366).
 
 - 2026-10-07: Teach one Topic Lesson to one Class more than once, for example as revision. Ruled
@@ -55,7 +54,7 @@ Add new entries at the top, dated:
 
 - 2026-10-06: Show the Rewind report of placing a Lesson on the Session page. `POST
 /session/placement` sends `report`, but `session-body.svelte` ignores it, so a Placement
-  that shifts another Placement stays silent (found in #357; `atRisk` retired in #371).
+  that shifts another Placement stays silent (found in #357).
 
 - 2026-10-06: A search control over Lessons and Sessions (#265). The dashed "Search" room in
   the sidebar and top bar was removed as a no-op placeholder (PR #354 review); build the

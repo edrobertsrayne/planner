@@ -1,21 +1,23 @@
 # Specification: the Planning HTTP API
 
-Status: **specification only — nothing is built.** This document is the destination of wayfinder map
-[#126](https://github.com/edrobertsrayne/planner/issues/126). It gathers every decision that map
-recorded and adds the mechanical detail (field shapes, validation, status codes) that was deferred
-to it.
+Status: **built.** This document describes the API as it runs. It began as the destination of
+wayfinder map [#126](https://github.com/edrobertsrayne/planner/issues/126); every decision that map
+recorded is now in the code, and the shapes below are read from it.
 
-The companion document `docs/spec/planning-api-skill.md` holds the reference skill for a consuming
-agent. Move it to `.claude/skills/planner-api/SKILL.md` when the API is built, not before.
+The companion skill for an agent that calls the API is
+[`.agents/skills/planner-api/SKILL.md`](../../.agents/skills/planner-api/SKILL.md).
 
 ## 1. Purpose and scope
 
-The API gives an outside agent write access to the **Planning** half of the domain: Course, Topic,
-Lesson, Link and Attachment. It does two things.
+The API gives an outside agent access to the **Planning** half of the domain: Course, Topic,
+Lesson, Link and Attachment. It also reads and replaces the six Terms, and reads, adds and removes
+Blocked Days — the Calendar inputs that decide which Sessions exist at all. It does three things.
 
 1. **CRUD.** Create, read, edit and remove one record at a time.
 2. **Import.** Create one Topic, with its Lessons and their Links, in a single all-or-nothing
    request.
+3. **The Calendar's inputs.** Read and replace the six Terms as one document; add and remove
+   Blocked Days by date.
 
 It is one link in a larger workflow the teacher drives. It does not parse lesson plans and it makes
 no editorial decision.
@@ -24,10 +26,11 @@ no editorial decision.
 
 These are ruled out of this effort. They are listed so an implementer does not add them by reflex.
 
-- Everything in the **Scheduling** half: Class, Timetable, Slot, Session, Sequence, Teaching note,
-  Continuation, and Readiness. A Sequence has no endpoint: a Lesson reaches a Class through the
-  browser. A Standalone Lesson reaches a Class's Sequence only through the browser (Add Lesson,
-  ADR-0026).
+- Everything else in the **Scheduling** half: Class, Timetable, Slot, Session, Sequence, Teaching
+  note, Continuation, Readiness, and Blocked Slots. A Sequence has no endpoint: a Lesson reaches a
+  Class through the browser. A Standalone Lesson reaches a Class's Sequence only through the
+  browser (Add Lesson, ADR-0026). A Blocked Slot is one Class's Slot on one date, so it belongs
+  with the Timetable in the browser.
 - Reordering: `moveLesson` and `moveLink` get no endpoint. Order is set by creation order.
 - Whole-Course Import. Import handles one Topic per request.
 - Update-by-reimport. Import is create-only. To change an imported Topic, delete it and import
@@ -164,6 +167,11 @@ the record under its own name, with `report` beside it.
 { "lesson": { "id": "b204...", "title": "..." }, "report": { "placementsMoved": [] } }
 ```
 
+Two reads wrap their list, because the records have no id: `GET /api/terms` answers
+`{ "terms": [...] }` and `GET /api/blocked-days` answers `{ "blockedDays": [...] }`. `PUT
+/api/terms` answers the new six in that same wrapper beside its report. Every other list is a bare
+array.
+
 An error returns:
 
 ```json
@@ -175,16 +183,17 @@ stack, or a field path.
 
 ### 3.3 Status codes
 
-| code | meaning                                                                |
-| ---- | ---------------------------------------------------------------------- |
-| 200  | Read or edit succeeded. Body is the record or the array.               |
-| 201  | Create succeeded. Body is the new record.                              |
-| 204  | Remove succeeded. No body.                                             |
-| 400  | The body is malformed, a field is missing, or a value is out of range. |
-| 401  | The API key is absent or unknown.                                      |
-| 404  | The record named in the path does not exist.                           |
-| 409  | The write collides with an existing record, or is refused as unsafe.   |
-| 500  | Unexpected. The message must not leak internals.                       |
+| code | meaning                                                                         |
+| ---- | ------------------------------------------------------------------------------- |
+| 200  | Read or edit succeeded. Body is the record or the array.                        |
+| 201  | Create succeeded. Body is the new record.                                       |
+| 204  | Remove succeeded. No body.                                                      |
+| 200  | Remove succeeded and carried a Rewind report: `DELETE /api/blocked-days/:date`. |
+| 400  | The body is malformed, a field is missing, or a value is out of range.          |
+| 401  | The API key is absent or unknown.                                               |
+| 404  | The record named in the path does not exist.                                    |
+| 409  | The write collides with an existing record, or is refused as unsafe.            |
+| 500  | Unexpected. The message must not leak internals.                                |
 
 `404` and `409` are distinct and must not be merged. `404` means "this id is wrong". `409` means
 "this id is right and the write is refused".
@@ -216,17 +225,19 @@ The door checks only types. The planner seam owns every value rule, and the form
 panel and this API share it. A refused value is **400** with the message the teacher sees in the
 app.
 
-| field                       | type           | value rule (in the seam)               | refusal                                                    |
-| --------------------------- | -------------- | -------------------------------------- | ---------------------------------------------------------- |
-| Course `name`               | string         | not empty after trimming               | `A Course needs a name.`                                   |
-| Topic `name`                | string         | not empty after trimming               | `A Topic needs a name.`                                    |
-| Lesson `title`              | string         | not empty after trimming               | `A Lesson needs a title.`                                  |
-| Link `label`                | string         | not empty after trimming               | `A Link needs a label.`                                    |
-| Link `url`                  | string         | not empty; an `http:` or `https:` URL  | `A Link needs a url.` / `A Link must be an http(s) URL.`   |
-| `body`                      | string or null | none; a blank body is stored as `null` | —                                                          |
-| `length`                    | number         | a whole number from 1 to 20            | `A Length must be a whole number of Periods from 1 to 20.` |
-| `status`                    | string         | `"draft"` or `"planned"`               | `A Lesson must be Draft or Planned.`                       |
-| `courseId`, `topicId`, `id` | string         | matching an existing record            | 404                                                        |
+| field                       | type           | value rule (in the seam)               | refusal                                                                      |
+| --------------------------- | -------------- | -------------------------------------- | ---------------------------------------------------------------------------- |
+| Course `name`               | string         | not empty after trimming               | `A Course needs a name.`                                                     |
+| Topic `name`                | string         | not empty after trimming               | `A Topic needs a name.`                                                      |
+| Lesson `title`              | string         | not empty after trimming               | `A Lesson needs a title.`                                                    |
+| Link `label`                | string         | not empty after trimming               | `A Link needs a label.`                                                      |
+| Link `url`                  | string         | not empty; an `http:` or `https:` URL  | `A Link needs a url.` / `A Link must be an http(s) URL.`                     |
+| `body`                      | string or null | none; a blank body is stored as `null` | —                                                                            |
+| `length`                    | number         | a whole number from 1 to 20            | `A Length must be a whole number of Periods from 1 to 20.`                   |
+| `status`                    | string         | `"draft"` or `"planned"`               | `A Lesson must be Draft or Planned.`                                         |
+| `courseId`, `topicId`, `id` | string         | matching an existing record            | 404                                                                          |
+| Term `opens`, `closes`      | string         | a real `YYYY-MM-DD` date               | `"2026-02-30" is not a real date.`                                           |
+| Blocked Day `date`          | string         | a real date on a Monday to Friday      | `"2026-11-28" falls on a weekend. A Blocked Day must be a Monday to Friday.` |
 
 A wrong type is **400** `The "<field>" field must be a string.` (or `a number`, or `a string or
 null`). There are no size limits: the request body limit bounds every request.
@@ -250,6 +261,10 @@ re-derive nothing. A change of a Lesson's Length re-derives each Class that hold
 Sequence or by a Placement.
 
 **Import re-derives nothing.** A new Topic is in no Sequence, so no Class has a date to change.
+
+**Replacing the Terms re-derives every Class from the first Term that changed** (§5.7). A Term
+decides which weeks are Teaching Weeks and so which Week letter each one carries; a save that
+changes no Term re-derives nothing at all.
 
 ## 4. The records
 
@@ -298,6 +313,23 @@ These are the JSON shapes. They match the Drizzle schema in `src/lib/server/db/s
 
 `position` is read-only here too.
 
+**Term**
+
+```json
+{ "name": "Autumn 1", "opens": "2026-09-03", "closes": "2026-10-23" }
+```
+
+A Term has no id and is never addressed on its own: the six are one document, and `name` is
+derived from position in date order (Autumn 1 through Summer 2), never stored and never accepted.
+
+**Blocked Day**
+
+```json
+{ "date": "2026-11-26", "note": "INSET" }
+```
+
+A Blocked Day has no id either: it is addressed by `date`. `note` is nullable.
+
 ## 5. Endpoints
 
 ### 5.1 Course
@@ -340,14 +372,15 @@ This is the lookup list. An agent that knows a Course by name and needs its id s
 { "error": "A Class follows this Course, so it cannot be removed." }
 ```
 
-There is no cascade. A Course is a year's worth of writing and must not go in one call. The Class
-check is not optional: `class.course_id` is a `NOT NULL` foreign key, so the delete would fail at
-the database anyway and produce a 500 instead of a clear 409.
+A Course with no Topics that no Class follows goes at once. There is no cascade: a Course is a
+year's worth of writing and must not go in one call. The Class check is not optional:
+`class.course_id` is a `NOT NULL` foreign key, so the delete would fail at the database anyway and
+produce a 500 instead of a clear 409.
 
-**`GET /api/courses/:id/topics`** → 200, `Topic[]`. → 404.
+**`GET /api/courses/:id/topics`** → 200, `Topic[]`, ordered by name. → 404.
 
-Unordered. A Course holds its Topics in no particular order (ADR-0010). Sort by name for a stable
-reply.
+A Course holds its Topics in no particular order (ADR-0010); the route sorts by name so the reply
+is stable.
 
 **`POST /api/courses/:id/topics`**
 
@@ -383,8 +416,8 @@ Move to… on the Course page). The API does not expose it.
 }
 ```
 
-The API has no confirm, so a Topic with Lessons is refused. In the browser, Delete Topic asks first and
-then detaches: the Lessons become Standalone Lessons, and every Sequence keeps them.
+The API has no confirm, so a Topic with Lessons is refused. In the browser, Delete Topic asks
+first and then detaches: the Lessons become Standalone Lessons, and every Sequence keeps them.
 
 **`GET /api/topics/:id/lessons`** → 200, `Lesson[]`, ordered by `position`. → 404.
 
@@ -637,6 +670,62 @@ There is no `PUT` and no merge. Import is create-only. Re-importing a changed To
 the Topic and importing again, or hand-editing in the Courses view. The deleted Topic's old Lessons
 stay as Standalone Lessons, and every Sequence keeps them.
 
+### 5.7 Terms
+
+**`GET /api/terms`** → 200, `{ "terms": Term[] }` in date order — the six of the year, or an empty
+list before a year has been set up.
+
+**`PUT /api/terms`**
+
+```json
+{
+	"terms": [
+		{ "opens": "2026-09-03", "closes": "2026-10-23" },
+		{ "opens": "2026-11-02", "closes": "2026-12-22" },
+		{ "opens": "2027-01-05", "closes": "2027-02-12" },
+		{ "opens": "2027-02-22", "closes": "2027-03-26" },
+		{ "opens": "2027-04-19", "closes": "2027-05-28" },
+		{ "opens": "2027-06-07", "closes": "2027-07-19" }
+	]
+}
+```
+
+The six replaced as one document, in any order; extra fields are ignored. → 200,
+`{ "terms": Term[], "report": { "placementsMoved": [] } }` — the six in date order with their
+derived names, and the Rewind's report beside them, because a Term change can move a Session.
+
+Refusals are the seam's, and the first one wins:
+
+- **400** — `A year needs exactly six Terms, and 5 were given.`
+- **400** — `"2026-02-30" is not a real date.`
+- **400** — `A Term cannot open after it closes: opens 2027-07-19, closes 2027-06-07.`
+- **400** — `Terms cannot overlap or touch: one closes 2027-06-07, the next opens 2027-06-07.`
+
+There is no POST and no DELETE: a Term is never created or removed on its own.
+
+### 5.8 Blocked Days
+
+**`GET /api/blocked-days`** → 200, `{ "blockedDays": [{ "date": "2026-11-26", "note": "INSET" }] }`
+in date order, across the whole year, with no ids — the date is the address.
+
+**`POST /api/blocked-days`**
+
+```json
+{ "date": "2026-11-26", "note": "INSET" }
+```
+
+`date` is required and `note` optional (stored trimmed; absent is `null`). → 201,
+`{ "blockedDay": { "date": "...", "note": "..." }, "report": { "placementsMoved": [] } }` — the
+stored day beside the Rewind's report, because blocking a day can move a Placement.
+
+- **400** — `The "date" field is required.` (also when it is not a string).
+- **400** — `"2026-11-28" falls on a weekend. A Blocked Day must be a Monday to Friday.`
+- **409** — `"2026-11-26" is already a Blocked Day.`
+
+**`DELETE /api/blocked-days/:date`** → 200, `{ "report": { "placementsMoved": [] } }`. → 404
+`No such Blocked Day.` When the date is not blocked. This is the one remove that answers a body:
+unblocking a day re-derives the Classes it held, and that report can name moved Placements.
+
 ## 6. Uniqueness
 
 These rules apply across several endpoints, so they are set out once here.
@@ -653,14 +742,12 @@ teacher expects one.
 
 ### 6.2 The migration
 
-No constraint exists today. Wayfinder ticket
-[#127](https://github.com/edrobertsrayne/planner/issues/127) checked every local SQLite file in the
-checkout for Course collisions and for Topic collisions within a Course, case-sensitive and
-case-insensitive. It found none. Those are dev and test databases with 0 to 1 rows per table, so
-this clears the way for a plain migration but is not a production audit. **Re-run the check against
-the live database before applying the migration.**
+Wayfinder ticket [#127](https://github.com/edrobertsrayne/planner/issues/127) checked every local
+SQLite file in the checkout for Course collisions and for Topic collisions within a Course,
+case-sensitive and case-insensitive. It found none, and the migration shipped with the API. The
+same migration makes `lesson.topic_id` nullable, for ADR-0015.
 
-Two unique indexes, in one migration:
+Two unique indexes:
 
 ```sql
 CREATE UNIQUE INDEX course_name_unique ON course (name COLLATE NOCASE);
@@ -670,71 +757,31 @@ CREATE UNIQUE INDEX topic_name_per_course ON topic (course_id, name COLLATE NOCA
 An index needs no table rebuild, so this is safe on tables that other tables reference. See
 `docs/agents/migrations.md`.
 
-The same migration makes `lesson.topic_id` nullable, for ADR-0015:
-
-```sql
-ALTER TABLE lesson ALTER COLUMN topic_id DROP NOT NULL;
-```
-
-That statement is verified on this project's SQLite and needs no table rebuild. Read the SQL
-`drizzle-kit` generates and replace any table rebuild with these three statements.
+The same migration made `lesson.topic_id` nullable, with plain `ALTER TABLE ... ALTER COLUMN ...
+DROP NOT NULL` and no table rebuild.
 
 ### 6.3 Enforce it in both places
 
 The database index is the guard of last resort. The route handler must still check first and answer
 **409** with a readable message. A raw `SQLITE_CONSTRAINT` reaching the client as a 500 is a bug.
 
-The Courses view writes the same tables through the same authoring functions, so the constraint
-also applies to the browser. The Courses view must gain the same collision message, or it will show
-an unhandled error where it used to succeed.
+The Courses view writes the same tables through the same seam functions, so the rule applies to the
+browser too, and it shows the same collision message.
 
-## 7. What the implementation must build
+## 7. As built
 
-`src/lib/server/planner/authoring.ts` already holds most of the work as pure functions taking a
-Drizzle `Db` handle. Route handlers should call them, not reimplement them. These already exist and
-are used as they are:
+The rules live in the planner seam (`src/lib/server/planner/`), not in the routes: the routes
+narrow types and map `Refused` to a status (ADR-0025). The modules:
 
-`listCourses`, `topicsOf`, `lessonsOf`, `createCourse`, `renameCourse`, `createTopic`,
-`renameTopic`, `createLesson`, `lessonDetail`, `linksOf`, `createLink`, `updateLink`, `deleteLink`,
-`classesTaughtLesson`.
+- `courses.ts` — Courses and Topics, the whole-Course and whole-Topic deletes.
+- `lessons.ts` — Lessons, `lessonDetail` (the whole-Lesson read) and the delete rules.
+- `links.ts`, `tags.ts` — Links and Tags.
+- `import.ts` — one Topic, its Lessons and their Links, in one transaction.
+- `terms.ts` — the six as one document.
+- `disruptions.ts` — Blocked Days and Blocked Slots; the API uses the Blocked Day half.
+- `attachments.ts` — the allow-list, the size ceiling, the file on disk.
 
-### 7.1 Gaps to fill in `authoring.ts`
-
-| what           | why                                                                                |
-| -------------- | ---------------------------------------------------------------------------------- |
-| `courseById`   | No read-one exists. `GET /api/courses/:id` needs it.                               |
-| `topicById`    | Same, for `GET /api/topics/:id`.                                                   |
-| `deleteCourse` | Does not exist. Must refuse when the Course holds Topics or a Class follows it.    |
-| `deleteTopic`  | Does not exist. Must refuse when the Topic holds Lessons (the API has no confirm). |
-| `editLesson`   | One partial change to one Lesson, for the Lesson editor and PATCH alike (#356).    |
-| `importTopic`  | New. One transaction, direct inserts, no re-derive: a new Topic is in no Sequence. |
-
-### 7.2 Signatures to change
-
-- **`editLesson`** accepts `topicId: string | null`. A null target is Detach: it sets the column
-  and re-derives nothing: Detach changes no Sequence.
-- **`deleteLesson`** refuses a taught or placed Lesson by throwing `Refused('conflict', …)` — the
-  message written at the seam, the status mapped by the door (`src/lib/server/planner/refused.ts`).
-  A Lesson that a Sequence holds returns `{ needsConfirm: true, reason }` instead, and the API door
-  answers it with 409 and the `reason`. An id the URL names but the database does not returns `undefined`, and the route answers its own 404.
-
-### 7.3 The three joins from ADR-0015
-
-Making `lesson.topic_id` nullable breaks three inner joins. They must become **left** joins, and
-`topicName` becomes nullable at each:
-
-- `lessonNames` in `derive.ts` — feeds the Agenda, the Calendar grid, the Class lanes, the report
-  of a Placement that moved.
-- `sessionDetail` in `sessions.ts` — feeds the Session page.
-- `planningStream` in `views.ts` — feeds the Planning tab.
-
-The first two are load-bearing. Left unrepaired they drop a Standalone Lesson's title from exactly
-the history ADR-0015 exists to preserve.
-
-Where a Topic name would print, **print nothing**. A Standalone Lesson has no Topic, and a
-placeholder such as "(no topic)" would assert otherwise.
-
-### 7.4 Route layout
+Routes:
 
 ```
 src/routes/api/courses/+server.ts                    GET, POST
@@ -747,31 +794,22 @@ src/routes/api/lessons/[id]/links/+server.ts         GET, POST
 src/routes/api/links/[id]/+server.ts                 PATCH, DELETE
 src/routes/api/lessons/[id]/attachments/+server.ts   POST
 src/routes/api/attachments/[id]/+server.ts           DELETE
+src/routes/api/terms/+server.ts                      GET, PUT
+src/routes/api/blocked-days/+server.ts               GET, POST
+src/routes/api/blocked-days/[date]/+server.ts        DELETE
 src/routes/api/import/+server.ts                     POST
 ```
 
-### 7.5 Documents to update when the work lands
+The key check is one hook (`handleApiKey` in `src/hooks.server.ts`, §2.5), and each successful API
+write leaves one line in the container log.
 
-- **`GLOSSARY.md`** — the Settings entry says Settings gets no second section. It now has one.
-- **A new ADR** — record the API key as a deliberate second authentication mechanism alongside the
-  cookie session, and why a personal single-user planner accepts two. This was flagged during
-  domain-modeling on map #126 and is not yet written.
-- **`.claude/skills/planner-api/SKILL.md`** — move `docs/spec/planning-api-skill.md` into place.
+## 8. Tests
 
-## 8. Tests worth writing
+Over real HTTP, one file per area, under `e2e/the-planning-api/`: the key gate and the Course
+endpoints (`10-courses`), Topics (`20-topics`), Lessons (`30-lessons`), Links and Attachments
+(`40-links`, `45-attachments`), Import (`50-import`), the refusals shared across the API
+(`60-refusals`), Blocked Days (`70-blocked-days`), Terms (`80-terms`) and the key itself
+(`90-the-key`). Run them with `bun run test:e2e -- e2e/the-planning-api`.
 
-Not a full plan, but the cases that carry the decisions:
-
-- A request with no `Authorization` header gets 401 JSON, **not** a 303 to `/login`.
-- A revoked key gets 401.
-- Importing a Topic whose ninth Lesson is invalid leaves no Course, no Topic, and no Lesson.
-- Importing with `course.name` matching an existing Course reuses it and reports
-  `"courseCreated": false`.
-- A Topic named "forces" collides with an existing "Forces" in the same Course, and does not
-  collide with a "Forces" in a different Course.
-- Two Lessons called "Revision" import into one Topic, and the response carries two different ids.
-- `DELETE /api/lessons/:id` on a taught Lesson returns 409, and the Lesson is still there.
-- `DELETE /api/lessons/:id` on a Lesson that a Class's Sequence holds returns 409 and names the Class.
-- `PATCH /api/lessons/:id` with `{"topicId": null}` on a taught Lesson succeeds, and the Session
-  that taught it still shows the Lesson title with no Topic name.
-- `DELETE /api/courses/:id` on a Course a Class follows returns 409, not 500.
+Each file resets the database to the standard state and creates the records it reads, so any file
+runs alone.
