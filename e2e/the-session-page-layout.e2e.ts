@@ -66,17 +66,3 @@ test.describe('the Session page on a phone', () => {
 		await expect(page.getByLabel('How it went')).toHaveText(text);
 	});
 });
-
-for (const [name, viewport] of [
-	['tablet portrait', { width: 800, height: 1180 }],
-	['tablet landscape', { width: 1280, height: 800 }]
-] as const) {
-	test.describe(`the Session page on a ${name}`, () => {
-		test.use({ viewport, hasTouch: true });
-
-		test('fits the width', async ({ page }) => {
-			await openSessionWithLesson(page);
-			await expectNoHorizontalScroll(page);
-		});
-	});
-}

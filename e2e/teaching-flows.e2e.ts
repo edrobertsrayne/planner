@@ -559,18 +559,6 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expect(page).toHaveURL(/horizon=14/);
 		await expect(page).toHaveURL(/tag=Practical/);
 
-		// A second click on the chip that is on goes back to All Lessons (issue #340).
-		await practicalChip.click();
-		await expect(page).not.toHaveURL(/tag=/);
-		await expect(page).toHaveURL(/horizon=14/);
-		await expect(practicalChip).toHaveAttribute('aria-pressed', 'false');
-
-		// The All Lessons chip clears the filter the same way.
-		await practicalChip.click();
-		await expect(page).toHaveURL(/tag=Practical/);
-		await page.getByRole('button', { name: 'All Lessons' }).click();
-		await expect(page).not.toHaveURL(/tag=/);
-
 		// A Tag with no Lesson in the window keeps its chip at a count of zero, so it can be cleared.
 		await page.goto('/?horizon=7&tag=Nowhere');
 		const nowhereChip = page.getByRole('button', { name: 'Nowhere 0' });

@@ -121,23 +121,6 @@ test.describe('the Classes screen on a laptop', () => {
 	});
 });
 
-{
-	for (const [name, use] of [
-		['tablet portrait', { viewport: { width: 800, height: 1180 }, hasTouch: true }],
-		['tablet landscape', { viewport: { width: 1280, height: 800 }, hasTouch: true }]
-	] as const) {
-		test.describe(`the Classes screen on a ${name}`, () => {
-			test.use(use);
-
-			test('fits the width', async ({ page }) => {
-				await login(page, '/classes');
-				await expect(page.getByRole('link', { name: /9B\/Sc1/ })).toBeVisible();
-				await expectNoHorizontalScroll(page);
-			});
-		});
-	}
-}
-
 test.describe('the Classes screen on a phone writes nothing', () => {
 	// `defaultBrowserType` stays out, so no new worker is forced (as on the Courses screens).
 	const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];

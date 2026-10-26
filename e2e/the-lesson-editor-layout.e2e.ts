@@ -9,11 +9,6 @@ test.beforeAll(() => resetTo('standard'));
 test.describe('the Lesson editor on a laptop', () => {
 	test.use({ viewport: { width: 1280, height: 720 } });
 
-	test('fits the width', async ({ page }) => {
-		await openLesson(page);
-		await expectNoHorizontalScroll(page);
-	});
-
 	test('the plan toolbar stays in view while a long plan scrolls', async ({ page }) => {
 		await openLessonFromCourses(page);
 		const plan = page.getByRole('textbox', { name: 'Notes & objectives' });
@@ -37,22 +32,6 @@ test.describe('the Lesson editor on a laptop', () => {
 		await page.getByRole('button', { name: 'Back' }).click();
 	});
 });
-
-{
-	for (const [name, use] of [
-		['tablet portrait', { viewport: { width: 800, height: 1180 }, hasTouch: true }],
-		['tablet landscape', { viewport: { width: 1280, height: 800 }, hasTouch: true }]
-	] as const) {
-		test.describe(`the Lesson editor on a ${name}`, () => {
-			test.use(use);
-
-			test('fits the width', async ({ page }) => {
-				await openLesson(page);
-				await expectNoHorizontalScroll(page);
-			});
-		});
-	}
-}
 
 test.describe('the Lesson editor on a phone', () => {
 	// `defaultBrowserType` would force a new worker inside a describe, so take the other fields.

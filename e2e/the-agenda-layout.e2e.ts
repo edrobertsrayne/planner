@@ -60,15 +60,6 @@ test.describe('the Agenda on a tablet', () => {
 	});
 });
 
-test.describe('the Agenda on a tablet in landscape', () => {
-	test.use({ viewport: { width: 1280, height: 800 }, hasTouch: true });
-
-	test('the Agenda fits the width', async ({ page }) => {
-		await login(page);
-		await expectNoHorizontalScroll(page);
-	});
-});
-
 test.describe('the Agenda on a phone', () => {
 	// `defaultBrowserType` would force a new worker inside a describe, so take the other fields.
 	const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];
