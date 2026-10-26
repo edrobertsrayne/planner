@@ -50,6 +50,7 @@ export {
 	classLanes,
 	classSchedule,
 	createClass,
+	deleteClass,
 	listClasses,
 	renameClass,
 	type ClassLane

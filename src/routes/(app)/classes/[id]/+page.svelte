@@ -1,16 +1,20 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { MediaQuery } from 'svelte/reactivity';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
+	import TrashIcon from '@lucide/svelte/icons/trash-2';
 	import { classTone } from '$lib/class-tone';
-	import { replaceQuery } from '$lib/client/enhance';
+	import { failureReason, replaceQuery } from '$lib/client/enhance';
 	import { formatDate } from '$lib/date';
 	import { withParam } from '$lib/query';
 	import { untrack } from 'svelte';
+	import ConfirmDeleteDialog from '$lib/components/confirm-delete-dialog.svelte';
 	import RenameableRow from '$lib/components/renameable-row.svelte';
 	import RewindReport from '$lib/components/rewind-report.svelte';
 	import { Badge } from '$lib/components/ui/badge/index.js';
+	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import LaneSummary from './LaneSummary.svelte';
@@ -18,6 +22,7 @@
 	import SequenceTab from './SequenceTab.svelte';
 	import SlotRooms from './SlotRooms.svelte';
 	import TimetableGrid from './TimetableGrid.svelte';
+	import type { SubmitFunction } from '@sveltejs/kit';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -38,6 +43,24 @@
 	const setAsAt = (date: string) => replaceQuery(withParam(page.url, 'from', date));
 
 	const tone = $derived(classTone(data.class.tone));
+
+	// Deleting a Class always asks first (ADR-0022): the unconfirmed post comes back with
+	// `needsConfirm` and the reason, which names what goes with it. The dialog then posts the same
+	// delete with `confirmed`, and the action lands the teacher on the Classes list.
+	let pendingDelete = $state<{ id: string; name: string; description: string } | null>(null);
+	const askDelete: SubmitFunction = () => {
+		return async ({ result, update }) => {
+			if (result.type === 'failure' && result.data?.needsConfirm) {
+				pendingDelete = {
+					id: data.class.id,
+					name: data.class.label,
+					description: failureReason(result, 'Delete it?')
+				};
+			} else {
+				await update();
+			}
+		};
+	};
 	const slotCount = $derived(data.grid.filter((s) => s.classId === data.class.id).length);
 
 	const labelOf = (classId: string) => data.classes.find((c) => c.id === classId)?.label ?? classId;
@@ -98,6 +121,21 @@
 			/>
 			<Badge variant="outline" class="mt-1">{data.class.courseName}</Badge>
 		</div>
+		<!-- The rename pencil's partner, and shown on the same widths: a phone reads Overview only. -->
+		{#if md.current}
+			<form method="POST" action="?/deleteClass" use:enhance={askDelete} class="ml-auto shrink-0">
+				<input type="hidden" name="id" value={data.class.id} />
+				<Button
+					type="submit"
+					variant="ghost"
+					size="sm"
+					class="text-destructive hover:text-destructive"
+				>
+					<TrashIcon data-icon="inline-start" />
+					Delete Class
+				</Button>
+			</form>
+		{/if}
 	</div>
 
 	<!-- Overview and Timetable under the Class's label (story 110). No tabs on a phone: Overview
@@ -213,3 +251,5 @@
 		</section>
 	</div>
 </div>
+
+<ConfirmDeleteDialog bind:target={pendingDelete} action="?/deleteClass" />

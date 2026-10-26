@@ -4,6 +4,7 @@ import { db } from '$lib/server/db/client';
 import { refusal, trimmed } from '$lib/server/form';
 import {
 	academicYearStart,
+	deleteClass,
 	activeSlots,
 	assignTopic,
 	classDetail,
@@ -102,6 +103,19 @@ export const actions: Actions = {
 		} catch (error) {
 			return refusal(error);
 		}
+	},
+
+	deleteClass: async ({ request }) => {
+		const data = await request.formData();
+		const id = trimmed(data, 'id');
+		const result = deleteClass(db, {
+			id,
+			today: today(),
+			confirmed: trimmed(data, 'confirmed') === 'true'
+		});
+		if (!result) return fail(404, { error: 'No such Class.' });
+		if ('needsConfirm' in result) return fail(409, { error: result.reason, needsConfirm: true });
+		redirect(303, '/classes');
 	},
 
 	assignTopic: async ({ request }) => {

@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { describe, expect, test } from 'vitest';
 import { runway } from './engine';
-import { makeLessons, makeTopic, setUp } from './fixtures';
+import { failingCommit, makeLessons, makeTopic, setUp } from './fixtures';
 import {
 	activeSlots,
 	assignTopic,
@@ -10,7 +10,9 @@ import {
 	classLanes,
 	classSchedule,
 	createClass,
+	deleteClass,
 	listClasses,
+	setReadiness,
 	writeTeachingNote
 } from './index';
 import * as schema from '../db/schema';
@@ -286,5 +288,147 @@ describe('the Classes view', () => {
 		const lanes = classLanes(db, { today: '2026-09-03' });
 
 		expect(lanes.map((l) => l.classId)).toEqual([classB.id, classA.id]);
+	});
+});
+
+// ADR-0022: deleting a Class deletes everything it owns, taught Sessions included. The rows go
+// explicitly and in dependency order, in one transaction, with no schema cascade to rebuild a
+// table for.
+describe('deleting a Class', () => {
+	test('asks first, naming what goes with it', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const lessons = makeLessons(db, topic.id, 3);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+		writeTeachingNote(db, {
+			classId: classA.id,
+			lessonId: lessons[0].id,
+			date: '2026-09-03',
+			period: 5,
+			note: 'went well'
+		});
+
+		const asked = deleteClass(db, { id: classA.id, today: '2026-09-14' });
+		expect(asked).toMatchObject({ needsConfirm: true });
+		const reason = (asked as { reason: string }).reason;
+		// 9B/Sc1 teaches three Lessons from 3 September, so by 14 September some are taught.
+		expect(reason).toMatch(
+			/Its timetable, its \d+ Sessions \(\d+ taught\) and its 1 Teaching note go with it\./
+		);
+
+		expect(classDetail(db, classA.id)).not.toBeNull();
+	});
+
+	test('takes every row the Class owns and leaves no row naming it', () => {
+		const { db, course, classA, classB } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const lessons = makeLessons(db, topic.id, 3);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+		writeTeachingNote(db, {
+			classId: classA.id,
+			lessonId: lessons[0].id,
+			date: '2026-09-03',
+			period: 5,
+			note: 'went well'
+		});
+		setReadiness(db, lessons[0].id, classA.id, true);
+
+		const taught = db
+			.select({ id: schema.session.id })
+			.from(schema.session)
+			.where(eq(schema.session.classId, classA.id))
+			.all();
+		for (const session of taught.slice(0, 2)) {
+			db.insert(schema.continuation).values({ sessionId: session.id }).run();
+		}
+
+		// classB owns a Slot, a Blocked Slot and a Placement, and none of them may go with classA.
+		const [slotB] = db.select().from(schema.slot).where(eq(schema.slot.classId, classB.id)).all();
+		db.insert(schema.blockedSlot)
+			.values({ classId: classB.id, date: '2026-09-15', slotId: slotB.id, note: 'Trip' })
+			.run();
+		db.insert(schema.placement)
+			.values({
+				classId: classB.id,
+				date: '2026-09-14',
+				slotId: slotB.id,
+				lessonId: lessons[0].id
+			})
+			.run();
+
+		const removed = deleteClass(db, { id: classA.id, today: '2026-09-14', confirmed: true });
+
+		expect(removed).toMatchObject({ id: classA.id, label: '9B/Sc1' });
+		expect(classDetail(db, classA.id)).toBeNull();
+
+		const count = (table: 'slot' | 'session' | 'placement' | 'blocked_slot' | 'class_lesson') =>
+			(
+				db.$client
+					.prepare(`SELECT count(*) AS n FROM ${table} WHERE class_id = ?`)
+					.get(classA.id) as { n: number }
+			).n;
+		// Continuation has no class_id: the rows left for the Class's old Sessions go with them.
+		const continuationsLeft = db
+			.select({ id: schema.continuation.id })
+			.from(schema.continuation)
+			.all();
+		expect(continuationsLeft).toHaveLength(0);
+		for (const table of ['slot', 'session', 'placement', 'blocked_slot', 'class_lesson'] as const)
+			expect(count(table), table).toBe(0);
+		expect(
+			db.select().from(schema.readiness).where(eq(schema.readiness.classId, classA.id)).all()
+		).toHaveLength(0);
+		expect(
+			db.select().from(schema.teachingNote).where(eq(schema.teachingNote.classId, classA.id)).all()
+		).toHaveLength(0);
+
+		// The other Class and the Course's own Lessons are untouched.
+		expect(listClasses(db).map((c) => c.label)).toEqual(['10C/Ph2']);
+		expect(
+			db.select().from(schema.slot).where(eq(schema.slot.classId, classB.id)).all()
+		).toHaveLength(2);
+		expect(
+			db.select().from(schema.blockedSlot).where(eq(schema.blockedSlot.classId, classB.id)).all()
+		).toHaveLength(1);
+		expect(lessons.map((lesson) => lesson.id).sort()).toEqual(
+			db
+				.select({ id: schema.lesson.id })
+				.from(schema.lesson)
+				.where(eq(schema.lesson.topicId, topic.id))
+				.all()
+				.map((row) => row.id)
+				.sort()
+		);
+	});
+
+	test('a failure after the deletes leaves the Class whole', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const lessons = makeLessons(db, topic.id, 3);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+		const sessions = db
+			.select({ id: schema.session.id })
+			.from(schema.session)
+			.where(eq(schema.session.classId, classA.id))
+			.all();
+
+		expect(() =>
+			deleteClass(failingCommit(db), { id: classA.id, today: '2026-09-14', confirmed: true })
+		).toThrow('COMMIT failed');
+
+		expect(classDetail(db, classA.id)).not.toBeNull();
+		expect(
+			db
+				.select({ id: schema.session.id })
+				.from(schema.session)
+				.where(eq(schema.session.classId, classA.id))
+				.all()
+		).toEqual(sessions);
+		expect(
+			db.select().from(schema.classLesson).where(eq(schema.classLesson.classId, classA.id)).all()
+		).toHaveLength(lessons.length);
+		expect(
+			db.select().from(schema.slot).where(eq(schema.slot.classId, classA.id)).all()
+		).toHaveLength(6);
 	});
 });

@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { EMAIL, PASSWORD, isoDate, resetTo, runFixture, signIn } from './helpers.ts';
+import { EMAIL, PASSWORD, isoDate, login, resetTo, runFixture, signIn } from './helpers.ts';
 
 // Logs in as the one user that resetTo('standard') creates, and reads the standard state (see
 // `reset` in scripts/e2e-fixtures.ts).
@@ -705,6 +705,31 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await page.getByRole('link', { name: 'Speed', exact: true }).click();
 		await page.getByRole('button', { name: 'Remove Recap' }).click();
 		await expect(page.locator('main').getByText('Recap', { exact: true })).toBeHidden();
+	});
+
+	test('Delete Class asks first, names what goes with it, and Cancel keeps the Class', async ({
+		page
+	}) => {
+		await login(page, '/classes');
+		await page.getByRole('button', { name: 'New Class' }).first().click();
+		await page.getByLabel('Label').fill('9E/Sc1');
+		await page.getByRole('button', { name: 'Create Class' }).click();
+		await page.waitForURL(/\/classes\/[^/]+$/);
+
+		await page.getByRole('button', { name: 'Delete Class' }).click();
+		const dialog = page.getByRole('dialog');
+		await expect(dialog).toContainText('9E/Sc1');
+		// A Class made a moment ago owns no Session and no Teaching note.
+		await expect(dialog).toContainText('Its timetable, its 0 Sessions and its 0 Teaching notes');
+
+		await dialog.getByRole('button', { name: 'Cancel' }).click();
+		await expect(dialog).toHaveCount(0);
+		await expect(page.getByRole('heading', { level: 1, name: '9E/Sc1' })).toBeVisible();
+
+		await page.getByRole('button', { name: 'Delete Class' }).click();
+		await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
+		await expect(page).toHaveURL(/\/classes$/);
+		await expect(page.getByRole('link', { name: /9E\/Sc1/ })).toHaveCount(0);
 	});
 
 	test('the New Class dialog creates a Class and opens its page', async () => {

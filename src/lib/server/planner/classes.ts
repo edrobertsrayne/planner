@@ -1,12 +1,15 @@
 // A Class: its identity, and how far through its Sequence it has got. The Sequence itself is in
 // sequence.ts.
-import { asc, eq } from 'drizzle-orm';
+import { asc, eq, inArray } from 'drizzle-orm';
 import { nextTone } from '$lib/class-tone';
+import { classDeleteText } from '$lib/delete-text';
 import * as schema from '../db/schema';
 import { lessonNames, loadCalendar, scheduleFor, type Db } from './derive';
 import { runway as deriveRunway, type Calendar, type Runway } from './engine';
 import { required } from './fields';
 import { teachingNotesFor } from './teaching-notes';
+import { inTransaction } from '../db';
+import type { ConfirmQuestion } from './courses';
 
 // The Tone is assigned once here, at creation — the next unused position of the fixed walk
 // (ADR-0013) — and never touched again by any other write.
@@ -149,5 +152,60 @@ export function classLanes(
 			nextUp: (nextEntry && names.get(nextEntry.lessonId)) ?? null,
 			runway: result.runway
 		};
+	});
+}
+
+// Deletes a Class and everything it owns, in one transaction (ADR-0022): its Slots, Blocked Slots,
+// Sessions, Continuations, Placements, Class Lessons, Readiness and Teaching notes, then the Class.
+// Taught Sessions go too — the confirmation names them and the Backup is the undo — so there is
+// nothing to refuse. Each delete is explicit and in dependency order rather than a schema cascade,
+// which would need a table rebuild: Continuations first, because `continuation.session_id` has no
+// cascade, and Placements and Blocked Slots before Slots. An unknown id returns undefined, the
+// door's 404.
+export function deleteClass(
+	db: Db,
+	{ id, today, confirmed = false }: { id: string; today: string; confirmed?: boolean }
+): typeof schema.classes.$inferSelect | ConfirmQuestion | undefined {
+	const [row] = db.select().from(schema.classes).where(eq(schema.classes.id, id)).all();
+	if (!row) return undefined;
+
+	const dates = db
+		.select({ date: schema.session.date })
+		.from(schema.session)
+		.where(eq(schema.session.classId, id))
+		.all();
+	const notes = db
+		.select({ classId: schema.teachingNote.classId })
+		.from(schema.teachingNote)
+		.where(eq(schema.teachingNote.classId, id))
+		.all();
+
+	if (!confirmed) {
+		const taught = dates.filter((session) => session.date <= today).length;
+		return {
+			needsConfirm: true,
+			reason: classDeleteText(dates.length, taught, notes.length)
+		};
+	}
+
+	const sessionsOfClass = db
+		.select({ id: schema.session.id })
+		.from(schema.session)
+		.where(eq(schema.session.classId, id));
+
+	return inTransaction(db.$client, () => {
+		db.delete(schema.continuation)
+			.where(inArray(schema.continuation.sessionId, sessionsOfClass))
+			.run();
+		db.delete(schema.session).where(eq(schema.session.classId, id)).run();
+		db.delete(schema.placement).where(eq(schema.placement.classId, id)).run();
+		db.delete(schema.blockedSlot).where(eq(schema.blockedSlot.classId, id)).run();
+		db.delete(schema.slot).where(eq(schema.slot.classId, id)).run();
+		db.delete(schema.classLesson).where(eq(schema.classLesson.classId, id)).run();
+		db.delete(schema.readiness).where(eq(schema.readiness.classId, id)).run();
+		db.delete(schema.teachingNote).where(eq(schema.teachingNote.classId, id)).run();
+
+		const [deleted] = db.delete(schema.classes).where(eq(schema.classes.id, id)).returning().all();
+		return deleted;
 	});
 }

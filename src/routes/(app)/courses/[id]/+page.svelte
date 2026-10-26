@@ -23,7 +23,7 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { touchTarget } from '$lib/components/ui/touch-target.js';
 	import { MediaQuery } from 'svelte/reactivity';
-	import ConfirmDeleteDialog from './ConfirmDeleteDialog.svelte';
+	import ConfirmDeleteDialog from '$lib/components/confirm-delete-dialog.svelte';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();

@@ -191,11 +191,12 @@ retired for a Lesson that currently has none, closing the loophole that would le
 silently regain a Topic. Moving a Lesson _between_ two Topics is untouched — that door was never
 about a Standalone Lesson.
 
-**No cascade rule for deleting a Class.** There is no `deleteClass` anywhere in the codebase today —
-no API route, no function, and neither `slot` nor `assignedTopic` carry an `onDelete: cascade` on
-`classId` for it to match. Deciding a Placement cascade now would be designing against a feature
-that does not exist; it is recorded in the map's "Not yet specified" for whenever a real
-`deleteClass` ticket is opened.
+**Deleting a Class deletes everything it owns.** A `deleteClass` removes the Class's Slots, Blocked
+Slots, Sessions, Continuations, Placements, Class Lessons, Readiness and Teaching notes in one
+transaction, then the Class itself — explicitly and in dependency order, not through a schema-level
+`ON DELETE CASCADE`, which would need a table rebuild. Taught Sessions go too: the confirmation names
+how many, and the Backup is the undo, so the delete is refused only for an unknown id. Settled on
+the `deleteClass` ticket (#423), which is the point this ADR deferred the rule to.
 
 **Two new surfaces, one already-existing one repurposed.** The Calendar day menu gains a
 `Place a Lesson` group, one line per Available Slot, handing off to the Session panel rather than
