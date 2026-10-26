@@ -54,3 +54,7 @@ aspect module, and whose absence would silently discard the database on the next
 > between instances from the browser. "The application ships no backup feature" no longer holds.
 > Durability still belongs to the deployer: scheduled copies and a persistent state directory stay
 > outside the application.
+
+> **Amended 2026-10-26.** [ADR-0027](0027-railpack-over-docker.md) supersedes ADR-0018: Railpack
+> builds the deployable image from the repository, and the repository keeps no Dockerfile. The
+> runtime still brings its own Bun, which Railpack installs from `mise.toml`.

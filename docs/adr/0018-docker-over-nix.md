@@ -1,5 +1,8 @@
 # Docker over Nix
 
+> **Superseded 2026-10-26** by [ADR-0027](0027-railpack-over-docker.md): the app is built and
+> deployed by Railpack, and the Dockerfile, compose file and image workflows are removed.
+
 The deployable artifact is the OCI image built from this repository's Dockerfile. The flake, the
 bun2nix-generated `bun.nix`, and the NixOS module are removed.
 

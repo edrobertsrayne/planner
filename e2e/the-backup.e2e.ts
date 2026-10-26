@@ -10,7 +10,7 @@ test.beforeAll(() => resetTo('standard'));
 // The suite's server is instance A. This file starts
 // a second, empty planner (instance B) from the same build on its own port and folder, because a
 // Restore needs an empty instance and the suite shares one database. B runs the built adapter with
-// the container's BODY_SIZE_LIMIT, which `bun run preview` never exercises.
+// the BODY_SIZE_LIMIT that the `start` script sets, which `bun run preview` never exercises.
 const EMAIL = 'teacher@example.com';
 const PASSWORD = 'a-very-long-password';
 const B = 'http://127.0.0.1:4174';

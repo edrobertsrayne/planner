@@ -1,8 +1,8 @@
 /**
  * The largest request body any route but Restore accepts. The Bun server has one limit for the
- * whole app (`BODY_SIZE_LIMIT`), and Restore needs it far above this, so the limit for every other
- * route is enforced here instead (ADR-0024). It sits above the 10 MiB Attachment ceiling plus
- * multipart overhead.
+ * whole app (`BODY_SIZE_LIMIT`, set to 100G by the `start` script), and Restore needs it far above
+ * this, so the limit for every other route is enforced here instead (ADR-0024). It sits above the
+ * 10 MiB Attachment ceiling plus multipart overhead.
  */
 export const BODY_LIMIT = 12 * 1024 * 1024;
 

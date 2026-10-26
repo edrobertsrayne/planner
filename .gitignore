@@ -40,9 +40,6 @@ __screenshots__
 # (spec #237)
 /attachments/
 
-# Docker test instance
-/data/
-
 # Agent
 .claude/*
 !.claude/settings.json
