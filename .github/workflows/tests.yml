@@ -24,7 +24,10 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Fifteen minutes was enough while the layout suite was one file. A cold cache — which every
+    # bun.lock change forces — spends most of that on `bun install` and the Chromium download, and
+    # the suite itself now resets a database and signs in once per screen file.
+    timeout-minutes: 30
 
     steps:
       - name: Get the code
