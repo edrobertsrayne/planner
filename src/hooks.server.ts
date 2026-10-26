@@ -7,6 +7,8 @@ import { svelteKitHandler } from 'better-auth/svelte-kit';
 import { runWithRequestState } from '@better-auth/core/context';
 import { crossSiteFormRefused, guardRedirect } from '$lib/server/guard';
 import { bodyTooLarge } from '$lib/server/body-limit';
+import { requireApiKey } from '$lib/server/api-key';
+import { apiWriteLine } from '$lib/server/api-log';
 
 // Every response, pages and downloads alike: no file is sniffed into another type, a link out
 // carries no path from this app, and no page can be framed. A stored-XSS bug in a Lesson body is
@@ -48,6 +50,31 @@ const handleCsrf: Handle = async ({ event, resolve }) => {
 	return resolve(event);
 };
 
+// The API's one door: every `/api/*` request presents the bearer key here, before any handler
+// runs, so a new route cannot be left open by forgetting two lines. Better Auth's own endpoints
+// under `/api/auth/*` are a public surface of their own and check themselves.
+const handleApiKey: Handle = async ({ event, resolve }) => {
+	const { pathname } = event.url;
+	if (!pathname.startsWith('/api/') || pathname.startsWith('/api/auth/')) return resolve(event);
+
+	const refused = await requireApiKey(event);
+	if (refused) return refused;
+	return resolve(event);
+};
+
+// The trace an API write leaves in the container log: one line, no body. A refusal was not a write
+// and is not logged; the status has to be read after the response is produced.
+const handleApiLog: Handle = async ({ event, resolve }) => {
+	const response = await resolve(event);
+	const line = apiWriteLine({
+		method: event.request.method,
+		pathname: event.url.pathname,
+		status: response.status
+	});
+	if (line) console.info(line);
+	return response;
+};
+
 const handleAuth: Handle = async ({ event, resolve }) => {
 	// Reading the session also refreshes it, which is how a teacher who works every day is never
 	// signed out — and that path asks the auth library for its per-request state, which nothing else
@@ -66,6 +93,10 @@ const handleAuth: Handle = async ({ event, resolve }) => {
 };
 
 const handleGuard: Handle = async ({ event, resolve }) => {
+	// The API answers 401 from its own key check and never consults the session, so the query that
+	// answers "is there a user at all" is skipped for it.
+	if (event.url.pathname.startsWith('/api/')) return resolve(event);
+
 	const target = guardRedirect({
 		pathname: event.url.pathname,
 		search: event.url.search,
@@ -82,6 +113,8 @@ export const handle: Handle = sequence(
 	handleSecurityHeaders,
 	handleBodyLimit,
 	handleCsrf,
+	handleApiLog,
+	handleApiKey,
 	handleAuth,
 	handleGuard
 );

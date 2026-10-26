@@ -1,7 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db/client';
 import { term } from '$lib/server/db/schema';
-import { requireApiKey } from '$lib/server/api-key';
 import { today } from '$lib/date';
 import { jsonObject, readJson, refusalJson } from '$lib/server/api-helpers';
 import { replaceTerms } from '$lib/server/planner';
@@ -20,10 +19,7 @@ function termsInYearOrder() {
 	return rows.map((row, position) => ({ ...row, name: TERM_NAMES[position] }));
 }
 
-export const GET: RequestHandler = async (event) => {
-	const auth = await requireApiKey(event);
-	if (auth) return auth;
-
+export const GET: RequestHandler = async () => {
 	return json({ terms: termsInYearOrder() });
 };
 
@@ -31,9 +27,6 @@ export const GET: RequestHandler = async (event) => {
 // a request body are read and ignored; the app never sends them. The door checks only that each
 // element is an object, because the seam reads `opens` and `closes` off every one of them.
 export const PUT: RequestHandler = async (event) => {
-	const auth = await requireApiKey(event);
-	if (auth) return auth;
-
 	const data = await readJson(event.request);
 	if (data instanceof Response) return data;
 

@@ -1,7 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { today } from '$lib/date';
 import { DATABASE_URL, db } from '$lib/server/db/client';
-import { requireApiKey } from '$lib/server/api-key';
 import { lessonFields, readJson, refusalJson } from '$lib/server/api-helpers';
 import {
 	attachmentsDir,
@@ -13,9 +12,6 @@ import {
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async (event) => {
-	const auth = await requireApiKey(event);
-	if (auth) return auth;
-
 	const detail = lessonDetail(db, event.params.id);
 	if (!detail) return json({ error: 'Lesson not found.' }, { status: 404 });
 
@@ -23,9 +19,6 @@ export const GET: RequestHandler = async (event) => {
 };
 
 export const PATCH: RequestHandler = async (event) => {
-	const auth = await requireApiKey(event);
-	if (auth) return auth;
-
 	const body = await readJson(event.request);
 	if (body instanceof Response) return body;
 
@@ -51,9 +44,6 @@ export const PATCH: RequestHandler = async (event) => {
 };
 
 export const DELETE: RequestHandler = async (event) => {
-	const auth = await requireApiKey(event);
-	if (auth) return auth;
-
 	try {
 		const result = deleteLesson(db, {
 			id: event.params.id,

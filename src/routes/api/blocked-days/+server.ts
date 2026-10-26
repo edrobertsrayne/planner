@@ -1,7 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db/client';
 import { blockedDay } from '$lib/server/db/schema';
-import { requireApiKey } from '$lib/server/api-key';
 import { today } from '$lib/date';
 import { readJson, refusalJson } from '$lib/server/api-helpers';
 import { blockDay } from '$lib/server/planner';
@@ -9,10 +8,7 @@ import { asc, eq } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
 // A Blocked Day is addressed by date, so the list carries no ids — the date is the address.
-export const GET: RequestHandler = async (event) => {
-	const auth = await requireApiKey(event);
-	if (auth) return auth;
-
+export const GET: RequestHandler = async () => {
 	const rows = db
 		.select({ date: blockedDay.date, note: blockedDay.note })
 		.from(blockedDay)
@@ -26,9 +22,6 @@ export const GET: RequestHandler = async (event) => {
 // — malformed, weekend, already blocked — and the note's trim live in the seam, which throws
 // `Refused` and this door answers 400 or 409 with the reason the teacher reads.
 export const POST: RequestHandler = async (event) => {
-	const auth = await requireApiKey(event);
-	if (auth) return auth;
-
 	const data = await readJson(event.request);
 	if (data instanceof Response) return data;
 

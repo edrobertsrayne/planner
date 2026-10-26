@@ -34,6 +34,22 @@ test.describe.serial('the Course endpoints', () => {
 		expect(write.status()).toBe(401);
 	});
 
+	test('the key gate runs for any /api path, and never for /api/auth', async ({ request }) => {
+		const unknown = await request.get('/api/no-such-route');
+		expect(unknown.status()).toBe(401);
+		expect(await unknown.json()).toEqual({
+			error: 'Give a valid API key in the Authorization header.'
+		});
+		// With a key, the same path is the 404 it really is.
+		expect((await request.get('/api/no-such-route', { headers: BEARER(token) })).status()).toBe(
+			404
+		);
+
+		// Better Auth serves its own endpoints under `/api/auth`, public and outside the key gate.
+		const auth = await request.get('/api/auth/get-session');
+		expect(auth.status()).toBe(200);
+	});
+
 	test('a Course is created with 201, collides with 409, and answers the validation refusals', async ({
 		request
 	}) => {

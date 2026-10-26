@@ -1,14 +1,10 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db/client';
-import { requireApiKey } from '$lib/server/api-key';
 import { readJson, refusalJson, stringField } from '$lib/server/api-helpers';
 import { courseById, renameCourse, deleteCourse } from '$lib/server/planner';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async (event) => {
-	const auth = await requireApiKey(event);
-	if (auth) return auth;
-
 	const record = courseById(db, event.params.id);
 	if (!record) return json({ error: 'Course not found.' }, { status: 404 });
 
@@ -16,9 +12,6 @@ export const GET: RequestHandler = async (event) => {
 };
 
 export const PATCH: RequestHandler = async (event) => {
-	const auth = await requireApiKey(event);
-	if (auth) return auth;
-
 	const body = await readJson(event.request);
 	if (body instanceof Response) return body;
 
@@ -44,9 +37,6 @@ export const PATCH: RequestHandler = async (event) => {
 };
 
 export const DELETE: RequestHandler = async (event) => {
-	const auth = await requireApiKey(event);
-	if (auth) return auth;
-
 	try {
 		const result = deleteCourse(db, event.params.id);
 

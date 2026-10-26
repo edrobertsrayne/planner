@@ -1,14 +1,10 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db/client';
-import { requireApiKey } from '$lib/server/api-key';
 import { readJson, refusalJson, stringField } from '$lib/server/api-helpers';
 import { deleteLink, linkById, updateLink } from '$lib/server/planner';
 import type { RequestHandler } from './$types';
 
 export const PATCH: RequestHandler = async (event) => {
-	const auth = await requireApiKey(event);
-	if (auth) return auth;
-
 	const existing = linkById(db, event.params.id);
 	if (!existing) return json({ error: 'Link not found.' }, { status: 404 });
 
@@ -31,9 +27,6 @@ export const PATCH: RequestHandler = async (event) => {
 };
 
 export const DELETE: RequestHandler = async (event) => {
-	const auth = await requireApiKey(event);
-	if (auth) return auth;
-
 	const result = deleteLink(db, { id: event.params.id });
 	if (!result) return json({ error: 'Link not found.' }, { status: 404 });
 

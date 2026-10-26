@@ -97,14 +97,16 @@ so a key identifies the account and nothing else.
 
 ### 2.5 The request guard
 
-`src/hooks.server.ts` currently redirects every unauthenticated request with a **303** to `/login`.
-An agent must not get an HTML login page.
+`src/hooks.server.ts` never redirects an `/api/*` request: `handleGuard` returns before its redirect
+for any `/api` path, so an agent never gets an HTML login page, and the session query is skipped for
+the API entirely.
 
-`handleGuard` must let `/api/*` through. The API routes then run their own bearer check and answer
-with JSON. `/api/auth/*` is already short-circuited by `svelteKitHandler` and is unaffected.
+The bearer check is one hook, `handleApiKey`, in the same chain: it checks the key for every
+`/api/*` request except `/api/auth/*` and answers 401 JSON when the key is missing or wrong. No
+handler checks the key itself, so a new route cannot be left open by forgetting two lines.
+`/api/auth/*` is Better Auth's own surface and is not behind the key.
 
-Put the bearer check in one place — a helper such as `requireApiKey(event)` — and call it first in
-every handler. Do not repeat the check inline.
+An unknown `/api/*` path therefore answers 401 without a valid key, and 404 only with one.
 
 ### 2.6 The Settings screen
 

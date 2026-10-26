@@ -1,14 +1,10 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db/client';
-import { requireApiKey } from '$lib/server/api-key';
 import { lessonFields, readJson, refusalJson } from '$lib/server/api-helpers';
 import { topicById, lessonsOf, createLesson } from '$lib/server/planner';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async (event) => {
-	const auth = await requireApiKey(event);
-	if (auth) return auth;
-
 	// A missing Topic answers 404 rather than an empty list: the URL names the record.
 	if (!topicById(db, event.params.id)) {
 		return json({ error: 'Topic not found.' }, { status: 404 });
@@ -18,9 +14,6 @@ export const GET: RequestHandler = async (event) => {
 };
 
 export const POST: RequestHandler = async (event) => {
-	const auth = await requireApiKey(event);
-	if (auth) return auth;
-
 	// A new Lesson needs a Topic to hang off; `createLesson` does not check, so the route does.
 	if (!topicById(db, event.params.id)) {
 		return json({ error: 'Topic not found.' }, { status: 404 });

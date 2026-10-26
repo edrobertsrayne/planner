@@ -1,14 +1,10 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db/client';
-import { requireApiKey } from '$lib/server/api-key';
 import { readJson, refusalJson, stringField } from '$lib/server/api-helpers';
 import { courseById, topicsOf, createTopic } from '$lib/server/planner';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async (event) => {
-	const auth = await requireApiKey(event);
-	if (auth) return auth;
-
 	if (!courseById(db, event.params.id)) {
 		return json({ error: 'Course not found.' }, { status: 404 });
 	}
@@ -22,9 +18,6 @@ export const GET: RequestHandler = async (event) => {
 // No existence check here: `createTopic` refuses a Course the database does not hold, and that
 // refusal is the route's 404.
 export const POST: RequestHandler = async (event) => {
-	const auth = await requireApiKey(event);
-	if (auth) return auth;
-
 	const body = await readJson(event.request);
 	if (body instanceof Response) return body;
 

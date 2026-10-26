@@ -1,6 +1,5 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db/client';
-import { requireApiKey } from '$lib/server/api-key';
 import {
 	jsonObject,
 	lessonFields,
@@ -12,9 +11,6 @@ import { importTopic } from '$lib/server/planner';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async (event) => {
-	const auth = await requireApiKey(event);
-	if (auth) return auth;
-
 	const data = await readJson(event.request);
 	if (data instanceof Response) return data;
 
