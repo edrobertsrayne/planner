@@ -174,7 +174,9 @@ export async function openCourse(page: Page) {
 export async function expectLessonPage(page: Page) {
 	await expect(page).toHaveURL(/\/lessons\//);
 	await expect(
-		page.getByRole('textbox', { name: 'Lesson title' }).or(page.getByRole('heading', { level: 1 }))
+		page
+			.getByRole('textbox', { name: 'Lesson title', exact: true })
+			.or(page.getByRole('heading', { level: 1 }))
 	).toBeVisible();
 }
 

@@ -144,13 +144,17 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		// A tap on a card opens the Lesson in its editor.
 		await entries.nth(0).getByRole('link').click();
 		await expect(page).toHaveURL(/\/lessons\//);
-		await expect(page.getByRole('textbox', { name: 'Lesson title' })).toHaveValue('Speed');
+		await expect(page.getByRole('textbox', { name: 'Lesson title', exact: true })).toHaveValue(
+			'Speed'
+		);
 
 		// Opened from the Class page, the editor steps through that Class's Sequence and keeps the Class.
 		await expect(page).toHaveURL(new RegExp(`\\?class=${classBId}$`));
 		await expect(page.getByText(/^Lesson 1 of 2 in \S+$/)).toBeVisible();
 		await page.getByRole('button', { name: 'Next Lesson' }).click();
-		await expect(page.getByRole('textbox', { name: 'Lesson title' })).toHaveValue('Motion');
+		await expect(page.getByRole('textbox', { name: 'Lesson title', exact: true })).toHaveValue(
+			'Motion'
+		);
 		await expect(page).toHaveURL(new RegExp(`\\?class=${classBId}$`));
 		await expect(page.getByText(/^Lesson 2 of 2 in \S+$/)).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Next Lesson' })).toBeDisabled();
