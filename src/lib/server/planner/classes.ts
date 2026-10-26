@@ -3,10 +3,10 @@
 import { asc, eq } from 'drizzle-orm';
 import { nextTone } from '$lib/class-tone';
 import * as schema from '../db/schema';
-import { lessonNames, scheduleFor, type Db } from './derive';
-import { runway as deriveRunway, type Runway } from './engine';
+import { lessonNames, loadCalendar, scheduleFor, type Db } from './derive';
+import { runway as deriveRunway, type Calendar, type Runway } from './engine';
 import { required } from './fields';
-import { teachingNoteOf } from './teaching-notes';
+import { teachingNotesFor } from './teaching-notes';
 
 // The Tone is assigned once here, at creation — the next unused position of the fixed walk
 // (ADR-0013) — and never touched again by any other write.
@@ -70,9 +70,13 @@ export function classDetail(db: Db, id: string) {
 	return row ?? null;
 }
 
-// Read back exactly where a Class has got to. Pure: never writes.
-export function classSchedule(db: Db, { classId, today }: { classId: string; today: string }) {
-	const result = scheduleFor(db, { classId, boundary: today });
+// Read back exactly where a Class has got to. Pure: never writes. `cal` lets a caller reading
+// several Classes load the Calendar once and pass it to each.
+export function classSchedule(
+	db: Db,
+	{ classId, today, cal }: { classId: string; today: string; cal?: Calendar }
+) {
+	const result = scheduleFor(db, { classId, boundary: today, cal });
 	return { ...result, runway: deriveRunway(result) };
 }
 
@@ -94,15 +98,21 @@ export interface ClassLane {
 
 // One lane per Class (issue #37): what was last taught and its Teaching note, what is queued
 // next, and the Runway. Reuses classSchedule's single derived answer per Class; there is no separate
-// Classes-view computation. `classId` restricts to one Class, for the lane atop its own Class page.
+// Classes-view computation. The Calendar and the Teaching notes are each read once for every lane,
+// not once per lane. `classId` restricts to one Class, for the lane atop its own Class page.
 export function classLanes(
 	db: Db,
 	{ today, classId }: { today: string; classId?: string }
 ): ClassLane[] {
 	const classes = listClasses(db).filter((c) => !classId || c.id === classId);
+	const cal = loadCalendar(db);
+	const notes = teachingNotesFor(
+		db,
+		classes.map((cls) => cls.id)
+	);
 
 	const lanes = classes.map((cls) => {
-		const result = classSchedule(db, { classId: cls.id, today });
+		const result = classSchedule(db, { classId: cls.id, today, cal });
 		return {
 			cls,
 			result,
@@ -133,7 +143,7 @@ export function classLanes(
 							date: lastEntry.date,
 							period: lastEntry.period,
 							...lastName,
-							note: teachingNoteOf(db, cls.id, lastEntry.lessonId)
+							note: notes.get(`${cls.id}|${lastEntry.lessonId}`) ?? null
 						}
 					: null,
 			nextUp: (nextEntry && names.get(nextEntry.lessonId)) ?? null,

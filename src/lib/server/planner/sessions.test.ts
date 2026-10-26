@@ -18,10 +18,10 @@ import {
 	removePlacement,
 	sessionDetail,
 	setReadiness,
-	teachingNoteOf,
 	writeTeachingNote
 } from './index';
-import { rederive, type WriteReport } from './derive';
+import type { WriteReport } from './derive';
+import { teachingNoteOf } from './teaching-notes';
 import * as schema from '../db/schema';
 
 describe('Continuation', () => {
@@ -327,14 +327,14 @@ describe('the Session panel', () => {
 	});
 
 	test('a placed Lesson carries its Placement id, cleared once the Placement is removed', () => {
-		const { db, client, classA } = setUp();
+		const { db, classA } = setUp();
 		const mondaySlot = db
 			.select()
 			.from(schema.slot)
 			.all()
 			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3)!;
 
-		const result = placeLesson(db, client, {
+		const result = placeLesson(db, {
 			classId: classA.id,
 			date: '2026-09-14',
 			slotId: mondaySlot.id,
@@ -610,49 +610,5 @@ describe('the Session panel', () => {
 		deleteLesson(db, { id: lesson.id, today: '2026-09-01', dir: atDir, confirmed: true });
 
 		expect(db.select().from(schema.teachingNote).all()).toEqual([]);
-	});
-
-	test('removing the last Placement of a Lesson deletes its Teaching note, and removing another does not', () => {
-		const { db, client, classA } = setUp();
-		const today = '2026-09-01';
-		const [first, second] = classSchedule(db, { classId: classA.id, today }).openSlots;
-		const { lesson } = placeLesson(db, client, {
-			classId: classA.id,
-			date: first.date,
-			slotId: first.slotId,
-			title: 'Assembly',
-			today
-		});
-		// placeLesson makes a new Lesson on each call, so the second Placement of the same
-		// Lesson goes straight into the schema.
-		const [other] = db
-			.insert(schema.placement)
-			.values({
-				classId: classA.id,
-				date: second.date,
-				slotId: second.slotId,
-				lessonId: lesson.id
-			})
-			.returning()
-			.all();
-		const [placement] = db
-			.select()
-			.from(schema.placement)
-			.all()
-			.filter((p) => p.id !== other.id);
-		rederive(db, classA.id, today);
-		writeTeachingNote(db, {
-			classId: classA.id,
-			lessonId: lesson.id,
-			date: first.date,
-			period: first.period,
-			note: 'went well'
-		});
-
-		removePlacement(db, { id: other.id, today });
-		expect(teachingNoteOf(db, classA.id, lesson.id)).toBe('went well');
-
-		removePlacement(db, { id: placement.id, today });
-		expect(teachingNoteOf(db, classA.id, lesson.id)).toBeNull();
 	});
 });

@@ -4,12 +4,12 @@ import { makeLessons, makeTopic, refused, setUp } from './fixtures';
 import {
 	assignTopic,
 	classSchedule,
-	fixedLessonIds,
 	moveLessons,
 	recordContinuation,
 	removeFromSequence,
 	sessionDetail
 } from './index';
+import { fixedLessonIds } from './sequence';
 import * as schema from '../db/schema';
 import { today, taughtOrder, sessionRows } from './sequence-fixtures';
 
@@ -125,6 +125,24 @@ describe('Assign Topic', () => {
 			() => assignTopic(db, { classId: classA.id, topicId: topic.id, today }),
 			'invalid',
 			"This Topic does not belong to the Class's Course."
+		);
+		expect(db.select().from(schema.classLesson).all()).toEqual([]);
+	});
+
+	test('refuses a Class or a Topic that is not there as missing', () => {
+		const { db, course } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		makeLessons(db, topic.id, 1);
+
+		refused(
+			() => assignTopic(db, { classId: 'no-such-class', topicId: topic.id, today }),
+			'missing',
+			'Class not found.'
+		);
+		refused(
+			() => assignTopic(db, { classId: 'no-such-class', topicId: 'no-such-topic', today }),
+			'missing',
+			'Class not found.'
 		);
 		expect(db.select().from(schema.classLesson).all()).toEqual([]);
 	});

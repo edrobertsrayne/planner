@@ -3,15 +3,16 @@
 // each Class holds its own Sequence (ADR-0026). A Lesson's Length is a scheduling input, so
 // a change to it re-derives every Class that reaches the Lesson, on the same write, with no
 // separate recompute step (issue #31).
+import { unlinkSync } from 'node:fs';
+import { join } from 'node:path';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
-import type { Database } from 'bun:sqlite';
 import { nextTone } from '$lib/class-tone';
 import { courseDeleteText, lessonDeleteText, standaloneText } from '$lib/delete-text';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
-import { combineReports, rederive, type Db, type WriteReport } from './derive';
+import { combineReports, loadCalendar, rederive, type Db, type WriteReport } from './derive';
 import { nextPosition, swapTargets, type Direction } from './ordering';
-import { deleteAttachmentsOfLesson } from './attachments';
+import { attachmentsOf } from './attachments';
 import { Refused } from './refused';
 import { fixedOn } from './sequence';
 import { lessonBody, lessonLength, lessonStatus, linkUrl, required } from './fields';
@@ -24,61 +25,31 @@ export type ConfirmQuestion = { needsConfirm: true; reason: string };
 // and never lets a raw SQLITE_CONSTRAINT reach the user. A collision is a `conflict`: the request
 // was well-formed and answered with its real outcome.
 
-// "Forces" and "forces" collide; "  Forces  " and "Forces" collide too. Stored values are trimmed
-// at write time, but a row that pre-dates this ticket may still hold surrounding whitespace, so
-// the comparison normalises both sides.
-function nameMatchesIgnoringCaseAndWhitespace(stored: string, attempted: string): boolean {
-	return stored.trim().toLowerCase() === attempted.trim().toLowerCase();
-}
-
-// A Course is refused on create or rename if any other Course — case-insensitive, trimmed — already
-// holds the name. The seam throws with the message already written for the teacher to read; the
-// form action maps it to a 4xx with no further work. The thrown message embeds the *trimmed*
-// stored name, never its surrounding whitespace.
+// A Course is refused on create or rename if any other Course already holds the name. The
+// comparison is case-insensitive over names the caller has already trimmed. The seam throws with
+// the message already written for the teacher to read; the form action maps it to a 4xx with no
+// further work.
 function assertCourseNameAvailable(
 	db: Db,
 	{ name, exceptId }: { name: string; exceptId?: string }
 ) {
-	const trimmed = name.trim();
-	const rows = db
-		.select({ id: schema.course.id, name: schema.course.name })
+	const [collision] = db
+		.select({ name: schema.course.name })
 		.from(schema.course)
 		.where(
 			exceptId
-				? sql`${schema.course.id} != ${exceptId} AND lower(${schema.course.name}) = lower(${trimmed})`
-				: sql`lower(${schema.course.name}) = lower(${trimmed})`
+				? sql`${schema.course.id} != ${exceptId} AND lower(${schema.course.name}) = lower(${name})`
+				: sql`lower(${schema.course.name}) = lower(${name})`
 		)
 		.all();
-	const collision = rows.find((row) => nameMatchesIgnoringCaseAndWhitespace(row.name, name));
 	if (collision) {
-		throw new Refused('conflict', `A Course called "${collision.name.trim()}" already exists.`);
+		throw new Refused('conflict', `A Course called "${collision.name}" already exists.`);
 	}
 }
 
-// The Topic-name-collision query, shared by the refusing writes (assertTopicNameAvailable, used
-// by create/rename) and importTopic. Two Courses may each hold a "Forces", so the check is
-// scoped to course_id.
-function findTopicNameCollision(
-	db: Db,
-	{ courseId, name, exceptId }: { courseId: string; name: string; exceptId?: string }
-) {
-	const trimmed = name.trim();
-	const rows = db
-		.select({ id: schema.topic.id, name: schema.topic.name })
-		.from(schema.topic)
-		.where(
-			and(
-				eq(schema.topic.courseId, courseId),
-				exceptId
-					? sql`${schema.topic.id} != ${exceptId} AND lower(${schema.topic.name}) = lower(${trimmed})`
-					: sql`lower(${schema.topic.name}) = lower(${trimmed})`
-			)
-		)
-		.all();
-	return rows.find((row) => nameMatchesIgnoringCaseAndWhitespace(row.name, name));
-}
-
-// A Topic is refused on create, rename or move if the Course already holds a Topic of that name.
+// A Topic is refused on create, rename or move if its Course already holds a Topic of that name.
+// Two Courses may each hold a "Forces", so the check is scoped to the Course, and the comparison is
+// case-insensitive over names the caller has already trimmed.
 function assertTopicNameAvailable(
 	db: Db,
 	{
@@ -88,11 +59,22 @@ function assertTopicNameAvailable(
 		exceptId
 	}: { courseId: string; courseName: string; name: string; exceptId?: string }
 ) {
-	const collision = findTopicNameCollision(db, { courseId, name, exceptId });
+	const [collision] = db
+		.select({ name: schema.topic.name })
+		.from(schema.topic)
+		.where(
+			and(
+				eq(schema.topic.courseId, courseId),
+				exceptId
+					? sql`${schema.topic.id} != ${exceptId} AND lower(${schema.topic.name}) = lower(${name})`
+					: sql`lower(${schema.topic.name}) = lower(${name})`
+			)
+		)
+		.all();
 	if (collision) {
 		throw new Refused(
 			'conflict',
-			`The Course "${courseName}" already holds a Topic called "${collision.name.trim()}".`
+			`The Course "${courseName}" already holds a Topic called "${collision.name}".`
 		);
 	}
 }
@@ -101,7 +83,19 @@ export function listCourses(db: Db) {
 	return db.select().from(schema.course).orderBy(asc(schema.course.name)).all();
 }
 
-// No particular order (ADR-0010): a Course is an unordered container of Topics.
+// The one-record reads the API's `GET /:id` routes need, so no route runs a query of its own. An
+// id the URL names but the database does not hold returns undefined, the door's 404.
+export function courseById(db: Db, id: string) {
+	const [row] = db.select().from(schema.course).where(eq(schema.course.id, id)).all();
+	return row;
+}
+
+export function topicById(db: Db, id: string) {
+	const [row] = db.select().from(schema.topic).where(eq(schema.topic.id, id)).all();
+	return row;
+}
+
+// No particular order (ADR-0026): a Course is an unordered container of Topics.
 export function topicsOf(db: Db, courseId: string) {
 	return db.select().from(schema.topic).where(eq(schema.topic.courseId, courseId)).all();
 }
@@ -268,18 +262,18 @@ export function createTopic(db: Db, { courseId, name }: { courseId: string; name
 }
 
 export function renameTopic(db: Db, { id, name }: { id: string; name: string }) {
-	const [existing] = db.select().from(schema.topic).where(eq(schema.topic.id, id)).all();
-	if (!existing) return undefined;
-	const [course] = db
-		.select()
-		.from(schema.course)
-		.where(eq(schema.course.id, existing.courseId))
+	// The Course is guaranteed by the foreign key, so it is joined rather than guarded.
+	const [existing] = db
+		.select({ courseId: schema.topic.courseId, courseName: schema.course.name })
+		.from(schema.topic)
+		.innerJoin(schema.course, eq(schema.course.id, schema.topic.courseId))
+		.where(eq(schema.topic.id, id))
 		.all();
-	if (!course) throw new Refused('missing', 'Course not found.');
+	if (!existing) return undefined;
 	const trimmed = required(name, 'A Topic needs a name.');
 	assertTopicNameAvailable(db, {
 		courseId: existing.courseId,
-		courseName: course.name,
+		courseName: existing.courseName,
 		name: trimmed,
 		exceptId: id
 	});
@@ -329,21 +323,26 @@ export function deleteTopic(
 	if (!topic) return undefined;
 
 	const lessons = lessonsOf(db, id);
-	if (lessons.length > 0) {
-		if (!confirmed) {
-			return {
-				needsConfirm: true,
-				reason: `Delete ${topic.name}? ${standaloneText(lessons.length)}`
-			};
-		}
-		db.update(schema.lesson).set({ topicId: null }).where(eq(schema.lesson.topicId, id)).run();
+	if (lessons.length > 0 && !confirmed) {
+		return {
+			needsConfirm: true,
+			reason: `Delete ${topic.name}? ${standaloneText(lessons.length)}`
+		};
 	}
 
-	const [deleted] = db.delete(schema.topic).where(eq(schema.topic.id, id)).returning().all();
-	return deleted;
+	// The Lessons detach and the Topic goes in one all-or-nothing write: a Topic half removed
+	// would leave Lessons still filed against a Topic that is no longer there.
+	return inTransaction(db.$client, () => {
+		if (lessons.length > 0) {
+			db.update(schema.lesson).set({ topicId: null }).where(eq(schema.lesson.topicId, id)).run();
+		}
+
+		const [deleted] = db.delete(schema.topic).where(eq(schema.topic.id, id)).returning().all();
+		return deleted;
+	});
 }
 
-// Where a new Lesson lands in its Topic's order (ADR-0010: Lessons, unlike Topics, are explicitly
+// Where a new Lesson lands in its Topic's order (ADR-0026: Lessons, unlike Topics, are explicitly
 // ordered) — at the end, both for a new Lesson and for one moved in from another Topic.
 const endOfTopic = (db: Db, topicId: string) =>
 	nextPosition(
@@ -410,6 +409,13 @@ export function linksOf(db: Db, lessonId: string) {
 		.all();
 }
 
+// A PATCH reads the stored pair before merging the fields the body names. An unknown id returns
+// undefined, the door's 404.
+export function linkById(db: Db, id: string) {
+	const [row] = db.select().from(schema.link).where(eq(schema.link.id, id)).all();
+	return row;
+}
+
 // Same rows as attachedTags, names only — every Lesson-showing read outside the editor itself
 // (the editor needs attachedTags's ids to post to detachTag).
 export function tagsOf(db: Db, lessonId: string): string[] {
@@ -432,8 +438,7 @@ export function attachedTags(db: Db, lessonId: string): { id: string; name: stri
 // Batch form of tagsOf, for a row of Lessons rendered together — the Agenda, Planning and the
 // Courses list each resolve every Lesson's Tags in one query rather than one per row, mirroring
 // derive.ts's lessonNames. Lives here, not in derive.ts, because Tag is authored from this module;
-// re-exported through the barrel for views.ts to import, the same way views.ts already imports
-// LessonStatus from authoring.ts.
+// views.ts and sessions.ts import it from here, through no re-export.
 export function tagsByLesson(db: Db, lessonIds: readonly string[]): Map<string, string[]> {
 	const map = new Map<string, string[]>();
 	if (lessonIds.length === 0) return map;
@@ -466,20 +471,16 @@ export function listTagNames(db: Db): string[] {
 		.map((row) => row.name);
 }
 
-// Tag names are unique across the planner, case-insensitive and trimmed (mirrors
-// assertCourseNameAvailable's comparison via nameMatchesIgnoringCaseAndWhitespace). Typing a name
-// that matches an existing Tag reuses it — attach, never create-or-refuse, is Tag's whole point.
-// Finds a Tag matching trimmed + case-insensitive, reusing it, or creates one. Then inserts
-// lesson_tag (idempotent on the composite key — INSERT OR IGNORE). Refuses an empty/whitespace-only
-// name the same way editLesson refuses an empty title — an `invalid`, the one input the seam
-// itself refuses. No re-derive: a Tag is descriptive metadata, exactly like Readiness, and never
-// changes a date.
+// Tag names are unique across the planner, case-insensitive. Typing a name that matches an existing
+// Tag reuses it — attach, never create-or-refuse, is Tag's whole point — and the seam trims the
+// name like every other name it stores. An empty or whitespace-only name is an `invalid`, the one
+// input the seam itself refuses. No re-derive: a Tag is descriptive metadata, exactly like
+// Readiness, and never changes a date.
 export function attachTag(
 	db: Db,
 	{ lessonId, name }: { lessonId: string; name: string }
 ): string[] {
-	const trimmed = name.trim();
-	if (!trimmed) throw new Refused('invalid', 'A Tag needs a name.');
+	const trimmed = required(name, 'A Tag needs a name.');
 
 	const [existing] = db
 		.select()
@@ -563,20 +564,25 @@ export function editLesson(
 	) as typeof next;
 	if (Object.keys(changed).length === 0) return { lesson: row, placementsMoved: [] };
 
-	const [lesson] = db
-		.update(schema.lesson)
-		.set(changed)
-		.where(eq(schema.lesson.id, id))
-		.returning()
-		.all();
-	// Only a Length change moves dates, so only it re-derives the Classes that hold the Lesson.
+	// The row and every Class's re-derivation commit together: a stored Length whose Classes were
+	// half re-derived is a schedule no reader may see, and nothing forward re-derives it away.
 	const lengthChanged = 'length' in changed;
-	if (!lengthChanged) return { lesson, placementsMoved: [] };
+	return inTransaction(db.$client, () => {
+		const [lesson] = db
+			.update(schema.lesson)
+			.set(changed)
+			.where(eq(schema.lesson.id, id))
+			.returning()
+			.all();
+		// Only a Length change moves dates, so only it re-derives the Classes that hold the Lesson.
+		if (!lengthChanged) return { lesson, placementsMoved: [] };
 
-	return { lesson, ...rederiveHolders(db, id, today) };
+		return { lesson, ...rederiveHolders(db, id, today) };
+	});
 }
 
-// Re-derives, from today, every Class that holds the Lesson in its Sequence or by a Placement.
+// Re-derives, from today, every Class that holds the Lesson in its Sequence or by a Placement. The
+// Calendar is loaded once and passed to each, so the work is one read rather than one per Class.
 function rederiveHolders(db: Db, lessonId: string, today: string): WriteReport {
 	const inSequence = db
 		.select({ classId: schema.classLesson.classId })
@@ -586,11 +592,12 @@ function rederiveHolders(db: Db, lessonId: string, today: string): WriteReport {
 		.select({ classId: schema.placement.classId })
 		.from(schema.placement)
 		.where(eq(schema.placement.lessonId, lessonId));
+	const cal = loadCalendar(db);
 	return combineReports(
 		inSequence
 			.union(placed)
 			.all()
-			.map((entry) => rederive(db, entry.classId, today))
+			.map((entry) => rederive(db, entry.classId, today, cal))
 	);
 }
 
@@ -604,7 +611,9 @@ function rederiveHolders(db: Db, lessonId: string, today: string): WriteReport {
 // one out from under a live Placement would leave that row naming a Lesson that no longer exists.
 // When a Sequence holds the Lesson, the caller must confirm first (ADR-0026): the answer is a
 // `needsConfirm` question that names the Classes. The API has no confirm, so it turns that
-// question into a 409. On confirm, the cascade takes the entries, Readiness and Teaching notes.
+// question into a 409. On confirm, the cascade takes the entries, Readiness and Teaching notes,
+// and the Attachment rows; their files are unlinked only once the write has committed, so nothing
+// a failed re-derivation rolls back loses a file.
 // An unknown id returns undefined, the door's 404; every other refusal throws `Refused`.
 export function deleteLesson(
 	db: Db,
@@ -649,25 +658,51 @@ export function deleteLesson(
 	}
 
 	// Not-yet-taught Sessions carrying this Lesson are about to be replaced by the re-derivation
-	// below — clear them, and any Continuation on them, before dropping the Lesson row itself.
-	const future = db
-		.select({ id: schema.session.id })
-		.from(schema.session)
-		.where(eq(schema.session.lessonId, id))
-		.all();
-	for (const s of future) {
-		db.delete(schema.continuation).where(eq(schema.continuation.sessionId, s.id)).run();
+	// below — clear them, and their Continuations, before dropping the Lesson row itself.
+	//
+	// The rows go in one transaction with the re-derivation, and the Attachments' files are
+	// unlinked only once it has committed (issue #417): a refusal, a constraint or a failed
+	// re-derivation must leave the Lesson, every Session and every file where they were, since a
+	// file is the one thing a rollback cannot restore. `attachmentsOf` is read first because the
+	// join disappears with the rows.
+	const { report, attachmentIds } = inTransaction(db.$client, () => {
+		const attachmentIds = attachmentsOf(db, id).map((attachment) => attachment.id);
+
+		db.delete(schema.continuation)
+			.where(
+				inArray(
+					schema.continuation.sessionId,
+					db
+						.select({ id: schema.session.id })
+						.from(schema.session)
+						.where(eq(schema.session.lessonId, id))
+				)
+			)
+			.run();
+		db.delete(schema.session).where(eq(schema.session.lessonId, id)).run();
+
+		db.delete(schema.link).where(eq(schema.link.lessonId, id)).run();
+		if (attachmentIds.length > 0) {
+			db.delete(schema.attachment).where(eq(schema.attachment.lessonId, id)).run();
+		}
+		db.delete(schema.lesson).where(eq(schema.lesson.id, id)).run();
+
+		const cal = loadCalendar(db);
+		const report = combineReports(sequenceClasses.map((c) => rederive(db, c.id, today, cal)));
+		return { report, attachmentIds };
+	});
+
+	// Nothing names these files now that their rows are gone. A missing file is already the
+	// desired end state, so ENOENT is swallowed — the same trailing cleanup `deleteAttachment` does.
+	for (const attachmentId of attachmentIds) {
+		try {
+			unlinkSync(join(dir, attachmentId));
+		} catch {
+			// ENOENT: a missing file is already the desired end state.
+		}
 	}
-	db.delete(schema.session).where(eq(schema.session.lessonId, id)).run();
 
-	db.delete(schema.link).where(eq(schema.link.lessonId, id)).run();
-	deleteAttachmentsOfLesson(db, id, dir);
-	db.delete(schema.lesson).where(eq(schema.lesson.id, id)).run();
-
-	return {
-		lesson: row,
-		...combineReports(sequenceClasses.map((c) => rederive(db, c.id, today)))
-	};
+	return { lesson: row, ...report };
 }
 
 // Swaps position with the previous or next Lesson in the same Topic. Off either end is a no-op —
@@ -749,36 +784,23 @@ export function moveLink(
 	db.update(schema.link).set({ position: a.position }).where(eq(schema.link.id, b.id)).run();
 }
 
-// Creates one Topic, with its Lessons and their Links, in a single all-or-nothing transaction —
-// optionally creating its Course inline if it does not yet exist. Throwing `Refused` leaves
-// `inTransaction` to roll the write back on the way out; every other throw rolls back too and
-// propagates, so an unexpected fault reaches the door as the 500 it is, with nothing committed.
-//
-// Every field runs the same rules as the one-at-a-time writers, inside the transaction, so a
-// refused field on the ninth Lesson leaves nothing behind. Exactly one of course id/name is
-// `invalid`, a course id the body names that is not there is `missing`, and a Topic name that
-// collides is `conflict`.
-export function importTopic(
-	db: Db,
-	client: Database,
-	{
-		courseId,
-		courseName,
-		topicName,
-		lessons
-	}: {
-		courseId?: string;
-		courseName?: string;
-		topicName: string;
-		lessons: Array<{
-			title: string;
-			body?: string | null;
-			length?: number;
-			status?: string;
-			links?: Array<{ url: string; label: string }>;
-		}>;
-	}
-): {
+// What an Import asks for: the Course, named by its id or its name, one Topic, and that Topic's
+// Lessons with their Links.
+type ImportRequest = {
+	courseId?: string;
+	courseName?: string;
+	topicName: string;
+	lessons: Array<{
+		title: string;
+		body?: string | null;
+		length?: number;
+		status?: string;
+		links?: Array<{ url: string; label: string }>;
+	}>;
+};
+
+// What an Import made, so the door can answer 201 with it.
+type ImportedTopic = {
 	course: { id: string; name: string };
 	courseCreated: boolean;
 	topic: { id: string; name: string; courseId: string };
@@ -788,128 +810,74 @@ export function importTopic(
 		position: number;
 		links: Array<{ id: string; url: string; label: string; position: number }>;
 	}>;
-} {
-	if (courseId && courseName) {
-		throw new Refused('invalid', 'The "course" field must carry exactly one of "id" or "name".');
-	}
-	if (!courseId && !courseName) {
-		throw new Refused('invalid', 'The "course" field must carry exactly one of "id" or "name".');
-	}
+};
 
-	return inTransaction(client, () => {
-		let resolvedCourseId = courseId;
-		let courseCreated = false;
-
-		if (courseName) {
-			const trimmed = required(courseName, 'A Course needs a name.');
-			const [existing] = db
-				.select({ id: schema.course.id, name: schema.course.name })
-				.from(schema.course)
-				.where(sql`lower(${schema.course.name}) = lower(${trimmed})`)
-				.all();
-			if (existing) {
-				resolvedCourseId = existing.id;
-			} else {
-				const [created] = db
-					.insert(schema.course)
-					.values({ name: trimmed, tone: nextCourseTone(db) })
-					.returning()
-					.all();
-				resolvedCourseId = created.id;
-				courseCreated = true;
-			}
-		}
-
-		if (!resolvedCourseId) throw new Refused('missing', 'Course not found.');
-
-		const courseRecord = db
+// The Course an Import targets: the one with that name, created when the name is new, or the one
+// with that id, which must exist. The guard in importTopic promises exactly one of the two.
+function importCourse(
+	db: Db,
+	{ id, name }: { id?: string; name?: string }
+): { course: { id: string; name: string }; created: boolean } {
+	if (name !== undefined) {
+		const trimmed = required(name, 'A Course needs a name.');
+		const [existing] = db
 			.select({ id: schema.course.id, name: schema.course.name })
 			.from(schema.course)
-			.where(eq(schema.course.id, resolvedCourseId))
-			.all()[0];
-		if (!courseRecord) throw new Refused('missing', 'Course not found.');
-
-		const trimmedTopicName = required(topicName, 'A Topic needs a name.');
-		const topicCollision = findTopicNameCollision(db, {
-			courseId: resolvedCourseId,
-			name: trimmedTopicName
-		});
-		if (topicCollision) {
-			throw new Refused(
-				'conflict',
-				`The Course "${courseRecord.name}" already holds a Topic called "${topicCollision.name.trim()}".`
-			);
-		}
-
-		const [topicRow] = db
-			.insert(schema.topic)
-			.values({ name: trimmedTopicName, courseId: resolvedCourseId })
-			.returning()
+			.where(sql`lower(${schema.course.name}) = lower(${trimmed})`)
 			.all();
+		if (existing) return { course: existing, created: false };
+		return { course: createCourse(db, { name: trimmed }), created: true };
+	}
+	const [found] = db
+		.select({ id: schema.course.id, name: schema.course.name })
+		.from(schema.course)
+		.where(eq(schema.course.id, id ?? ''))
+		.all();
+	if (!found) throw new Refused('missing', 'Course not found.');
+	return { course: found, created: false };
+}
 
-		const lessonResults: Array<{
-			id: string;
-			title: string;
-			position: number;
-			links: Array<{ id: string; url: string; label: string; position: number }>;
-		}> = [];
+// Creates one Topic, with its Lessons and their Links, in a single all-or-nothing transaction —
+// optionally creating its Course inline if it does not yet exist. Each step is the one-at-a-time
+// writer called inside the transaction, so every field runs the rule it runs on create, and a
+// refusal on the ninth Lesson leaves nothing behind: `Refused` rolls the write back on the way out
+// through `inTransaction`, and every other throw rolls back too and propagates, so an unexpected
+// fault reaches the door as the 500 it is, with nothing committed.
+export function importTopic(
+	db: Db,
+	{ courseId, courseName, topicName, lessons }: ImportRequest
+): ImportedTopic {
+	if ((courseId === undefined) === (courseName === undefined)) {
+		throw new Refused('invalid', 'The "course" field must carry exactly one of "id" or "name".');
+	}
 
-		for (let i = 0; i < lessons.length; i++) {
-			const lesson = lessons[i];
-			const [lessonRow] = db
-				.insert(schema.lesson)
-				.values({
-					topicId: topicRow.id,
-					title: required(lesson.title, 'A Lesson needs a title.'),
-					position: i,
-					...(lesson.body !== undefined ? { body: lessonBody(lesson.body) } : {}),
-					...(lesson.length !== undefined ? { length: lessonLength(lesson.length) } : {}),
-					...(lesson.status !== undefined ? { status: lessonStatus(lesson.status) } : {})
-				})
-				.returning()
-				.all();
-
-			const linkResults: Array<{
-				id: string;
-				url: string;
-				label: string;
-				position: number;
-			}> = [];
-			if (lesson.links) {
-				for (let j = 0; j < lesson.links.length; j++) {
-					const link = lesson.links[j];
-					const [linkRow] = db
-						.insert(schema.link)
-						.values({
-							lessonId: lessonRow.id,
-							url: linkUrl(link.url),
-							label: required(link.label, 'A Link needs a label.'),
-							position: j
-						})
-						.returning()
-						.all();
-					linkResults.push({
-						id: linkRow.id,
-						url: linkRow.url,
-						label: linkRow.label,
-						position: linkRow.position
-					});
-				}
-			}
-
-			lessonResults.push({
-				id: lessonRow.id,
-				title: lessonRow.title,
-				position: lessonRow.position,
-				links: linkResults
+	return inTransaction(db.$client, () => {
+		const { course, created: courseCreated } = importCourse(db, { id: courseId, name: courseName });
+		const topic = createTopic(db, { courseId: course.id, name: topicName });
+		const created: ImportedTopic['lessons'] = lessons.map((lesson) => {
+			const { lesson: row } = createLesson(db, {
+				topicId: topic.id,
+				title: lesson.title,
+				body: lesson.body,
+				length: lesson.length,
+				status: lesson.status
 			});
-		}
+			const links = (lesson.links ?? []).map((link) =>
+				createLink(db, { lessonId: row.id, url: link.url, label: link.label })
+			);
+			return {
+				id: row.id,
+				title: row.title,
+				position: row.position,
+				links: links.map(({ id, url, label, position }) => ({ id, url, label, position }))
+			};
+		});
 
 		return {
-			course: { id: courseRecord.id, name: courseRecord.name },
+			course: { id: course.id, name: course.name },
 			courseCreated,
-			topic: { id: topicRow.id, name: topicRow.name, courseId: topicRow.courseId },
-			lessons: lessonResults
+			topic: { id: topic.id, name: topic.name, courseId: topic.courseId },
+			lessons: created
 		};
 	});
 }

@@ -2,6 +2,7 @@
 // Teaching note of its Lesson, and marking that it needs more time. Everything else about a Session is derived.
 import { and, eq } from 'drizzle-orm';
 import * as schema from '../db/schema';
+import { inTransaction } from '../db';
 import { classDetail } from './classes';
 import { rederive, type Db, type WriteReport } from './derive';
 import { linksOf, tagsOf, type LessonStatus } from './authoring';
@@ -41,9 +42,7 @@ export interface SessionDetail extends Occasion {
 	ready: boolean | null;
 	note: string | null;
 	// The Placement naming this occasion's Lesson, if it has one — what the Session panel's
-	// Remove-placement button deletes by (issue #254). A Standalone Lesson may in the rare case
-	// be placed on this same Class twice (ADR-0022); the first Placement naming this pairing is
-	// taken, since telling the two apart from one occasion alone needs no further design here.
+	// Remove-placement button deletes by (issue #254).
 	placement: { id: string } | null;
 	// Whether the Session panel's Place-a-Lesson card should show. Placing is future-and-today
 	// only (placement.ts), never a correction to the past. A Topic Lesson already on the occasion
@@ -193,9 +192,14 @@ export function recordContinuation(
 		);
 	}
 
-	db.insert(schema.continuation).values({ sessionId: existing.id }).run();
+	// The Continuation and the schedule it widens commit together: a Session marked "needs more
+	// time" whose later parts were never re-derived is a lie about the record, and no forward
+	// re-derivation reaches back past today to repair it.
+	return inTransaction(db.$client, () => {
+		db.insert(schema.continuation).values({ sessionId: existing.id }).run();
 
-	return rederive(db, occasion.classId, today);
+		return rederive(db, occasion.classId, today);
+	});
 }
 
 // Remove a Continuation: undoes one "Needs more time" on this occasion, so the Lesson's later
@@ -225,6 +229,10 @@ export function removeContinuation(
 			'invalid',
 			`No Continuation on ${occasion.date} P${occasion.period} to remove.`
 		);
-	db.delete(schema.continuation).where(eq(schema.continuation.id, row.id)).run();
-	return rederive(db, occasion.classId, today);
+	// The removal and the schedule it narrows commit together, the mirror of recordContinuation.
+	return inTransaction(db.$client, () => {
+		db.delete(schema.continuation).where(eq(schema.continuation.id, row.id)).run();
+
+		return rederive(db, occasion.classId, today);
+	});
 }

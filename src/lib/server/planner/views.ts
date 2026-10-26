@@ -4,7 +4,8 @@
 // panel can never disagree about one occasion. The look-back, and the Calendar before today, read
 // the recorded Sessions.
 import { and, eq, gte, lt } from 'drizzle-orm';
-import { addDays, weekday } from '$lib/date';
+import { addDays, mondayOf, weekday } from '$lib/date';
+import { PERIODS } from '$lib/periods';
 import * as schema from '../db/schema';
 import { tagsByLesson, type LessonStatus } from './authoring';
 import { lessonNames, loadCalendar, scheduleFor, type Db, type LessonName } from './derive';
@@ -230,7 +231,7 @@ export function agendaLookBack(db: Db, { today }: { today: string }): AgendaEntr
 
 	const occasions = sessionRuns(sessions).flatMap(({ classId, ...run }): Occasion[] => {
 		const cls = classes.get(classId);
-		const week = letters.get(addDays(run.date, 1 - weekday(run.date)));
+		const week = letters.get(mondayOf(run.date));
 		return cls && week ? [{ cls, week, ...run, slotIds: runSlotIds(cal, week, classId, run) }] : [];
 	});
 
@@ -271,8 +272,6 @@ export interface CalendarWeek {
 	cells: CalendarCell[];
 	blockedDays: { id: string; date: string; note: string | null }[];
 }
-
-const PERIODS_PER_DAY = 6;
 
 function blockedDaysByDate(db: Db) {
 	return new Map(
@@ -371,7 +370,7 @@ function uncoveredCells(
 
 	return dates.flatMap((date) => {
 		const cells: CalendarCell[] = [];
-		for (let period = 1; period <= PERIODS_PER_DAY; period++) {
+		for (const period of PERIODS) {
 			if (covered.has(`${date}|${period}`)) continue;
 
 			const [slot] = slotsAt(cal, letter, date, period);

@@ -124,3 +124,51 @@ export function setSequence(
 	writeOrder(db, classId, lessonIds);
 	rederive(db, classId, today);
 }
+
+// A handle whose re-derivation fails where the schedule is written: the named statement on the
+// Session table throws, so the fault lands after the write's own row (its insert, its cascade)
+// has gone in and before anything commits. Every other statement, and the transaction state
+// itself, is the real handle's — `inTransaction` rolls the whole write back. Injecting at the
+// statement is the tester's stand-in for a full disk or a crash part-way (issue #417).
+export function failingRederive(
+	db: Db,
+	statement: 'insert' | 'update' | 'delete' | 'any' = 'any'
+): Db {
+	const fail = (): never => {
+		throw new Error('re-derivation failed');
+	};
+	// Self-returning so any chain an insert, update or delete builds ends at `run`/`all`.
+	const refused: Record<string, unknown> = {};
+	for (const step of ['values', 'set', 'where', 'returning']) refused[step] = () => refused;
+	refused.run = fail;
+	refused.all = fail;
+
+	const failing = statement === 'any' ? ['insert', 'update', 'delete'] : [statement];
+
+	return new Proxy(db, {
+		get(target, property, receiver) {
+			if (!failing.includes(property as string)) return Reflect.get(target, property, receiver);
+			const write = Reflect.get(target, property, receiver) as (table: unknown) => unknown;
+			return (table: unknown) => (table === schema.session ? refused : write.call(target, table));
+		}
+	});
+}
+
+// A handle whose commit never lands: the crash the transaction exists for, injected at the one
+// step that decides. Every statement still runs against the real client, so the transaction
+// state is genuine and `inTransaction` rolls the whole write back (issue #417).
+export function failingCommit(db: Db): Db {
+	const client = db.$client;
+	const failing = {
+		inTransaction: true,
+		run: (sql: string) => {
+			if (sql === 'COMMIT') throw new Error('COMMIT failed');
+			client.run(sql);
+		}
+	};
+
+	return new Proxy(db, {
+		get: (target, property, receiver) =>
+			property === '$client' ? failing : Reflect.get(target, property, receiver)
+	});
+}

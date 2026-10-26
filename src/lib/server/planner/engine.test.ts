@@ -368,26 +368,39 @@ describe('schedule with Placements', () => {
 		]);
 	});
 
-	test('the same Lesson placed twice on one Class splits already-taught history between them in anchor order', () => {
+	test('a Continuation on a placed Session widens the Placement and shift-rights the Sequence by one Slot', () => {
 		const result = schedule({
 			cal: calendarOf(),
-			lessons: [],
+			lessons: [{ id: 'seq', length: 1 }],
 			classId: 'c1',
-			// One Period of this Lesson is already taught, dated before the boundary — shared
-			// history the two Placements below must not both count toward their own Length.
-			sessions: [{ classId: 'c1', date: DAYS[1], period: 1, lessonId: 'l1' }],
-			continuations: [],
+			// The placed Lesson's own part was taught on DAYS[1] P1, and the teacher has marked
+			// that Session as needing more time (ADR-0022).
+			sessions: [{ classId: 'c1', date: DAYS[1], period: 1, lessonId: 'pl' }],
+			continuations: [{ classId: 'c1', lessonId: 'pl' }],
 			placements: [
-				{ id: 'p1', classId: 'c1', date: DAYS[2], slotId: 'd2p1', lessonId: 'l1', length: 1 },
-				{ id: 'p2', classId: 'c1', date: DAYS[3], slotId: 'd3p1', lessonId: 'l1', length: 1 }
+				{ id: 'p1', classId: 'c1', date: DAYS[2], slotId: 'd2p1', lessonId: 'pl', length: 1 }
 			],
 			boundary: DAYS[2]
 		});
 
-		// The already-taught Period is consumed by whichever Placement is walked first (ascending
-		// anchor order), leaving the later one still owed its own full Length rather than being
-		// zeroed out by the same history a second time.
-		expect(result.scheduled.filter((s) => s.placementId === 'p1')).toEqual([]);
-		expect(result.scheduled.filter((s) => s.placementId === 'p2')).toHaveLength(1);
+		// Length 1 plus one Continuation is two parts: part 1 is history, so one more part lands
+		// on the Placement's own anchor and reports the widened total.
+		expect(result.scheduled.filter((s) => s.placementId === 'p1')).toEqual([
+			expect.objectContaining({
+				date: DAYS[2],
+				period: 1,
+				lessonId: 'pl',
+				part: 2,
+				of: 2
+			})
+		]);
+		// The Sequence's own Lesson would have taken DAYS[2] P1; the extra part pushes it one Slot
+		// right, to P2.
+		expect(result.scheduled.find((s) => s.lessonId === 'seq')).toMatchObject({
+			date: DAYS[2],
+			period: 2,
+			part: 1,
+			of: 1
+		});
 	});
 });

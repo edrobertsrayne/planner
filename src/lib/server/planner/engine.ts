@@ -56,8 +56,8 @@ export interface Continuation {
 }
 
 // A Placement: a Lesson scheduled directly onto a Class at a chosen date/Slot, with no Topic
-// behind it (issue #250). `length` is the Lesson's own length — a Placement carries no
-// Continuation of its own.
+// behind it (issue #250). `length` is the Lesson's own length; a Continuation recorded on one of
+// the Placement's own Sessions widens its run by one Slot (ADR-0022).
 export interface Placement {
 	id: string;
 	classId: string;
@@ -149,9 +149,12 @@ export function availableSlots(cal: Calendar, classId: string, from?: string): A
 // How many Available Slots a Lesson needs for this Class: its Length, plus one per
 // Continuation recorded against it. Length and Continuation both widen a Lesson; neither
 // creates a second Lesson.
-const demandFor = (lesson: LessonInput, classId: string, continuations: Continuation[]) =>
-	lesson.length +
-	continuations.filter((c) => c.lessonId === lesson.id && c.classId === classId).length;
+const demandFor = (
+	lessonId: string,
+	length: number,
+	classId: string,
+	continuations: Continuation[]
+) => length + continuations.filter((c) => c.lessonId === lessonId && c.classId === classId).length;
 
 // The Lesson-parts still owed to this Class, in the Class's Sequence order (ADR-0026).
 export function remainingParts(
@@ -162,7 +165,7 @@ export function remainingParts(
 ): RemainingPart[] {
 	const parts: RemainingPart[] = [];
 	for (const lesson of lessons) {
-		const need = demandFor(lesson, classId, continuations);
+		const need = demandFor(lesson.id, lesson.length, classId, continuations);
 		for (let part = (delivered[lesson.id] || 0) + 1; part <= need; part++)
 			parts.push({ lessonId: lesson.id, part, of: need });
 	}
@@ -190,19 +193,17 @@ export function layOut(
 // Lay every Placement onto the stream of Available Slots before any Topic Lesson gets a look in.
 // Walked in ascending anchor order — by date, then by the anchor Slot's own Period, both stable
 // and pure so re-deriving the same Placements in the same state always walks them the same way —
-// each claims the first `length` Available Slots at-or-after its own anchor from whatever the
-// stream still holds, so a later Placement whose anchor collides with an earlier one's claim
-// shifts right past it, never refused. `delivered` is the same record `remainingParts` reads for
-// the Sequence. A Lesson is never both Placed on a Class and held in its Sequence: Assign Topic
-// skips a Placed Lesson, and Place Lesson always makes a new Lesson. So the two never contend for
-// the same entry. It is read from a local copy, never written back onto the
-// caller's map, so this stays the one pure function in the system with no hidden side effect on a
-// shared record. Still needed within the loop itself: the same Lesson may be placed twice on one
-// Class (ADR-0022), and the earlier-anchored Placement's already-taught parts must stop counting
-// against the later one's own length too.
+// each claims the first Available Slots at-or-after its own anchor from whatever the stream still
+// holds, so a later Placement whose anchor collides with an earlier one's claim shifts right past
+// it, never refused. A Placement's run is its Lesson's Length plus one Slot per Continuation on
+// that Lesson for this Class, the same demand `remainingParts` gives a Sequence Lesson, less the
+// parts already taught. `delivered` is the same record `remainingParts` reads for the Sequence. A
+// Lesson is never both Placed on a Class and held in its Sequence: Assign Topic skips a Placed
+// Lesson, and Place Lesson always makes a new Lesson, so the two never contend for the same entry.
 function layPlacements(
 	cal: Calendar,
 	placements: Placement[],
+	continuations: Continuation[],
 	delivered: Record<string, number>,
 	stream: AvailableSlot[]
 ): {
@@ -219,17 +220,15 @@ function layPlacements(
 		return (periodOf[a.slotId] ?? 0) - (periodOf[b.slotId] ?? 0);
 	});
 
-	const left: Record<string, number> = { ...delivered };
 	let remaining = stream;
 	const sessions: ScheduledSession[] = [];
 	const stranded: string[] = [];
 	const unplaced: RemainingPart[] = [];
 
 	for (const placement of ordered) {
-		const already = left[placement.lessonId] || 0;
-		const used = Math.min(already, placement.length);
-		left[placement.lessonId] = already - used;
-		const need = placement.length - used;
+		const of = demandFor(placement.lessonId, placement.length, placement.classId, continuations);
+		const used = delivered[placement.lessonId] ?? 0;
+		const need = of - used;
 		if (need <= 0) continue;
 
 		const period = periodOf[placement.slotId] ?? 0;
@@ -254,7 +253,7 @@ function layPlacements(
 				classId: placement.classId,
 				lessonId: placement.lessonId,
 				part: used + i + 1,
-				of: placement.length,
+				of,
 				placementId: placement.id
 			})
 		);
@@ -262,7 +261,7 @@ function layPlacements(
 		// The stream ran out mid-run: the parts with nowhere left to go join the Topic stream's
 		// own unplaced tail rather than vanishing behind a "part 1 of 3" nothing can finish.
 		for (let i = claimed.length; i < need; i++) {
-			unplaced.push({ lessonId: placement.lessonId, part: used + i + 1, of: placement.length });
+			unplaced.push({ lessonId: placement.lessonId, part: used + i + 1, of });
 		}
 
 		remaining = [...remaining.slice(0, start), ...remaining.slice(start + claimed.length)];
@@ -306,6 +305,7 @@ export function schedule({
 	} = layPlacements(
 		cal,
 		placements.filter((p) => p.classId === classId),
+		continuations,
 		delivered,
 		availableSlots(cal, classId, boundary)
 	);

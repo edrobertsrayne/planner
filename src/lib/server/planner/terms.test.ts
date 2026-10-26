@@ -1,15 +1,14 @@
-import type { Database } from 'bun:sqlite';
 import { describe, expect, test } from 'vitest';
-import { makeLessons, makeTopic, refused, setUp, TERMS } from './fixtures';
+import { failingCommit, makeLessons, makeTopic, refused, setUp, TERMS } from './fixtures';
 import {
 	assignTopic,
 	classSchedule,
 	replaceTerms,
 	sessionDetail,
-	teachingNoteOf,
 	teachingWeeks,
 	writeTeachingNote
 } from './index';
+import { teachingNoteOf } from './teaching-notes';
 import * as schema from '../db/schema';
 
 describe('replacing the Terms', () => {
@@ -26,9 +25,9 @@ describe('replacing the Terms', () => {
 	];
 
 	test('accepts the six in any order, and a Term change re-letters the year', () => {
-		const { db, client } = setUp();
+		const { db } = setUp();
 
-		const result = replaceTerms(db, client, { terms: NEW_TERMS, today: '2026-09-03' });
+		const result = replaceTerms(db, { terms: NEW_TERMS, today: '2026-09-03' });
 
 		expect(result).toEqual({ placementsMoved: [] });
 
@@ -38,17 +37,17 @@ describe('replacing the Terms', () => {
 	});
 
 	test('refuses a set that is not exactly six Terms, leaving the old six in place', () => {
-		const { db, client } = setUp();
+		const { db } = setUp();
 
 		refused(
-			() => replaceTerms(db, client, { terms: TERMS.slice(1), today: '2026-09-03' }),
+			() => replaceTerms(db, { terms: TERMS.slice(1), today: '2026-09-03' }),
 			'invalid',
 			'A year needs exactly six Terms, and 5 were given.'
 		);
 
 		refused(
 			() =>
-				replaceTerms(db, client, {
+				replaceTerms(db, {
 					terms: [...TERMS, { opens: '2027-07-20', closes: '2027-07-30' }],
 					today: '2026-09-03'
 				}),
@@ -62,45 +61,45 @@ describe('replacing the Terms', () => {
 	});
 
 	test('refuses a malformed or unreal date', () => {
-		const { db, client } = setUp();
+		const { db } = setUp();
 
 		const unreal = NEW_TERMS.map((t, i) =>
 			i === 1 ? { opens: '2026-02-30', closes: t.closes } : t
 		);
 		refused(
-			() => replaceTerms(db, client, { terms: unreal, today: '2026-09-03' }),
+			() => replaceTerms(db, { terms: unreal, today: '2026-09-03' }),
 			'invalid',
 			'"2026-02-30" is not a real date.'
 		);
 
 		const malformed = NEW_TERMS.map((t, i) => (i === 3 ? { ...t, closes: '3 September' } : t));
 		refused(
-			() => replaceTerms(db, client, { terms: malformed, today: '2026-09-03' }),
+			() => replaceTerms(db, { terms: malformed, today: '2026-09-03' }),
 			'invalid',
 			'"3 September" is not a real date.'
 		);
 	});
 
 	test('refuses a Term that opens after it closes', () => {
-		const { db, client } = setUp();
+		const { db } = setUp();
 
 		const backwards = NEW_TERMS.map((t, i) =>
 			i === 0 ? { opens: '2027-07-19', closes: '2027-06-07' } : t
 		);
 		refused(
-			() => replaceTerms(db, client, { terms: backwards, today: '2026-09-03' }),
+			() => replaceTerms(db, { terms: backwards, today: '2026-09-03' }),
 			'invalid',
 			'A Term cannot open after it closes: opens 2027-07-19, closes 2027-06-07.'
 		);
 	});
 
 	test('refuses Terms that overlap or touch, once sorted by opening date', () => {
-		const { db, client } = setUp();
+		const { db } = setUp();
 
 		// Summer 1 overruns into Summer 2.
 		const overlapping = NEW_TERMS.map((t, i) => (i === 4 ? { ...t, closes: '2027-06-10' } : t));
 		refused(
-			() => replaceTerms(db, client, { terms: overlapping, today: '2026-09-03' }),
+			() => replaceTerms(db, { terms: overlapping, today: '2026-09-03' }),
 			'invalid',
 			'Terms cannot overlap or touch: one closes 2027-06-10, the next opens 2027-06-07.'
 		);
@@ -108,14 +107,14 @@ describe('replacing the Terms', () => {
 		// Spring 1 ends the day Spring 2 opens — no break between them, so they are one Term.
 		const abutting = NEW_TERMS.map((t, i) => (i === 5 ? { ...t, closes: '2027-02-22' } : t));
 		refused(
-			() => replaceTerms(db, client, { terms: abutting, today: '2026-09-03' }),
+			() => replaceTerms(db, { terms: abutting, today: '2026-09-03' }),
 			'invalid',
 			'Terms cannot overlap or touch: one closes 2027-02-22, the next opens 2027-02-22.'
 		);
 	});
 
 	test('does not police gap length or a Term boundary on a weekend', () => {
-		const { db, client } = setUp();
+		const { db } = setUp();
 
 		const relaxed = NEW_TERMS.map((t, i) => {
 			if (i === 3) return { opens: '2026-10-31', closes: t.closes }; // a Saturday
@@ -123,35 +122,25 @@ describe('replacing the Terms', () => {
 			return t;
 		});
 
-		const report = replaceTerms(db, client, { terms: relaxed, today: '2026-09-03' });
+		const report = replaceTerms(db, { terms: relaxed, today: '2026-09-03' });
 		expect(report).toEqual({ placementsMoved: [] });
 	});
 
 	test('a failure part-way throws, leaving the old six in place', () => {
-		const { db, client } = setUp();
+		const { db } = setUp();
 
 		// A COMMIT that never lands — the crash the transaction exists for. The delete, the six
 		// inserts and the re-derivation have all run inside it by then; only the rollback
 		// brings the old six back. The fault is not a refusal, so it propagates: the door
 		// answers the 500 it is.
-		const failing = {
-			run: (sql: string) => {
-				if (sql === 'COMMIT') throw new Error('COMMIT failed');
-				client.run(sql);
-			}
-		};
-
 		expect(() =>
-			replaceTerms(db, failing as unknown as Database, {
-				terms: NEW_TERMS,
-				today: '2026-09-03'
-			})
+			replaceTerms(failingCommit(db), { terms: NEW_TERMS, today: '2026-09-03' })
 		).toThrow('COMMIT failed');
 		expect(teachingWeeks(db).find((w) => w.weekCommencing === '2026-09-07')?.letter).toBe('B');
 	});
 
 	test('rewinds from the earliest Term opening across the old and the new sets, keeping the Teaching note with its Lesson', () => {
-		const { db, client, course, classA } = setUp();
+		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		const [lesson] = makeLessons(db, topic.id, 1);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
@@ -166,7 +155,7 @@ describe('replacing the Terms', () => {
 		// Two weeks later, the school moves Autumn 1's opening a week earlier. The Rewind
 		// reaches back past today to the earliest opening across the old and the new sets. The
 		// Lesson may change date, and its note goes with it.
-		const result = replaceTerms(db, client, { terms: NEW_TERMS, today: '2026-09-14' });
+		const result = replaceTerms(db, { terms: NEW_TERMS, today: '2026-09-14' });
 
 		expect(result).toEqual({ placementsMoved: [] });
 		expect(teachingNoteOf(db, classA.id, lesson.id)).toBe('went badly — redo the practical');
@@ -182,22 +171,22 @@ describe('replacing the Terms', () => {
 	});
 
 	test('answers with the placementsMoved report only', () => {
-		const { db, client, course, classA } = setUp();
+		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		makeLessons(db, topic.id, 1);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 
-		const result = replaceTerms(db, client, { terms: TERMS, today: '2026-09-14' });
+		const result = replaceTerms(db, { terms: TERMS, today: '2026-09-14' });
 
 		expect(result).toEqual({ placementsMoved: [] });
 	});
 
 	test('a Blocked Day stranded outside every Term is not an error and is not reported', () => {
-		const { db, client } = setUp();
+		const { db } = setUp();
 
 		// The suite blocks 26–27 November (INSET). Autumn 2 closing the day before strands both.
 		const shrunken = NEW_TERMS.map((t, i) => (i === 3 ? { ...t, closes: '2026-11-25' } : t));
-		const result = replaceTerms(db, client, { terms: shrunken, today: '2026-09-03' });
+		const result = replaceTerms(db, { terms: shrunken, today: '2026-09-03' });
 
 		expect(result).toEqual({ placementsMoved: [] });
 		expect(

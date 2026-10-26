@@ -116,8 +116,9 @@ export type SkipReason = 'in-sequence' | 'placed';
 
 // Assign Topic: appends the Topic's Lessons, as they are now and in Topic order, at the end of the
 // Sequence. A Lesson already in the Sequence, or named by a Placement on this Class, is skipped
-// with its reason. A Topic outside the Class's Course is `invalid`. Assigning a Topic again adds
-// the Lessons written since, and the ones the teacher removed.
+// with its reason. A Class or Topic that is not there is `missing`; a Topic outside the Class's
+// Course is `invalid`. Assigning a Topic again adds the Lessons written since, and the ones the
+// teacher removed.
 export function assignTopic(
 	db: Db,
 	{ classId, topicId, today }: { classId: string; topicId: string; today: string }
@@ -127,12 +128,14 @@ export function assignTopic(
 		.from(schema.classes)
 		.where(eq(schema.classes.id, classId))
 		.all();
+	if (!cls) throw new Refused('missing', 'Class not found.');
 	const [top] = db
 		.select({ courseId: schema.topic.courseId, name: schema.topic.name })
 		.from(schema.topic)
 		.where(eq(schema.topic.id, topicId))
 		.all();
-	if (!cls || !top || cls.courseId !== top.courseId) {
+	if (!top) throw new Refused('missing', 'Topic not found.');
+	if (cls.courseId !== top.courseId) {
 		throw new Refused('invalid', "This Topic does not belong to the Class's Course.");
 	}
 

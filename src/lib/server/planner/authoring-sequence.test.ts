@@ -1,9 +1,21 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { eq } from 'drizzle-orm';
 import { describe, expect, test } from 'vitest';
-import { makeLessons, makeTopic, refused, setUp, setUpAuthoring } from './fixtures';
+import {
+	failingRederive,
+	makeLessons,
+	makeTopic,
+	refused,
+	setUp,
+	setUpAuthoring
+} from './fixtures';
 import {
 	assignTopic,
+	attachmentsOf,
 	classSchedule,
 	classesTaughtLesson,
+	createAttachment,
 	createCourse,
 	createLesson,
 	createLink,
@@ -138,14 +150,14 @@ describe('reordering and moving Lessons', () => {
 	});
 
 	test('refuses to delete a Lesson that a Placement names, naming the way out', () => {
-		const { db, client, classA, atDir: dir } = setUp();
+		const { db, classA, atDir: dir } = setUp();
 		const mondaySlot = db
 			.select()
 			.from(schema.slot)
 			.all()
 			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3)!;
 
-		const placed = placeLesson(db, client, {
+		const placed = placeLesson(db, {
 			classId: classA.id,
 			date: '2026-09-14',
 			slotId: mondaySlot.id,
@@ -219,6 +231,40 @@ describe('reordering and moving Lessons', () => {
 				'conflict',
 				'A Class has already been taught this Lesson, so it cannot be removed.'
 			);
+		});
+
+		test('a failed re-derivation leaves the Lesson, its Sessions and its Attachment files in place', () => {
+			const { db, lessons, dir } = setUpHeld();
+			const attachment = createAttachment(
+				db,
+				{
+					lessonId: lessons[1].id,
+					filename: 'worksheet.pdf',
+					mimeType: 'application/pdf',
+					bytes: new Uint8Array(2)
+				},
+				dir
+			);
+			const sessions = db
+				.select()
+				.from(schema.session)
+				.where(eq(schema.session.lessonId, lessons[1].id))
+				.all();
+			expect(sessions.length).toBeGreaterThan(0);
+
+			// The re-derivation writes a Session; that is the statement that fails, after the
+			// Lesson's own rows have gone in inside the transaction. Only the rollback can bring
+			// them back, and nothing brings a file back — so the unlink must not have run.
+			expect(() =>
+				deleteLesson(failingRederive(db), { id: lessons[1].id, today: TODAY, dir, confirmed: true })
+			).toThrow('re-derivation failed');
+
+			expect(lessonDetail(db, lessons[1].id)).not.toBeNull();
+			expect(
+				db.select().from(schema.session).where(eq(schema.session.lessonId, lessons[1].id)).all()
+			).toEqual(sessions);
+			expect(attachmentsOf(db, lessons[1].id)).toHaveLength(1);
+			expect(existsSync(join(dir, attachment.id))).toBe(true);
 		});
 
 		test('is refused while a Placement names it, even confirmed', () => {
@@ -373,7 +419,7 @@ describe('content edits re-derive the schedule from today', () => {
 	});
 
 	test("changing a Standalone Lesson's Length re-derives every Class holding a Placement of it", () => {
-		const { db, client, classA, classB } = setUp();
+		const { db, classA, classB } = setUp();
 		const today = '2026-09-03';
 		const slots = db.select().from(schema.slot).all();
 		const classAMonday = slots.find(
@@ -383,7 +429,7 @@ describe('content edits re-derive the schedule from today', () => {
 			(s) => s.classId === classB.id && s.week === 'A' && s.day === 1 && s.period === 1
 		)!;
 
-		const placed = placeLesson(db, client, {
+		const placed = placeLesson(db, {
 			classId: classA.id,
 			date: '2026-09-14',
 			slotId: classAMonday.id,

@@ -1,9 +1,9 @@
 // Re-derivation: the one place the engine is fed and its answer persisted.
 //
-// The engine takes five inputs — the Calendar, the Class's Lesson stream, its Sessions, its
-// Continuations and a boundary — and every caller in the seam needs the same five. `scheduleFor`
-// is that call, so a read and a write can never disagree about what a Class's schedule is: the
-// Agenda, the Calendar grid, the Class lane and every write all go through it.
+// The engine takes six inputs — the Calendar, the Class's Lesson stream, its Sessions, its
+// Continuations, its Placements and a boundary — and every caller in the seam needs the same six.
+// `scheduleFor` is that call, so a read and a write can never disagree about what a Class's
+// schedule is: the Agenda, the Calendar grid, the Class lane and every write all go through it.
 import { and, asc, eq, gte, inArray } from 'drizzle-orm';
 import type { drizzle } from 'drizzle-orm/bun-sqlite';
 import * as schema from '../db/schema';
@@ -196,6 +196,10 @@ export function rederive(db: Db, classId: string, boundary: string, cal?: Calend
 
 // `rederive` plus the schedule it laid down, for the Sequence writes that read first dates from it.
 // Not part of the index: only sequence.ts uses it.
+//
+// Never opens a transaction of its own: every scheduling write wraps itself and this call in one
+// `inTransaction`, and `inTransaction` runs a bare BEGIN, so a second one nested inside would fail
+// rather than join. Callers must therefore never wrap a call that already wraps itself.
 export function rederiveWithResult(
 	db: Db,
 	classId: string,
@@ -325,10 +329,10 @@ export function lessonNames(db: Db, ids: readonly string[]): Map<string, LessonN
 }
 
 // A Placement's stored anchor, resolved to a Period via the Calendar's Slot table, compared
-// against where its own emitted ScheduledSession actually lands — matched by the Placement's id,
-// not its Lesson id alone, since the same Lesson may be placed twice on one Class. A Placement
-// fully covered by history (nothing left to schedule this call) has no landing to compare against
-// and is never reported: history is frozen, so it cannot have moved. A Placement in
+// against where the first part of its run actually lands — matched by the Placement's id, since
+// that run is the Placement. A Placement with no first part scheduled this call is never reported:
+// either history already holds every part, or it holds part 1 and the run is a multi-day one still
+// in progress. History is frozen, so neither can have moved (ADR-0022). A Placement in
 // `strandedPlacementIds` has no landing for a different reason — every Slot at or after its
 // anchor is gone — and is always reported, since silence there would be indistinguishable from
 // "nothing changed".
@@ -346,15 +350,7 @@ function describePlacementsMoved(
 
 	const landing: Record<string, ScheduledSession> = {};
 	for (const s of result.scheduled) {
-		if (!s.placementId) continue;
-		const earliest = landing[s.placementId];
-		if (
-			!earliest ||
-			s.date < earliest.date ||
-			(s.date === earliest.date && s.period < earliest.period)
-		) {
-			landing[s.placementId] = s;
-		}
+		if (s.placementId && s.part === 1) landing[s.placementId] = s;
 	}
 
 	const stranded = new Set(result.strandedPlacementIds);

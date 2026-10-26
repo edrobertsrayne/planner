@@ -4,6 +4,7 @@
 import { and, asc, eq, isNotNull, or } from 'drizzle-orm';
 import { addDays } from '$lib/date';
 import * as schema from '../db/schema';
+import { inTransaction } from '../db';
 import { rederive, type Db } from './derive';
 import { slotHolds } from './engine';
 import { Refused } from './refused';
@@ -111,16 +112,20 @@ export function endSlot(
 	const [row] = db.select().from(schema.slot).where(eq(schema.slot.id, id)).all();
 	if (!row) return null;
 
-	if (from(row.holdsFrom) >= endFrom) {
-		db.delete(schema.slot).where(eq(schema.slot.id, id)).run();
-	} else {
-		db.update(schema.slot)
-			.set({ holdsTo: addDays(endFrom, -1) })
-			.where(eq(schema.slot.id, id))
-			.run();
-	}
+	// The Slot's end and the re-derivation commit together: a Slot that has stopped holding while
+	// its Sessions still run through it is a Calendar and a Class lane disagreeing (ADR-0006).
+	return inTransaction(db.$client, () => {
+		if (from(row.holdsFrom) >= endFrom) {
+			db.delete(schema.slot).where(eq(schema.slot.id, id)).run();
+		} else {
+			db.update(schema.slot)
+				.set({ holdsTo: addDays(endFrom, -1) })
+				.where(eq(schema.slot.id, id))
+				.run();
+		}
 
-	return { slot: row, ...rederive(db, row.classId, today) };
+		return { slot: row, ...rederive(db, row.classId, today) };
+	});
 }
 
 // Puts a Class in an empty Timetable position from a chosen date. A click on a position already
@@ -157,8 +162,11 @@ export function takeSlot(
 		throw takenError(week, day, period);
 	}
 
-	const row = addSlot(db, { classId, week, day, period, holdsFrom: takeFrom });
-	return { slot: row, ...rederive(db, classId, today) };
+	// The Slot and its Class's re-derivation commit together, as endSlot does.
+	return inTransaction(db.$client, () => {
+		const row = addSlot(db, { classId, week, day, period, holdsFrom: takeFrom });
+		return { slot: row, ...rederive(db, classId, today) };
+	});
 }
 
 // Ends whatever this Class's Slot is at a position, from a chosen date. The mirror of takeSlot.

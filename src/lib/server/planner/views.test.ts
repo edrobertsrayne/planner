@@ -920,13 +920,13 @@ describe('the Agenda carries the tick', () => {
 
 describe('Readiness dies with its pairing', () => {
 	test("removePlacement clears that Class's marks on the Lesson and no other Class's", () => {
-		const { db, client, classA, classB } = setUp();
+		const { db, classA, classB } = setUp();
 		const mondaySlot = db
 			.select()
 			.from(schema.slot)
 			.all()
 			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3)!;
-		const { lesson } = placeLesson(db, client, {
+		const { lesson } = placeLesson(db, {
 			classId: classA.id,
 			date: '2026-09-14',
 			slotId: mondaySlot.id,

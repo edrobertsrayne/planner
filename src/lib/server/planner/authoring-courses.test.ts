@@ -46,9 +46,9 @@ describe('a Course Tone', () => {
 	});
 
 	test('a Course made by importing a Topic takes the next Tone too', () => {
-		const { db, client } = setUpAuthoring();
+		const { db } = setUpAuthoring();
 		createCourse(db, { name: 'Year 9 Physics' });
-		const { course } = importTopic(db, client, {
+		const { course } = importTopic(db, {
 			courseName: 'Year 10 Chemistry',
 			topicName: 'Moles',
 			lessons: [{ title: 'Intro' }]

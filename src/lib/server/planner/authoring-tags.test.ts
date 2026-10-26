@@ -9,9 +9,9 @@ import {
 	detachTag,
 	lessonDetail,
 	listTagNames,
-	tagsByLesson,
-	tagsOf
+	tagsByLesson
 } from './index';
+import { tagsOf } from './authoring';
 import * as schema from '../db/schema';
 
 // A Tag is a short, user-typed label reused by trimmed + case-insensitive name (issue #245).

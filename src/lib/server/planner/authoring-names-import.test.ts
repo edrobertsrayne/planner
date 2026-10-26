@@ -145,9 +145,9 @@ describe('name collisions', () => {
 // the name is new.
 describe('importing a Topic with its Lessons and Links', () => {
 	test('creates a new Course, its Topic, Lessons and Links in one call', () => {
-		const { db, client } = setUpAuthoring();
+		const { db } = setUpAuthoring();
 
-		const result = importTopic(db, client, {
+		const result = importTopic(db, {
 			courseName: 'Year 9 Physics',
 			topicName: 'Forces',
 			lessons: [
@@ -171,10 +171,10 @@ describe('importing a Topic with its Lessons and Links', () => {
 	});
 
 	test('targets an existing Course by id and leaves it uncreated', () => {
-		const { db, client } = setUpAuthoring();
+		const { db } = setUpAuthoring();
 		const course = createCourse(db, { name: 'Year 9 Physics' });
 
-		const result = importTopic(db, client, {
+		const result = importTopic(db, {
 			courseId: course.id,
 			topicName: 'Waves',
 			lessons: [{ title: 'Reflection' }]
@@ -185,13 +185,28 @@ describe('importing a Topic with its Lessons and Links', () => {
 		expect(listCourses(db)).toHaveLength(1);
 	});
 
+	test('reuses an existing Course named with different case or padding, rather than creating one', () => {
+		const { db } = setUpAuthoring();
+		createCourse(db, { name: 'Year 9 Physics' });
+
+		const result = importTopic(db, {
+			courseName: '  YEAR 9 PHYSICS  ',
+			topicName: 'Waves',
+			lessons: [{ title: 'Reflection' }]
+		});
+
+		expect(result.courseCreated).toBe(false);
+		expect(result.course.name).toBe('Year 9 Physics');
+		expect(listCourses(db)).toHaveLength(1);
+	});
+
 	test('refuses when the course field carries both id and name, or neither', () => {
-		const { db, client } = setUpAuthoring();
+		const { db } = setUpAuthoring();
 		const course = createCourse(db, { name: 'Year 9 Physics' });
 
 		refused(
 			() =>
-				importTopic(db, client, {
+				importTopic(db, {
 					courseId: course.id,
 					courseName: 'Year 9 Physics',
 					topicName: 'Waves',
@@ -202,7 +217,7 @@ describe('importing a Topic with its Lessons and Links', () => {
 		);
 
 		refused(
-			() => importTopic(db, client, { topicName: 'Waves', lessons: [] }),
+			() => importTopic(db, { topicName: 'Waves', lessons: [] }),
 			'invalid',
 			'The "course" field must carry exactly one of "id" or "name".'
 		);
@@ -211,13 +226,13 @@ describe('importing a Topic with its Lessons and Links', () => {
 	});
 
 	test('refuses a Topic name that collides in the target Course, creating nothing', () => {
-		const { db, client } = setUpAuthoring();
+		const { db } = setUpAuthoring();
 		const course = createCourse(db, { name: 'Year 9 Physics' });
 		createTopic(db, { courseId: course.id, name: 'Forces' });
 
 		refused(
 			() =>
-				importTopic(db, client, {
+				importTopic(db, {
 					courseId: course.id,
 					topicName: 'forces',
 					lessons: [{ title: 'Newton I' }]
@@ -230,13 +245,13 @@ describe('importing a Topic with its Lessons and Links', () => {
 	});
 
 	test('a refused field partway through leaves no Course, Topic, Lesson or Link behind', () => {
-		const { db, client } = setUpAuthoring();
+		const { db } = setUpAuthoring();
 
 		// The second Lesson's Link is a `javascript:` url — refused inside the transaction, after
 		// the Course, the Topic and the first Lesson were already written, so all of it rolls back.
 		refused(
 			() =>
-				importTopic(db, client, {
+				importTopic(db, {
 					courseName: 'Year 9 Physics',
 					topicName: 'Forces',
 					lessons: [
@@ -260,10 +275,10 @@ describe('importing a Topic with its Lessons and Links', () => {
 		[{ title: 'Newton I', status: 'archived' }, 'A Lesson must be Draft or Planned.'],
 		[{ title: '   ' }, 'A Lesson needs a title.']
 	])('refuses a Lesson the one-at-a-time writers refuse: %o', (lesson, message) => {
-		const { db, client } = setUpAuthoring();
+		const { db } = setUpAuthoring();
 		refused(
 			() =>
-				importTopic(db, client, {
+				importTopic(db, {
 					courseName: 'Year 9 Physics',
 					topicName: 'Forces',
 					lessons: [lesson]

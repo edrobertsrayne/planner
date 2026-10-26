@@ -109,22 +109,6 @@ export function deleteAttachment(db: Db, id: string, dir: string) {
 	return row;
 }
 
-// The Lesson delete's cascade (spec #222): collect this Lesson's Attachment ids before the row
-// delete — the join disappears with it — remove every row in one statement alongside the Link
-// cascade, then unlink each file. Called from deleteLesson before the Lesson row itself goes, so
-// the FK to lesson_id is never left dangling.
-export function deleteAttachmentsOfLesson(db: Db, lessonId: string, dir: string) {
-	const rows = attachmentsOf(db, lessonId);
-	db.delete(schema.attachment).where(eq(schema.attachment.lessonId, lessonId)).run();
-	for (const row of rows) {
-		try {
-			unlinkSync(join(dir, row.id));
-		} catch {
-			// ENOENT: a missing file is already the desired end state.
-		}
-	}
-}
-
 // Appended at the next position in its Lesson's own order, independent of Link's — the sections
 // are separate, so there is no shared order for a shared counter to serve (spec #220).
 export function createAttachment(

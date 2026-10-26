@@ -29,6 +29,24 @@ export function teachingNotesOf(db: Db, classId: string): Map<string, string> {
 	);
 }
 
+// Every Teaching note of every named Class, keyed "classId|lessonId" — the Classes screen reads
+// all its lanes' notes in one query rather than one per lane.
+export function teachingNotesFor(db: Db, classIds: readonly string[]): Map<string, string> {
+	if (classIds.length === 0) return new Map();
+	return new Map(
+		db
+			.select({
+				classId: schema.teachingNote.classId,
+				lessonId: schema.teachingNote.lessonId,
+				body: schema.teachingNote.body
+			})
+			.from(schema.teachingNote)
+			.where(inArray(schema.teachingNote.classId, classIds))
+			.all()
+			.map((row) => [`${row.classId}|${row.lessonId}`, row.body])
+	);
+}
+
 // Sets the Teaching note of one Class and Lesson; null deletes it.
 export function setTeachingNote(
 	db: Db,

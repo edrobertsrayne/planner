@@ -175,8 +175,9 @@ reservation, pin, lock, unplace, cancel
 The full recurring pattern of Slots across the two-week cycle.
 
 **Teaching Week**:
-A calendar week in which at least one day is taught. A week falling entirely inside a break is not
-a Teaching Week and takes no turn in the Week A / Week B cycle.
+A calendar week, Monday to Sunday, with at least one day inside a Term. A Blocked Day only reduces
+the week's teaching days, never its turn in the Week A / Week B cycle; a week falling entirely
+inside a break is not a Teaching Week and takes no turn.
 
 **Week A / Week B**:
 The two halves of the fortnightly cycle that the Timetable repeats on. The letters alternate across

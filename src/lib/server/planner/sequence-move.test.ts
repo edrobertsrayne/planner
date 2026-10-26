@@ -200,9 +200,9 @@ describe('Move', () => {
 	});
 
 	test('leaves a Placement on its date', () => {
-		const { db, client, classA, ids } = withSequence(4);
+		const { db, classA, ids } = withSequence(4);
 		const slot = classSchedule(db, { classId: classA.id, today }).openSlots[0];
-		const placed = placeLesson(db, client, {
+		const placed = placeLesson(db, {
 			classId: classA.id,
 			date: slot.date,
 			slotId: slot.slotId,

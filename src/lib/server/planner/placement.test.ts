@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { describe, expect, test } from 'vitest';
 import { makeLessons, makeTopic, refused, setUp } from './fixtures';
 import { assignTopic, classSchedule, placeLesson, removePlacement, setReadiness } from './index';
@@ -6,14 +6,14 @@ import * as schema from '../db/schema';
 
 describe('placing a Lesson', () => {
 	test('creates a Standalone Lesson and a Placement together, and re-derives the Class', () => {
-		const { db, client, classA } = setUp();
+		const { db, classA } = setUp();
 		const mondaySlot = db
 			.select()
 			.from(schema.slot)
 			.all()
 			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3)!;
 
-		const result = placeLesson(db, client, {
+		const result = placeLesson(db, {
 			classId: classA.id,
 			date: '2026-09-14',
 			slotId: mondaySlot.id,
@@ -41,14 +41,14 @@ describe('placing a Lesson', () => {
 	});
 
 	test('rolls back the freshly created Lesson when the Placement insert collides on a taken anchor', () => {
-		const { db, client, classA } = setUp();
+		const { db, classA } = setUp();
 		const mondaySlot = db
 			.select()
 			.from(schema.slot)
 			.all()
 			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3)!;
 
-		placeLesson(db, client, {
+		placeLesson(db, {
 			classId: classA.id,
 			date: '2026-09-14',
 			slotId: mondaySlot.id,
@@ -57,7 +57,7 @@ describe('placing a Lesson', () => {
 		});
 
 		expect(() =>
-			placeLesson(db, client, {
+			placeLesson(db, {
 				classId: classA.id,
 				date: '2026-09-14',
 				slotId: mondaySlot.id,
@@ -72,7 +72,7 @@ describe('placing a Lesson', () => {
 	});
 
 	test('refuses a date before today, creating neither the Lesson nor the Placement', () => {
-		const { db, client, classA } = setUp();
+		const { db, classA } = setUp();
 		const mondaySlot = db
 			.select()
 			.from(schema.slot)
@@ -81,7 +81,7 @@ describe('placing a Lesson', () => {
 
 		refused(
 			() =>
-				placeLesson(db, client, {
+				placeLesson(db, {
 					classId: classA.id,
 					date: '2026-09-01',
 					slotId: mondaySlot.id,
@@ -100,7 +100,7 @@ describe('placing a Lesson', () => {
 	// new mechanism — `layPlacements` runs before `layOut` — so this test pins the behaviour the
 	// widened door now exposes.
 	test('placing onto a Slot a Topic Lesson holds shift-rights that Lesson and the rest', () => {
-		const { db, client, course, classA } = setUp();
+		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		const [first, second, third] = makeLessons(db, topic.id, 3);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
@@ -110,7 +110,7 @@ describe('placing a Lesson', () => {
 
 		// The second Lesson's own occasion — the middle of the sequence, not a gap after it.
 		const target = before[1];
-		const result = placeLesson(db, client, {
+		const result = placeLesson(db, {
 			classId: classA.id,
 			date: target.date,
 			slotId: target.slotId,
@@ -131,14 +131,14 @@ describe('placing a Lesson', () => {
 
 describe('removing a Placement', () => {
 	test('re-derives the one Class from rewindBoundary, and is a no-op for an unknown id', () => {
-		const { db, client, classA } = setUp();
+		const { db, classA } = setUp();
 		const mondaySlot = db
 			.select()
 			.from(schema.slot)
 			.all()
 			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3)!;
 
-		const placed = placeLesson(db, client, {
+		const placed = placeLesson(db, {
 			classId: classA.id,
 			date: '2026-09-14',
 			slotId: mondaySlot.id,
@@ -165,7 +165,7 @@ describe('removing a Placement', () => {
 	});
 
 	test('allows a past-dated removal, the same as unblockSlot', () => {
-		const { db, client, classA } = setUp();
+		const { db, classA } = setUp();
 		const mondaySlot = db
 			.select()
 			.from(schema.slot)
@@ -173,7 +173,7 @@ describe('removing a Placement', () => {
 			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3)!;
 
 		const today = '2026-09-01';
-		placeLesson(db, client, {
+		placeLesson(db, {
 			classId: classA.id,
 			date: '2026-09-14',
 			slotId: mondaySlot.id,
@@ -191,85 +191,52 @@ describe('removing a Placement', () => {
 });
 
 describe('Readiness and a removed Placement', () => {
-	test('survives while a second Placement still names the pair, and dies when the last one goes', () => {
-		const { db, client, classA } = setUp();
+	test('removing a Placement ends the Readiness of its (Lesson, Class) pairing', () => {
+		const { db, classA } = setUp();
 		const today = '2026-09-03';
-		const slots = db.select().from(schema.slot).all();
-		const mondaySlot = slots.find(
-			(s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3
-		)!;
-		const wednesdaySlot = slots.find(
-			(s) => s.classId === classA.id && s.week === 'A' && s.day === 3 && s.period === 1
-		)!;
+		const mondaySlot = db
+			.select()
+			.from(schema.slot)
+			.all()
+			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3)!;
 
-		const placed = placeLesson(db, client, {
+		const { lesson } = placeLesson(db, {
 			classId: classA.id,
 			date: '2026-09-14',
 			slotId: mondaySlot.id,
 			title: 'Assembly',
 			today
 		});
-		const lessonId = placed.lesson.id;
 
-		// A second Placement of the same Lesson on the same Class, a different date and Slot.
-		db.insert(schema.placement)
-			.values({ classId: classA.id, date: '2026-09-16', slotId: wednesdaySlot.id, lessonId })
-			.run();
-
-		setReadiness(db, lessonId, classA.id, true);
+		setReadiness(db, lesson.id, classA.id, true);
 		const readinessRows = () =>
-			db
-				.select()
-				.from(schema.readiness)
-				.where(
-					and(eq(schema.readiness.lessonId, lessonId), eq(schema.readiness.classId, classA.id))
-				)
-				.all();
+			db.select().from(schema.readiness).where(eq(schema.readiness.lessonId, lesson.id)).all();
 		expect(readinessRows()).toHaveLength(1);
 
-		const [first] = db
-			.select()
-			.from(schema.placement)
-			.where(eq(schema.placement.date, '2026-09-14'))
-			.all();
-		removePlacement(db, { id: first.id, today });
-		expect(readinessRows()).toHaveLength(1);
+		const [placement] = db.select().from(schema.placement).all();
+		removePlacement(db, { id: placement.id, today });
 
-		const [second] = db
-			.select()
-			.from(schema.placement)
-			.where(eq(schema.placement.date, '2026-09-16'))
-			.all();
-		removePlacement(db, { id: second.id, today });
+		// Its one Placement gone, the (Lesson, Class) pairing no longer exists, so Readiness dies
+		// with it.
 		expect(readinessRows()).toHaveLength(0);
 	});
 
-	test('the Teaching note survives while a second Placement names the pair, and dies with the last', () => {
-		const { db, client, classA, classB } = setUp();
+	test('removing a Placement deletes the Teaching note of its (Lesson, Class), leaving the same Lesson on another Class alone', () => {
+		const { db, classA, classB } = setUp();
 		const today = '2026-09-03';
-		const slots = db.select().from(schema.slot).all();
-		const mondaySlot = slots.find(
-			(s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3
-		)!;
-		const wednesdaySlot = slots.find(
-			(s) => s.classId === classA.id && s.week === 'A' && s.day === 3 && s.period === 1
-		)!;
+		const mondaySlot = db
+			.select()
+			.from(schema.slot)
+			.all()
+			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3)!;
 
-		const { lesson } = placeLesson(db, client, {
+		const { lesson } = placeLesson(db, {
 			classId: classA.id,
 			date: '2026-09-14',
 			slotId: mondaySlot.id,
 			title: 'Assembly',
 			today
 		});
-		db.insert(schema.placement)
-			.values({
-				classId: classA.id,
-				date: '2026-09-16',
-				slotId: wednesdaySlot.id,
-				lessonId: lesson.id
-			})
-			.run();
 		// The same Lesson on another Class has a note of its own.
 		db.insert(schema.teachingNote)
 			.values([
@@ -283,21 +250,11 @@ describe('Readiness and a removed Placement', () => {
 				.from(schema.teachingNote)
 				.all()
 				.map((n) => [n.classId, n.body]);
-
-		const [first] = db
-			.select()
-			.from(schema.placement)
-			.where(eq(schema.placement.date, '2026-09-14'))
-			.all();
-		removePlacement(db, { id: first.id, today });
 		expect(notes()).toHaveLength(2);
 
-		const [second] = db
-			.select()
-			.from(schema.placement)
-			.where(eq(schema.placement.date, '2026-09-16'))
-			.all();
-		removePlacement(db, { id: second.id, today });
+		const [placement] = db.select().from(schema.placement).all();
+		removePlacement(db, { id: placement.id, today });
+
 		expect(notes()).toEqual([[classB.id, 'Other class']]);
 	});
 });

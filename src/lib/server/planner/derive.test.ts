@@ -1,17 +1,29 @@
+import { eq } from 'drizzle-orm';
 import { describe, expect, test } from 'vitest';
-import { makeLessons, makeTopic, setUp } from './fixtures';
+import { failingCommit, failingRederive, makeLessons, makeTopic, setUp } from './fixtures';
 import {
 	assignTopic,
+	blockDay,
+	blockSlot,
 	classSchedule,
 	createLesson,
 	deleteLesson,
+	deleteTopic,
+	editLesson,
+	endSlot,
 	moveLesson,
+	placeLesson,
 	recordContinuation,
+	removeContinuation,
+	removePlacement,
 	sessionDetail,
-	teachingNoteOf,
+	takeSlot,
+	unblockDay,
+	unblockSlot,
 	writeTeachingNote
 } from './index';
-import { rederive, rewindBoundary, scheduleFor } from './derive';
+import { rederive, rewindBoundary, scheduleFor, type Db } from './derive';
+import { teachingNoteOf } from './teaching-notes';
 import * as schema from '../db/schema';
 
 // Every scheduling write answers with its Rewind report, so no caller can drop it. The report
@@ -248,6 +260,35 @@ describe('placementsMoved', () => {
 		expect(moved.date > anchor.date).toBe(true);
 	});
 
+	test('a cross-day Placement re-derived from its second day reports no move once part 1 is history', () => {
+		const { db, classA } = setUp();
+		const [lesson] = db
+			.insert(schema.lesson)
+			.values({ title: 'Trip prep', position: 0, length: 2 })
+			.returning()
+			.all();
+
+		// Anchored on the Thursday double's later Period: a Length-2 run from there also takes
+		// Tue 8 Sep P2, so its two parts fall on different days.
+		const anchor = classSchedule(db, { classId: classA.id, today: '2026-09-01' }).openSlots.find(
+			(slot) => slot.date === '2026-09-03' && slot.period === 6
+		)!;
+		db.insert(schema.placement)
+			.values({ classId: classA.id, date: anchor.date, slotId: anchor.slotId, lessonId: lesson.id })
+			.run();
+		rederive(db, classA.id, '2026-09-01');
+
+		// Part 1 is history now and part 2 still lies ahead: a run in progress, not a move.
+		const after = classSchedule(db, { classId: classA.id, today: '2026-09-08' });
+		expect(after.history).toContainEqual(
+			expect.objectContaining({ date: '2026-09-03', period: 6, lessonId: lesson.id })
+		);
+		expect(after.scheduled).toContainEqual(
+			expect.objectContaining({ date: '2026-09-08', period: 2, lessonId: lesson.id, part: 2 })
+		);
+		expect(rederive(db, classA.id, '2026-09-08').placementsMoved).toEqual([]);
+	});
+
 	test("a Rewind crossing a Placement's date keeps the Teaching note with the Placement's Lesson", () => {
 		const { db, classA } = setUp();
 		const [lesson] = db
@@ -328,5 +369,256 @@ describe('placementsMoved', () => {
 			anchorDate: anchor.date
 		});
 		expect(report.placementsMoved[0].date > anchor.date).toBe(true);
+	});
+});
+
+// Every scheduling write is its input row plus a re-derivation, and the two commit together: a
+// reader never sees a Length with its Classes half re-derived, and a process that stops part-way
+// leaves the input exactly as it was rather than stored with the Sessions it did not reach.
+describe('a scheduling write and its re-derivation commit together', () => {
+	// Every table a scheduling write can touch, read whole. Comparing this before and after a write
+	// whose re-derivation failed is the whole claim: nothing committed.
+	function snapshot(db: Db) {
+		return {
+			session: db.select().from(schema.session).all(),
+			continuation: db.select().from(schema.continuation).all(),
+			placement: db.select().from(schema.placement).all(),
+			slot: db.select().from(schema.slot).all(),
+			blockedDay: db.select().from(schema.blockedDay).all(),
+			blockedSlot: db.select().from(schema.blockedSlot).all(),
+			lesson: db.select().from(schema.lesson).all(),
+			classLesson: db.select().from(schema.classLesson).all(),
+			readiness: db.select().from(schema.readiness).all(),
+			teachingNote: db.select().from(schema.teachingNote).all(),
+			link: db.select().from(schema.link).all(),
+			attachment: db.select().from(schema.attachment).all()
+		};
+	}
+
+	type Fixture = ReturnType<typeof setUp>;
+
+	// Arranges the write's input on the real handle, then answers the write itself — handed the
+	// handle whose re-derivation fails. `statement` names the Session write the fault is injected
+	// at, since a re-derivation inserts, updates or deletes depending on the input.
+	type Case = {
+		name: string;
+		statement?: 'insert' | 'update' | 'delete' | 'any';
+		prepare: (db: Db, fx: Fixture) => (failing: Db) => unknown;
+	};
+
+	const aSlotOf = (db: Db, classId: string) =>
+		db
+			.select()
+			.from(schema.slot)
+			.all()
+			.find((slot) => slot.classId === classId)!;
+
+	const aSessionOf = (db: Db, classId: string) =>
+		db
+			.select()
+			.from(schema.session)
+			.all()
+			.filter((session) => session.classId === classId)
+			.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.period - b.period))[0];
+
+	// A Sequence long enough that its Sessions reach the dates the cases disrupt.
+	const withSequence = (db: Db, fx: Fixture, count = 5) => {
+		const topic = makeTopic(db, fx.course.id, 'Forces');
+		makeLessons(db, topic.id, count);
+		assignTopic(db, { classId: fx.classA.id, topicId: topic.id, today: '2026-09-01' });
+	};
+
+	const cases: Case[] = [
+		{
+			name: 'editLesson',
+			prepare: (db, fx) => {
+				const topic = makeTopic(db, fx.course.id, 'Forces');
+				const [lesson] = makeLessons(db, topic.id, 2);
+				assignTopic(db, { classId: fx.classA.id, topicId: topic.id, today: '2026-09-01' });
+				return (failing) =>
+					editLesson(failing, { id: lesson.id, change: { length: 3 }, today: '2026-09-03' });
+			}
+		},
+		{
+			// Its own cascade deletes Sessions before the re-derivation runs, so the fault is
+			// aimed at the re-derivation's insert rather than at the first Session write.
+			name: 'deleteLesson',
+			statement: 'insert',
+			prepare: (db, fx) => {
+				const topic = makeTopic(db, fx.course.id, 'Forces');
+				const lessons = makeLessons(db, topic.id, 3);
+				assignTopic(db, { classId: fx.classA.id, topicId: topic.id, today: '2026-09-04' });
+				return (failing) =>
+					deleteLesson(failing, {
+						id: lessons[1].id,
+						today: '2026-09-03',
+						dir: fx.atDir,
+						confirmed: true
+					});
+			}
+		},
+		{
+			name: 'placeLesson',
+			prepare: (db, fx) => {
+				const slot = aSlotOf(db, fx.classA.id);
+				return (failing) =>
+					placeLesson(failing, {
+						classId: fx.classA.id,
+						date: '2026-09-14',
+						slotId: slot.id,
+						title: 'Assembly',
+						today: '2026-09-03'
+					});
+			}
+		},
+		{
+			name: 'removePlacement',
+			prepare: (db, fx) => {
+				const slot = aSlotOf(db, fx.classA.id);
+				const { lesson } = placeLesson(db, {
+					classId: fx.classA.id,
+					date: '2026-09-14',
+					slotId: slot.id,
+					title: 'Assembly',
+					today: '2026-09-03'
+				});
+				const [placement] = db
+					.select()
+					.from(schema.placement)
+					.where(eq(schema.placement.lessonId, lesson.id))
+					.all();
+				return (failing) => removePlacement(failing, { id: placement.id, today: '2026-09-03' });
+			}
+		},
+		{
+			name: 'blockDay',
+			prepare: (db, fx) => {
+				withSequence(db, fx, 12);
+				return (failing) => blockDay(failing, { date: '2026-09-16', today: '2026-09-03' });
+			}
+		},
+		{
+			name: 'blockSlot',
+			prepare: (db, fx) => {
+				withSequence(db, fx, 12);
+				const slot = aSlotOf(db, fx.classA.id);
+				return (failing) =>
+					blockSlot(failing, {
+						classId: fx.classA.id,
+						date: '2026-09-14',
+						slotId: slot.id,
+						note: 'Trip',
+						today: '2026-09-03'
+					});
+			}
+		},
+		{
+			name: 'unblockDay',
+			prepare: (db, fx) => {
+				withSequence(db, fx, 12);
+				blockDay(db, { date: '2026-09-16', today: '2026-09-03' });
+				return (failing) => unblockDay(failing, { date: '2026-09-16', today: '2026-09-03' });
+			}
+		},
+		{
+			name: 'unblockSlot',
+			prepare: (db, fx) => {
+				withSequence(db, fx, 12);
+				const slot = aSlotOf(db, fx.classA.id);
+				blockSlot(db, {
+					classId: fx.classA.id,
+					date: '2026-09-14',
+					slotId: slot.id,
+					note: 'Trip',
+					today: '2026-09-03'
+				});
+				const [row] = db.select().from(schema.blockedSlot).all();
+				return (failing) => unblockSlot(failing, { id: row.id, today: '2026-09-03' });
+			}
+		},
+		{
+			name: 'recordContinuation',
+			prepare: (db, fx) => {
+				withSequence(db, fx);
+				const session = aSessionOf(db, fx.classA.id);
+				return (failing) =>
+					recordContinuation(failing, {
+						classId: fx.classA.id,
+						date: session.date,
+						period: session.period,
+						today: session.date
+					});
+			}
+		},
+		{
+			name: 'removeContinuation',
+			prepare: (db, fx) => {
+				withSequence(db, fx);
+				const session = aSessionOf(db, fx.classA.id);
+				recordContinuation(db, {
+					classId: fx.classA.id,
+					date: session.date,
+					period: session.period,
+					today: session.date
+				});
+				return (failing) =>
+					removeContinuation(failing, {
+						classId: fx.classA.id,
+						date: session.date,
+						period: session.period,
+						today: session.date
+					});
+			}
+		},
+		{
+			name: 'endSlot',
+			prepare: (db, fx) => {
+				withSequence(db, fx, 12);
+				const slot = aSlotOf(db, fx.classA.id);
+				return (failing) =>
+					endSlot(failing, { id: slot.id, from: '2026-09-14', today: '2026-09-03' });
+			}
+		},
+		{
+			name: 'takeSlot',
+			prepare: (db, fx) => {
+				withSequence(db, fx, 12);
+				return (failing) =>
+					takeSlot(failing, {
+						classId: fx.classA.id,
+						week: 'A',
+						day: 2,
+						period: 2,
+						from: '2026-09-14',
+						today: '2026-09-03'
+					});
+			}
+		}
+	];
+
+	test.each(cases)(
+		'$name commits nothing when its re-derivation fails',
+		({ statement, prepare }) => {
+			const fx = setUp();
+			const write = prepare(fx.db, fx);
+			const before = snapshot(fx.db);
+
+			expect(() => write(failingRederive(fx.db, statement))).toThrow('re-derivation failed');
+
+			expect(snapshot(fx.db)).toEqual(before);
+		}
+	);
+
+	test('deleteTopic commits nothing when the commit fails', () => {
+		const fx = setUp();
+		const topic = makeTopic(fx.db, fx.course.id, 'Forces');
+		makeLessons(fx.db, topic.id, 2);
+		const before = snapshot(fx.db);
+
+		expect(() => deleteTopic(failingCommit(fx.db), topic.id, { confirmed: true })).toThrow(
+			'COMMIT failed'
+		);
+
+		expect(snapshot(fx.db)).toEqual(before);
 	});
 });

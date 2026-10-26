@@ -23,7 +23,7 @@
 //   attachments.ts  files a Lesson holds: the directory, the allow-list, the create
 //   refused.ts      the one refusal every write leaves by, and the kind→status table
 
-export type { LessonName, PlacementMoved, WriteReport } from './derive';
+export type { PlacementMoved, WriteReport } from './derive';
 
 export { reportOf, teachingWeeks } from './derive';
 
@@ -54,21 +54,17 @@ export {
 export {
 	addLesson,
 	assignTopic,
-	fixedLessonIds,
 	moveLessons,
 	removeFromSequence,
 	sequenceLessonIds,
 	sequenceView,
 	type DateChange,
 	type SequenceEntry,
-	type SkipReason,
 	type TopicChip,
 	type TopicOption,
 	type WeekCell,
 	type WeekRow
 } from './sequence';
-
-export { teachingNoteOf } from './teaching-notes';
 
 export { blockDay, blockSlot, unblockDay, unblockSlot } from './disruptions';
 
@@ -104,6 +100,7 @@ export {
 	createCourse,
 	createLesson,
 	createLink,
+	courseById,
 	courseSummary,
 	courseTiles,
 	createTopic,
@@ -117,6 +114,7 @@ export {
 	editLesson,
 	lessonDetail,
 	lessonsOf,
+	linkById,
 	linksOf,
 	listCourses,
 	listTagNames,
@@ -128,11 +126,10 @@ export {
 	moveTopicToCourse,
 	setReadiness,
 	tagsByLesson,
-	tagsOf,
+	topicById,
 	topicsOf,
 	updateLink,
-	type LessonChange,
-	type LessonStatus
+	type LessonChange
 } from './authoring';
 
 export {

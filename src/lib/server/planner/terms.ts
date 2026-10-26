@@ -7,7 +7,6 @@
 // same seam. The six are sorted by opening date before checking, so no caller has to order them.
 // Gap length and weekend boundaries are not policed — the generator counts weekdays only, so a
 // Saturday boundary is harmless, and nothing here has a view on how long a half-term break runs.
-import type { Database } from 'bun:sqlite';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import { rederiveAllClasses, rewindBoundary, type Db, type WriteReport } from './derive';
@@ -16,7 +15,7 @@ import { Refused } from './refused';
 import type { TermInput } from '$lib/calendar/generate-teaching-weeks';
 
 // Deletes the six Terms, inserts the new six, and re-derives every Class — in one transaction,
-// driven on the raw client exactly as the Topic import already is. The re-derivation runs from
+// taken from `db.$client` like every other write on this seam. The re-derivation runs from
 // the Rewind boundary of the earliest Term opening across the old and the new sets: a Term
 // change can flip every letter, so a minimal boundary is nearly always the whole year, and
 // computing it precisely would be complexity for nothing.
@@ -27,7 +26,6 @@ import type { TermInput } from '$lib/calendar/generate-teaching-weeks';
 // the 500 it is.
 export function replaceTerms(
 	db: Db,
-	client: Database,
 	{ terms, today }: { terms: TermInput[]; today: string }
 ): WriteReport {
 	if (terms.length !== 6) {
@@ -69,7 +67,7 @@ export function replaceTerms(
 		today
 	);
 
-	return inTransaction(client, () => {
+	return inTransaction(db.$client, () => {
 		db.delete(schema.term).run();
 		for (const term of sorted) {
 			db.insert(schema.term).values({ opens: term.opens, closes: term.closes }).run();

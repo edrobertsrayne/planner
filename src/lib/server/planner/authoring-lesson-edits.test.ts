@@ -208,17 +208,13 @@ describe("a Lesson's planning status", () => {
 // One Lesson edit owns every rule for a change to one Lesson, so the Lesson editor and the API
 // give the same answer to the same change (issue #356).
 describe('one Lesson edit', () => {
-	function placeStandalone(
-		db: ReturnType<typeof setUp>['db'],
-		client: ReturnType<typeof setUp>['client'],
-		classId: string
-	) {
+	function placeStandalone(db: ReturnType<typeof setUp>['db'], classId: string) {
 		const mondaySlot = db
 			.select()
 			.from(schema.slot)
 			.all()
 			.find((s) => s.classId === classId && s.week === 'A' && s.day === 1 && s.period === 3)!;
-		return placeLesson(db, client, {
+		return placeLesson(db, {
 			classId,
 			date: '2026-09-14',
 			slotId: mondaySlot.id,
@@ -228,8 +224,8 @@ describe('one Lesson edit', () => {
 	}
 
 	test('an unknown Topic is missing, from a Standalone Lesson and from a Topic Lesson alike', () => {
-		const { db, client, course, classA } = setUp();
-		const placed = placeStandalone(db, client, classA.id);
+		const { db, course, classA } = setUp();
+		const placed = placeStandalone(db, classA.id);
 		const [inTopic] = makeLessons(db, makeTopic(db, course.id, 'Forces').id, 1);
 
 		for (const id of [placed.id, inTopic.id]) {
@@ -242,8 +238,8 @@ describe('one Lesson edit', () => {
 	});
 
 	test('a change that sets nothing returns the Lesson unchanged and an empty report', () => {
-		const { db, client, course, classA } = setUp();
-		const placed = placeStandalone(db, client, classA.id);
+		const { db, course, classA } = setUp();
+		const placed = placeStandalone(db, classA.id);
 		const topic = makeTopic(db, course.id, 'Forces');
 		const [inTopic] = makeLessons(db, topic.id, 1);
 		const empty = { placementsMoved: [] };
@@ -266,7 +262,7 @@ describe('one Lesson edit', () => {
 
 	// Filing a Lesson never changes a Sequence, a date or a mark (ADR-0026).
 	function setUpFiling() {
-		const { db, client, course, classA, classB } = setUp();
+		const { db, course, classA, classB } = setUp();
 		const forces = makeTopic(db, course.id, 'Forces');
 		const waves = makeTopic(db, course.id, 'Waves');
 		const [moved, detached] = makeLessons(db, forces.id, 2);
@@ -283,7 +279,7 @@ describe('one Lesson edit', () => {
 			datesB: datesOf(db, classB.id),
 			readiness: db.select().from(schema.readiness).all().length
 		});
-		return { db, client, classA, forces, waves, moved, detached, snapshot };
+		return { db, classA, forces, waves, moved, detached, snapshot };
 	}
 
 	test('filing a Lesson in another Topic changes no Sequence, no date and no Readiness', () => {
@@ -308,8 +304,8 @@ describe('one Lesson edit', () => {
 	});
 
 	test('a Standalone Lesson takes a Topic and keeps its Placement and Readiness', () => {
-		const { db, client, course, classA } = setUp();
-		const placed = placeStandalone(db, client, classA.id);
+		const { db, course, classA } = setUp();
+		const placed = placeStandalone(db, classA.id);
 		setReadiness(db, placed.id, classA.id, true);
 		const topic = makeTopic(db, course.id, 'Forces');
 		const datesBefore = datesOf(db, classA.id);
