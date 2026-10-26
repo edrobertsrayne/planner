@@ -22,7 +22,9 @@ export function inTransaction<T>(client: Database, work: () => T): T {
 		client.run('COMMIT');
 		return result;
 	} catch (cause) {
-		client.run('ROLLBACK');
+		// SQLite ends the transaction itself on a full disk or an I/O error, and a second ROLLBACK
+		// then throws "no transaction is active", hiding what actually went wrong.
+		if (client.inTransaction) client.run('ROLLBACK');
 		throw cause;
 	}
 }

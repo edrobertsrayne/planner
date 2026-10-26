@@ -1,7 +1,7 @@
 // Back up (ADR-0024): a consistent copy of the database plus each Attachment file the copy names,
 // streamed as one tar archive. Restore reads it back.
 import { Database } from 'bun:sqlite';
-import { closeSync, existsSync, openSync, statSync, unlinkSync } from 'node:fs';
+import { closeSync, openSync, unlinkSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { attachmentsDir } from '../planner';
 import { sizeOfFd, tarChunks, tarLength } from './tar';
@@ -52,25 +52,27 @@ export function createBackup(
 	}
 
 	const directory = attachmentsDir(databaseUrl);
-	const files: { name: string; size: number; fd?: number; path?: string }[] = [
+	const files: { name: string; size: number; fd: number }[] = [
 		{ name: DATABASE_ENTRY, size: sizeOfFd(copyFd), fd: copyFd }
 	];
 	try {
 		for (const id of ids) {
-			const path = join(directory, id);
-			if (!existsSync(path)) throw new Error(`Attachment ${id} has no file at ${path}`);
-			files.push({ name: `${ATTACHMENT_PREFIX}${id}`, size: statSync(path).size, path });
+			// Opened here, not when the stream reaches it: an open fd outlives the file being
+			// deleted, so a teacher removing an Attachment mid-download cannot truncate the archive.
+			const fd = openSync(join(directory, id), 'r');
+			files.push({ name: `${ATTACHMENT_PREFIX}${id}`, size: sizeOfFd(fd), fd });
 		}
 	} catch (cause) {
-		closeSync(copyFd);
+		for (const file of files) closeSync(file.fd);
 		throw cause;
 	}
 
 	const chunks = tarChunks(files);
-	let copyClosed = false;
-	const closeCopy = () => {
-		if (!copyClosed) closeSync(copyFd);
-		copyClosed = true;
+	let closed = false;
+	const closeFiles = () => {
+		if (closed) return;
+		closed = true;
+		for (const file of files) closeSync(file.fd);
 	};
 	return {
 		size: tarLength(files.map((file) => file.size)),
@@ -80,17 +82,17 @@ export function createBackup(
 				try {
 					step = await chunks.next();
 				} catch (cause) {
-					closeCopy();
+					closeFiles();
 					throw cause;
 				}
 				const { done, value } = step;
 				if (done) {
-					closeCopy();
+					closeFiles();
 					controller.close();
 				} else controller.enqueue(value);
 			},
 			async cancel() {
-				closeCopy();
+				closeFiles();
 				await chunks.return(undefined);
 			}
 		})

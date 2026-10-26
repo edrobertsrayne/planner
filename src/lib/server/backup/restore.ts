@@ -6,6 +6,7 @@ import {
 	closeSync,
 	mkdirSync,
 	openSync,
+	readdirSync,
 	renameSync,
 	rmSync,
 	statfsSync,
@@ -26,6 +27,8 @@ const NEWER_VERSION =
 	'This Backup comes from a newer version of the planner. Update this instance first.';
 const NOT_A_BACKUP =
 	'This file is not a Backup, or it is damaged. Choose a file that Back up made.';
+const ORPHAN_ROWS =
+	'This Backup is inconsistent: some of its rows point at records it does not contain.';
 
 // The tables that hold the login rather than planner data. An instance whose only rows are these
 // is empty for Restore's purpose (`reset-credentials` deletes the user and leaves the planner).
@@ -167,7 +170,21 @@ function checkStaged(databasePath: string, attachmentsPath: string, migrationsFo
 			if (found !== size) throw new RestoreRefused(NOT_A_BACKUP);
 		}
 
+		// Unpack accepts any well-formed name, so a file that no row names would move into live
+		// storage and stay there for ever.
+		const named = new Set(attachments.map((row) => row.id));
+		for (const name of readdirSync(attachmentsPath)) {
+			if (!named.has(name)) throw new RestoreRefused(NOT_A_BACKUP);
+		}
+
+		// SQLite opens with foreign keys off, while startup migrates with them on, so an upgrade
+		// here has to turn them on too or it cascades differently. A copy whose rows point at
+		// records it does not hold is then refused rather than restored.
+		staged.run('PRAGMA foreign_keys = ON');
 		runMigrations(staged, migrationsFolder);
+		if (staged.query('PRAGMA foreign_key_check').get() !== null) {
+			throw new RestoreRefused(ORPHAN_ROWS);
+		}
 		staged.run('PRAGMA journal_mode = DELETE');
 	} finally {
 		staged.close();

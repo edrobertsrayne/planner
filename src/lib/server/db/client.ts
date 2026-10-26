@@ -1,5 +1,7 @@
 import { building } from '$app/environment';
 import { env } from '$env/dynamic/private';
+import { readdirSync, rmSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { openDatabase, runMigrations } from './index';
 
 if (!env.DATABASE_URL) throw new Error('DATABASE_URL is not set');
@@ -10,7 +12,10 @@ export const DATABASE_URL = env.DATABASE_URL;
 
 let current = openDatabase(DATABASE_URL);
 
-if (!building) runMigrations(current.client);
+if (!building) {
+	removeLeftovers(DATABASE_URL);
+	runMigrations(current.client);
+}
 
 // Restore replaces the database file under a running server (ADR-0024), and the auth library keeps
 // hold of `db` from start-up. So `client` and `db` are stable stand-ins that forward every access
@@ -34,4 +39,17 @@ export function closeDatabase() {
 export function reopenDatabase() {
 	current = openDatabase(DATABASE_URL);
 	runMigrations(current.client);
+}
+
+/**
+ * Deletes what a Restore that died part-way leaves beside the database: `.restore-<uuid>/`, the
+ * unpacked upload, and `.backup-<uuid>.db`, a full copy of the database with the password hash in
+ * it. Nothing reuses either, and a copy left in the data folder is a secret left lying around.
+ */
+export function removeLeftovers(databaseUrl: string) {
+	const dataDir = dirname(databaseUrl);
+	for (const name of readdirSync(dataDir)) {
+		if (!name.startsWith('.restore-') && !name.startsWith('.backup-')) continue;
+		rmSync(join(dataDir, name), { recursive: true, force: true });
+	}
 }

@@ -1,7 +1,7 @@
 // The Backup container: a plain ustar archive (ADR-0024). Tar stores each file uncompressed and
 // back to back, so an Attachment is copied in and out without being held whole, and there is no
 // dependency to keep. Only what a Backup needs is here: regular files, short names, no directories.
-import { closeSync, openSync, readSync, fstatSync } from 'node:fs';
+import { readSync, fstatSync } from 'node:fs';
 
 const BLOCK = 512;
 const CHUNK = 64 * 1024;
@@ -47,29 +47,24 @@ export function tarLength(sizes: number[]): number {
 }
 
 /**
- * Yields the archive one chunk at a time. Each file is opened when its turn comes and closed before
- * the next, so memory does not grow with the number of files. The size in a header is the size the
- * caller measured; a file that has changed length since is a fault, not something to paper over.
- * An entry that brings its own `fd` keeps it: the caller closes it.
+ * Yields the archive one chunk at a time, reading each file through the `fd` the caller opened, so
+ * memory does not grow with the number of files. The caller closes the fds: an open one outlives
+ * the file being deleted, which is what keeps a Backup complete while it streams. The size in a
+ * header is the size the caller measured; a file that has changed length since is a fault, not
+ * something to paper over.
  */
 export async function* tarChunks(
-	entries: { name: string; size: number; fd?: number; path?: string }[]
+	entries: { name: string; size: number; fd: number }[]
 ): AsyncGenerator<Uint8Array> {
 	for (const entry of entries) {
 		yield header(entry.name, entry.size);
-		const fd = entry.fd ?? openSync(entry.path!, 'r');
-		const owned = entry.fd === undefined;
-		try {
-			let sent = 0;
-			while (sent < entry.size) {
-				const chunk = new Uint8Array(Math.min(CHUNK, entry.size - sent));
-				const read = readSync(fd, chunk, 0, chunk.length, sent);
-				if (read !== chunk.length) throw new Error(`${entry.name} changed while it was read`);
-				sent += read;
-				yield chunk;
-			}
-		} finally {
-			if (owned) closeSync(fd);
+		let sent = 0;
+		while (sent < entry.size) {
+			const chunk = new Uint8Array(Math.min(CHUNK, entry.size - sent));
+			const read = readSync(entry.fd, chunk, 0, chunk.length, sent);
+			if (read !== chunk.length) throw new Error(`${entry.name} changed while it was read`);
+			sent += read;
+			yield chunk;
 		}
 		yield padding(entry.size);
 	}

@@ -2,7 +2,7 @@ import { cpSync, mkdtempSync, mkdirSync, readdirSync, writeFileSync, rmSync } fr
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
-import { openDatabase, runMigrations } from './index';
+import { openDatabase, inTransaction, runMigrations } from './index';
 import * as schema from './schema';
 
 let dir: string;
@@ -340,5 +340,22 @@ describe('runMigrations', () => {
 		expect(() => runMigrations(client, migrationsFolder)).toThrow(
 			new RegExp(`Migration "${migrationName}" failed`)
 		);
+	});
+});
+
+describe('inTransaction', () => {
+	test('rethrows the cause when SQLite has already ended the transaction', () => {
+		dir = mkdtempSync(join(tmpdir(), 'planner-db-'));
+		const { client } = openDatabase(join(dir, 'ended.db'));
+		runMigrations(client, 'drizzle');
+
+		expect(() =>
+			inTransaction(client, () => {
+				// What SQLite does on a full disk: the transaction is gone before the work throws,
+				// so a second ROLLBACK would bury the real error under "no transaction is active".
+				client.run('ROLLBACK');
+				throw new Error('the disk is full');
+			})
+		).toThrow('the disk is full');
 	});
 });
