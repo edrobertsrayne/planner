@@ -27,7 +27,7 @@
 	// The Timetable and the Sequence write from a tablet up; on a phone the Sequence reads only,
 	// so the rename pencil — the page's other edit — follows the Course page's rule.
 	const md = new MediaQuery('min-width: 768px', true);
-	let tab = $state<'sequence' | 'timetable'>('sequence');
+	let tab = $state<'overview' | 'timetable'>('overview');
 
 	// The "Timetable as at" date sets one parameter and keeps the rest, like every filter
 	// (withParam, issue #338).
@@ -129,26 +129,22 @@
 		{/if}
 	</div>
 
-	<!-- Sequence and Timetable under the Class's label (story 110). No tabs on a phone: the
-	     Sequence is all a phone reads of this page, whichever tab was last chosen on a wider
-	     window. -->
+	<!-- Overview (the Class's Sequence) and Timetable under the Class's label (story 110). No tabs
+	     on a phone: the Sequence is all a phone reads of this page, whichever tab was last chosen on
+	     a wider window. -->
 	<Tabs.Root value={tab} onValueChange={(v) => v && (tab = v as typeof tab)} class="mt-3">
 		<Tabs.List variant="line" class="max-md:hidden">
-			<Tabs.Trigger value="sequence">
-				Sequence <span class="text-xs tabular-nums opacity-60"
-					>{data.sequence?.entries.length ?? 0}</span
-				>
-			</Tabs.Trigger>
+			<Tabs.Trigger value="overview">Overview</Tabs.Trigger>
 			<Tabs.Trigger value="timetable">
 				Timetable <span class="text-xs tabular-nums opacity-60">{slotCount}</span>
 			</Tabs.Trigger>
 		</Tabs.List>
 	</Tabs.Root>
 
-	<!-- The Sequence always shows on a phone, read-only (story 116); from a tablet up, when its
-	     tab is on. -->
+	<!-- The Sequence always shows on a phone, read-only (story 116); from a tablet up, when the
+	     Overview tab is on. -->
 	{#if data.sequence}
-		<div class={tab === 'sequence' ? '' : 'md:hidden'}>
+		<div class={tab === 'overview' ? '' : 'md:hidden'}>
 			<SequenceTab
 				classId={data.class.id}
 				classLabel={data.class.label}

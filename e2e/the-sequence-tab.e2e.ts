@@ -30,17 +30,15 @@ test.beforeAll(() => {
 const LETTERS = 'ABCDEFGHIJKLMN'.split('');
 const titleOf = (letter: string) => `Move ${letter}`;
 
-// The Class page of a Class, on its Sequence tab, as a List.
+// The Class page of a Class, on its Overview (the Sequence), as a List.
 async function openSequence(page: Page, classId = classCId) {
 	await page.goto(`/classes/${classId}?layout=list`);
-	await page.getByRole('tab', { name: /^Sequence/ }).click();
 	await expect(page.locator('[data-sequence]')).toBeVisible();
 }
 
 // The same, By week: the default layout.
 async function openWeeks(page: Page, classId = classCId) {
 	await page.goto(`/classes/${classId}`);
-	await page.getByRole('tab', { name: /^Sequence/ }).click();
 	await expect(page.locator('[data-sequence-weeks]')).toBeVisible();
 }
 
@@ -125,7 +123,6 @@ test.describe.serial('moving Lessons in a Sequence by drag', () => {
 			.first()
 			.click();
 		await expect(page).toHaveURL(/\/classes\/[^/]+$/);
-		await page.getByRole('tab', { name: /^Sequence/ }).click();
 		await page.getByRole('button', { name: 'Assign Topic' }).click();
 		await page.getByRole('menuitem', { name: /^Moves / }).click();
 		await expect(page.getByText('Added 14 Lessons from Moves.')).toBeVisible();
@@ -262,7 +259,6 @@ test.describe.serial('the By week layout', () => {
 		await expect(page.locator('[data-taught]')).toHaveCount(0);
 
 		await page.goto(`/classes/${classCId}?layout=list`);
-		await page.getByRole('tab', { name: /^Sequence/ }).click();
 		await expect(page.locator('[data-sequence]')).toBeVisible();
 		await expect(page.locator('[data-sequence-weeks]')).toHaveCount(0);
 		// The layout button goes back, and the address says so.
@@ -559,7 +555,7 @@ test.describe.serial('Add Lesson', () => {
 			.getByRole('link', { name: /9B\/Sc1/ })
 			.first()
 			.click();
-		await page.getByRole('tab', { name: /^Sequence/ }).click();
+		await expect(page.locator('[data-sequence-weeks]')).toBeVisible();
 		await expect(page.getByText('Starter')).toHaveCount(0);
 	});
 });

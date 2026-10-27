@@ -361,8 +361,8 @@ end of the year" in red. Apart from that, the Agenda showing Open Slots
 inside its own horizon is the only alert the planner has.
 
 **Class page**:
-The single surface for one Class, in two tabs under the Class's label and Course. Sequence, the
-default and labelled with its count of Lessons, is the only place a Sequence is read or written.
+The single surface for one Class, in two tabs under the Class's label and Course. Overview, the
+default, holds the Class's Sequence: the only place a Sequence is read or written.
 Timetable holds the "Timetable as at" control and the Slot grid, both weeks stacked. The Sequence
 shows By week, each week's Slots in fixed
 places, or as a List. The teacher drags a Lesson by its grip to take another Lesson's place, and

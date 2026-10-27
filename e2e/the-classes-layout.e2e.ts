@@ -23,8 +23,8 @@ test.beforeAll(() => {
 // It leaves a `Grip target` Lesson at the end of 9B/Sc1's Sequence; everything else it makes it
 // undoes.
 
-// The Class page: Sequence (the default) and Timetable tabs from `md` up; on a phone the Sequence
-// only, read-only.
+// The Class page: Overview (the default, the Class's Sequence) and Timetable tabs from `md` up; on
+// a phone the Sequence only, read-only.
 async function openClassPage(page: Page) {
 	await login(page, '/classes');
 	const href = await page
@@ -140,14 +140,14 @@ test.describe('the Classes screen on a phone writes nothing', () => {
 test.describe('the Class page on a laptop', () => {
 	test.use({ viewport: { width: 1280, height: 720 } });
 
-	test('opens on the Sequence, and the Timetable tab shows its Slot count and the Timetable', async ({
+	test('opens on the Overview, and the Timetable tab shows its Slot count and the Timetable', async ({
 		page
 	}) => {
 		await openClassPage(page);
 		await expect(page.getByRole('tablist')).toBeVisible();
 		const tabs = page.getByRole('tab');
 		await expect(tabs).toHaveCount(2);
-		await expect(tabs.nth(0)).toHaveAccessibleName(/^Sequence/);
+		await expect(tabs.nth(0)).toHaveAccessibleName('Overview');
 		await expect(tabs.nth(0)).toHaveAttribute('aria-selected', 'true');
 		await expect(tabs.nth(1)).toHaveAccessibleName(/^Timetable/);
 		await expect(page.getByRole('button', { name: 'Assign Topic' })).toBeVisible();

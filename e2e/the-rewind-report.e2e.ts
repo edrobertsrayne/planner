@@ -54,10 +54,9 @@ test.describe.serial('a Teaching note and the Sequence after a Lesson write', ()
 		await expect(page.getByRole('button', { name: 'Back' })).toBeVisible();
 	}
 
-	// × on a card of the Sequence tab takes the Lesson out of this Class and keeps the Lesson.
+	// × on a card of the Sequence takes the Lesson out of this Class and keeps the Lesson.
 	async function removeFromSequence(title: string) {
 		await openFixtureClass();
-		await page.getByRole('tab', { name: /^Sequence/ }).click();
 		await page.getByRole('button', { name: `Remove ${title}` }).click();
 		await page.getByRole('dialog').getByRole('button', { name: 'Remove', exact: true }).click();
 		await expect(page.locator('[data-remove-result]')).toContainText('Removed 1 Lesson.');
@@ -81,7 +80,6 @@ test.describe.serial('a Teaching note and the Sequence after a Lesson write', ()
 		}
 
 		await openFixtureClass();
-		await page.getByRole('tab', { name: /^Sequence/ }).click();
 		for (const [name, added] of [
 			['Rewind A', 'Added 1 Lesson'],
 			['Rewind B', 'Added 2 Lessons']
@@ -120,7 +118,6 @@ test.describe.serial('a Teaching note and the Sequence after a Lesson write', ()
 	test('a Lesson moved in front of a noted Lesson moves its Teaching note to the new date', async () => {
 		await openFixtureClass();
 		await page.goto(`${page.url()}?layout=list`);
-		await page.getByRole('tab', { name: /^Sequence/ }).click();
 		const titles = page.locator('[data-sequence] [data-title]');
 		await expect(titles).toHaveText(['A one', 'B one', 'B two']);
 
@@ -163,6 +160,6 @@ test.describe.serial('a Teaching note and the Sequence after a Lesson write', ()
 		// The new Lesson joins no Sequence: the Class has the same Sessions and three Lessons.
 		expect(await (await agendaSessions()).allInnerTexts()).toEqual(before);
 		await openFixtureClass();
-		await expect(page.getByRole('tab', { name: 'Sequence 3' })).toBeVisible();
+		await expect(page.locator('[data-lesson-card]')).toHaveCount(3);
 	});
 });

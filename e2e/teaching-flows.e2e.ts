@@ -99,10 +99,8 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expectSessionClosed(page);
 	});
 
-	test('a Topic is assigned to a Class on its Sequence tab, and its Lessons then show there', async () => {
+	test('a Topic is assigned to a Class on its Overview, and its Lessons then show there', async () => {
 		await page.goto(`/classes/${classBId}?layout=list`);
-		await expect(page.getByRole('tab', { name: 'Sequence 0' })).toBeVisible();
-		await page.getByRole('tab', { name: 'Sequence' }).click();
 		await expect(page.getByText('No Lessons in this Sequence yet.')).toBeVisible();
 
 		// The menu counts the Lessons that the Sequence or a Placement already holds.
@@ -118,7 +116,6 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expect(entries.nth(0)).toContainText('Speed');
 		await expect(entries.nth(0)).toContainText('Forces');
 		await expect(entries.nth(1)).toContainText('Motion');
-		await expect(page.getByRole('tab', { name: 'Sequence 2' })).toBeVisible();
 
 		// Assigning it again adds nothing: every Lesson is counted, so its menu item is off.
 		await page.getByRole('button', { name: 'Assign Topic' }).click();
@@ -148,7 +145,6 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 
 	test('× removes a Lesson from one Class after a confirm, and Assign Topic brings it back', async () => {
 		await page.goto(`/classes/${classBId}?layout=list`);
-		await page.getByRole('tab', { name: 'Sequence' }).click();
 		const entries = page.locator('[data-sequence] > li');
 		await expect(entries).toHaveCount(2);
 
@@ -165,7 +161,6 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expect(entries.first()).toContainText('Speed');
 		await expect(page.locator('[data-remove-result]')).toContainText('Removed 1 Lesson.');
 		await expect(page.locator('[data-remove-result]')).toContainText('Lessons change date');
-		await expect(page.getByRole('tab', { name: 'Sequence 1' })).toBeVisible();
 
 		// The Lesson stays in the Course, so Assign Topic adds it back at the end.
 		await page.getByRole('button', { name: 'Assign Topic' }).click();
