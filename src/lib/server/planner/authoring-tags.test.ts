@@ -136,6 +136,18 @@ describe('Tags on a Lesson', () => {
 		expect(listTagNames(db)).toEqual(['Assessment', 'Trip']);
 	});
 
+	test('attaching to a Lesson that does not exist leaves no orphan Tag behind', () => {
+		const { db } = setUpLesson();
+
+		expect(() => attachTag(db, { lessonId: 'does-not-exist', name: 'Practical' })).toThrow(
+			/Failed query: insert into "lesson_tag"/
+		);
+
+		// The Tag and its attachment are one write: a Lesson that is not there writes neither.
+		expect(db.select().from(schema.tag).all()).toEqual([]);
+		expect(db.select().from(schema.lessonTag).all()).toEqual([]);
+	});
+
 	test('tagsByLesson resolves several Lessons in one batch, some tagged, some not', () => {
 		const { db, lesson } = setUpLesson();
 		const { lesson: other } = createLesson(db, {

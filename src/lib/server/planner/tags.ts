@@ -4,6 +4,7 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import * as schema from '../db/schema';
 import { required } from './fields';
+import { inTransaction } from '../db';
 import type { Db } from './derive';
 
 // A Lesson's Tag names, for a list that shows many Lessons at once and never detaches one.
@@ -69,16 +70,20 @@ export function attachTag(
 ): string[] {
 	const trimmed = required(name, 'A Tag needs a name.');
 
-	const [existing] = db
-		.select()
-		.from(schema.tag)
-		.where(sql`lower(${schema.tag.name}) = lower(${trimmed})`)
-		.all();
-	const tagRow = existing ?? db.insert(schema.tag).values({ name: trimmed }).returning().all()[0];
+	// The Tag row and its lesson_tag attachment are one write: if the attachment fails, the Tag
+	// it would have left behind is rolled back with it.
+	return inTransaction(db.$client, () => {
+		const [existing] = db
+			.select()
+			.from(schema.tag)
+			.where(sql`lower(${schema.tag.name}) = lower(${trimmed})`)
+			.all();
+		const tagRow = existing ?? db.insert(schema.tag).values({ name: trimmed }).returning().all()[0];
 
-	db.insert(schema.lessonTag).values({ lessonId, tagId: tagRow.id }).onConflictDoNothing().run();
+		db.insert(schema.lessonTag).values({ lessonId, tagId: tagRow.id }).onConflictDoNothing().run();
 
-	return tagsOf(db, lessonId);
+		return tagsOf(db, lessonId);
+	});
 }
 
 // Deletes the one lesson_tag row. Idempotent: detaching a Tag the Lesson doesn't carry is a
