@@ -14,7 +14,7 @@
 	import { SCREENS, isActive, screenTitle, settingsOpen } from './nav';
 	import type { LayoutProps } from './$types';
 
-	let { children, data }: LayoutProps = $props();
+	let { children }: LayoutProps = $props();
 
 	let drawerOpen = $state(false);
 
@@ -123,45 +123,43 @@
 
 <Tooltip.Provider>
 	<div class="min-h-screen bg-background text-foreground">
-		{#if data.user}
-			<!-- Laptop and tablet: a fixed sidebar, 14 rem labelled or 4 rem icons only. -->
-			<aside
-				class="fixed inset-y-0 left-0 z-20 hidden w-16 flex-col gap-4 border-r bg-background px-2 py-3 md:flex lg:w-56 lg:px-3"
-			>
-				<div class="flex items-center gap-2 px-1.5 lg:px-1">
-					<div
-						class="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground"
-					>
-						<CalendarDaysIcon class="size-4" />
-					</div>
-					<span class="hidden font-semibold lg:inline">Planner</span>
+		<!-- Laptop and tablet: a fixed sidebar, 14 rem labelled or 4 rem icons only. -->
+		<aside
+			class="fixed inset-y-0 left-0 z-20 hidden w-16 flex-col gap-4 border-r bg-background px-2 py-3 md:flex lg:w-56 lg:px-3"
+		>
+			<div class="flex items-center gap-2 px-1.5 lg:px-1">
+				<div
+					class="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground"
+				>
+					<CalendarDaysIcon class="size-4" />
 				</div>
-				{@render screens(true)}
-				{@render foot(true)}
-			</aside>
+				<span class="hidden font-semibold lg:inline">Planner</span>
+			</div>
+			{@render screens(true)}
+			{@render foot(true)}
+		</aside>
 
-			<!-- Phone: a top bar and a drawer from the left. -->
-			<header
-				class="sticky top-0 z-20 flex h-14 items-center gap-2 border-b bg-background px-2 md:hidden"
-			>
-				<Sheet.Root bind:open={drawerOpen}>
-					<Sheet.Trigger
-						class="inline-flex size-11 items-center justify-center rounded-md hover:bg-muted"
-						aria-label="Menu"
-					>
-						<MenuIcon class="size-5" />
-					</Sheet.Trigger>
-					<Sheet.Content side="left" class="w-72 gap-4 p-4">
-						<Sheet.Header class="p-0"><Sheet.Title>Planner</Sheet.Title></Sheet.Header>
-						{@render screens(false)}
-						{@render foot(false)}
-					</Sheet.Content>
-				</Sheet.Root>
-				<span class="font-semibold">{screenTitle()}</span>
-			</header>
-		{/if}
+		<!-- Phone: a top bar and a drawer from the left. -->
+		<header
+			class="sticky top-0 z-20 flex h-14 items-center gap-2 border-b bg-background px-2 md:hidden"
+		>
+			<Sheet.Root bind:open={drawerOpen}>
+				<Sheet.Trigger
+					class="inline-flex size-11 items-center justify-center rounded-md hover:bg-muted"
+					aria-label="Menu"
+				>
+					<MenuIcon class="size-5" />
+				</Sheet.Trigger>
+				<Sheet.Content side="left" class="w-72 gap-4 p-4">
+					<Sheet.Header class="p-0"><Sheet.Title>Planner</Sheet.Title></Sheet.Header>
+					{@render screens(false)}
+					{@render foot(false)}
+				</Sheet.Content>
+			</Sheet.Root>
+			<span class="font-semibold">{screenTitle()}</span>
+		</header>
 
-		<div class="flex min-h-screen flex-col {data.user ? 'md:pl-16 lg:pl-56' : ''}">
+		<div class="flex min-h-screen flex-col md:pl-16 lg:pl-56">
 			<main class="flex flex-1">
 				<div class="min-w-0 flex-1">
 					{@render children()}

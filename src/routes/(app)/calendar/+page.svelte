@@ -277,31 +277,30 @@
 													{/each}
 												</DropdownMenu.Group>
 											{/if}
-											{#if date >= data.today}
-												{@const placeableSlots = availableSlots.filter((s) => s.placeable)}
-												{#if placeableSlots.length > 0}
-													<DropdownMenu.Separator />
-													<DropdownMenu.Group>
-														<DropdownMenu.GroupHeading class="text-muted-foreground"
-															>Place a Lesson</DropdownMenu.GroupHeading
+											{@const placeableSlots = availableSlots.filter((s) => s.placeable)}
+											{#if placeableSlots.length > 0}
+												<DropdownMenu.Separator />
+												<DropdownMenu.Group>
+													<DropdownMenu.GroupHeading class="text-muted-foreground"
+														>Place a Lesson</DropdownMenu.GroupHeading
+													>
+													<!-- Placing is future-and-today only (issue #254), unlike Block one
+												     Slot above: a past date's lines all report `placeable: false`, so
+												     the menu offers none. Every Available Slot is offered, an Open
+												     one and one a Topic Lesson
+												     holds alike (issue #256): a Placement claims its Slot ahead of
+												     the Topic stream, so the Lesson there and every Lesson after it
+												     shift right. Only a Slot already holding a placed Lesson is left
+												     out, matching the Session page's own `canPlace` (sessions.ts). Lands on
+												     the Session page's own Place-a-Lesson card, the one place the
+												     title is typed. -->
+													{#each placeableSlots as slot (slot.slotId)}
+														<DropdownMenu.Item
+															onSelect={() => openToPlace(slot.classId, date, slot.period)}
+															>Open {slot.classLabel}, P{slot.period} to place…</DropdownMenu.Item
 														>
-														<!-- Placing is future-and-today only (issue #254), unlike Block one
-													     Slot above — a past week's day menu shows no line here. Every
-													     Available Slot is offered, an Open one and one a Topic Lesson
-													     holds alike (issue #256): a Placement claims its Slot ahead of
-													     the Topic stream, so the Lesson there and every Lesson after it
-													     shift right. Only a Slot already holding a placed Lesson is left
-													     out, matching the Session page's own `canPlace` (sessions.ts). Lands on
-													     the Session page's own Place-a-Lesson card, the one place the
-													     title is typed. -->
-														{#each placeableSlots as slot (slot.slotId)}
-															<DropdownMenu.Item
-																onSelect={() => openToPlace(slot.classId, date, slot.period)}
-																>Open {slot.classLabel}, P{slot.period} to place…</DropdownMenu.Item
-															>
-														{/each}
-													</DropdownMenu.Group>
-												{/if}
+													{/each}
+												</DropdownMenu.Group>
 											{/if}
 										{/if}
 										{#if blockedSlots.length > 0}
