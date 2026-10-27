@@ -3,7 +3,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { login, MB, resetTo, runFixture } from './helpers.ts';
+import { login, MB, PLANNER_NOW, resetTo, runFixture } from './helpers.ts';
 
 test.beforeAll(() => resetTo('standard'));
 
@@ -27,7 +27,9 @@ async function startB() {
 			ORIGIN: B,
 			BETTER_AUTH_URL: B,
 			BETTER_AUTH_SECRET: 'e2e-instance-b-secret-not-used-outside-tests',
-			BODY_SIZE_LIMIT: '100G'
+			BODY_SIZE_LIMIT: '100G',
+			// The same day as instance A, whose data B restores.
+			PLANNER_NOW
 		},
 		// B's own output rides the runner's, so a crash — a port already in use, a bad Restore —
 		// says why in the test log instead of only reporting that B exited.

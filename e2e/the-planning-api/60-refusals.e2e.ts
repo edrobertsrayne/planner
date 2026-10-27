@@ -4,10 +4,9 @@ import {
 	BEARER,
 	FIXTURE_CLASS_LABEL,
 	FIXTURE_COURSE,
-	plusDays,
+	isoDate,
 	resetTo,
-	runFixture,
-	todayIso
+	runFixture
 } from '../helpers.ts';
 
 // Covers the refusals that protect the record over real HTTP (issue #159): the deletes that
@@ -284,7 +283,7 @@ test.describe.serial('the refusals that protect the record', () => {
 			`/api/topics/${placedTopicId}/lessons`,
 			{ title: 'API Placed Lesson' }
 		);
-		runFixture('place-lesson', placedLessonId, FIXTURE_CLASS_LABEL, plusDays(todayIso(), 1));
+		runFixture('place-lesson', placedLessonId, FIXTURE_CLASS_LABEL, isoDate(1));
 
 		const placed = await request.delete(`/api/lessons/${placedLessonId}`, {
 			headers: BEARER(token)

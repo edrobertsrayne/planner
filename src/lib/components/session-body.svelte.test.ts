@@ -24,7 +24,9 @@ const baseDetail: SessionDetail = {
 	lesson: null,
 	placement: null,
 	canPlace: false,
-	continuations: 0
+	continuations: 0,
+	// A week after the occasion: a Session already taught.
+	today: '2026-09-10'
 };
 
 // The Lesson the panel draws: the seam's whole-Lesson read, its parts at their simplest unless a
@@ -50,6 +52,27 @@ function lesson(
 }
 
 describe('the Session panel', () => {
+	// The server's day decides, not the browser's clock: the payload carries it.
+	test('a Session ahead of the server\'s day shows its Readiness and no "Needs more time"', async () => {
+		stubSessionFetch({ ...baseDetail, today: '2026-09-02', ready: false, lesson: lesson() });
+
+		const screen = await render(SessionBody, { occasion });
+
+		await expect.element(screen.getByText('Not ready')).toBeVisible();
+		await expect
+			.element(screen.getByRole('button', { name: 'Needs more time' }))
+			.not.toBeInTheDocument();
+	});
+
+	test('a Session on the server\'s day shows its Readiness and "Needs more time"', async () => {
+		stubSessionFetch({ ...baseDetail, today: occasion.date, ready: true, lesson: lesson() });
+
+		const screen = await render(SessionBody, { occasion });
+
+		await expect.element(screen.getByText('Ready', { exact: true })).toBeVisible();
+		await expect.element(screen.getByRole('button', { name: 'Needs more time' })).toBeVisible();
+	});
+
 	test("lists the Lesson's Attachments read-only, each a download link with its size", async () => {
 		stubSessionFetch({
 			...baseDetail,

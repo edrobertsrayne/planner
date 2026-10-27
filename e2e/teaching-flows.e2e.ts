@@ -1,5 +1,15 @@
 import { test, expect, type Page } from '@playwright/test';
-import { EMAIL, PASSWORD, isoDate, login, resetTo, runFixture, signIn } from './helpers.ts';
+import {
+	EMAIL,
+	PASSWORD,
+	TODAY,
+	isoDate,
+	login,
+	mondayOf,
+	resetTo,
+	runFixture,
+	signIn
+} from './helpers.ts';
 
 // Logs in as the one user that resetTo('standard') creates, and reads the standard state (see
 // `reset` in scripts/e2e-fixtures.ts).
@@ -76,11 +86,9 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 	});
 
 	test('opening a Session from the Calendar, and going Back to the Calendar', async () => {
-		// An upcoming Open Slot, not a past one. 9C/Sc1's Slot is Tuesday P3 in both letters, so
-		// load the week of the next Tuesday: this week's grid early in the week, next week's from
-		// Wednesday on.
-		const tuesday = (2 - new Date().getUTCDay() + 7) % 7;
-		await page.goto(`/calendar?week=${isoDate(tuesday - 1)}`);
+		// An upcoming Open Slot, not a past one. 9C/Sc1's Slot is Tuesday P3 in both letters, and
+		// TODAY is a Wednesday, so the next one is in next week.
+		await page.goto(`/calendar?week=${mondayOf(isoDate(7))}`);
 		await page.getByRole('link', { name: '9C/Sc1 Open Slot' }).click();
 		// An Open Slot has no Lesson, so it has no note field (ADR-0026).
 		await expect(page.getByRole('button', { name: 'Back' })).toBeVisible();
@@ -458,13 +466,9 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await page.getByRole('button', { name: 'Back' }).click();
 		await expectSessionClosed(page);
 
-		// The Calendar tile itself carries no Tag — only the click-through does. Pinned to the same
-		// week `defaultWeek` resolves today's date to (the week containing today, or the next one
-		// during a weekend) — the week the standard state letters 9B/Sc1's Slots, so a bare
-		// load would already agree, but pinning removes any doubt on a Saturday/Sunday run.
-		const day = new Date().getUTCDay();
-		const mondayOffset = day === 0 ? 1 : day === 6 ? 2 : 1 - day;
-		await page.goto(`/calendar?week=${isoDate(mondayOffset)}`);
+		// The Calendar tile itself carries no Tag — only the click-through does. TODAY's week, the
+		// one the standard state letters 9B/Sc1's Slots in.
+		await page.goto(`/calendar?week=${mondayOf(TODAY)}`);
 		const tile = page.getByRole('link').filter({ hasText: '9B/Sc1' }).filter({ hasText: 'Motion' });
 		await expect(tile.getByText('Practical', { exact: true })).toBeHidden();
 		await tile.click();
@@ -570,8 +574,7 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 
 	test('a past Session on the Calendar keeps its tile, never Blocked (issue #292)', async () => {
 		// The Monday of the week seven days back: a weekday inside the second Term, before today.
-		const ago = new Date(`${isoDate(-7)}T00:00:00Z`);
-		const monday = isoDate(-7 - ((ago.getUTCDay() + 6) % 7));
+		const monday = mondayOf(isoDate(-7));
 		const speedLessonId = runFixture('find-lesson-id', 'Speed');
 		runFixture('mark-taught', classAId, monday, '4', speedLessonId);
 

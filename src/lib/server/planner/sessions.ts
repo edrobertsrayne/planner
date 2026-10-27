@@ -42,6 +42,9 @@ export interface SessionDetail extends Occasion {
 	canPlace: boolean;
 	// Continuations recorded on this occasion — what the rail's status line counts and "Remove one" removes.
 	continuations: number;
+	// The server's day this was read on, so the panel judges "started" and "still ahead" by the same
+	// day the seam did, not by the browser's clock.
+	today: string;
 }
 
 // The Session panel's one read (issue #35) — the only place a Session is read or written. A
@@ -113,7 +116,8 @@ export function sessionDetail(
 					.all().length
 			: 0,
 		placement,
-		canPlace: placementAdmission(db, { ...occasion, today }).admitted
+		canPlace: placementAdmission(db, { ...occasion, today }).admitted,
+		today
 	};
 }
 
