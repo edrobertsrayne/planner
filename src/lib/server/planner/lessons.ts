@@ -69,8 +69,6 @@ export function createLesson(
 	return { lesson: row };
 }
 
-export type LessonStatus = 'draft' | 'planned';
-
 // The whole Lesson, for every reader that shows one: the row, its Topic and Course (both null for a
 // Standalone Lesson or a Topic with no Course), its Links, its Tags with ids and its Attachments.
 // The editor, the bearer-key API and the Session panel all read a Lesson through here, so a new

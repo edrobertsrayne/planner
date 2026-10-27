@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { feedbackTone, statusCategory, statusTone, type PlanningStatus } from './feedback-tone';
+import { LESSON_STATUSES, type LessonStatus } from './lesson-status';
+import { feedbackTone, statusCategory, statusTone } from './feedback-tone';
 
 describe('statusCategory and statusTone', () => {
 	it('maps Draft to error category and Planned to success category', () => {
@@ -8,7 +9,7 @@ describe('statusCategory and statusTone', () => {
 	});
 
 	it('maps planning status to the corresponding feedback tone triad', () => {
-		const statuses: PlanningStatus[] = ['draft', 'planned'];
+		const statuses: LessonStatus[] = [...LESSON_STATUSES];
 		for (const status of statuses) {
 			const expectedCategory = status === 'planned' ? 'success' : 'error';
 			expect(statusTone(status)).toEqual(feedbackTone(expectedCategory));

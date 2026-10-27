@@ -4,6 +4,7 @@
 	import { resolve } from '$app/paths';
 	import { courseHref, useBack } from '$lib/client/back';
 	import { failureReason, hasReport, onFail, reportOfResult } from '$lib/client/enhance';
+	import { STATUS_LABEL } from '$lib/lesson-status';
 	import { toast } from 'svelte-sonner';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
@@ -286,8 +287,8 @@
 									}}
 									class="justify-start"
 								>
-									<ToggleGroup.Item value="draft">Draft</ToggleGroup.Item>
-									<ToggleGroup.Item value="planned">Planned</ToggleGroup.Item>
+									<ToggleGroup.Item value="draft">{STATUS_LABEL.draft}</ToggleGroup.Item>
+									<ToggleGroup.Item value="planned">{STATUS_LABEL.planned}</ToggleGroup.Item>
 								</ToggleGroup.Root>
 							</form>
 

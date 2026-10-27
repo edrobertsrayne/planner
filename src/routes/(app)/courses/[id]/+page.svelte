@@ -8,6 +8,7 @@
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import { classTone } from '$lib/class-tone';
 	import { courseHref } from '$lib/client/back';
+	import { STATUS_LABEL } from '$lib/lesson-status';
 	import {
 		createInPlace,
 		createThenSelect,
@@ -280,7 +281,7 @@
 								<TagChips {tags} class="mt-1" />
 							</div>
 							<Badge variant={lesson.status === 'planned' ? 'secondary' : 'outline'} class="mt-2">
-								{lesson.status === 'planned' ? 'Planned' : 'Draft'}
+								{STATUS_LABEL[lesson.status]}
 							</Badge>
 							{#if wide.current}
 								<span class="flex shrink-0 items-center gap-0.5 pr-2 row-control">

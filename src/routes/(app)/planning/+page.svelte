@@ -3,7 +3,8 @@
 	import { resolve } from '$app/paths';
 	import { classTone } from '$lib/class-tone';
 	import { formatShortWeekday } from '$lib/date';
-	import { statusTone, type PlanningStatus } from '$lib/feedback-tone';
+	import { statusTone } from '$lib/feedback-tone';
+	import { STATUS_LABEL, type LessonStatus } from '$lib/lesson-status';
 	import FilterChips from '$lib/components/filter-chips.svelte';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import RewindReport from '$lib/components/rewind-report.svelte';
@@ -17,18 +18,18 @@
 
 	let { data, form }: PageProps = $props();
 
-	type Filter = 'all' | PlanningStatus;
+	type Filter = 'all' | LessonStatus;
 	type Entry = (typeof data.stream)[number];
 
 	const FILTERS: { key: Filter; name: string }[] = [
 		{ key: 'all', name: 'All' },
-		{ key: 'draft', name: 'Draft' },
-		{ key: 'planned', name: 'Planned' }
+		{ key: 'draft', name: STATUS_LABEL.draft },
+		{ key: 'planned', name: STATUS_LABEL.planned }
 	];
 
-	const RUNGS: { key: PlanningStatus; name: string }[] = [
-		{ key: 'planned', name: 'Planned' },
-		{ key: 'draft', name: 'Draft' }
+	const RUNGS: { key: LessonStatus; name: string }[] = [
+		{ key: 'planned', name: STATUS_LABEL.planned },
+		{ key: 'draft', name: STATUS_LABEL.draft }
 	];
 
 	// The status tab lives in the query string (`?status=draft`), like the Class chips (issue
@@ -165,7 +166,7 @@
 								variant={lesson.status === 'planned' ? 'secondary' : 'outline'}
 								class="ml-auto"
 							>
-								{lesson.status === 'planned' ? 'Planned' : 'Draft'}
+								{STATUS_LABEL[lesson.status]}
 							</Badge>
 						</div>
 						<a

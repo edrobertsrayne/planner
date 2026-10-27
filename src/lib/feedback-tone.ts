@@ -5,9 +5,9 @@
 // business; consumers style inline so both theme variants come free from the .dark override.
 //
 // Planning statuses map to categories: Draft -> error (red/rose), Planned -> success (green/emerald).
+import type { LessonStatus } from './lesson-status';
 
 export type FeedbackCategory = 'error' | 'success' | 'warning' | 'info';
-export type PlanningStatus = 'draft' | 'planned';
 
 // A feedback category to its token role names.
 export function feedbackTone(category: FeedbackCategory) {
@@ -19,11 +19,11 @@ export function feedbackTone(category: FeedbackCategory) {
 }
 
 // Maps a Lesson's planning status to its feedback category.
-export function statusCategory(status: PlanningStatus): FeedbackCategory {
+export function statusCategory(status: LessonStatus): FeedbackCategory {
 	return status === 'planned' ? 'success' : 'error';
 }
 
 // A Lesson's planning status to its token role names.
-export function statusTone(status: PlanningStatus) {
+export function statusTone(status: LessonStatus) {
 	return feedbackTone(statusCategory(status));
 }

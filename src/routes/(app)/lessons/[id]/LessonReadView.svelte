@@ -2,6 +2,7 @@
 	import LessonChildren from '$lib/components/lesson-children.svelte';
 	import Markdown from '$lib/components/markdown.svelte';
 	import TagBadge from '$lib/components/tag-badge.svelte';
+	import { STATUS_LABEL } from '$lib/lesson-status';
 	import type { LessonDetail } from '$lib/server/planner';
 
 	// The Lesson as a phone reads it (#428): its title, the facts, the plan, and its Links and
@@ -21,7 +22,7 @@
 		{/if}
 		<div class="flex min-h-12 items-center justify-between gap-3 rounded-lg border px-4 py-2">
 			<dt class="text-muted-foreground">Status</dt>
-			<dd>{lesson.status === 'planned' ? 'Planned' : 'Draft'}</dd>
+			<dd>{STATUS_LABEL[lesson.status]}</dd>
 		</div>
 		<div class="flex min-h-12 items-center justify-between gap-3 rounded-lg border px-4 py-2">
 			<dt class="text-muted-foreground">Length</dt>

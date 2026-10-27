@@ -8,6 +8,7 @@ import { and, asc, eq, inArray, lte, ne } from 'drizzle-orm';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import { addDays } from '$lib/date';
+import type { LessonStatus } from '$lib/lesson-status';
 import { availableSlots, inAnyTerm, slotHolds, type ScheduleResult } from './engine';
 import {
 	lessonNames,
@@ -309,7 +310,7 @@ export interface SequenceEntry {
 	topicId: string | null;
 	topicName: string | null;
 	length: number;
-	status: 'draft' | 'planned';
+	status: LessonStatus;
 	// The date of the Lesson's first part, or null when no Slot is left this year.
 	firstDate: string | null;
 	fixed: boolean;

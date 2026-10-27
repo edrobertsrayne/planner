@@ -29,6 +29,8 @@
 
 export type { PlacementMoved, WriteReport } from './derive';
 
+export type { LessonStatus } from '$lib/lesson-status';
+
 export { reportOf, teachingWeeks } from './derive';
 
 export { Refused, refusalStatus, type RefusalKind } from './refused';
@@ -125,8 +127,7 @@ export {
 	lessonsOf,
 	moveLesson,
 	type LessonChange,
-	type LessonDetail,
-	type LessonStatus
+	type LessonDetail
 } from './lessons';
 
 export { createLink, deleteLink, linkById, linksOf, moveLink, updateLink } from './links';

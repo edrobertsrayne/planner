@@ -6,6 +6,7 @@
 // refuses. No size limit exists — the request body limit bounds every write.
 import { eq } from 'drizzle-orm';
 import type { SQLiteColumn, SQLiteTable } from 'drizzle-orm/sqlite-core';
+import { LESSON_STATUSES, type LessonStatus } from '$lib/lesson-status';
 import { Refused } from './refused';
 import type { Db } from './derive';
 
@@ -55,11 +56,11 @@ export function lessonLength(length: number): number {
 	return length;
 }
 
-export function lessonStatus(status: string): 'draft' | 'planned' {
-	if (status !== 'draft' && status !== 'planned') {
+export function lessonStatus(status: string): LessonStatus {
+	if (!LESSON_STATUSES.includes(status as LessonStatus)) {
 		throw new Refused('invalid', 'A Lesson must be Draft or Planned.');
 	}
-	return status;
+	return status as LessonStatus;
 }
 
 // A blank plan is no plan. A plan with words in it is stored as typed: Markdown gives its
