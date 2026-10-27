@@ -1,15 +1,13 @@
 // Lessons — the plan itself. A Lesson is shared by every Class and is not itself a scheduling
 // input, except its Length: a change to Length re-derives every Class that reaches the Lesson, on
 // the same write (issue #31). Title, body, status and Topic never move a date (ADR-0014).
-import { unlinkSync } from 'node:fs';
-import { join } from 'node:path';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { lessonDeleteText } from '$lib/delete-text';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import { combineReports, loadCalendar, rederive, type Db, type WriteReport } from './derive';
 import { nextPosition, swapTargets, type Direction } from './ordering';
-import { attachmentsOf } from './attachments';
+import { attachmentsOf, removeAttachmentFiles } from './attachments';
 import { Refused } from './refused';
 import { fixedOn } from './sequence';
 import { lessonBody, lessonLength, lessonStatus, required, requireRow } from './fields';
@@ -298,14 +296,8 @@ export function deleteLesson(
 	});
 
 	// Nothing names these files now that their rows are gone. A missing file is already the
-	// desired end state, so ENOENT is swallowed — the same trailing cleanup `deleteAttachment` does.
-	for (const attachmentId of attachmentIds) {
-		try {
-			unlinkSync(join(dir, attachmentId));
-		} catch {
-			// ENOENT: a missing file is already the desired end state.
-		}
-	}
+	// desired end state, so the shared cleanup ignores only ENOENT.
+	removeAttachmentFiles(dir, attachmentIds);
 
 	return { lesson: row, ...report };
 }

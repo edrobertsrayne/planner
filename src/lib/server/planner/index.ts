@@ -142,5 +142,6 @@ export {
 	attachmentsDir,
 	attachmentsOf,
 	createAttachment,
-	deleteAttachment
+	deleteAttachment,
+	removeAttachmentFiles
 } from './attachments';

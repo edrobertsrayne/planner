@@ -95,18 +95,26 @@ export function attachmentById(db: Db, id: string) {
 	return row;
 }
 
+// Removes the files behind Attachment rows: the one cleanup a direct delete, a Lesson delete and
+// a create's own undo share. A file already gone is the desired end state, so only ENOENT is
+// ignored; any other fault is real and rethrows rather than leaving an unexplained file behind.
+export function removeAttachmentFiles(dir: string, ids: readonly string[]): void {
+	for (const id of ids) {
+		try {
+			unlinkSync(join(dir, id));
+		} catch (cause) {
+			if ((cause as NodeJS.ErrnoException).code !== 'ENOENT') throw cause;
+		}
+	}
+}
+
 // A direct delete (mirrors deleteLink's shape) plus the unlink (spec #222). The row goes first —
 // unlike create, where a row must never exist without its file, a delete's file is a trailing
-// cleanup of something no longer referenced. A missing file at this point is swallowed: ENOENT
-// is already the desired end state, not a failure to report.
+// cleanup of something no longer referenced.
 export function deleteAttachment(db: Db, id: string, dir: string) {
 	const [row] = db.delete(schema.attachment).where(eq(schema.attachment.id, id)).returning().all();
 	if (!row) return undefined;
-	try {
-		unlinkSync(join(dir, row.id));
-	} catch {
-		// ENOENT: a missing file is already the desired end state.
-	}
+	removeAttachmentFiles(dir, [row.id]);
 	return row;
 }
 
@@ -155,11 +163,7 @@ export function createAttachment(
 			.all();
 		return row;
 	} catch (cause) {
-		try {
-			unlinkSync(path);
-		} catch {
-			// The file may already be gone; a missing file is the desired end state.
-		}
+		removeAttachmentFiles(dir, [id]);
 		throw cause;
 	}
 }

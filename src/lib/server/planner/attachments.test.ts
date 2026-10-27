@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import {
@@ -18,7 +18,8 @@ import {
 	attachmentsOf,
 	classSchedule,
 	createAttachment,
-	deleteAttachment
+	deleteAttachment,
+	removeAttachmentFiles
 } from './index';
 import { makeLessons, makeTopic, refused, setUp, setUpAuthoring } from './fixtures';
 import * as schema from '../db/schema';
@@ -397,6 +398,18 @@ describe('removing an Attachment', () => {
 
 		expect(() => deleteAttachment(db, attachment.id, atDir)).not.toThrow();
 		expect(attachmentsOf(db, lesson.id)).toEqual([]);
+	});
+
+	test('the file cleanup ignores only ENOENT and rethrows anything else', () => {
+		const { atDir } = setUpLesson();
+		mkdirSync(atDir, { recursive: true });
+
+		// Already gone: the desired end state.
+		expect(() => removeAttachmentFiles(atDir, ['gone'])).not.toThrow();
+
+		// A name that cannot be unlinked — a directory — is a real fault and must not be swallowed.
+		mkdirSync(join(atDir, 'stuck'));
+		expect(() => removeAttachmentFiles(atDir, ['stuck'])).toThrow(/directory/i);
 	});
 });
 
