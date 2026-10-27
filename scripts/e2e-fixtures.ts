@@ -113,7 +113,7 @@ function seedStandard() {
 	}
 	assignTopic(db, { classId: classA.id, topicId: forces.id, today: now });
 	// Tuesday P3, a day 9B leaves untouched, in BOTH letters. TODAY is a Wednesday, so 9C/Sc1's
-	// next Session is next Tuesday: inside the Agenda's This Week horizon, and never today, so its
+	// next Session is next Tuesday: inside the Agenda's One Week horizon, and never today, so its
 	// first Lesson is never Fixed.
 	for (const week of ['A', 'B'] as const) {
 		takeSlot(db, { classId: classB.id, week, day: 2, period: 3, from: now, today: now });

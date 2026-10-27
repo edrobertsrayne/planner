@@ -8,7 +8,7 @@ describe('parseHorizon', () => {
 		expect(parseHorizon('all')).toBe('all');
 	});
 
-	test('gives This Week for a missing or unknown value', () => {
+	test('gives One Week for a missing or unknown value', () => {
 		expect(parseHorizon(null)).toBe(7);
 		expect(parseHorizon('5')).toBe(7);
 		expect(parseHorizon('ALL')).toBe(7);

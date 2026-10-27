@@ -119,14 +119,77 @@ describe('the Agenda', () => {
 		makeLessons(db, forces.id, 3);
 		assignTopic(db, { classId: classA.id, topicId: forces.id, today: '2026-09-03' });
 
-		const { rows, lastTermCloses } = agenda(db, { today: '2026-09-03', horizonDays: null });
+		const { rows, horizonEnds } = agenda(db, { today: '2026-09-03', horizonDays: null });
 		const classARows = rows.filter((r) => r.classId === classA.id);
 
-		expect(lastTermCloses).toBe('2027-07-19');
-		expect(rows.every((r) => r.date >= '2026-09-03' && r.date <= lastTermCloses)).toBe(true);
+		expect(horizonEnds).toBe('2027-07-19');
+		expect(rows.every((r) => r.date >= '2026-09-03' && r.date <= horizonEnds)).toBe(true);
 		// The three Lessons run out in September; the Open Slots after them reach the last Term.
 		expect(classARows.filter((r) => r.lesson !== null)).toHaveLength(3);
 		expect(classARows.some((r) => r.date >= '2027-06-07' && r.lesson === null)).toBe(true);
+	});
+
+	// Term 1 closes Fri 2026-10-23; half-term runs to Sun 2026-11-01; Term 2 opens Mon 2026-11-02.
+	test('a School Holiday is skipped, not counted: a week crossing half-term reaches past it', () => {
+		const { db } = setUp();
+
+		const { rows, holidays, horizonEnds } = agenda(db, { today: '2026-10-22', horizonDays: 7 });
+
+		expect(horizonEnds).toBe('2026-11-06');
+		expect(holidays).toEqual([{ starts: '2026-10-24', ends: '2026-11-01' }]);
+		expect(rows.some((r) => r.date >= '2026-11-02')).toBe(true);
+		expect(rows.every((r) => r.date <= '2026-10-23' || r.date >= '2026-11-02')).toBe(true);
+	});
+
+	test('on a School Holiday the week shown is the next Term’s first, after the holiday', () => {
+		const { db } = setUp();
+
+		const { rows, holidays, horizonEnds } = agenda(db, { today: '2026-10-27', horizonDays: 7 });
+
+		expect(horizonEnds).toBe('2026-11-08');
+		expect(holidays).toEqual([{ starts: '2026-10-24', ends: '2026-11-01' }]);
+		expect(rows.length).toBeGreaterThan(0);
+		expect(rows.every((r) => r.date >= '2026-11-02' && r.date <= '2026-11-08')).toBe(true);
+	});
+
+	test('a Blocked Day in the window is reported with its note; no row falls on it', () => {
+		const { db } = setUp();
+		blockDay(db, { date: '2026-09-07', note: 'Snow day', today: '2026-09-03' });
+
+		const { rows, blockedDays } = agenda(db, { today: '2026-09-03', horizonDays: 7 });
+
+		expect(blockedDays).toEqual([{ date: '2026-09-07', note: 'Snow day' }]);
+		expect(rows.some((r) => r.date === '2026-09-07')).toBe(false);
+		// The fixture's INSET days fall beyond this window.
+		expect(blockedDays.some((d) => d.date === '2026-11-26')).toBe(false);
+	});
+
+	test('a Blocked Slot in the window is a row of its own, carrying its note and no Lesson', () => {
+		const { db, course, classA } = setUp();
+		const forces = makeTopic(db, course.id, 'Forces');
+		const [first] = makeLessons(db, forces.id, 3);
+		assignTopic(db, { classId: classA.id, topicId: forces.id, today: '2026-09-03' });
+		const thuP5 = db
+			.select()
+			.from(schema.slot)
+			.all()
+			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 4 && s.period === 5)!;
+		blockSlot(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			slotId: thuP5.id,
+			note: 'Field trip',
+			today: '2026-09-03'
+		});
+
+		const rows = agenda(db, { today: '2026-09-03', horizonDays: 7 }).rows;
+		const at = (period: number) =>
+			rows.find(
+				(r) => r.classId === classA.id && r.date === '2026-09-03' && r.periodFrom === period
+			);
+
+		expect(at(5)).toMatchObject({ periodTo: 5, lesson: null, blocked: { note: 'Field trip' } });
+		expect(at(6)).toMatchObject({ lesson: { id: first.id }, blocked: null });
 	});
 });
 

@@ -1,5 +1,13 @@
 import { describe, expect, test } from 'vitest';
-import { agendaRows, schedule, type Calendar, type Placement, type ScheduleResult } from './engine';
+import {
+	agendaRows,
+	schedule,
+	schoolHolidays,
+	termWindowEnd,
+	type Calendar,
+	type Placement,
+	type ScheduleResult
+} from './engine';
 
 function resultOf(partial: Partial<ScheduleResult>): ScheduleResult {
 	return {
@@ -402,5 +410,61 @@ describe('schedule with Placements', () => {
 			part: 1,
 			of: 1
 		});
+	});
+});
+
+// Autumn 1 closes Fri 23 Oct; half-term runs Sat 24 Oct – Sun 1 Nov; Autumn 2 opens Mon 2 Nov.
+const AUTUMN = [
+	{ opens: '2026-09-03', closes: '2026-10-23' },
+	{ opens: '2026-11-02', closes: '2026-12-18' }
+];
+
+describe('termWindowEnd', () => {
+	test('inside a Term the window is calendar days, today counting as the first', () => {
+		expect(termWindowEnd(AUTUMN, '2026-09-03', 1)).toBe('2026-09-03');
+		expect(termWindowEnd(AUTUMN, '2026-09-03', 7)).toBe('2026-09-09');
+	});
+
+	test('a School Holiday inside the window is skipped, not counted', () => {
+		// Thu 22 and Fri 23 Oct are two Term days; the other five fall after half-term.
+		expect(termWindowEnd(AUTUMN, '2026-10-22', 7)).toBe('2026-11-06');
+	});
+
+	test('a window starting in a School Holiday opens on the next Term', () => {
+		expect(termWindowEnd(AUTUMN, '2026-10-27', 7)).toBe('2026-11-08');
+	});
+
+	test('a null window, or one longer than the Terms, reaches the close of the last Term', () => {
+		expect(termWindowEnd(AUTUMN, '2026-10-27', null)).toBe('2026-12-18');
+		expect(termWindowEnd(AUTUMN, '2026-12-14', 28)).toBe('2026-12-18');
+	});
+
+	test('with no Term day ahead the window ends today', () => {
+		expect(termWindowEnd(AUTUMN, '2026-12-25', 7)).toBe('2026-12-25');
+		expect(termWindowEnd([], '2026-10-27', 7)).toBe('2026-10-27');
+	});
+});
+
+describe('schoolHolidays', () => {
+	test('a holiday between two Terms runs from the day after one closes to the day before the next opens', () => {
+		expect(schoolHolidays(AUTUMN, '2026-10-22', '2026-11-06')).toEqual([
+			{ starts: '2026-10-24', ends: '2026-11-01' }
+		]);
+	});
+
+	test('a holiday already under way keeps its first day', () => {
+		expect(schoolHolidays(AUTUMN, '2026-10-27', '2026-11-08')).toEqual([
+			{ starts: '2026-10-24', ends: '2026-11-01' }
+		]);
+	});
+
+	test('a window inside one Term touches no holiday', () => {
+		expect(schoolHolidays(AUTUMN, '2026-09-03', '2026-10-23')).toEqual([]);
+	});
+
+	test('before the first Term the holiday starts today', () => {
+		expect(schoolHolidays(AUTUMN, '2026-08-20', '2026-09-09')).toEqual([
+			{ starts: '2026-08-20', ends: '2026-09-02' }
+		]);
 	});
 });

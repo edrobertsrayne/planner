@@ -13,7 +13,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import { AGENDA_HORIZONS } from './agenda-horizons';
-	import { filterByTag, groupByDay, horizonEndsOn, tagsIn } from './agenda-days';
+	import { agendaStream, filterByTag, groupByDay, tagsIn } from './agenda-days';
 	import ReadyTick from './ready-tick.svelte';
 	import type { PageProps } from './$types';
 
@@ -34,6 +34,7 @@
 	}
 
 	const days = $derived(groupByDay(filterByTag(data.rows, data.tag)));
+	const stream = $derived(agendaStream(days, data.blockedDays, data.holidays));
 	const pastDays = $derived(groupByDay(filterByTag(data.lookBack, data.tag)));
 
 	// One chip per Tag in the window with its count (issue #340). A Tag with no Lesson in the
@@ -96,7 +97,11 @@
 
 	{#snippet agendaRow(row: (typeof data.rows)[number], past: boolean)}
 		{@const tone = classTone(row.tone)}
-		<li class="group/row relative flex items-center gap-3 pr-2 pl-4 hover:bg-muted/40">
+		<li
+			class="group/row relative flex items-center gap-3 pr-2 pl-4 {row.blocked
+				? 'bg-muted'
+				: 'hover:bg-muted/40'}"
+		>
 			<span
 				class="absolute inset-y-0 left-0 w-1"
 				style:background-color={tone.ring}
@@ -119,28 +124,39 @@
 				</span>
 			</span>
 
-			<a
-				href={hrefOf(row)}
-				class="min-w-0 flex-1 py-3 text-left outline-none focus-visible:underline"
-			>
-				{#if row.lesson}
-					<!-- A title or a Topic name wraps in full, never truncates (issue #341). -->
-					<span class="block text-sm font-medium">{row.lesson.title}</span>
-					<span class="block text-xs text-muted-foreground">
-						{#if row.lesson.topicName}
-							{row.lesson.topicName}
-						{/if}
-					</span>
-					<TagChips tags={row.lesson.tags} class="mt-1" />
-				{:else}
-					<span class="block text-sm text-muted-foreground italic">Open Slot</span>
-				{/if}
-			</a>
+			<!-- A Blocked Slot is removed: nothing to open, plan or tick, so it reads in a step of
+			     shade, never a hue, with its note. -->
+			{#if row.blocked}
+				<span class="min-w-0 flex-1 py-3">
+					<span class="block text-sm text-muted-foreground italic">Blocked Slot</span>
+					{#if row.blocked.note}
+						<span class="block text-xs text-muted-foreground">{row.blocked.note}</span>
+					{/if}
+				</span>
+			{:else}
+				<a
+					href={hrefOf(row)}
+					class="min-w-0 flex-1 py-3 text-left outline-none focus-visible:underline"
+				>
+					{#if row.lesson}
+						<!-- A title or a Topic name wraps in full, never truncates (issue #341). -->
+						<span class="block text-sm font-medium">{row.lesson.title}</span>
+						<span class="block text-xs text-muted-foreground">
+							{#if row.lesson.topicName}
+								{row.lesson.topicName}
+							{/if}
+						</span>
+						<TagChips tags={row.lesson.tags} class="mt-1" />
+					{:else}
+						<span class="block text-sm text-muted-foreground italic">Open Slot</span>
+					{/if}
+				</a>
+			{/if}
 
 			<!-- A past row carries no Ready tick: Readiness is written ahead only. -->
-			{#if !row.lesson}
+			{#if !row.blocked && !row.lesson}
 				<Button variant="ghost" size="sm" class="h-7 row-control" href={hrefOf(row)}>Plan</Button>
-			{:else if !past}
+			{:else if row.lesson && !past}
 				<ReadyTick
 					lessonId={row.lesson.id}
 					classId={row.classId}
@@ -176,29 +192,58 @@
 			<p class="text-sm font-medium">Nothing in this window</p>
 			<p class="mt-1 text-sm text-muted-foreground">
 				{data.tag ? `No Lessons with the Tag “${data.tag}”` : 'No Class is timetabled'} between now and
-				{formatWeekday(horizonEndsOn(data.today, data.horizon, data.lastTermCloses))}.
+				{formatWeekday(data.horizonEnds)}.
 			</p>
 		</div>
 	{/if}
 
-	{#each days as day (day.date)}
-		{@const isToday = day.date === data.today}
-		<section class="mt-6">
-			<h2 class="mb-2 flex items-baseline gap-2 text-sm font-semibold">
-				{#if isToday}
-					<span class="text-foreground">Today</span>
-					<span class="font-normal text-muted-foreground">— {formatWeekday(day.date)}</span>
-				{:else}
-					<span class="text-muted-foreground">{formatWeekday(day.date)}</span>
-				{/if}
-				<span class="ml-auto text-xs font-normal text-muted-foreground">Ready to teach?</span>
-			</h2>
+	{#snippet dayHeading(date: string)}
+		{#if date === data.today}
+			<span class="text-foreground">Today</span>
+			<span class="font-normal text-muted-foreground">— {formatWeekday(date)}</span>
+		{:else}
+			<span class="text-muted-foreground">{formatWeekday(date)}</span>
+		{/if}
+	{/snippet}
 
-			<ul class="divide-y divide-border overflow-hidden rounded-xl border bg-card">
-				{#each day.rows as row (row.classId + row.periodFrom)}
-					{@render agendaRow(row, false)}
-				{/each}
-			</ul>
-		</section>
+	<!-- The days ahead, with what the window removes in place: a Blocked Day keeps its heading and
+	     reads as one panel, and a School Holiday is one card spanning it, so a holiday never leaves
+	     the page blank. Both are told apart from teaching by a step in shade, never a hue. -->
+	{#each stream as item (item.kind + item.date)}
+		{#if item.kind === 'day'}
+			<section class="mt-6">
+				<h2 class="mb-2 flex items-baseline gap-2 text-sm font-semibold">
+					{@render dayHeading(item.date)}
+					<span class="ml-auto text-xs font-normal text-muted-foreground">Ready to teach?</span>
+				</h2>
+
+				<ul class="divide-y divide-border overflow-hidden rounded-xl border bg-card">
+					{#each item.rows as row (row.classId + row.periodFrom)}
+						{@render agendaRow(row, false)}
+					{/each}
+				</ul>
+			</section>
+		{:else if item.kind === 'blocked'}
+			<section class="mt-6">
+				<h2 class="mb-2 flex items-baseline gap-2 text-sm font-semibold">
+					{@render dayHeading(item.date)}
+				</h2>
+				<div class="rounded-xl border bg-muted px-4 py-3">
+					<p class="text-sm font-medium text-muted-foreground">Blocked Day</p>
+					{#if item.note}
+						<p class="text-xs text-muted-foreground">{item.note}</p>
+					{/if}
+				</div>
+			</section>
+		{:else}
+			<section class="mt-6">
+				<div class="rounded-xl border border-dashed bg-muted px-4 py-4">
+					<h2 class="text-sm font-semibold">School Holiday</h2>
+					<p class="text-sm text-muted-foreground">
+						{formatWeekday(item.date)} – {formatWeekday(item.ends)}
+					</p>
+				</div>
+			</section>
+		{/if}
 	{/each}
 </div>
