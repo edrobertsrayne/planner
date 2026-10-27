@@ -272,7 +272,7 @@ describe('the Classes view', () => {
 			history: [],
 			scheduled: [],
 			openSlots: [],
-			strandedPlacementIds: [],
+			placementLandings: [],
 			unplaced: [
 				{ lessonId: 'a', part: 1, of: 2 },
 				{ lessonId: 'a', part: 2, of: 2 },

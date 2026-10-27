@@ -204,7 +204,15 @@ describe('schedule with Placements', () => {
 			],
 			continuations: [],
 			placements: [
-				{ id: 'p1', classId: 'c1', date: DAYS[1], slotId: 'd1p3', lessonId: 'pl', length: 1 }
+				{
+					id: 'p1',
+					classId: 'c1',
+					date: DAYS[1],
+					slotId: 'd1p3',
+					anchorPeriod: 3,
+					lessonId: 'pl',
+					length: 1
+				}
 			],
 			boundary: DAYS[2]
 		});
@@ -219,8 +227,24 @@ describe('schedule with Placements', () => {
 
 	test('a Length-1 and a Length-2 Placement lay onto the stream with no disruption', () => {
 		const result = scheduleOf(calendarOf(), [
-			{ id: 'p1', classId: 'c1', date: DAYS[1], slotId: 'd1p1', lessonId: 'l1', length: 1 },
-			{ id: 'p2', classId: 'c1', date: DAYS[3], slotId: 'd3p1', lessonId: 'l2', length: 2 }
+			{
+				id: 'p1',
+				classId: 'c1',
+				date: DAYS[1],
+				slotId: 'd1p1',
+				anchorPeriod: 1,
+				lessonId: 'l1',
+				length: 1
+			},
+			{
+				id: 'p2',
+				classId: 'c1',
+				date: DAYS[3],
+				slotId: 'd3p1',
+				anchorPeriod: 1,
+				lessonId: 'l2',
+				length: 2
+			}
 		]);
 
 		expect(result.scheduled).toContainEqual({
@@ -263,7 +287,15 @@ describe('schedule with Placements', () => {
 			blockedSlots: [{ id: 'bs1', classId: 'c1', date: DAYS[1], slotId: 'd1p1', note: null }]
 		});
 		const result = scheduleOf(cal, [
-			{ id: 'p1', classId: 'c1', date: DAYS[1], slotId: 'd1p1', lessonId: 'l1', length: 1 }
+			{
+				id: 'p1',
+				classId: 'c1',
+				date: DAYS[1],
+				slotId: 'd1p1',
+				anchorPeriod: 1,
+				lessonId: 'l1',
+				length: 1
+			}
 		]);
 
 		const own = result.scheduled.filter((s) => s.placementId === 'p1');
@@ -276,7 +308,15 @@ describe('schedule with Placements', () => {
 			blockedSlots: [{ id: 'bs1', classId: 'c1', date: DAYS[1], slotId: 'd1p2', note: null }]
 		});
 		const result = scheduleOf(cal, [
-			{ id: 'p1', classId: 'c1', date: DAYS[1], slotId: 'd1p1', lessonId: 'l1', length: 2 }
+			{
+				id: 'p1',
+				classId: 'c1',
+				date: DAYS[1],
+				slotId: 'd1p1',
+				anchorPeriod: 1,
+				lessonId: 'l1',
+				length: 2
+			}
 		]);
 
 		const own = result.scheduled
@@ -289,8 +329,24 @@ describe('schedule with Placements', () => {
 
 	test('two Placements whose anchors collide resolve by ascending-anchor order', () => {
 		const result = scheduleOf(calendarOf(), [
-			{ id: 'later', classId: 'c1', date: DAYS[1], slotId: 'd1p2', lessonId: 'l2', length: 1 },
-			{ id: 'earlier', classId: 'c1', date: DAYS[1], slotId: 'd1p1', lessonId: 'l1', length: 2 }
+			{
+				id: 'later',
+				classId: 'c1',
+				date: DAYS[1],
+				slotId: 'd1p2',
+				anchorPeriod: 2,
+				lessonId: 'l2',
+				length: 1
+			},
+			{
+				id: 'earlier',
+				classId: 'c1',
+				date: DAYS[1],
+				slotId: 'd1p1',
+				anchorPeriod: 1,
+				lessonId: 'l1',
+				length: 2
+			}
 		]);
 
 		// "earlier" (anchor P1) is walked first and claims P1 and P2, so "later" (anchor P2) is
@@ -303,7 +359,15 @@ describe('schedule with Placements', () => {
 
 	test("a Placement's parts collapse into one run, mirroring a Continuation", () => {
 		const result = scheduleOf(calendarOf(), [
-			{ id: 'p1', classId: 'c1', date: DAYS[1], slotId: 'd1p1', lessonId: 'l1', length: 2 }
+			{
+				id: 'p1',
+				classId: 'c1',
+				date: DAYS[1],
+				slotId: 'd1p1',
+				anchorPeriod: 1,
+				lessonId: 'l1',
+				length: 2
+			}
 		]);
 
 		expect(runsOf(result.scheduled).filter((run) => run.lessonId === 'l1')).toEqual([
@@ -320,7 +384,15 @@ describe('schedule with Placements', () => {
 
 	test('a Length-2 Placement anchored at the last Period of a day runs into the next day', () => {
 		const result = scheduleOf(calendarOf(), [
-			{ id: 'p1', classId: 'c1', date: DAYS[1], slotId: 'd1p3', lessonId: 'l1', length: 2 }
+			{
+				id: 'p1',
+				classId: 'c1',
+				date: DAYS[1],
+				slotId: 'd1p3',
+				anchorPeriod: 3,
+				lessonId: 'l1',
+				length: 2
+			}
 		]);
 
 		const own = result.scheduled
@@ -334,11 +406,27 @@ describe('schedule with Placements', () => {
 	test('a Placement with no Available Slot left at or after its anchor is reported stranded, not silently dropped', () => {
 		const cal = calendarOf({ blockedDays: [{ id: 'b1', date: DAYS[5], note: null }] });
 		const result = scheduleOf(cal, [
-			{ id: 'p1', classId: 'c1', date: DAYS[5], slotId: 'd5p3', lessonId: 'l1', length: 1 }
+			{
+				id: 'p1',
+				classId: 'c1',
+				date: DAYS[5],
+				slotId: 'd5p3',
+				anchorPeriod: 3,
+				lessonId: 'l1',
+				length: 1
+			}
 		]);
 
 		expect(result.scheduled.filter((s) => s.placementId === 'p1')).toEqual([]);
-		expect(result.strandedPlacementIds).toEqual(['p1']);
+		expect(result.placementLandings).toEqual([
+			{
+				placementId: 'p1',
+				classId: 'c1',
+				lessonId: 'l1',
+				anchor: { date: DAYS[5], period: 3 },
+				landing: null
+			}
+		]);
 	});
 
 	test('a Length-3 Placement with only one Available Slot left at its anchor reports the unclaimed tail as unplaced, not stranded', () => {
@@ -351,13 +439,29 @@ describe('schedule with Placements', () => {
 			]
 		});
 		const result = scheduleOf(cal, [
-			{ id: 'p1', classId: 'c1', date: DAYS[5], slotId: 'd5p3', lessonId: 'l1', length: 3 }
+			{
+				id: 'p1',
+				classId: 'c1',
+				date: DAYS[5],
+				slotId: 'd5p3',
+				anchorPeriod: 3,
+				lessonId: 'l1',
+				length: 3
+			}
 		]);
 
 		expect(result.scheduled.filter((s) => s.placementId === 'p1')).toMatchObject([
 			{ date: DAYS[5], period: 3, lessonId: 'l1', part: 1, of: 3 }
 		]);
-		expect(result.strandedPlacementIds).toEqual([]);
+		expect(result.placementLandings).toEqual([
+			{
+				placementId: 'p1',
+				classId: 'c1',
+				lessonId: 'l1',
+				anchor: { date: DAYS[5], period: 3 },
+				landing: { date: DAYS[5], period: 3 }
+			}
+		]);
 		expect(result.unplaced).toEqual([
 			{ lessonId: 'l1', part: 2, of: 3 },
 			{ lessonId: 'l1', part: 3, of: 3 }
@@ -374,7 +478,15 @@ describe('schedule with Placements', () => {
 			sessions: [{ classId: 'c1', date: DAYS[1], period: 1, lessonId: 'pl' }],
 			continuations: [{ classId: 'c1', lessonId: 'pl' }],
 			placements: [
-				{ id: 'p1', classId: 'c1', date: DAYS[2], slotId: 'd2p1', lessonId: 'pl', length: 1 }
+				{
+					id: 'p1',
+					classId: 'c1',
+					date: DAYS[2],
+					slotId: 'd2p1',
+					anchorPeriod: 1,
+					lessonId: 'pl',
+					length: 1
+				}
 			],
 			boundary: DAYS[2]
 		});
