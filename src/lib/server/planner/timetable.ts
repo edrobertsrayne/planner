@@ -6,6 +6,7 @@ import { addDays } from '$lib/date';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import { rederive, type Db } from './derive';
+import { slotDay, slotPeriod, slotWeek } from './fields';
 import { slotHolds } from './engine';
 import { Refused } from './refused';
 
@@ -81,19 +82,20 @@ export function addSlot(
 	}
 ) {
 	const window = { holdsFrom: input.holdsFrom ?? null, holdsTo: input.holdsTo ?? null };
+	const week = slotWeek(input.week);
+	const day = slotDay(input.day);
+	const period = slotPeriod(input.period);
 
-	const clash = slotsAtPosition(db, input.week, input.day, input.period).find((s) =>
-		overlaps(window, s)
-	);
-	if (clash) throw takenError(input.week, input.day, input.period);
+	const clash = slotsAtPosition(db, week, day, period).find((s) => overlaps(window, s));
+	if (clash) throw takenError(week, day, period);
 
 	const [row] = db
 		.insert(schema.slot)
 		.values({
 			classId: input.classId,
-			week: input.week,
-			day: input.day,
-			period: input.period,
+			week,
+			day,
+			period,
 			...window
 		})
 		.returning()
@@ -114,18 +116,26 @@ export function endSlot(
 
 	// The Slot's end and the re-derivation commit together: a Slot that has stopped holding while
 	// its Sessions still run through it is a Calendar and a Class lane disagreeing (ADR-0006).
-	return inTransaction(db.$client, () => {
-		if (from(row.holdsFrom) >= endFrom) {
-			db.delete(schema.slot).where(eq(schema.slot.id, id)).run();
-		} else {
-			db.update(schema.slot)
-				.set({ holdsTo: addDays(endFrom, -1) })
-				.where(eq(schema.slot.id, id))
-				.run();
-		}
+	return inTransaction(db.$client, () => endSlotWithin(db, row, endFrom, today));
+}
 
-		return { slot: row, ...rederive(db, row.classId, today) };
-	});
+// The end of a Slot without its own transaction, for a caller that already opened one.
+function endSlotWithin(
+	db: Db,
+	row: typeof schema.slot.$inferSelect,
+	endFrom: string,
+	today: string
+) {
+	if (from(row.holdsFrom) >= endFrom) {
+		db.delete(schema.slot).where(eq(schema.slot.id, row.id)).run();
+	} else {
+		db.update(schema.slot)
+			.set({ holdsTo: addDays(endFrom, -1) })
+			.where(eq(schema.slot.id, row.id))
+			.run();
+	}
+
+	return { slot: row, ...rederive(db, row.classId, today) };
 }
 
 // Puts a Class in an empty Timetable position from a chosen date. A click on a position already
@@ -156,17 +166,44 @@ export function takeSlot(
 		today: string;
 	}
 ) {
+	const validated = {
+		week: slotWeek(week),
+		day: slotDay(day),
+		period: slotPeriod(period)
+	};
+	// The Slot and its Class's re-derivation commit together, as endSlot does.
+	return inTransaction(db.$client, () =>
+		takeSlotWithin(db, { classId, ...validated, from: takeFrom, today })
+	);
+}
+
+// The take without its own transaction, for a caller that already opened one.
+function takeSlotWithin(
+	db: Db,
+	{
+		classId,
+		week,
+		day,
+		period,
+		from: takeFrom,
+		today
+	}: {
+		classId: string;
+		week: 'A' | 'B';
+		day: number;
+		period: number;
+		from: string | null;
+		today: string;
+	}
+) {
 	const holder = holderAt(db, { week, day, period, on: takeFrom ?? MIN_DATE });
 	if (holder) {
 		if (holder.classId === classId) return { slot: holder, placementsMoved: [] };
 		throw takenError(week, day, period);
 	}
 
-	// The Slot and its Class's re-derivation commit together, as endSlot does.
-	return inTransaction(db.$client, () => {
-		const row = addSlot(db, { classId, week, day, period, holdsFrom: takeFrom });
-		return { slot: row, ...rederive(db, classId, today) };
-	});
+	const row = addSlot(db, { classId, week, day, period, holdsFrom: takeFrom });
+	return { slot: row, ...rederive(db, classId, today) };
 }
 
 // Ends whatever this Class's Slot is at a position, from a chosen date. The mirror of takeSlot.
@@ -188,11 +225,73 @@ export function clearSlot(
 		today: string;
 	}
 ) {
+	const validated = {
+		week: slotWeek(week),
+		day: slotDay(day),
+		period: slotPeriod(period)
+	};
+	return inTransaction(db.$client, () =>
+		clearSlotWithin(db, { classId, ...validated, from: clearFrom, today })
+	);
+}
+
+// The clear without its own transaction, for a caller that already opened one.
+function clearSlotWithin(
+	db: Db,
+	{
+		classId,
+		week,
+		day,
+		period,
+		from: clearFrom,
+		today
+	}: {
+		classId: string;
+		week: 'A' | 'B';
+		day: number;
+		period: number;
+		from: string;
+		today: string;
+	}
+) {
 	const held = slotsAtPosition(db, week, day, period).find(
 		(s) => s.classId === classId && overlaps({ holdsFrom: clearFrom, holdsTo: null }, s)
 	);
 	if (!held) return null;
-	return endSlot(db, { id: held.id, from: clearFrom, today });
+	return endSlotWithin(db, held, clearFrom, today);
+}
+
+// What a click on the grid means, decided in one transaction: an empty position is taken for the
+// Class, a position the Class already holds is cleared from that date, and a position another
+// Class holds on that date is a stale click and a no-op. The Class page used to make this decision
+// itself, with the holder read outside the write.
+export function toggleSlot(
+	db: Db,
+	{
+		classId,
+		week,
+		day,
+		period,
+		from: on,
+		today
+	}: {
+		classId: string;
+		week: string;
+		day: number;
+		period: number;
+		from: string;
+		today: string;
+	}
+) {
+	const position = { week: slotWeek(week), day: slotDay(day), period: slotPeriod(period) };
+	return inTransaction(db.$client, () => {
+		const holder = holderAt(db, { ...position, on });
+		if (!holder) return takeSlotWithin(db, { classId, ...position, from: on, today });
+		if (holder.classId === classId) {
+			return clearSlotWithin(db, { classId, ...position, from: on, today });
+		}
+		return null;
+	});
 }
 
 // The Timetable as it stands on one date, across every Class — what the Class page's grid

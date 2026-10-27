@@ -4,6 +4,9 @@
 // refuses with one message. Only a value that would break something has a rule: an empty name,
 // a Link url that is not http(s), a Length the layout cannot draw, a status the database
 // refuses. No size limit exists — the request body limit bounds every write.
+//
+// The writers' shared guards live here too: `sameName` for the case-insensitive name comparison
+// and `requireRow` for a record the request names but the database does not hold.
 import { eq, sql, type SQL } from 'drizzle-orm';
 import type { SQLiteColumn, SQLiteTable } from 'drizzle-orm/sqlite-core';
 import { LESSON_STATUSES, type LessonStatus } from '$lib/lesson-status';
@@ -67,6 +70,30 @@ export function lessonStatus(status: string): LessonStatus {
 		throw new Refused('invalid', 'A Lesson must be Draft or Planned.');
 	}
 	return status as LessonStatus;
+}
+
+// A Slot's position is (Week, Day, Period). A form sends it as strings, and the database's own
+// range checks would surface as a raw constraint error, so the seam refuses a position it cannot
+// draw first, with a message the teacher can read.
+export function slotWeek(week: string): 'A' | 'B' {
+	if (week !== 'A' && week !== 'B') {
+		throw new Refused('invalid', 'A Slot must be in Week A or Week B.');
+	}
+	return week;
+}
+
+export function slotDay(day: number): number {
+	if (!Number.isInteger(day) || day < 1 || day > 5) {
+		throw new Refused('invalid', "A Slot's Day must be a whole number from 1 to 5.");
+	}
+	return day;
+}
+
+export function slotPeriod(period: number): number {
+	if (!Number.isInteger(period) || period < 1 || period > 6) {
+		throw new Refused('invalid', "A Slot's Period must be a whole number from 1 to 6.");
+	}
+	return period;
 }
 
 // A blank plan is no plan. A plan with words in it is stored as typed: Markdown gives its

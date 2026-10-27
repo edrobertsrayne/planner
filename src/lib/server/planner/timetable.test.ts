@@ -1,6 +1,6 @@
 import { and, eq, lt } from 'drizzle-orm';
 import { describe, expect, test } from 'vitest';
-import { makeLessons, makeTopic, setUp } from './fixtures';
+import { makeLessons, makeTopic, refused, setUp } from './fixtures';
 import {
 	activeSlots,
 	addSlot,
@@ -10,10 +10,11 @@ import {
 	createClass,
 	datedSlotsOf,
 	endSlot,
-	holderAt,
 	setSlotRoom,
-	takeSlot
+	takeSlot,
+	toggleSlot
 } from './index';
+import { holderAt } from './timetable';
 import * as schema from '../db/schema';
 
 describe('Slot uniqueness is window-aware, enforced in the server module', () => {
@@ -240,5 +241,103 @@ describe('a Slot’s Room', () => {
 		expect(activeSlots(db, '2026-09-03').find((s) => s.id === slot.id)?.room).toBeNull();
 
 		expect(setSlotRoom(db, { id: 'nope', room: 'S12' })).toBeNull();
+	});
+});
+
+describe('a click on the Timetable grid', () => {
+	test('refuses a Week letter that is not A or B', () => {
+		const { db, classA } = setUp();
+
+		refused(
+			() =>
+				toggleSlot(db, {
+					classId: classA.id,
+					week: 'C',
+					day: 1,
+					period: 1,
+					from: '2026-09-03',
+					today: '2026-09-03'
+				}),
+			'invalid',
+			'A Slot must be in Week A or Week B.'
+		);
+	});
+
+	test('refuses a Period that is not a whole number', () => {
+		const { db, classA } = setUp();
+
+		refused(
+			() =>
+				toggleSlot(db, {
+					classId: classA.id,
+					week: 'A',
+					day: 1,
+					period: Number.NaN,
+					from: '2026-09-03',
+					today: '2026-09-03'
+				}),
+			'invalid',
+			"A Slot's Period must be a whole number from 1 to 6."
+		);
+	});
+
+	test('takes an empty position for the Class', () => {
+		const { db, classA } = setUp();
+
+		const toggled = toggleSlot(db, {
+			classId: classA.id,
+			week: 'A',
+			day: 2,
+			period: 1,
+			from: '2026-09-03',
+			today: '2026-09-03'
+		});
+
+		expect(toggled?.slot).toMatchObject({ classId: classA.id, week: 'A', day: 2, period: 1 });
+		expect(
+			activeSlots(db, '2026-09-03').find((s) => s.week === 'A' && s.day === 2 && s.period === 1)
+		).toBeTruthy();
+	});
+
+	test('clears a position the Class already holds, from the chosen date', () => {
+		const { db, classA } = setUp();
+
+		const toggled = toggleSlot(db, {
+			classId: classA.id,
+			week: 'A',
+			day: 1,
+			period: 3,
+			from: '2027-01-04',
+			today: '2026-09-03'
+		});
+
+		expect(toggled).not.toBeNull();
+		expect(
+			activeSlots(db, '2027-01-04').find((s) => s.week === 'A' && s.day === 1 && s.period === 3)
+		).toBeFalsy();
+		expect(
+			activeSlots(db, '2027-01-03').find((s) => s.week === 'A' && s.day === 1 && s.period === 3)
+		).toBeTruthy();
+	});
+
+	test('does nothing when another Class holds the position on that date', () => {
+		const { db, classA, classB } = setUp();
+		const before = activeSlots(db, '2026-09-03');
+
+		const toggled = toggleSlot(db, {
+			classId: classA.id,
+			week: 'A',
+			day: 1,
+			period: 1,
+			from: '2026-09-03',
+			today: '2026-09-03'
+		});
+
+		expect(toggled).toBeNull();
+		expect(activeSlots(db, '2026-09-03')).toEqual(before);
+		expect(
+			activeSlots(db, '2026-09-03').find((s) => s.week === 'A' && s.day === 1 && s.period === 1)
+				?.classId
+		).toBe(classB.id);
 	});
 });

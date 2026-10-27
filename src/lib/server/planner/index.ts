@@ -42,9 +42,9 @@ export {
 	clearSlot,
 	datedSlotsOf,
 	endSlot,
-	holderAt,
 	setSlotRoom,
-	takeSlot
+	takeSlot,
+	toggleSlot
 } from './timetable';
 
 export {

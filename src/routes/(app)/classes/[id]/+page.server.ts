@@ -9,17 +9,15 @@ import {
 	assignTopic,
 	classDetail,
 	datedSlotsOf,
-	holderAt,
 	listClasses,
 	addLesson,
 	moveLessons,
-	takeSlot,
-	clearSlot,
 	removeFromSequence,
 	renameClass,
 	reportOf,
 	setSlotRoom,
-	sequenceView
+	sequenceView,
+	toggleSlot
 } from '$lib/server/planner';
 import {
 	addedLine,
@@ -72,7 +70,7 @@ export const actions: Actions = {
 	toggleSlot: async ({ request }) => {
 		const data = await request.formData();
 		const classId = trimmed(data, 'classId');
-		const week = trimmed(data, 'week') as 'A' | 'B';
+		const week = trimmed(data, 'week');
 		const day = Number(data.get('day'));
 		const period = Number(data.get('period'));
 		// The grid always sends the date it is showing. Without one there is no safe edit: ending a
@@ -81,18 +79,9 @@ export const actions: Actions = {
 		const from = trimmed(data, 'from');
 		if (!from) return fail(400, { error: 'Choose a date to change the Timetable.' });
 
-		const holder = holderAt(db, { week, day, period, on: from });
 		try {
-			if (!holder) {
-				const taken = takeSlot(db, { classId, week, day, period, from, today: today() });
-				return { report: reportOf(taken) };
-			} else if (holder.classId === classId) {
-				const cleared = clearSlot(db, { classId, week, day, period, from, today: today() });
-				return { report: cleared && reportOf(cleared) };
-			}
-			// Held by another Class: no-op — the grid shows it hatched and unclickable, so this
-			// is only reached by a stale click racing an edit made elsewhere.
-			return { report: null };
+			const toggled = toggleSlot(db, { classId, week, day, period, from, today: today() });
+			return { report: toggled && reportOf(toggled) };
 		} catch (error) {
 			return refusal(error);
 		}
