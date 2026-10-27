@@ -75,10 +75,10 @@ describe('createFirstUser', () => {
 			createFirstUser({ email: 'second@example.com', password: PASSWORD, name: 'Second' })
 		]);
 
-		// The second submission shares the first's attempt, so it is told about the user that exists
-		// rather than storing its own — which is how the wizard knows to send it to /login.
+		// The second submission waits for the first, then sees the user it created: it stores
+		// nothing and answers null, which is how the wizard knows to send it to /login.
 		expect(first?.email).toBe('first@example.com');
-		expect(second).toBe(first);
+		expect(second).toBeNull();
 		expect(await (await auth.$context).internalAdapter.countTotalUsers()).toBe(1);
 	});
 

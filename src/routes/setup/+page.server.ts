@@ -42,9 +42,9 @@ export const actions: Actions = {
 			return refuse(500, undefined, 'The account could not be created. Try again.');
 		}
 
-		// Another submission created the user first, so the credentials just entered are not the ones
-		// stored. There is nothing to sign in with here.
-		if (!created || created.email !== email) redirect(303, '/login');
+		// A queued submission found the user already there, so the credentials just entered are not
+		// the ones stored. There is nothing to sign in with here.
+		if (!created) redirect(303, '/login');
 
 		// sveltekitCookies replays the Set-Cookie through event.cookies, so the wizard finishes signed
 		// in — the first thing a new install shows should be the app, not another form. A concurrent

@@ -19,25 +19,42 @@ export async function hasUser() {
 	return row !== undefined;
 }
 
-/** The creation in flight, if any; see `createFirstUser`. */
-let creating: Promise<User | null> | null = null;
+/**
+ * The one queue for work that may create the first user. Restore and the wizard both check that
+ * the instance is empty and then write; serialised, the second check sees what the first wrote.
+ *
+ * The queue is a promise chain, kept as settled however a task ends: a failed task must not stop
+ * the tasks behind it, and the caller still gets its own task's failure.
+ */
+let tail: Promise<unknown> = Promise.resolve();
+
+/** Runs `work` after every task submitted before it, and answers with its result. */
+export function firstRun<T>(work: () => T | PromiseLike<T>): Promise<T> {
+	const result = tail.then(work);
+	tail = result.then(
+		() => undefined,
+		() => undefined
+	);
+	return result;
+}
 
 /**
  * Creates the single user, answering with it, or with null when one already exists.
  *
  * Goes through the internal adapter because the sign-up endpoint is disabled (auth.ts) — this is
  * the one creation path in the system, and it owns the check that no user exists. Two submissions
- * that arrive together share one attempt: without that, both pass the count and both insert, and
- * `user.email` UNIQUE only refuses the second when the emails happen to match.
- * `restore/+server.ts` guards its check-and-write the same way.
+ * that arrive together are queued, so the second count sees the first insert and answers null;
+ * without that, both pass the count and both insert, and `user.email` UNIQUE only refuses the
+ * second when the emails happen to match.
+ * `restore/+server.ts` uses the same queue, so a Restore and a sign-up cannot both pass an empty
+ * check.
  */
 export function createFirstUser(input: {
 	email: string;
 	password: string;
 	name: string;
 }): Promise<User | null> {
-	creating ??= createOnce(input).finally(() => (creating = null));
-	return creating;
+	return firstRun(() => createOnce(input));
 }
 
 async function createOnce(input: {
