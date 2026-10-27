@@ -352,7 +352,7 @@
 												'flex h-full flex-col items-center justify-center gap-1 rounded-lg px-2 py-3 text-center',
 												dayKind === 'holiday'
 													? 'day-panel-holiday'
-													: 'hatched border border-dashed border-muted-foreground/30'
+													: 'border border-dashed border-muted-foreground/30 hatched'
 											)}
 										>
 											<div class="text-xs font-semibold text-muted-foreground">{headline}</div>
@@ -376,7 +376,7 @@
 											the hatch and its note. Its unblock lives in the day's menu, like every
 											other act on the day — no control sits on a tile. -->
 											<div
-												class="hatched flex h-full min-h-16 flex-col rounded-lg border border-dashed px-1.5 py-1.5 md:px-2"
+												class="flex h-full min-h-16 flex-col rounded-lg border border-dashed hatched px-1.5 py-1.5 md:px-2"
 											>
 												<div class="text-xs font-semibold text-muted-foreground">
 													{cell.classLabel}
@@ -474,21 +474,6 @@
 </div>
 
 <style>
-	/*
-		The hatch marks a position that is not an upcoming Session. A Blocked Day and a Blocked
-		Slot drain the colour instead of keeping it (GLOSSARY.md, Calendar): present-but-empty and
-		removed must never read alike. A past Session or Open Slot keeps its Class Tone and lays the
-		hatch over it, so it reads as done rather than removed. The texture is derived from
-		--muted-foreground, so it reads in both themes with no dark-mode branch.
-	*/
-	.hatched {
-		background-image: repeating-linear-gradient(
-			135deg,
-			color-mix(in oklab, var(--muted-foreground) 14%, transparent) 0 5px,
-			transparent 5px 10px
-		);
-	}
-
 	/* A School Holiday is not a removal — nothing was taken away, the school is simply not
 	   running — so its panel takes no hatch, only a step in shade deep enough to read as a solid
 	   block rather than an empty Period. No hue: the same grey the hatch is built from. */
