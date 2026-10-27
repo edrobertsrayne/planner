@@ -366,7 +366,7 @@ describe('the Calendar', () => {
 			kind: 'lesson',
 			lesson: { title: lesson.title, topicName: 'Forces' }
 		});
-		expect(at('2026-09-03', 6, classA.id)).toMatchObject({ kind: 'open', lesson: null });
+		expect(at('2026-09-03', 6, classA.id)).toMatchObject({ kind: 'open' });
 
 		// Monday and Wednesday are outside every Term, even though the Timetable puts each Class
 		// there — blocked, the same as a Blocked Day, and never mistaken for an Open Slot.
@@ -469,15 +469,17 @@ describe('the Calendar', () => {
 				(c) => c.date === '2026-09-03' && c.periodFrom === period && c.classId === classA.id
 			);
 		const blocked = at(5);
-		expect(blocked).toMatchObject({ kind: 'blocked', blockedNote: 'Field trip', lesson: null });
-		expect(blocked?.blockedSlotId).toBeTruthy();
-		expect(blocked?.blockedDayId).toBeNull();
+		expect(blocked).toMatchObject({
+			kind: 'blocked',
+			blockedNote: 'Field trip',
+			blockedSlotId: expect.any(String),
+			blockedDayId: null
+		});
 
 		// Shift-right moved the first Lesson into the Slot the block left free.
 		const shifted = at(6);
 		expect(shifted).toMatchObject({ kind: 'lesson' });
 		expect(shifted?.slotIds).toEqual([thuP6.id]);
-		expect(shifted?.blockedSlotId).toBeNull();
 	});
 
 	test('a Blocked Day is reported for its date, for the Calendar to offer removing it', () => {
@@ -490,7 +492,7 @@ describe('the Calendar', () => {
 			{ id: expect.any(String), date: '2026-09-03', note: 'Snow day' }
 		]);
 		const blocked = week?.cells.find((c) => c.date === '2026-09-03');
-		expect(blocked?.blockedDayId).toBe(week?.blockedDays[0].id);
+		expect(blocked).toMatchObject({ blockedDayId: week?.blockedDays[0].id });
 	});
 
 	test('every date carries a day kind — teaching, blocked, or holiday — and a holiday wins over a Blocked Day', () => {
@@ -536,9 +538,12 @@ describe('the Calendar', () => {
 		const week = calendarWeek(db, { weekCommencing: '2026-08-31', today: '2026-09-01' });
 		expect(week?.days.find((d) => d.date === '2026-08-31')?.kind).toBe('holiday');
 		const cell = week?.cells.find((c) => c.date === '2026-08-31' && c.periodFrom === 3);
-		expect(cell).toMatchObject({ kind: 'blocked', blockedNote: 'Trip' });
-		expect(cell?.blockedSlotId).toBeTruthy();
-		expect(cell?.blockedDayId).toBeNull();
+		expect(cell).toMatchObject({
+			kind: 'blocked',
+			blockedNote: 'Trip',
+			blockedSlotId: expect.any(String),
+			blockedDayId: null
+		});
 	});
 
 	// classA's first Sessions are recorded on Thu 2026-09-03: the Length-2 Lesson over P5 and P6.
@@ -558,8 +563,7 @@ describe('the Calendar', () => {
 				periodTo: 6,
 				kind: 'lesson',
 				past: true,
-				lesson: { title: wideLesson.title, topicName: 'Forces' },
-				blockedNote: null
+				lesson: { title: wideLesson.title, topicName: 'Forces' }
 			})
 		]);
 		expect(thursday?.[0].slotIds).toHaveLength(2);
@@ -1071,11 +1075,9 @@ describe('a Standalone Lesson', () => {
 		// 3) Calendar: lesson cell shows no topic name
 		const week = calendarWeek(db, { weekCommencing: '2026-08-31', today: '2026-09-05' });
 		expect(week).not.toBeNull();
-		const l1CalendarCells = week!.cells.filter(
-			(c) => c.kind === 'lesson' && c.lesson?.title === l1.title
-		);
-		for (const cell of l1CalendarCells) {
-			expect(cell.lesson!.topicName).toBeNull();
+		for (const cell of week!.cells) {
+			if (cell.kind !== 'lesson' || cell.lesson.title !== l1.title) continue;
+			expect(cell.lesson.topicName).toBeNull();
 		}
 
 		// 4) Planning tab lists l1 with no topic name and no course name

@@ -313,7 +313,8 @@ export function agendaLookBack(db: Db, { today }: { today: string }): AgendaEntr
 	return toEntries(db, occasions, () => false);
 }
 
-export interface CalendarCell {
+// What every cell carries, whatever it shows.
+type CalendarCellBase = {
 	date: string;
 	// Dated before `today`: the record, not the plan. A past cell is never blocked for being past.
 	past: boolean;
@@ -323,20 +324,35 @@ export interface CalendarCell {
 	classLabel: string;
 	tone: number;
 	room: string | null;
-	kind: 'lesson' | 'open' | 'blocked';
-	lesson: LessonName | null;
-	blockedNote: string | null;
-	// One id per Period the cell covers, in order: slotIds[i] belongs to periodFrom + i. The
-	// rule is the engine's AgendaRow's — the cell only passes its list through. A recorded
-	// Session on a position no Slot holds any more has none: there is no Slot left to block.
+	// One id per Period the cell covers, in order: slotIds[i] belongs to periodFrom + i. The rule
+	// is the engine's `Run`'s — the cell only passes its list through. A recorded Session on a
+	// position no Slot holds any more has none: there is no Slot left to block.
 	slotIds: string[];
-	blockedDayId: string | null;
-	blockedSlotId: string | null;
-	// Whether the day menu may offer Place on this cell: today or later, not removed by a Blocked
-	// Day or Blocked Slot, and not already holding a placed Lesson. The Calendar reads this, and
-	// the seam's `placementAdmission` gives the same answer for one occasion (placement.ts).
-	placeable: boolean;
-}
+};
+
+// What one position on the Calendar shows: a Lesson, an Open Slot, or a removal. The variant is
+// the cell's truth — a removed cell has no Lesson and an Open Slot has no removal — so nothing
+// downstream has to read a nullable field beside it.
+export type CalendarCell = CalendarCellBase &
+	(
+		| {
+				kind: 'lesson';
+				lesson: LessonName;
+				// Whether the day menu may offer Place on this cell: today or later, and not already
+				// holding a placed Lesson. The Calendar reads this, and the seam's
+				// `placementAdmission` gives the same answer for one occasion (placement.ts).
+				placeable: boolean;
+		  }
+		| { kind: 'open'; placeable: boolean }
+		| {
+				kind: 'blocked';
+				// The removal's note: a Blocked Day's, else a Blocked Slot's. The ids let the day menu
+				// offer Unblock, and a Blocked Slot's survives its column collapsing into a holiday panel.
+				blockedNote: string | null;
+				blockedDayId: string | null;
+				blockedSlotId: string | null;
+		  }
+	);
 
 // The three states a day column in the Calendar can show: an ordinary teaching day, a Blocked
 // Day, or a School Holiday — a date outside every Term. When a Blocked Day is entered outside
@@ -400,29 +416,33 @@ function uncoveredCells({
 		const cls = byId.get(slot.classId);
 		if (!cls) return [];
 
+		const base = {
+			date: slot.date,
+			past: slot.date < today,
+			periodFrom: slot.period,
+			periodTo: slot.period,
+			classId: cls.id,
+			classLabel: cls.label,
+			tone: cls.tone,
+			room: roomOf(rooms, [slot.slotId]),
+			slotIds: [slot.slotId]
+		};
+
+		if (slot.removedBy.length === 0) {
+			return [{ ...base, kind: 'open', placeable: slot.date >= today }];
+		}
+
 		const dayBlock = slot.removedBy.find((removal) => removal.kind === 'day');
 		const slotBlock = slot.removedBy.find((removal) => removal.kind === 'slot');
-		const blocked = slot.removedBy.length > 0;
-
 		return [
 			{
-				date: slot.date,
-				past: slot.date < today,
-				periodFrom: slot.period,
-				periodTo: slot.period,
-				classId: cls.id,
-				classLabel: cls.label,
-				tone: cls.tone,
-				room: roomOf(rooms, [slot.slotId]),
-				kind: blocked ? 'blocked' : 'open',
-				lesson: null,
+				...base,
+				kind: 'blocked',
 				blockedNote:
 					(dayBlock?.kind === 'day' ? dayBlock.note : null) ??
 					(slotBlock?.kind === 'slot' ? slotBlock.note : null),
-				slotIds: [slot.slotId],
 				blockedDayId: dayBlock?.kind === 'day' ? dayBlock.id : null,
-				blockedSlotId: slotBlock?.kind === 'slot' ? slotBlock.id : null,
-				placeable: !blocked && slot.date >= today
+				blockedSlotId: slotBlock?.kind === 'slot' ? slotBlock.id : null
 			}
 		];
 	});
@@ -460,26 +480,29 @@ export function calendarWeek(
 
 	const covered = new Set<string>();
 	const cells: CalendarCell[] = occupied.flatMap(({ cls, runs, placed }) =>
-		runs.map((run): CalendarCell => {
+		runs.flatMap((run): CalendarCell[] => {
 			for (let p = run.periodFrom; p <= run.periodTo; p++) covered.add(`${run.date}|${p}`);
-			return {
-				date: run.date,
-				past: run.date < today,
-				periodFrom: run.periodFrom,
-				periodTo: run.periodTo,
-				classId: cls.id,
-				classLabel: cls.label,
-				tone: cls.tone,
-				room: roomOf(rooms, run.slotIds),
-				kind: 'lesson',
-				lesson: names.get(run.lessonId) ?? null,
-				blockedNote: null,
-				slotIds: run.slotIds,
-				blockedDayId: null,
-				blockedSlotId: null,
-				placeable:
-					run.date >= today && !placed.has(occasionKey({ date: run.date, period: run.periodFrom }))
-			};
+			// A Session names a Lesson that exists (the foreign key), so the batch lookup has it.
+			const lesson = names.get(run.lessonId);
+			if (!lesson) return [];
+			return [
+				{
+					date: run.date,
+					past: run.date < today,
+					periodFrom: run.periodFrom,
+					periodTo: run.periodTo,
+					classId: cls.id,
+					classLabel: cls.label,
+					tone: cls.tone,
+					room: roomOf(rooms, run.slotIds),
+					kind: 'lesson',
+					lesson,
+					slotIds: run.slotIds,
+					placeable:
+						run.date >= today &&
+						!placed.has(occasionKey({ date: run.date, period: run.periodFrom }))
+				}
+			];
 		})
 	);
 

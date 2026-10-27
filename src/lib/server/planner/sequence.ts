@@ -9,12 +9,7 @@ import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import { addDays, mondayOf, weekday } from '$lib/date';
 import type { LessonStatus } from '$lib/lesson-status';
-import {
-	timetabledSlots,
-	type Calendar,
-	type ScheduleResult,
-	type TimetabledSlot
-} from './engine';
+import { timetabledSlots, type Calendar, type ScheduleResult, type TimetabledSlot } from './engine';
 import {
 	lessonNames,
 	loadCalendar,
