@@ -106,19 +106,7 @@
 				},
 				onBlur: () => onblur?.(),
 				onTransaction: ({ editor: e }) => {
-					active = {
-						bold: e.isActive('bold'),
-						italic: e.isActive('italic'),
-						h2: e.isActive('heading', { level: 2 }),
-						h3: e.isActive('heading', { level: 3 }),
-						bulletList: e.isActive('bulletList'),
-						orderedList: e.isActive('orderedList'),
-						blockquote: e.isActive('blockquote'),
-						code: e.isActive('code'),
-						link: e.isActive('link'),
-						inlineMath: e.isActive('inlineMath'),
-						blockMath: e.isActive('blockMath')
-					};
+					active = Object.fromEntries(TOOLS.map((tool) => [tool.key, tool.isActive(e)]));
 				}
 			});
 			// @tiptap/markdown escapes \ ` * _ [ ] ~ in text but not $, so a typed "$5 and $10" would reload
@@ -179,23 +167,96 @@
 			: chain.updateBlockMath({ latex, pos })
 		).run();
 	}
-</script>
 
-{#snippet tool(key: string, title: string, Icon: typeof BoldIcon, run: () => void)}
-	<Button
-		type="button"
-		variant="ghost"
-		size="icon-sm"
-		aria-label={title}
-		aria-pressed={active[key] ?? false}
-		class={active[key] ? 'bg-accent text-accent-foreground' : ''}
-		disabled={!editor}
-		onmousedown={hold}
-		onclick={run}
-	>
-		<Icon class="size-3.5" />
-	</Button>
-{/snippet}
+	// The toolbar, once: each tool's active key, label, icon, the question the editor answers about
+	// it, and the command it runs. The render loop and `onTransaction` both read this table, so a
+	// tool cannot be listed in one place and forgotten in the other.
+	const TOOLS: {
+		key: string;
+		title: string;
+		Icon: typeof BoldIcon;
+		isActive: (editor: Editor) => boolean;
+		run: () => void;
+	}[] = [
+		{
+			key: 'bold',
+			title: 'Bold',
+			Icon: BoldIcon,
+			isActive: (e) => e.isActive('bold'),
+			run: () => editor?.chain().focus().toggleBold().run()
+		},
+		{
+			key: 'italic',
+			title: 'Italic',
+			Icon: ItalicIcon,
+			isActive: (e) => e.isActive('italic'),
+			run: () => editor?.chain().focus().toggleItalic().run()
+		},
+		{
+			key: 'h2',
+			title: 'Heading',
+			Icon: Heading2Icon,
+			isActive: (e) => e.isActive('heading', { level: 2 }),
+			run: () => editor?.chain().focus().toggleHeading({ level: 2 }).run()
+		},
+		{
+			key: 'h3',
+			title: 'Subheading',
+			Icon: Heading3Icon,
+			isActive: (e) => e.isActive('heading', { level: 3 }),
+			run: () => editor?.chain().focus().toggleHeading({ level: 3 }).run()
+		},
+		{
+			key: 'bulletList',
+			title: 'Bullet list',
+			Icon: ListIcon,
+			isActive: (e) => e.isActive('bulletList'),
+			run: () => editor?.chain().focus().toggleBulletList().run()
+		},
+		{
+			key: 'orderedList',
+			title: 'Numbered list',
+			Icon: ListOrderedIcon,
+			isActive: (e) => e.isActive('orderedList'),
+			run: () => editor?.chain().focus().toggleOrderedList().run()
+		},
+		{
+			key: 'blockquote',
+			title: 'Quote',
+			Icon: QuoteIcon,
+			isActive: (e) => e.isActive('blockquote'),
+			run: () => editor?.chain().focus().toggleBlockquote().run()
+		},
+		{
+			key: 'code',
+			title: 'Code',
+			Icon: CodeIcon,
+			isActive: (e) => e.isActive('code'),
+			run: () => editor?.chain().focus().toggleCode().run()
+		},
+		{
+			key: 'inlineMath',
+			title: 'Formula',
+			Icon: SigmaIcon,
+			isActive: (e) => e.isActive('inlineMath'),
+			run: () => insertFormula('inline')
+		},
+		{
+			key: 'blockMath',
+			title: 'Display formula',
+			Icon: SquareSigmaIcon,
+			isActive: (e) => e.isActive('blockMath'),
+			run: () => insertFormula('block')
+		},
+		{
+			key: 'link',
+			title: 'Link',
+			Icon: LinkIcon,
+			isActive: (e) => e.isActive('link'),
+			run: editLink
+		}
+	];
+</script>
 
 <div class={cn('flex min-h-0 flex-col', className)}>
 	<div
@@ -204,29 +265,22 @@
 			toolbarClass
 		)}
 	>
-		{@render tool('bold', 'Bold', BoldIcon, () => editor?.chain().focus().toggleBold().run())}
-		{@render tool('italic', 'Italic', ItalicIcon, () =>
-			editor?.chain().focus().toggleItalic().run()
-		)}
-		{@render tool('h2', 'Heading', Heading2Icon, () =>
-			editor?.chain().focus().toggleHeading({ level: 2 }).run()
-		)}
-		{@render tool('h3', 'Subheading', Heading3Icon, () =>
-			editor?.chain().focus().toggleHeading({ level: 3 }).run()
-		)}
-		{@render tool('bulletList', 'Bullet list', ListIcon, () =>
-			editor?.chain().focus().toggleBulletList().run()
-		)}
-		{@render tool('orderedList', 'Numbered list', ListOrderedIcon, () =>
-			editor?.chain().focus().toggleOrderedList().run()
-		)}
-		{@render tool('blockquote', 'Quote', QuoteIcon, () =>
-			editor?.chain().focus().toggleBlockquote().run()
-		)}
-		{@render tool('code', 'Code', CodeIcon, () => editor?.chain().focus().toggleCode().run())}
-		{@render tool('inlineMath', 'Formula', SigmaIcon, () => insertFormula('inline'))}
-		{@render tool('blockMath', 'Display formula', SquareSigmaIcon, () => insertFormula('block'))}
-		{@render tool('link', 'Link', LinkIcon, editLink)}
+		{#each TOOLS as tool (tool.key)}
+			{@const Icon = tool.Icon}
+			<Button
+				type="button"
+				variant="ghost"
+				size="icon-sm"
+				aria-label={tool.title}
+				aria-pressed={active[tool.key] ?? false}
+				class={active[tool.key] ? 'bg-accent text-accent-foreground' : ''}
+				disabled={!editor}
+				onmousedown={hold}
+				onclick={tool.run}
+			>
+				<Icon class="size-3.5" />
+			</Button>
+		{/each}
 	</div>
 	<div
 		bind:this={host}
