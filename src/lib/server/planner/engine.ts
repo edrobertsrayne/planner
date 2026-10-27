@@ -107,6 +107,42 @@ export interface Runway {
 export const inAnyTerm = (terms: Term[], date: string) =>
 	terms.some((term) => date >= term.opens && date <= term.closes);
 
+// The last day of a window of `days` Term days from `today`, today counting as the first when it
+// is in a Term. A day outside every Term — a School Holiday — is skipped, not counted, so a window
+// that crosses one reaches as far past it, and one that starts in one opens on the next Term. A
+// weekend inside a Term counts. `null` reaches the close of the last Term; with no Term day ahead
+// the window ends today.
+export function termWindowEnd(terms: Term[], today: string, days: number | null): string {
+	const lastCloses = terms.reduce((last, t) => (t.closes > last ? t.closes : last), today);
+	let end = today;
+	let left = days ?? Infinity;
+	for (let date = today; left > 0 && date <= lastCloses; date = addDays(date, 1)) {
+		if (!inAnyTerm(terms, date)) continue;
+		end = date;
+		left--;
+	}
+	return end;
+}
+
+export interface SchoolHoliday {
+	starts: string;
+	ends: string;
+}
+
+// The School Holidays touching the days `from` to `to`: each gap between two Terms, whole even when
+// it began before `from`, and the gap before the first Term, which starts at `from` — the Terms
+// say nothing earlier. No holiday follows the last Term: no window reaches past it.
+export function schoolHolidays(terms: Term[], from: string, to: string): SchoolHoliday[] {
+	const sorted = [...terms].sort((a, b) => a.opens.localeCompare(b.opens));
+	const gaps: SchoolHoliday[] =
+		sorted.length && from < sorted[0].opens
+			? [{ starts: from, ends: addDays(sorted[0].opens, -1) }]
+			: [];
+	for (let i = 1; i < sorted.length; i++)
+		gaps.push({ starts: addDays(sorted[i - 1].closes, 1), ends: addDays(sorted[i].opens, -1) });
+	return gaps.filter((gap) => gap.ends >= from && gap.starts <= to);
+}
+
 export const slotHolds = (
 	slot: { holdsFrom: string | null; holdsTo: string | null },
 	date: string

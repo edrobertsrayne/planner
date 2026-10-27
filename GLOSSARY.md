@@ -304,7 +304,13 @@ opens a Session from its row on the Agenda or the Calendar.
 
 **Agenda**:
 The chronological stream of upcoming Sessions across every Class, grouped by day, reaching a
-horizon the teacher chooses: a number of days, or **All**, to the end of the last Term. Where the
+horizon the teacher chooses: a number of Term days, or **All**, to the end of the last Term. A
+School Holiday is skipped, not counted, so This Week on a School Holiday shows the next Term's first
+week. Every School Holiday the window touches shows as one card at its place in the stream, naming
+its first and last day. A Blocked Day shows as a panel under its day heading, with its note. A
+Blocked Slot shows as a row of its own in its position, with its note; it opens nothing and carries
+neither Plan nor Ready tick. All three are told apart from teaching by a step in shade, never a hue,
+and the Tag filter hides the Blocked Slot rows as it hides Open Slots. Where the
 planner opens. The teacher can also turn on the look-back: the Sessions of the past seven days,
 shown above today, grouped by day, oldest first. The look-back is off by default and read-only. Its
 span is fixed: the horizon changes only the days ahead. The look-back obeys the Tag filter the same

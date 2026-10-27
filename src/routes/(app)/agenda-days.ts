@@ -1,5 +1,3 @@
-import { addDays } from '$lib/date';
-
 // The Agenda's day grouping (issue #87): the day is the unit — every date in the window gets a
 // heading and a card, whether it holds five lessons or one. Pure: consecutive rows sharing a date
 // form one day; the stream is expected sorted by date then Period, as `agenda` returns it.
@@ -37,8 +35,22 @@ export function tagsIn(rows: readonly TaggedRow[]): { name: string; count: numbe
 		.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-// The last day a horizon of `horizonDays` covers, today counting as the first — the same
-// arithmetic the load's `agenda` call applies when it filters, so prose about the window names
-// the day it actually reaches. The All horizon reaches the last day of the last Term.
-export const horizonEndsOn = (today: string, horizon: number | 'all', lastTermCloses: string) =>
-	horizon === 'all' ? lastTermCloses : addDays(today, horizon - 1);
+// The Agenda's stream (issue #34): its teaching days, its Blocked Days and the School Holidays its
+// window touches, in date order, so the teacher sees what is removed as well as what is taught. A
+// holiday sits at its first day, so one already under way leads the stream.
+export type AgendaItem<Row> =
+	| ({ kind: 'day' } & AgendaDay<Row>)
+	| { kind: 'blocked'; date: string; note: string | null }
+	| { kind: 'holiday'; date: string; ends: string };
+
+export function agendaStream<Row>(
+	days: readonly AgendaDay<Row>[],
+	blockedDays: readonly { date: string; note: string | null }[],
+	holidays: readonly { starts: string; ends: string }[]
+): AgendaItem<Row>[] {
+	return [
+		...days.map((day) => ({ kind: 'day' as const, ...day })),
+		...blockedDays.map((day) => ({ kind: 'blocked' as const, ...day })),
+		...holidays.map(({ starts, ends }) => ({ kind: 'holiday' as const, date: starts, ends }))
+	].sort((a, b) => a.date.localeCompare(b.date));
+}

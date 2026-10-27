@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { filterByTag, groupByDay, horizonEndsOn, tagsIn } from './agenda-days';
+import { agendaStream, filterByTag, groupByDay, tagsIn } from './agenda-days';
 
 describe('groupByDay', () => {
 	test('groups a sorted stream into one day per date, in order (issue #87)', () => {
@@ -79,16 +79,33 @@ describe('tagsIn (issue #280; counts issue #340)', () => {
 	});
 });
 
-describe('horizonEndsOn', () => {
-	// The window is calendar days from today, today counting as the first — the same arithmetic
-	// `agenda` applies when it filters, so the prose names the day the horizon actually reaches.
-	test('the last day of a numeric horizon is horizon − 1 days after today', () => {
-		expect(horizonEndsOn('2026-09-03', 1, '2027-07-19')).toBe('2026-09-03');
-		expect(horizonEndsOn('2026-09-03', 7, '2027-07-19')).toBe('2026-09-09');
-		expect(horizonEndsOn('2026-09-28', 28, '2027-07-19')).toBe('2026-10-25');
+describe('agendaStream', () => {
+	const day = (date: string) => ({ date, rows: [{ date }] });
+
+	test('teaching days, Blocked Days and School Holidays run in date order', () => {
+		const stream = agendaStream(
+			[day('2026-10-22'), day('2026-11-02')],
+			[{ date: '2026-11-03', note: 'INSET' }],
+			[{ starts: '2026-10-24', ends: '2026-11-01' }]
+		);
+
+		expect(stream.map((item) => [item.kind, item.date])).toEqual([
+			['day', '2026-10-22'],
+			['holiday', '2026-10-24'],
+			['day', '2026-11-02'],
+			['blocked', '2026-11-03']
+		]);
+		expect(stream[1]).toMatchObject({ ends: '2026-11-01' });
+		expect(stream[3]).toMatchObject({ note: 'INSET' });
 	});
 
-	test('the All horizon ends on the last day of the last Term (issue #281)', () => {
-		expect(horizonEndsOn('2026-09-03', 'all', '2027-07-19')).toBe('2027-07-19');
+	test('a holiday already under way leads the stream', () => {
+		const stream = agendaStream(
+			[day('2026-11-02')],
+			[],
+			[{ starts: '2026-10-24', ends: '2026-11-01' }]
+		);
+
+		expect(stream.map((item) => item.kind)).toEqual(['holiday', 'day']);
 	});
 });

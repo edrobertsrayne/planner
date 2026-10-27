@@ -9,7 +9,7 @@ export const load: PageServerLoad = ({ url }) => {
 	const horizon = parseHorizon(url.searchParams.get('horizon'));
 	// The look-back is off unless `?past=1`; any other value is off.
 	const lookBackOn = url.searchParams.get('past') === '1';
-	const { rows, lastTermCloses } = agenda(db, {
+	const ahead = agenda(db, {
 		today: today(),
 		horizonDays: horizon === 'all' ? null : horizon
 	});
@@ -19,8 +19,7 @@ export const load: PageServerLoad = ({ url }) => {
 		horizon,
 		tag: url.searchParams.get('tag') || null,
 		lookBackOn,
-		rows,
-		lastTermCloses,
+		...ahead,
 		lookBack: lookBackOn ? agendaLookBack(db, { today: today() }) : []
 	};
 };

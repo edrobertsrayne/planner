@@ -3,7 +3,7 @@
 // `scheduleFor` every write and every other read runs, so a cell, an Agenda row and the Session
 // panel can never disagree about one occasion. The look-back, and the Calendar before today, read
 // the recorded Sessions.
-import { and, eq, gte, lt } from 'drizzle-orm';
+import { and, eq, gte, lt, lte } from 'drizzle-orm';
 import { addDays, mondayOf, weekday } from '$lib/date';
 import { PERIODS } from '$lib/periods';
 import * as schema from '../db/schema';
@@ -13,9 +13,12 @@ import { lessonNames, loadCalendar, scheduleFor, type Db, type LessonName } from
 import {
 	agendaRows,
 	inAnyTerm,
+	schoolHolidays,
 	slotHolds,
+	termWindowEnd,
 	type AgendaRow,
 	type Calendar,
+	type SchoolHoliday,
 	type SessionRecord
 } from './engine';
 import { listClasses } from './classes';
@@ -108,6 +111,8 @@ export interface AgendaEntry {
 		ready: boolean;
 		tags: string[];
 	} | null;
+	// Set on a Blocked Slot ahead: the occasion is removed, so it carries no Lesson.
+	blocked: { note: string | null } | null;
 }
 
 // One Agenda row before its Lesson is looked up: the part `agenda` and `agendaLookBack` differ on.
@@ -119,6 +124,7 @@ type Occasion = {
 	periodTo: number;
 	lessonId: string | null;
 	slotIds: string[];
+	blocked: { note: string | null } | null;
 };
 
 // Title, Topic and Tags for every Lesson in one query each, then sorted by date and Period.
@@ -144,6 +150,7 @@ function toEntries(
 				periodFrom: o.periodFrom,
 				periodTo: o.periodTo,
 				room: roomOf(rooms, o.slotIds),
+				blocked: o.blocked,
 				lesson:
 					lessonId && lessonInfo
 						? {
@@ -160,21 +167,29 @@ function toEntries(
 }
 
 // The chronological stream of upcoming Sessions across every Class, grouped by day (issue #34).
-// Windowed to a horizon of calendar days from `today` — so a weekend or a Blocked Day inside it
-// honestly produces no row, rather than being padded out to look like a full week of teaching.
-// A `null` horizon keeps every row to the close of the last Term (issue #281). `lastTermCloses`
-// is that day, for the prose about the window.
+// Windowed to a horizon of Term days from `today` (termWindowEnd): a weekend or a Blocked Day
+// inside a Term honestly produces no row, while a School Holiday is skipped, so This Week on a
+// holiday shows the next Term's first week. A `null` horizon keeps every row to the close of the
+// last Term (issue #281). `horizonEnds` is the window's last day, for the prose about it.
+// Alongside the rows, what the window removes: its Blocked Days, its Blocked Slots as rows of
+// their own, and the School Holidays it touches.
 export function agenda(
 	db: Db,
 	{ today, horizonDays }: { today: string; horizonDays: number | null }
-): { rows: AgendaEntry[]; lastTermCloses: string } {
-	const horizonEnd = horizonDays === null ? null : addDays(today, horizonDays);
+): {
+	rows: AgendaEntry[];
+	blockedDays: { date: string; note: string | null }[];
+	holidays: SchoolHoliday[];
+	horizonEnds: string;
+} {
 	const cal = loadCalendar(db);
+	const horizonEnds = termWindowEnd(cal.terms, today, horizonDays);
+	const classes = listClasses(db);
 	const batches = derivedRows(db, {
-		classes: listClasses(db),
+		classes,
 		cal,
 		today,
-		keep: (r) => horizonEnd === null || r.date < horizonEnd
+		keep: (r) => r.date <= horizonEnds
 	});
 	const readinessSet = new Set(
 		db
@@ -187,17 +202,88 @@ export function agenda(
 			.map((r) => `${r.lessonId}|${r.classId}`)
 	);
 
+	// A Blocked Day out of every Term reads as the holiday, as on the Calendar.
+	const blockedDays = [...blockedDaysByDate(db).values()]
+		.filter((d) => d.date >= today && d.date <= horizonEnds && inAnyTerm(cal.terms, d.date))
+		.map(({ date, note }) => ({ date, note }))
+		.sort((a, b) => a.date.localeCompare(b.date));
+
 	return {
 		rows: toEntries(
 			db,
-			batches.flatMap(({ cls, rows }) =>
-				rows.map((r) => ({ cls, ...r, lessonId: r.lesson?.lessonId ?? null }))
-			),
+			[
+				...batches.flatMap(({ cls, rows }) =>
+					rows.map((r) => ({ cls, ...r, lessonId: r.lesson?.lessonId ?? null, blocked: null }))
+				),
+				...blockedSlotOccasions(db, {
+					cal,
+					classes,
+					from: today,
+					to: horizonEnds,
+					blockedDays: new Set(blockedDays.map((d) => d.date))
+				})
+			],
 			(lessonId, classId) => readinessSet.has(`${lessonId}|${classId}`)
 		),
-		// With no Terms, the window ends today.
-		lastTermCloses: cal.terms.reduce((last, t) => (t.closes > last ? t.closes : last), today)
+		blockedDays,
+		holidays: schoolHolidays(cal.terms, today, horizonEnds),
+		horizonEnds
 	};
+}
+
+// The Blocked Slots from `from` to `to` that remove a real occasion: their Slot holds that date in
+// a Term, in a Teaching Week of its letter, on a day not wholly blocked — a Blocked Day already
+// says the whole day is gone.
+function blockedSlotOccasions(
+	db: Db,
+	{
+		cal,
+		classes,
+		from,
+		to,
+		blockedDays
+	}: { cal: Calendar; classes: ClassRow[]; from: string; to: string; blockedDays: Set<string> }
+): Occasion[] {
+	const byId = new Map(classes.map((c) => [c.id, c]));
+	const slots = new Map(cal.slots.map((s) => [s.id, s]));
+	const letters = new Map(cal.teachingWeeks.map((w) => [w.weekCommencing, w.letter]));
+	return db
+		.select({
+			classId: schema.blockedSlot.classId,
+			date: schema.blockedSlot.date,
+			slotId: schema.blockedSlot.slotId,
+			note: schema.blockedSlot.note
+		})
+		.from(schema.blockedSlot)
+		.where(and(gte(schema.blockedSlot.date, from), lte(schema.blockedSlot.date, to)))
+		.all()
+		.flatMap(({ classId, date, slotId, note }): Occasion[] => {
+			const cls = byId.get(classId);
+			const slot = slots.get(slotId);
+			const week = letters.get(mondayOf(date));
+			const removes =
+				cls &&
+				slot &&
+				week === slot.week &&
+				slot.day === weekday(date) &&
+				slotHolds(slot, date) &&
+				inAnyTerm(cal.terms, date) &&
+				!blockedDays.has(date);
+			return removes
+				? [
+						{
+							cls,
+							date,
+							week,
+							periodFrom: slot.period,
+							periodTo: slot.period,
+							lessonId: null,
+							slotIds: [slot.id],
+							blocked: { note }
+						}
+					]
+				: [];
+		});
 }
 
 const LOOK_BACK_DAYS = 7;
@@ -228,7 +314,9 @@ export function agendaLookBack(db: Db, { today }: { today: string }): AgendaEntr
 	const occasions = sessionRuns(sessions).flatMap(({ classId, ...run }): Occasion[] => {
 		const cls = classes.get(classId);
 		const week = letters.get(mondayOf(run.date));
-		return cls && week ? [{ cls, week, ...run, slotIds: runSlotIds(cal, week, classId, run) }] : [];
+		return cls && week
+			? [{ cls, week, ...run, slotIds: runSlotIds(cal, week, classId, run), blocked: null }]
+			: [];
 	});
 
 	return toEntries(db, occasions, () => false);
