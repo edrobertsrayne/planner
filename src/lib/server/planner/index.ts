@@ -91,7 +91,6 @@ export {
 	agenda,
 	agendaLookBack,
 	calendarWeek,
-	classNextSessions,
 	planningStream,
 	type AgendaEntry,
 	type CalendarCell,

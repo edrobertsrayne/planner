@@ -357,21 +357,20 @@ tile, because nothing is written there. The Runway is shown plainly and is not c
 Sequence fits the year: a Class approaching the end of its Sequence is the normal condition
 several times a year, so a threshold warning would be on almost always and mean nothing. The one
 exception is Lessons with no Slot left this year: the Runway line then reads "N Lessons past the
-end of the year" in red, here and on the Class page. Apart from that, the Agenda showing Open Slots
+end of the year" in red. Apart from that, the Agenda showing Open Slots
 inside its own horizon is the only alert the planner has.
 
 **Class page**:
-The single surface for one Class, in three tabs under the Class's label and Course. Overview, the
-default, is one column: the Class's next five Sessions, each opening the Session page, then Last
-taught with its Teaching note, Next up and the Runway. Timetable holds the "Timetable as at"
-control and the Slot grid, both weeks stacked. Sequence, labelled with its count of Lessons, is
-the only place a Sequence is read or written. It shows By week, each week's Slots in fixed
+The single surface for one Class, in two tabs under the Class's label and Course. Sequence, the
+default and labelled with its count of Lessons, is the only place a Sequence is read or written.
+Timetable holds the "Timetable as at" control and the Slot grid, both weeks stacked. The Sequence
+shows By week, each week's Slots in fixed
 places, or as a List. The teacher drags a Lesson by its grip to take another Lesson's place, and
 select mode moves or removes several at once. Assign Topic, Add Lesson and Remove Lesson are here
 too. Each change is kept at once, and a line says how many Lessons change date. Taught Lessons are
 fixed and hidden until asked for; a Placement shows fixed in its Slot; Lessons with no Slot left
-show in a "Past the end of the year" row. The Timetable and Sequence tabs show, and are written,
-from a tablet up; a phone shows Overview only, with no tabs. The only place a Class is timetabled.
+show in a "Past the end of the year" row. Both tabs are written from a tablet up; a phone shows
+the Sequence only, read-only, with no tabs. The only place a Class is timetabled.
 Creating a Class happens on the Classes screen. There is no screen showing every Class's Timetable
 at once, because the Timetable is only ever read or written one Class at a time. Periods held by
 another Class carry that Class's label rather than being hatched or hidden, since a position can

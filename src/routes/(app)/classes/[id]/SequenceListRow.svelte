@@ -62,11 +62,11 @@
 		></span>
 	{/if}
 	{#if entry.fixed}
-		<span class="w-7 shrink-0"></span>
+		<span class="w-7 shrink-0 max-md:hidden"></span>
 	{:else}
 		<button
 			type="button"
-			class="{touchTarget} flex w-7 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground"
+			class="{touchTarget} flex w-7 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground max-md:hidden"
 			aria-label="Drag {entry.title}"
 			onpointerdown={(event) => onGrip(event, entry.lessonId)}
 		>
@@ -114,7 +114,7 @@
 	{#if !entry.fixed && !selectMode}
 		<button
 			type="button"
-			class="flex items-center px-3 text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+			class="flex items-center px-3 text-muted-foreground hover:bg-muted/40 hover:text-foreground max-md:hidden"
 			aria-label={`Remove ${entry.title}`}
 			onclick={() => onRemove(entry)}
 		>

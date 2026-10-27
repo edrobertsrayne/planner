@@ -38,17 +38,19 @@ test.describe.serial('a Teaching note and the Sequence after a Lesson write', ()
 		await expect(page).toHaveURL(/\/classes\/[^/]+$/);
 	}
 
-	function nextSessions() {
+	// The fixture Class's upcoming Sessions on the Agenda, every row to the end of the year.
+	async function agendaSessions() {
+		await page.goto('/?horizon=all');
 		return page
-			.locator('section')
-			.filter({ has: page.getByRole('heading', { name: 'Next Sessions' }) })
-			.locator('li');
+			.locator('li')
+			.filter({ hasText: FIXTURE_CLASS_LABEL })
+			.filter({ has: page.locator('a[href^="/sessions/"]') });
 	}
 
-	// The Session page of the nth Session the Class teaches next.
+	// The Session page of the nth Session the Class teaches next, from the Agenda.
 	async function openNextSession(index: number) {
-		await openFixtureClass();
-		await nextSessions().nth(index).getByRole('link').first().click();
+		const rows = await agendaSessions();
+		await rows.nth(index).getByRole('link').first().click();
 		await expect(page.getByRole('button', { name: 'Back' })).toBeVisible();
 	}
 
@@ -140,15 +142,14 @@ test.describe.serial('a Teaching note and the Sequence after a Lesson write', ()
 		await expect(page.getByLabel('How it went')).toHaveText('book the ripple tank');
 		await page.getByRole('button', { name: 'Back' }).click();
 
-		await nextSessions().nth(1).getByRole('link').first().click();
+		await openNextSession(1);
 		await expect(page.locator('main')).toContainText('B two');
 		await expect(page.getByLabel('How it went')).toHaveText('');
 		await page.getByRole('button', { name: 'Back' }).click();
 	});
 
 	test('a Lesson added in a Topic changes no date in the Class', async () => {
-		await openFixtureClass();
-		const before = await nextSessions().allInnerTexts();
+		const before = await (await agendaSessions()).allInnerTexts();
 		expect(before[0]).toContain('A one');
 
 		await page.goto(`/courses/${courseId}?topic=${topicIds[1]}`);
@@ -160,8 +161,8 @@ test.describe.serial('a Teaching note and the Sequence after a Lesson write', ()
 		await expect(box).toBeFocused();
 
 		// The new Lesson joins no Sequence: the Class has the same Sessions and three Lessons.
+		expect(await (await agendaSessions()).allInnerTexts()).toEqual(before);
 		await openFixtureClass();
-		expect(await nextSessions().allInnerTexts()).toEqual(before);
 		await expect(page.getByRole('tab', { name: 'Sequence 3' })).toBeVisible();
 	});
 });

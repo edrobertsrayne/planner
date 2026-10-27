@@ -106,7 +106,7 @@
 	>
 		<button
 			type="button"
-			class="{touchTarget} flex w-6 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground"
+			class="{touchTarget} flex w-6 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground max-md:hidden"
 			aria-label="Drag {entry.title}"
 			onpointerdown={(event) => onGrip(event, entry.lessonId)}
 		>
@@ -114,7 +114,7 @@
 		</button>
 		<a
 			href={resolve(`/lessons/${entry.lessonId}?class=${classId}`)}
-			class="flex min-w-0 flex-1 flex-col gap-0.5 py-1.5 pr-1 hover:bg-muted/40"
+			class="flex min-w-0 flex-1 flex-col gap-0.5 py-1.5 pr-1 hover:bg-muted/40 max-md:pl-2"
 			onclick={(event) => onTap(event, entry)}
 		>
 			<span class="flex items-start gap-1">
@@ -143,7 +143,7 @@
 		{#if !selectMode}
 			<button
 				type="button"
-				class="flex items-start px-1.5 pt-1.5 text-muted-foreground hover:text-foreground"
+				class="flex items-start px-1.5 pt-1.5 text-muted-foreground hover:text-foreground max-md:hidden"
 				aria-label={`Remove ${entry.title}`}
 				onclick={() => onRemove(entry)}
 			>
@@ -197,7 +197,7 @@
 						{#if addAnchor(row) && !dragging}
 							<button
 								type="button"
-								class="mt-1 flex items-center gap-0.5 text-muted-foreground hover:text-foreground"
+								class="mt-1 flex items-center gap-0.5 text-muted-foreground hover:text-foreground max-md:hidden"
 								aria-label="Add a Lesson to the week of {formatDayMonth(row.weekCommencing)}"
 								onclick={() => onAdd(i, addAnchor(row)!.after)}
 							>

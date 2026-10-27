@@ -255,12 +255,17 @@ test.describe.serial('Placing and removing a Lesson', () => {
 	// saves the Topic Lesson's text as the placed Lesson's note, with nothing said (issue #409).
 	test('placing a Lesson over a noted Topic Lesson gives the placed Lesson its own note, and the Topic Lesson keeps its own', async () => {
 		// 9B/Sc1's next Session carries Motion, the one Lesson left in its Sequence, so this
-		// occasion is today or ahead whatever day the suite runs. The Class page's Next Sessions
-		// reaches it every day of the year, where the Agenda's week-long horizon does not.
-		await page.goto('/classes');
-		await page.getByRole('link').filter({ hasText: '9B/Sc1' }).first().click();
-		const next = page.locator('section').filter({ hasText: 'Next Sessions' });
-		await next.getByRole('link').filter({ hasText: 'Motion' }).first().click();
+		// occasion is today or ahead whatever day the suite runs. The Agenda's All horizon reaches
+		// it every day of the year.
+		await page.goto('/?horizon=all');
+		await page
+			.locator('li')
+			.filter({ hasText: '9B/Sc1' })
+			.filter({ hasText: 'Motion' })
+			.first()
+			.getByRole('link')
+			.first()
+			.click();
 		await openSessionAndExpect(page);
 		await expect(page.getByRole('heading', { name: 'Motion' })).toBeVisible();
 

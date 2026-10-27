@@ -294,7 +294,7 @@
 					<span class="text-muted-foreground tabular-nums" data-untaught>{chip.untaught}</span>
 					<button
 						type="button"
-						class="rounded-full px-1.5 text-[11px] font-medium text-primary hover:bg-muted"
+						class="rounded-full px-1.5 text-[11px] font-medium text-primary hover:bg-muted max-md:hidden"
 						aria-label="Select {chip.name}"
 						onclick={() => selectTopic(chip.topicId)}
 					>

@@ -91,28 +91,6 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expectSessionClosed(page);
 	});
 
-	test('opening a Session from the Class page, and going Back to the Class page', async () => {
-		await page.goto(`/classes/${classAId}`);
-
-		// Overview leads with the next five Sessions (issue #348): 'Motion' on the next Slot,
-		// then the Open Slots the plan runs out into.
-		const nextSessions = page
-			.locator('section')
-			.filter({ has: page.getByRole('heading', { name: 'Next Sessions' }) });
-		await expect(nextSessions.locator('li')).toHaveCount(5);
-		await expect(nextSessions.locator('li').first()).toContainText('Motion');
-		await expect(nextSessions.locator('li').nth(1)).toContainText('Open Slot');
-
-		await nextSessions.locator('li').first().getByRole('link').click();
-
-		await openSessionAndExpect(page);
-		await expect(page.locator('main')).toContainText('Motion');
-
-		await page.getByRole('button', { name: 'Back' }).click();
-		await expectSessionClosed(page);
-		await expect(page).toHaveURL(`/classes/${classAId}`);
-	});
-
 	test('a Topic is assigned to a Class on its Sequence tab, and its Lessons then show there', async () => {
 		await page.goto(`/classes/${classBId}?layout=list`);
 		await expect(page.getByRole('tab', { name: 'Sequence 0' })).toBeVisible();

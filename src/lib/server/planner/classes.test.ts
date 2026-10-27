@@ -189,7 +189,7 @@ describe('the Classes view', () => {
 
 		// classB's Slot at that boundary doesn't matter here; classA's next Available Slot after
 		// the Thursday double is 7 Sep — so 5 Sep sits between "taught" and "still to come".
-		const [lane] = classLanes(db, { today: '2026-09-05', classId: classA.id });
+		const lane = classLanes(db, { today: '2026-09-05' }).find((l) => l.classId === classA.id)!;
 
 		expect(lane.classId).toBe(classA.id);
 		expect(lane.lastTaught).toMatchObject({
@@ -221,7 +221,7 @@ describe('the Classes view', () => {
 			note: 'ramps'
 		});
 
-		const [lane] = classLanes(db, { today: '2026-09-05', classId: classA.id });
+		const lane = classLanes(db, { today: '2026-09-05' }).find((l) => l.classId === classA.id)!;
 		expect(lane.lastTaught).toMatchObject({ title: first.title, period: 6, note: 'ramps' });
 		expect(
 			db.select().from(schema.teachingNote).where(eq(schema.teachingNote.classId, classA.id)).all()
@@ -231,7 +231,7 @@ describe('the Classes view', () => {
 	test('a Class with an empty Sequence has nothing taught, nothing queued, and an untouched Runway', () => {
 		const { db, classA } = setUp();
 
-		const [lane] = classLanes(db, { today: '2026-09-03', classId: classA.id });
+		const lane = classLanes(db, { today: '2026-09-03' }).find((l) => l.classId === classA.id)!;
 
 		expect(lane.lastTaught).toBeNull();
 		expect(lane.nextUp).toBeNull();
@@ -246,7 +246,7 @@ describe('the Classes view', () => {
 		makeLessons(db, topic.id, 300);
 		assignTopic(db, { classId: classB.id, topicId: topic.id, today: '2026-09-03' });
 
-		const [lane] = classLanes(db, { today: '2026-09-03', classId: classB.id });
+		const lane = classLanes(db, { today: '2026-09-03' }).find((l) => l.classId === classB.id)!;
 
 		const { unplaced } = classSchedule(db, { classId: classB.id, today: '2026-09-03' });
 		expect(lane.runway.lessonsRemaining).toBeGreaterThan(0);
@@ -272,7 +272,7 @@ describe('the Classes view', () => {
 	test('a lane carries the Tone stored on the Class, so the tile can colour itself', () => {
 		const { db, classA } = setUp();
 
-		const [lane] = classLanes(db, { today: '2026-09-03', classId: classA.id });
+		const lane = classLanes(db, { today: '2026-09-03' }).find((l) => l.classId === classA.id)!;
 		const [stored] = listClasses(db).filter((c) => c.id === classA.id);
 
 		expect(stored.tone).toBeDefined();

@@ -9,7 +9,6 @@
 	import { failureReason, replaceQuery } from '$lib/client/enhance';
 	import { formatDate } from '$lib/date';
 	import { withParam } from '$lib/query';
-	import { untrack } from 'svelte';
 	import ConfirmDeleteDialog from '$lib/components/confirm-delete-dialog.svelte';
 	import RenameableRow from '$lib/components/renameable-row.svelte';
 	import RewindReport from '$lib/components/rewind-report.svelte';
@@ -17,8 +16,6 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
-	import LaneSummary from './LaneSummary.svelte';
-	import NextSessions from './NextSessions.svelte';
 	import SequenceTab from './SequenceTab.svelte';
 	import SlotRooms from './SlotRooms.svelte';
 	import TimetableGrid from './TimetableGrid.svelte';
@@ -27,16 +24,10 @@
 
 	let { data, form }: PageProps = $props();
 
-	// The Timetable reads and writes from a tablet up; on a phone Overview is the only view, so
-	// the rename pencil — the page's other edit — follows the Course page's rule.
+	// The Timetable and the Sequence write from a tablet up; on a phone the Sequence reads only,
+	// so the rename pencil — the page's other edit — follows the Course page's rule.
 	const md = new MediaQuery('min-width: 768px', true);
-	// A reload of a Sequence layout, or a form submission without JavaScript that wrote the
-	// Sequence, lands on the Sequence tab again.
-	let tab = $state<'overview' | 'timetable' | 'sequence'>(
-		untrack(() =>
-			page.url.searchParams.has('layout') || form?.sequenceResult ? 'sequence' : 'overview'
-		)
-	);
+	let tab = $state<'sequence' | 'timetable'>('sequence');
 
 	// The "Timetable as at" date sets one parameter and keeps the rest, like every filter
 	// (withParam, issue #338).
@@ -121,7 +112,7 @@
 			/>
 			<Badge variant="outline" class="mt-1">{data.class.courseName}</Badge>
 		</div>
-		<!-- The rename pencil's partner, and shown on the same widths: a phone reads Overview only. -->
+		<!-- The rename pencil's partner, and shown on the same widths: a phone writes nothing here. -->
 		{#if md.current}
 			<form method="POST" action="?/deleteClass" use:enhance={askDelete} class="ml-auto shrink-0">
 				<input type="hidden" name="id" value={data.class.id} />
@@ -138,41 +129,26 @@
 		{/if}
 	</div>
 
-	<!-- Overview and Timetable under the Class's label (story 110). No tabs on a phone: Overview
-	     is all a phone reads of this page, whichever tab was last chosen on a wider window. -->
+	<!-- Sequence and Timetable under the Class's label (story 110). No tabs on a phone: the
+	     Sequence is all a phone reads of this page, whichever tab was last chosen on a wider
+	     window. -->
 	<Tabs.Root value={tab} onValueChange={(v) => v && (tab = v as typeof tab)} class="mt-3">
 		<Tabs.List variant="line" class="max-md:hidden">
-			<Tabs.Trigger value="overview">Overview</Tabs.Trigger>
-			<Tabs.Trigger value="timetable">
-				Timetable <span class="text-xs tabular-nums opacity-60">{slotCount}</span>
-			</Tabs.Trigger>
 			<Tabs.Trigger value="sequence">
 				Sequence <span class="text-xs tabular-nums opacity-60"
 					>{data.sequence?.entries.length ?? 0}</span
 				>
 			</Tabs.Trigger>
+			<Tabs.Trigger value="timetable">
+				Timetable <span class="text-xs tabular-nums opacity-60">{slotCount}</span>
+			</Tabs.Trigger>
 		</Tabs.List>
 	</Tabs.Root>
 
-	<!-- Overview always shows on a phone (story 116): the class stays written above. -->
-	<div class="mt-4 {tab === 'overview' ? '' : 'md:hidden'}">
-		<div class="min-w-0 space-y-6">
-			{#if data.nextSessions.length}
-				<!-- The next five Sessions lead Overview (issue #348); each opens the Session page,
-				     an Open Slot reading as such. -->
-				<NextSessions rows={data.nextSessions} />
-			{/if}
-			{#if data.lane}
-				<div class="rounded-xl border p-4">
-					<LaneSummary classId={data.class.id} lane={data.lane} />
-				</div>
-			{/if}
-		</div>
-	</div>
-
-	<!-- The Sequence from a tablet up only, like the Timetable. -->
+	<!-- The Sequence always shows on a phone, read-only (story 116); from a tablet up, when its
+	     tab is on. -->
 	{#if data.sequence}
-		<div class={tab === 'sequence' ? 'max-md:hidden' : 'hidden'}>
+		<div class={tab === 'sequence' ? '' : 'md:hidden'}>
 			<SequenceTab
 				classId={data.class.id}
 				classLabel={data.class.label}
