@@ -1,9 +1,8 @@
-import type { Database } from 'bun:sqlite';
+import { Database } from 'bun:sqlite';
 import {
 	chmodSync,
 	closeSync,
 	cpSync,
-	existsSync,
 	mkdirSync,
 	mkdtempSync,
 	openSync,
@@ -20,7 +19,7 @@ import { openDatabase, runMigrations } from '../db';
 import * as schema from '../db/schema';
 import { attachmentsDir } from '../planner';
 import { ATTACHMENT_PREFIX, DATABASE_ENTRY, createBackup } from './backup';
-import { RestoreRefused, restoreBackup, type LiveDatabase } from './restore';
+import { RestoreRefused, restoreBackup } from './restore';
 import { sizeOfFd, tarChunks } from './tar';
 
 const dirs: string[] = [];
@@ -115,24 +114,15 @@ function restoreInto(
 	archive: Uint8Array,
 	body: ReadableStream<Uint8Array> = streamOf(archive)
 ) {
-	let current = target;
-	const live: LiveDatabase = {
-		client: target.client,
-		close: () => current.client.close(),
-		reopen: () => {
-			const reopened = openDatabase(target.databaseUrl);
-			runMigrations(reopened.client, 'drizzle');
-			current = { ...target, ...reopened };
-		}
-	};
 	const done = restoreBackup({
 		body,
 		contentLength: archive.length,
 		databaseUrl: target.databaseUrl,
-		live,
+		client: target.client,
 		migrationsFolder: 'drizzle'
 	});
-	return { done, reopened: () => current };
+	// The live connection is the one Restore wrote through, so it is the one to read afterwards.
+	return { done, target };
 }
 
 const scratch = (target: ReturnType<typeof instance>) =>
@@ -157,9 +147,8 @@ describe('Back up then Restore', () => {
 		const restore = restoreInto(target, archive);
 		await restore.done;
 
-		const restored = restore.reopened();
 		expect(
-			restored.db
+			target.db
 				.select()
 				.from(schema.course)
 				.all()
@@ -243,22 +232,21 @@ describe('Back up then Restore', () => {
 		const restore = restoreInto(target, archive);
 		await restore.done;
 
-		const restored = restore.reopened();
 		expect(
-			restored.db
+			target.db
 				.select()
 				.from(schema.course)
 				.all()
 				.map((row) => row.name)
 		).toEqual(['Physics']);
 		expect(
-			restored.db
+			target.db
 				.select()
 				.from(schema.lesson)
 				.all()
 				.map((row) => row.title)
 		).toEqual(['Intro']);
-		expect(schemaOf(restored.client)).toEqual(schemaOf(instance().client));
+		expect(schemaOf(target.client)).toEqual(schemaOf(instance().client));
 	});
 });
 
@@ -380,6 +368,28 @@ describe('Restore refuses before it writes anything', () => {
 		expect(seen).toContain(DATABASE_ENTRY);
 	});
 
+	test('a Backup carrying a table this version does not have', async () => {
+		const source = instance();
+		const attachments = populate(source);
+		const copy = join(source.dir, 'copy.db');
+		source.client.run(`VACUUM INTO '${copy}'`);
+		const altered = new Database(copy);
+		altered.run('CREATE TABLE surprise (id TEXT)');
+		altered.close();
+		const archive = await archiveOf([
+			{ name: DATABASE_ENTRY, path: copy },
+			...attachments.map(({ id }) => ({
+				name: `${ATTACHMENT_PREFIX}${id}`,
+				path: join(attachmentsDir(source.databaseUrl), id)
+			}))
+		]);
+
+		const target = instance();
+		await expect(restoreInto(target, archive).done).rejects.toThrow(/not a Backup/);
+		expect(target.db.select().from(schema.course).all()).toEqual([]);
+		expect(scratch(target)).toEqual([]);
+	});
+
 	test('an instance that already has a user', async () => {
 		const source = instance();
 		populate(source);
@@ -393,14 +403,14 @@ describe('Restore refuses before it writes anything', () => {
 	});
 });
 
-describe('A Restore that fails at the swap', () => {
-	test('leaves the instance empty with the database reopened', async () => {
+describe('A Restore that fails while writing the live instance', () => {
+	test('rolls back the database and leaves the connection usable', async () => {
 		const source = instance();
 		populate(source);
 		const archive = await collect(createBackup(source.client, source.databaseUrl).body);
 
 		const target = instance();
-		// Live storage the swap cannot empty: a directory whose contents cannot be removed without
+		// Live storage the copy cannot empty: a directory whose contents cannot be removed without
 		// write permission on it, as a deployment running under another user can leave behind.
 		const locked = join(attachmentsDir(target.databaseUrl), 'locked');
 		mkdirSync(locked, { recursive: true });
@@ -410,59 +420,29 @@ describe('A Restore that fails at the swap', () => {
 		const restore = restoreInto(target, archive);
 		try {
 			const failure = await restore.done.catch((cause: unknown) => cause);
-			// The Restore got past every check and died in the swap, at the point it tried to empty
-			// live storage, before the database file was replaced.
+			// The Restore got past every check and died while emptying live storage, after the rows
+			// had been copied.
 			expect(failure).toBeInstanceOf(Error);
 			expect(failure).not.toBeInstanceOf(RestoreRefused);
 			expect(readdirSync(attachmentsDir(target.databaseUrl))).toContain('locked');
-			// A reopened connection, on the migrated schema, with no planner data: the wizard is
-			// still open.
-			expect(restore.reopened().db.select().from(schema.course).all()).toEqual([]);
+			// The same open connection, on the migrated schema, is empty: the transaction rolled back
+			// and the wizard is still open.
+			expect(restore.target.db.select().from(schema.course).all()).toEqual([]);
 			expect(scratch(target)).toEqual([]);
+			expect(restore.target.client.query('PRAGMA journal_mode').get()).toEqual({
+				journal_mode: 'wal'
+			});
+			expect(restore.target.client.query('PRAGMA foreign_keys').get()).toEqual({
+				foreign_keys: 1
+			});
+			expect(
+				restore.target.client
+					.query<{ name: string }, []>('PRAGMA database_list')
+					.all()
+					.map((row) => row.name)
+			).not.toContain('staged');
 		} finally {
 			chmodSync(locked, 0o700);
 		}
-	});
-
-	test('a swap that fails after moving the Attachments removes them again', async () => {
-		const source = instance();
-		populate(source);
-		const archive = await collect(createBackup(source.client, source.databaseUrl).body);
-
-		const target = instance();
-		let current = target;
-		const live: LiveDatabase = {
-			client: target.client,
-			close: () => {
-				current.client.close();
-				for (const suffix of ['', '-wal', '-shm'])
-					rmSync(target.databaseUrl + suffix, { force: true });
-				// The name the database has to be renamed onto is a directory, so the swap fails
-				// after the Attachments have already moved.
-				mkdirSync(target.databaseUrl);
-			},
-			reopen: () => {
-				rmSync(target.databaseUrl, { recursive: true, force: true });
-				const reopened = openDatabase(target.databaseUrl);
-				runMigrations(reopened.client, 'drizzle');
-				current = { ...target, ...reopened };
-			}
-		};
-
-		const failure = await restoreBackup({
-			body: streamOf(archive),
-			contentLength: archive.length,
-			databaseUrl: target.databaseUrl,
-			live,
-			migrationsFolder: 'drizzle'
-		}).catch((cause: unknown) => cause);
-
-		expect(failure).toBeInstanceOf(Error);
-		expect(failure).not.toBeInstanceOf(RestoreRefused);
-		// The Attachments moved for a Restore that did not land; they are not left beside the empty
-		// database.
-		expect(existsSync(attachmentsDir(target.databaseUrl))).toBe(false);
-		expect(scratch(target)).toEqual([]);
-		expect(current.db.select().from(schema.course).all()).toEqual([]);
 	});
 });
