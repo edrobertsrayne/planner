@@ -187,10 +187,11 @@ describe('reordering and moving Lessons', () => {
 			const { db, classA, classB, lessons, dir } = setUpHeld();
 			const datesA = datesOf(db, classA.id);
 
-			expect(deleteLesson(db, { id: lessons[1].id, today: TODAY, dir })).toEqual({
-				needsConfirm: true,
-				reason: `This Lesson is in ${classB.label} and ${classA.label}'s Sequences. Delete it?`
-			});
+			refused(
+				() => deleteLesson(db, { id: lessons[1].id, today: TODAY, dir }),
+				'unconfirmed',
+				`This Lesson is in ${classB.label} and ${classA.label}'s Sequences. Delete it?`
+			);
 
 			expect(lessonDetail(db, lessons[1].id)).not.toBeNull();
 			expect(sequenceOf(db, classA.id)).toHaveLength(4);

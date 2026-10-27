@@ -9,7 +9,7 @@ import { runway as deriveRunway, type Calendar, type Runway } from './engine';
 import { required, requireRow } from './fields';
 import { teachingNotesFor } from './teaching-notes';
 import { inTransaction } from '../db';
-import type { ConfirmQuestion } from './courses';
+import { Refused } from './refused';
 
 // The Tone is assigned once here, at creation — the next unused position of the fixed walk
 // (ADR-0013) — and never touched again by any other write.
@@ -158,12 +158,13 @@ export function classLanes(db: Db, { today }: { today: string }): ClassLane[] {
 // Taught Sessions go too — the confirmation names them and the Backup is the undo — so there is
 // nothing to refuse. Each delete is explicit and in dependency order rather than a schema cascade,
 // which would need a table rebuild: Continuations first, because `continuation.session_id` has no
-// cascade, and Placements and Blocked Slots before Slots. An unknown id returns undefined, the
-// door's 404.
+// cascade, and Placements and Blocked Slots before Slots. It always asks first — the question is
+// an `unconfirmed` refusal naming what goes with it — and the caller answers with `confirmed`.
+// An unknown id returns undefined, the door's 404.
 export function deleteClass(
 	db: Db,
 	{ id, today, confirmed = false }: { id: string; today: string; confirmed?: boolean }
-): typeof schema.classes.$inferSelect | ConfirmQuestion | undefined {
+): typeof schema.classes.$inferSelect | undefined {
 	const [row] = db.select().from(schema.classes).where(eq(schema.classes.id, id)).all();
 	if (!row) return undefined;
 
@@ -180,10 +181,7 @@ export function deleteClass(
 
 	if (!confirmed) {
 		const taught = dates.filter((session) => session.date <= today).length;
-		return {
-			needsConfirm: true,
-			reason: classDeleteText(dates.length, taught, notes.length)
-		};
+		throw new Refused('unconfirmed', classDeleteText(dates.length, taught, notes.length));
 	}
 
 	const sessionsOfClass = db

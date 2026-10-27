@@ -243,11 +243,11 @@ describe('deleting a Course or a Topic', () => {
 		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
 		const { lesson } = createLesson(db, { topicId: topic.id, title: 'Newton I' });
 
-		expect(deleteTopic(db, topic.id)).toEqual({
-			needsConfirm: true,
-			reason:
-				'Delete Forces? Its 1 Lesson becomes a Standalone Lesson. Every Class keeps it in its Sequence.'
-		});
+		refused(
+			() => deleteTopic(db, topic.id),
+			'unconfirmed',
+			'Delete Forces? Its 1 Lesson becomes a Standalone Lesson. Every Class keeps it in its Sequence.'
+		);
 		expect(lessonsOf(db, topic.id)).toEqual([lesson]);
 
 		expect(deleteTopic(db, topic.id, { confirmed: true })).toMatchObject({ id: topic.id });
@@ -261,11 +261,11 @@ describe('deleting a Course or a Topic', () => {
 		const topic = createTopic(db, { courseId: course.id, name: 'Forces' });
 		const { lesson } = createLesson(db, { topicId: topic.id, title: 'Newton I' });
 
-		expect(deleteCourse(db, course.id)).toEqual({
-			needsConfirm: true,
-			reason:
-				'Delete Year 9 Physics? Its 1 Topic goes. Its 1 Lesson becomes a Standalone Lesson. Every Class keeps it in its Sequence.'
-		});
+		refused(
+			() => deleteCourse(db, course.id),
+			'unconfirmed',
+			'Delete Year 9 Physics? Its 1 Topic goes. Its 1 Lesson becomes a Standalone Lesson. Every Class keeps it in its Sequence.'
+		);
 		expect(topicsOf(db, course.id)).toHaveLength(1);
 
 		expect(deleteCourse(db, course.id, { confirmed: true })).toMatchObject({ id: course.id });
