@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { failureReason } from '$lib/client/enhance';
+	import { latched } from '$lib/client/latch.svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -22,10 +23,9 @@
 	let { pick = $bindable(null) }: { pick: Pick | null } = $props();
 
 	// The pick the panel last opened on, kept only for the close animation: bits-ui leaves the
-	// content mounted while it fades out, and `pick` is null by then. The open animation's
-	// completion is where it is recorded.
-	let shown = $state<Pick | null>(null);
-	const viewed = $derived(pick ?? shown);
+	// content mounted while it fades out, and `pick` is null by then.
+	const shown = latched(() => pick);
+	const viewed = $derived(shown());
 	const label = $derived(viewed ? `Block ${viewed.classLabel}, P${viewed.period}` : '');
 
 	// The server's refusal — a note of spaces only passes the browser's required check but not
@@ -39,9 +39,6 @@
 	open={pick !== null}
 	onOpenChange={(open) => {
 		if (!open) pick = null;
-	}}
-	onOpenChangeComplete={(open) => {
-		if (open) shown = pick;
 	}}
 >
 	<Dialog.Content class="sm:max-w-sm">
