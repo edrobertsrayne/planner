@@ -72,23 +72,31 @@ export function loadCalendar(db: Db): Calendar {
 		.all();
 
 	const blockedDays = db
-		.select({ date: schema.blockedDay.date })
+		.select({
+			id: schema.blockedDay.id,
+			date: schema.blockedDay.date,
+			note: schema.blockedDay.note
+		})
 		.from(schema.blockedDay)
-		.all()
-		.map((row) => row.date);
+		.all();
 
 	const blockedSlots = db
 		.select({
+			id: schema.blockedSlot.id,
 			classId: schema.blockedSlot.classId,
 			date: schema.blockedSlot.date,
-			slotId: schema.blockedSlot.slotId
+			slotId: schema.blockedSlot.slotId,
+			note: schema.blockedSlot.note
 		})
 		.from(schema.blockedSlot)
 		.all();
 
 	return {
 		terms,
-		teachingWeeks: teachingWeeksFrom(terms, blockedDays),
+		teachingWeeks: teachingWeeksFrom(
+			terms,
+			blockedDays.map((day) => day.date)
+		),
 		slots,
 		blockedDays,
 		blockedSlots

@@ -24,17 +24,25 @@ export interface TimetableSlot {
 	holdsTo: string | null;
 }
 
+export interface BlockedDay {
+	id: string;
+	date: string;
+	note: string | null;
+}
+
 export interface BlockedSlot {
+	id: string;
 	classId: string;
 	date: string;
 	slotId: string;
+	note: string | null;
 }
 
 export interface Calendar {
 	terms: Term[];
 	teachingWeeks: TeachingWeek[];
 	slots: TimetableSlot[];
-	blockedDays: string[];
+	blockedDays: BlockedDay[];
 	blockedSlots: BlockedSlot[];
 }
 
@@ -148,38 +156,78 @@ export const slotHolds = (
 	date: string
 ) => (!slot.holdsFrom || date >= slot.holdsFrom) && (!slot.holdsTo || date <= slot.holdsTo);
 
-// Available Slot: a Slot on a date inside a Term, within the dates that Slot holds, not a Blocked
-// Day, and not individually a Blocked Slot. Returned in calendar order — that order IS the
-// schedule.
-export function availableSlots(cal: Calendar, classId: string, from?: string): AvailableSlot[] {
-	const blocked = new Set(cal.blockedDays);
-	const blockedSlots = new Set(cal.blockedSlots.map((b) => `${b.date}|${b.slotId}`));
-	const out: AvailableSlot[] = [];
+// One reason the Calendar removes an occasion from teaching. `outside-term` is a School Holiday:
+// the school is not running, so nothing was taken away. A Blocked Day and a Blocked Slot are
+// recorded removals. A Blocked Slot is still recorded on a date a Blocked Day or a holiday already
+// covers — the Calendar must offer its Unblock — so an occasion can carry more than one reason.
+export type Removal =
+	| { kind: 'outside-term' }
+	| { kind: 'day'; id: string; note: string | null }
+	| { kind: 'slot'; id: string; note: string | null };
+
+export interface TimetabledSlot extends AvailableSlot {
+	classId: string;
+	// Every reason this occasion cannot be taught: empty exactly when it is an Available Slot.
+	removedBy: Removal[];
+}
+
+// Every occasion the Timetable gives a Class — or every Class, when none is named — in calendar
+// order, each with what the Calendar removes it by. This is the one walk over Teaching Weeks ×
+// weekdays × Slots × the Calendar's removals: an Available Slot is one with nothing in
+// `removedBy`, and every reader that needs to know what could have been taught, or why it was
+// not, starts here rather than re-deriving the rule.
+export function timetabledSlots(cal: Calendar, classId?: string, from?: string): TimetabledSlot[] {
+	const blockedDays = new Map(cal.blockedDays.map((day) => [day.date, day]));
+	const blockedSlots = new Map(
+		cal.blockedSlots.map((slot) => [`${slot.date}|${slot.slotId}`, slot])
+	);
+	const out: TimetabledSlot[] = [];
 
 	for (const week of cal.teachingWeeks) {
 		for (let day = 1; day <= 5; day++) {
 			const date = addDays(week.weekCommencing, day - 1);
 			if (from && date < from) continue;
-			if (!inAnyTerm(cal.terms, date)) continue;
-			if (blocked.has(date)) continue;
+
+			const dayRemovals: Removal[] = [];
+			if (!inAnyTerm(cal.terms, date)) dayRemovals.push({ kind: 'outside-term' });
+			const dayBlock = blockedDays.get(date);
+			if (dayBlock) dayRemovals.push({ kind: 'day', id: dayBlock.id, note: dayBlock.note });
 
 			const todays = cal.slots
 				.filter(
 					(slot) =>
-						slot.classId === classId &&
+						(!classId || slot.classId === classId) &&
 						slot.week === week.letter &&
 						slot.day === day &&
-						slotHolds(slot, date) &&
-						!blockedSlots.has(`${date}|${slot.id}`)
+						slotHolds(slot, date)
 				)
 				.sort((a, b) => a.period - b.period);
 
-			for (const slot of todays)
-				out.push({ date, period: slot.period, slotId: slot.id, week: week.letter });
+			for (const slot of todays) {
+				const block = blockedSlots.get(`${date}|${slot.id}`);
+				out.push({
+					date,
+					period: slot.period,
+					slotId: slot.id,
+					week: week.letter,
+					classId: slot.classId,
+					removedBy: block
+						? [...dayRemovals, { kind: 'slot', id: block.id, note: block.note }]
+						: dayRemovals
+				});
+			}
 		}
 	}
 
 	return out;
+}
+
+// Available Slot: a Slot on a date inside a Term, within the dates that Slot holds, that no Blocked
+// Day or Blocked Slot removes. Returned in calendar order — that order IS the schedule.
+export function availableSlots(cal: Calendar, classId: string, from?: string): AvailableSlot[] {
+	return timetabledSlots(cal, classId, from)
+		.filter((slot) => slot.removedBy.length === 0)
+		.map(({ date, period, slotId, week }) => ({ date, period, slotId, week }));
 }
 
 // How many Available Slots a Lesson needs for this Class: its Length, plus one per

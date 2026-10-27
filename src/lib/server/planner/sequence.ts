@@ -7,9 +7,9 @@
 import { and, asc, eq, inArray, lte, ne } from 'drizzle-orm';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
-import { addDays } from '$lib/date';
+import { addDays, mondayOf, weekday } from '$lib/date';
 import type { LessonStatus } from '$lib/lesson-status';
-import { availableSlots, inAnyTerm, slotHolds, type ScheduleResult } from './engine';
+import { timetabledSlots, type ScheduleResult, type TimetabledSlot } from './engine';
 import {
 	lessonNames,
 	loadCalendar,
@@ -520,26 +520,27 @@ function weekRows(
 	}
 	const titles = lessonNames(db, [...placedIds]);
 
-	// A Slot of the Class that is not an Available Slot, and not known, is blocked.
-	const available = new Set(availableSlots(cal, classId).map(occasionKey));
-	const own = cal.slots.filter((slot) => slot.classId === classId);
+	// A Slot of the Class that is not an Available Slot, and not known, is blocked. The walk over
+	// the Timetable is `timetabledSlots`'; a date outside every Term takes no cell in these rows.
+	const byWeek = new Map<string, TimetabledSlot[]>();
+	for (const slot of timetabledSlots(cal, classId)) {
+		if (slot.removedBy.some((removal) => removal.kind === 'outside-term')) continue;
+		const week = mondayOf(slot.date);
+		const group = byWeek.get(week);
+		if (group) group.push(slot);
+		else byWeek.set(week, [slot]);
+	}
+
 	const all = cal.teachingWeeks.map((week) => {
 		const cells: WeekCell[] = [];
-		for (let day = 1; day <= 5; day++) {
-			const date = addDays(week.weekCommencing, day - 1);
-			if (!inAnyTerm(cal.terms, date)) continue;
-			for (const slot of own
-				.filter((s) => s.week === week.letter && s.day === day && slotHolds(s, date))
-				.sort((a, b) => a.period - b.period)) {
-				const key = occasionKey({ date, period: slot.period });
-				const at = known.get(key);
-				const base = { key, date, day, period: slot.period };
-				if (!at) cells.push({ ...base, kind: available.has(key) ? 'past' : 'blocked' });
-				else if (at.kind === 'movable') cells.push({ ...base, kind: 'movable' });
-				else if (at.kind === 'taught')
-					cells.push({ ...base, kind: 'taught', lessonId: at.lessonId });
-				else cells.push({ ...base, kind: 'placed', title: titles.get(at.lessonId)?.title ?? null });
-			}
+		for (const slot of byWeek.get(week.weekCommencing) ?? []) {
+			const key = occasionKey(slot);
+			const at = known.get(key);
+			const base = { key, date: slot.date, day: weekday(slot.date), period: slot.period };
+			if (!at) cells.push({ ...base, kind: slot.removedBy.length === 0 ? 'past' : 'blocked' });
+			else if (at.kind === 'movable') cells.push({ ...base, kind: 'movable' });
+			else if (at.kind === 'taught') cells.push({ ...base, kind: 'taught', lessonId: at.lessonId });
+			else cells.push({ ...base, kind: 'placed', title: titles.get(at.lessonId)?.title ?? null });
 		}
 		return {
 			kind: 'week' as const,

@@ -4,9 +4,11 @@ import {
 	schedule,
 	schoolHolidays,
 	termWindowEnd,
+	timetabledSlots,
 	type Calendar,
 	type Placement,
-	type ScheduleResult
+	type ScheduleResult,
+	type TimetabledSlot
 } from './engine';
 
 function resultOf(partial: Partial<ScheduleResult>): ScheduleResult {
@@ -237,6 +239,83 @@ describe('agendaRows', () => {
 	});
 });
 
+describe('timetabledSlots', () => {
+	const at = (cal: Calendar, date: string, period: number): TimetabledSlot =>
+		timetabledSlots(cal, 'c1').find((slot) => slot.date === date && slot.period === period)!;
+
+	test('walks the Teaching Week in calendar order, and an occasion nothing removes is Available', () => {
+		const slots = timetabledSlots(calendarOf(), 'c1');
+
+		expect(slots).toHaveLength(15);
+		expect(slots[0]).toEqual({
+			date: DAYS[1],
+			period: 1,
+			slotId: 'd1p1',
+			week: 'A',
+			classId: 'c1',
+			removedBy: []
+		});
+		expect(slots.map((slot) => `${slot.date}|${slot.period}`)).toEqual(
+			[1, 2, 3, 4, 5].flatMap((day) => [1, 2, 3].map((period) => `${DAYS[day as 1]}|${period}`))
+		);
+	});
+
+	test('names what removes an occasion: a Blocked Day, or a Blocked Slot, or neither', () => {
+		const cal = calendarOf({
+			blockedDays: [{ id: 'b1', date: DAYS[2], note: 'INSET' }],
+			blockedSlots: [{ id: 'bs1', classId: 'c1', date: DAYS[3], slotId: 'd3p2', note: 'Trip' }]
+		});
+
+		expect(at(cal, DAYS[2], 1).removedBy).toEqual([{ kind: 'day', id: 'b1', note: 'INSET' }]);
+		expect(at(cal, DAYS[3], 2).removedBy).toEqual([{ kind: 'slot', id: 'bs1', note: 'Trip' }]);
+		expect(at(cal, DAYS[3], 1).removedBy).toEqual([]);
+	});
+
+	test('keeps every reason, so a Blocked Slot survives a Blocked Day and a date outside every Term', () => {
+		const cal = calendarOf({
+			terms: [{ opens: DAYS[3], closes: '2026-09-30' }],
+			blockedDays: [{ id: 'b1', date: DAYS[1], note: null }],
+			blockedSlots: [{ id: 'bs1', classId: 'c1', date: DAYS[1], slotId: 'd1p2', note: 'Trip' }]
+		});
+
+		expect(at(cal, DAYS[1], 1).removedBy).toEqual([
+			{ kind: 'outside-term' },
+			{ kind: 'day', id: 'b1', note: null }
+		]);
+		expect(at(cal, DAYS[1], 2).removedBy).toEqual([
+			{ kind: 'outside-term' },
+			{ kind: 'day', id: 'b1', note: null },
+			{ kind: 'slot', id: 'bs1', note: 'Trip' }
+		]);
+	});
+
+	test('a `from` date drops every occasion before it, and a Class narrows the walk to its own Slots', () => {
+		const cal = calendarOf({
+			slots: calendarOf().slots.concat(
+				[...Array(3)].map((_, i) => ({
+					id: `other${i}`,
+					classId: 'c2',
+					week: 'A' as const,
+					day: 1,
+					period: i + 1,
+					holdsFrom: null,
+					holdsTo: null
+				}))
+			)
+		});
+
+		const from = timetabledSlots(cal, 'c1', DAYS[3]);
+		expect(from[0].date).toBe(DAYS[3]);
+		expect(from.every((slot) => slot.date >= DAYS[3])).toBe(true);
+
+		expect(timetabledSlots(cal, 'c2').map((slot) => slot.slotId)).toEqual([
+			'other0',
+			'other1',
+			'other2'
+		]);
+	});
+});
+
 describe('schedule with Placements', () => {
 	test('a Length-1 and a Length-2 Placement lay onto the stream with no disruption', () => {
 		const result = scheduleOf(calendarOf(), [
@@ -280,7 +359,9 @@ describe('schedule with Placements', () => {
 	});
 
 	test('a Placement whose anchor Slot is later Blocked shift-rights past it', () => {
-		const cal = calendarOf({ blockedSlots: [{ classId: 'c1', date: DAYS[1], slotId: 'd1p1' }] });
+		const cal = calendarOf({
+			blockedSlots: [{ id: 'bs1', classId: 'c1', date: DAYS[1], slotId: 'd1p1', note: null }]
+		});
 		const result = scheduleOf(cal, [
 			{ id: 'p1', classId: 'c1', date: DAYS[1], slotId: 'd1p1', lessonId: 'l1', length: 1 }
 		]);
@@ -291,7 +372,9 @@ describe('schedule with Placements', () => {
 	});
 
 	test("a Blocked Slot later in a Placement run only moves that Placement's own later parts", () => {
-		const cal = calendarOf({ blockedSlots: [{ classId: 'c1', date: DAYS[1], slotId: 'd1p2' }] });
+		const cal = calendarOf({
+			blockedSlots: [{ id: 'bs1', classId: 'c1', date: DAYS[1], slotId: 'd1p2', note: null }]
+		});
 		const result = scheduleOf(cal, [
 			{ id: 'p1', classId: 'c1', date: DAYS[1], slotId: 'd1p1', lessonId: 'l1', length: 2 }
 		]);
@@ -351,7 +434,7 @@ describe('schedule with Placements', () => {
 	});
 
 	test('a Placement with no Available Slot left at or after its anchor is reported stranded, not silently dropped', () => {
-		const cal = calendarOf({ blockedDays: [DAYS[5]] });
+		const cal = calendarOf({ blockedDays: [{ id: 'b1', date: DAYS[5], note: null }] });
 		const result = scheduleOf(cal, [
 			{ id: 'p1', classId: 'c1', date: DAYS[5], slotId: 'd5p3', lessonId: 'l1', length: 1 }
 		]);
@@ -361,7 +444,14 @@ describe('schedule with Placements', () => {
 	});
 
 	test('a Length-3 Placement with only one Available Slot left at its anchor reports the unclaimed tail as unplaced, not stranded', () => {
-		const cal = calendarOf({ blockedDays: [DAYS[1], DAYS[2], DAYS[3], DAYS[4]] });
+		const cal = calendarOf({
+			blockedDays: [
+				{ id: 'b1', date: DAYS[1], note: null },
+				{ id: 'b2', date: DAYS[2], note: null },
+				{ id: 'b3', date: DAYS[3], note: null },
+				{ id: 'b4', date: DAYS[4], note: null }
+			]
+		});
 		const result = scheduleOf(cal, [
 			{ id: 'p1', classId: 'c1', date: DAYS[5], slotId: 'd5p3', lessonId: 'l1', length: 3 }
 		]);

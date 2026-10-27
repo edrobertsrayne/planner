@@ -3,19 +3,25 @@
 // `scheduleFor` every write and every other read runs, so a cell, an Agenda row and the Session
 // panel can never disagree about one occasion. The look-back, and the Calendar before today, read
 // the recorded Sessions.
-import { and, eq, gte, lt, lte } from 'drizzle-orm';
-import { addDays, mondayOf, weekday } from '$lib/date';
-import { PERIODS } from '$lib/periods';
+import { and, eq, gte, lt } from 'drizzle-orm';
+import { addDays, mondayOf } from '$lib/date';
 import * as schema from '../db/schema';
 import type { LessonStatus } from '$lib/lesson-status';
 import { tagsByLesson } from './tags';
-import { lessonNames, loadCalendar, scheduleFor, type Db, type LessonName } from './derive';
+import {
+	lessonNames,
+	loadCalendar,
+	occasionKey,
+	scheduleFor,
+	type Db,
+	type LessonName
+} from './derive';
 import {
 	agendaRows,
 	inAnyTerm,
 	schoolHolidays,
-	slotHolds,
 	termWindowEnd,
+	timetabledSlots,
 	type AgendaRow,
 	type Calendar,
 	type SchoolHoliday,
@@ -203,7 +209,7 @@ export function agenda(
 	);
 
 	// A Blocked Day out of every Term reads as the holiday, as on the Calendar.
-	const blockedDays = [...blockedDaysByDate(db).values()]
+	const blockedDays = cal.blockedDays
 		.filter((d) => d.date >= today && d.date <= horizonEnds && inAnyTerm(cal.terms, d.date))
 		.map(({ date, note }) => ({ date, note }))
 		.sort((a, b) => a.date.localeCompare(b.date));
@@ -215,13 +221,7 @@ export function agenda(
 				...batches.flatMap(({ cls, rows }) =>
 					rows.map((r) => ({ cls, ...r, lessonId: r.lesson?.lessonId ?? null, blocked: null }))
 				),
-				...blockedSlotOccasions(db, {
-					cal,
-					classes,
-					from: today,
-					to: horizonEnds,
-					blockedDays: new Set(blockedDays.map((d) => d.date))
-				})
+				...blockedSlotOccasions(cal, classes, { from: today, to: horizonEnds })
 			],
 			(lessonId, classId) => readinessSet.has(`${lessonId}|${classId}`)
 		),
@@ -231,59 +231,38 @@ export function agenda(
 	};
 }
 
-// The Blocked Slots from `from` to `to` that remove a real occasion: their Slot holds that date in
-// a Term, in a Teaching Week of its letter, on a day not wholly blocked — a Blocked Day already
-// says the whole day is gone.
+// The Blocked Slots from `from` to `to` that remove a real occasion: their Slot holds that date, the
+// date is in a Term and a Teaching Week of its letter, and no Blocked Day already says the whole day
+// is gone.
 function blockedSlotOccasions(
-	db: Db,
-	{
-		cal,
-		classes,
-		from,
-		to,
-		blockedDays
-	}: { cal: Calendar; classes: ClassRow[]; from: string; to: string; blockedDays: Set<string> }
+	cal: Calendar,
+	classes: ClassRow[],
+	{ from, to }: { from: string; to: string }
 ): Occasion[] {
 	const byId = new Map(classes.map((c) => [c.id, c]));
-	const slots = new Map(cal.slots.map((s) => [s.id, s]));
-	const letters = new Map(cal.teachingWeeks.map((w) => [w.weekCommencing, w.letter]));
-	return db
-		.select({
-			classId: schema.blockedSlot.classId,
-			date: schema.blockedSlot.date,
-			slotId: schema.blockedSlot.slotId,
-			note: schema.blockedSlot.note
-		})
-		.from(schema.blockedSlot)
-		.where(and(gte(schema.blockedSlot.date, from), lte(schema.blockedSlot.date, to)))
-		.all()
-		.flatMap(({ classId, date, slotId, note }): Occasion[] => {
-			const cls = byId.get(classId);
-			const slot = slots.get(slotId);
-			const week = letters.get(mondayOf(date));
-			const removes =
-				cls &&
-				slot &&
-				week === slot.week &&
-				slot.day === weekday(date) &&
-				slotHolds(slot, date) &&
-				inAnyTerm(cal.terms, date) &&
-				!blockedDays.has(date);
-			return removes
-				? [
-						{
-							cls,
-							date,
-							week,
-							periodFrom: slot.period,
-							periodTo: slot.period,
-							lessonId: null,
-							slotIds: [slot.id],
-							blocked: { note }
-						}
-					]
-				: [];
+	const occasions: Occasion[] = [];
+
+	for (const slot of timetabledSlots(cal)) {
+		if (slot.date < from || slot.date > to) continue;
+		const cls = byId.get(slot.classId);
+		if (!cls) continue;
+		if (slot.removedBy.some((removal) => removal.kind !== 'slot')) continue;
+		const block = slot.removedBy.find((removal) => removal.kind === 'slot');
+		if (block?.kind !== 'slot') continue;
+
+		occasions.push({
+			cls,
+			date: slot.date,
+			week: slot.week,
+			periodFrom: slot.period,
+			periodTo: slot.period,
+			lessonId: null,
+			slotIds: [slot.slotId],
+			blocked: { note: block.note }
 		});
+	}
+
+	return occasions;
 }
 
 const LOOK_BACK_DAYS = 7;
@@ -296,6 +275,7 @@ export function agendaLookBack(db: Db, { today }: { today: string }): AgendaEntr
 	const classes = new Map(listClasses(db).map((c) => [c.id, c]));
 	const cal = loadCalendar(db);
 	const letters = new Map(cal.teachingWeeks.map((w) => [w.weekCommencing, w.letter]));
+	const slots = slotIdsByOccasion(cal);
 	const sessions = db
 		.select({
 			classId: schema.session.classId,
@@ -315,7 +295,7 @@ export function agendaLookBack(db: Db, { today }: { today: string }): AgendaEntr
 		const cls = classes.get(classId);
 		const week = letters.get(mondayOf(run.date));
 		return cls && week
-			? [{ cls, week, ...run, slotIds: runSlotIds(cal, week, classId, run), blocked: null }]
+			? [{ cls, week, ...run, slotIds: runSlotIds(slots, classId, run), blocked: null }]
 			: [];
 	});
 
@@ -361,26 +341,6 @@ export interface CalendarWeek {
 	blockedDays: { id: string; date: string; note: string | null }[];
 }
 
-function blockedDaysByDate(db: Db) {
-	return new Map(
-		db
-			.select({
-				id: schema.blockedDay.id,
-				date: schema.blockedDay.date,
-				note: schema.blockedDay.note
-			})
-			.from(schema.blockedDay)
-			.all()
-			.map((row) => [row.date, row])
-	);
-}
-
-// The Slots that hold one position in a Teaching Week of the given letter, on that date.
-const slotsAt = (cal: Calendar, letter: 'A' | 'B', date: string, period: number) =>
-	cal.slots.filter(
-		(s) => s.week === letter && s.day === weekday(date) && s.period === period && slotHolds(s, date)
-	);
-
 // Each Slot's Room, for the Slots that have one. Read here, not in loadCalendar: the engine
 // never needs a Room.
 function roomsBySlot(db: Db): Map<string, string> {
@@ -401,18 +361,25 @@ function roomOf(rooms: Map<string, string>, slotIds: readonly string[]): string 
 	return found.length ? found.join(' / ') : null;
 }
 
+// Every occasion the Timetable gives a Class, keyed `classId|date|period` — how a recorded run
+// resolves the Slot each of its Periods sat in.
+function slotIdsByOccasion(cal: Calendar): Map<string, string> {
+	return new Map(
+		timetabledSlots(cal).map((slot) => [`${slot.classId}|${slot.date}|${slot.period}`, slot.slotId])
+	);
+}
+
 // The Slots a recorded run sat in, one per Period in order. The list is empty when a Period's
 // position no longer has a Slot that holds it.
 function runSlotIds(
-	cal: Calendar,
-	letter: 'A' | 'B',
+	slots: Map<string, string>,
 	classId: string,
 	run: { date: string; periodFrom: number; periodTo: number }
 ): string[] {
-	const slots = Array.from({ length: run.periodTo - run.periodFrom + 1 }, (_, i) =>
-		slotsAt(cal, letter, run.date, run.periodFrom + i).find((s) => s.classId === classId)
+	const ids = Array.from({ length: run.periodTo - run.periodFrom + 1 }, (_, i) =>
+		slots.get(`${classId}|${run.date}|${run.periodFrom + i}`)
 	);
-	return slots.every((s) => s !== undefined) ? slots.map((s) => s.id) : [];
+	return ids.every((id) => id !== undefined) ? ids : [];
 }
 
 // The positions that the schedule and the record leave out, but that a Class still holds on the
@@ -420,73 +387,54 @@ function runSlotIds(
 // The cell carries the note of its block. The grid then shows whose position it is. Any other
 // such position is a past Open Slot: the engine lays nothing before `today`, and an Open Slot
 // records no Session. A position that no Class holds gets no cell: it is free, not blocked.
-function uncoveredCells(
-	db: Db,
-	{
-		dates,
-		today,
-		letter,
-		cal,
-		classes,
-		covered,
-		rooms
-	}: {
-		dates: string[];
-		today: string;
-		letter: 'A' | 'B';
-		cal: Calendar;
-		classes: ClassRow[];
-		covered: Set<string>;
-		rooms: Map<string, string>;
-	}
-): CalendarCell[] {
+function uncoveredCells({
+	dates,
+	today,
+	cal,
+	classes,
+	covered,
+	rooms
+}: {
+	dates: string[];
+	today: string;
+	cal: Calendar;
+	classes: ClassRow[];
+	covered: Set<string>;
+	rooms: Map<string, string>;
+}): CalendarCell[] {
 	const byId = new Map(classes.map((c) => [c.id, c]));
-	const dayBlocks = blockedDaysByDate(db);
-	const slotBlocks = new Map(
-		db
-			.select({
-				id: schema.blockedSlot.id,
-				classId: schema.blockedSlot.classId,
-				date: schema.blockedSlot.date,
-				slotId: schema.blockedSlot.slotId,
-				note: schema.blockedSlot.note
-			})
-			.from(schema.blockedSlot)
-			.all()
-			.map((row) => [`${row.classId}|${row.date}|${row.slotId}`, row])
-	);
+	const dateSet = new Set(dates);
 
-	return dates.flatMap((date) => {
-		const cells: CalendarCell[] = [];
-		for (const period of PERIODS) {
-			if (covered.has(`${date}|${period}`)) continue;
+	return timetabledSlots(cal).flatMap((slot): CalendarCell[] => {
+		if (!dateSet.has(slot.date) || covered.has(occasionKey(slot))) return [];
+		const cls = byId.get(slot.classId);
+		if (!cls) return [];
 
-			const [slot] = slotsAt(cal, letter, date, period);
-			const cls = slot && byId.get(slot.classId);
-			if (!slot || !cls) continue;
+		const dayBlock = slot.removedBy.find((removal) => removal.kind === 'day');
+		const slotBlock = slot.removedBy.find((removal) => removal.kind === 'slot');
+		const blocked = slot.removedBy.length > 0;
 
-			const dayBlock = dayBlocks.get(date);
-			const slotBlock = slotBlocks.get(`${cls.id}|${date}|${slot.id}`);
-			const blocked = dayBlock || slotBlock || !inAnyTerm(cal.terms, date);
-			cells.push({
-				date,
-				past: date < today,
-				periodFrom: period,
-				periodTo: period,
+		return [
+			{
+				date: slot.date,
+				past: slot.date < today,
+				periodFrom: slot.period,
+				periodTo: slot.period,
 				classId: cls.id,
 				classLabel: cls.label,
 				tone: cls.tone,
-				room: roomOf(rooms, [slot.id]),
+				room: roomOf(rooms, [slot.slotId]),
 				kind: blocked ? 'blocked' : 'open',
 				lesson: null,
-				blockedNote: dayBlock?.note ?? slotBlock?.note ?? null,
-				slotIds: [slot.id],
-				blockedDayId: dayBlock?.id ?? null,
-				blockedSlotId: slotBlock?.id ?? null,
-				placeable: !blocked && date >= today
-			});
-		}
-		return cells;
+				blockedNote:
+					(dayBlock?.kind === 'day' ? dayBlock.note : null) ??
+					(slotBlock?.kind === 'slot' ? slotBlock.note : null),
+				slotIds: [slot.slotId],
+				blockedDayId: dayBlock?.kind === 'day' ? dayBlock.id : null,
+				blockedSlotId: slotBlock?.kind === 'slot' ? slotBlock.id : null,
+				placeable: !blocked && slot.date >= today
+			}
+		];
 	});
 }
 
@@ -507,13 +455,14 @@ export function calendarWeek(
 
 	// Before `today` the engine lays nothing: those positions come from its `history`, the record.
 	const rooms = roomsBySlot(db);
+	const slots = slotIdsByOccasion(cal);
 	const occupied = batches.map(({ cls, rows, history, placed }) => ({
 		cls,
 		placed,
 		rows: [
 			...sessionRuns(history.filter((s) => dateSet.has(s.date))).map((run) => ({
 				...run,
-				slotIds: runSlotIds(cal, week.letter, cls.id, run)
+				slotIds: runSlotIds(slots, cls.id, run)
 			})),
 			...rows.map((r) => ({ ...r, lessonId: r.lesson?.lessonId ?? null }))
 		]
@@ -546,11 +495,9 @@ export function calendarWeek(
 		})
 	);
 
-	cells.push(
-		...uncoveredCells(db, { dates, today, letter: week.letter, cal, classes, covered, rooms })
-	);
+	cells.push(...uncoveredCells({ dates, today, cal, classes, covered, rooms }));
 
-	const dayBlocks = blockedDaysByDate(db);
+	const dayBlocks = new Map(cal.blockedDays.map((day) => [day.date, day]));
 	return {
 		weekCommencing,
 		letter: week.letter,
