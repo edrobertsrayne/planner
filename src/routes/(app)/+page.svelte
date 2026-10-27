@@ -99,7 +99,7 @@
 		{@const tone = classTone(row.tone)}
 		<li
 			class="group/row relative flex items-center gap-3 pr-2 pl-4 {row.blocked
-				? 'bg-muted'
+				? 'hatched'
 				: 'hover:bg-muted/40'}"
 		>
 			<span
@@ -124,8 +124,8 @@
 				</span>
 			</span>
 
-			<!-- A Blocked Slot is removed: nothing to open, plan or tick, so it reads in a step of
-			     shade, never a hue, with its note. -->
+			<!-- A Blocked Slot is removed: nothing to open, plan or tick, so it takes the Calendar's
+			     hatch, never a hue, with its note. -->
 			{#if row.blocked}
 				<span class="min-w-0 flex-1 py-3">
 					<span class="block text-sm text-muted-foreground italic">Blocked Slot</span>

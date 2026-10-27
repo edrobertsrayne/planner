@@ -291,3 +291,18 @@
 		opacity: 0.6;
 	}
 }
+
+/*
+	The hatch marks a position that is not an upcoming Session. A Blocked Day and a Blocked Slot
+	drain the colour instead of keeping it (GLOSSARY.md, Calendar): present-but-empty and removed
+	must never read alike. A past Session or Open Slot keeps its Class Tone and lays the hatch over
+	it, so it reads as done rather than removed. The texture is derived from --muted-foreground, so
+	it reads in both themes with no dark-mode branch. Shared by the Calendar and the Agenda.
+*/
+@utility hatched {
+	background-image: repeating-linear-gradient(
+		135deg,
+		color-mix(in oklab, var(--muted-foreground) 14%, transparent) 0 5px,
+		transparent 5px 10px
+	);
+}
