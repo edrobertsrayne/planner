@@ -3,17 +3,6 @@
 An electronic teacher planner. Self-hosted, single-user, UK state secondary school.
 Package manager: bun.
 
-## Favour the simple implementation
-
-This planner has one user and one school year. Build the simplest thing that meets the stated need.
-
-- Build for one user, one year, and the callers that exist.
-- Prefer no code to code. A rule that costs a query, a lookup or an ordering constraint must earn it.
-- Validate only what the app's own forms can send wrong. Read the fields you need; ignore the rest.
-- Enforce a rule at every entry point, or at none.
-
-When you find a simpler approach than the one agreed, say so before you build it.
-
 ## Coding standards
 
 Follow `CODING_STANDARDS.md` for all code.
@@ -24,11 +13,6 @@ Test-driven: write a failing test (red), make it pass with the least code (green
 Test each behaviour at the lowest level that can see it: unit, then component
 (`*.svelte.test.ts`), then e2e only for what needs the running app (routing, reload, auth, writes,
 files, touch, app-shell layout).
-
-## Commits and PRs
-
-Commit to `main`. Open a PR only for a one-way change (a migration that deletes or changes data,
-auth, the backup, stored data formats) or one the teacher should approve first.
 
 ## Prototyping
 

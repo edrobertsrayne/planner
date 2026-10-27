@@ -1,5 +1,13 @@
 import { test, expect, devices } from '@playwright/test';
-import { expectHitArea44, expectNoHorizontalScroll, login, plusDays, resetTo } from './helpers.ts';
+import {
+	TODAY,
+	expectHitArea44,
+	expectNoHorizontalScroll,
+	login,
+	mondayOf,
+	plusDays,
+	resetTo
+} from './helpers.ts';
 
 test.beforeAll(() => resetTo('standard'));
 
@@ -16,9 +24,7 @@ test.describe('the Calendar on a tablet', () => {
 		// The classes' Slots were written for the Week letter the Calendar opened on when
 		// teaching-flows ran; one of the two weeks after the engineered one carries that letter,
 		// and its Monday P1 is 9B/Sc1's Slot.
-		const monday = new Date();
-		monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
-		const mondayIso = monday.toISOString().slice(0, 10);
+		const mondayIso = mondayOf(TODAY);
 		const mondayCell = page.locator('tbody tr').first().locator('td').first();
 		await login(page);
 		for (const offset of [7, 14]) {
@@ -60,13 +66,9 @@ test.describe('the Calendar grid on a phone', () => {
 	const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];
 	test.use({ viewport, userAgent, deviceScaleFactor, isMobile, hasTouch });
 
-	// A bare load opens on the Teaching Week that holds today, or on the next one at a weekend
-	// (calendar/+page.server.ts, defaultWeek). Its Monday heads the first day column.
-	function defaultMonday(): Date {
-		const day = new Date().getUTCDay();
-		const offset = day === 0 ? 1 : day === 6 ? 2 : 1 - day;
-		return new Date(Date.now() + offset * 86_400_000);
-	}
+	// A bare load opens on the Teaching Week that holds TODAY (calendar/+page.server.ts,
+	// defaultWeek). Its Monday heads the first day column.
+	const monday = mondayOf(TODAY);
 
 	test('the grid shows the five day heads and the six Periods (stories 98 and 101)', async ({
 		page
@@ -84,12 +86,10 @@ test.describe('the Calendar grid on a phone', () => {
 			.evaluateAll((els) =>
 				els.map((el) => (el as HTMLElement).innerText.replace(/\s+/g, ' ').trim())
 			);
-		const monday = defaultMonday();
 		expect(shown).toEqual(
-			['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((name, i) => {
-				const date = new Date(monday.getTime() + i * 86_400_000);
-				return `${name[0]} ${date.getUTCDate()}`;
-			})
+			['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(
+				(name, i) => `${name[0]} ${Number(plusDays(monday, i).slice(8))}`
+			)
 		);
 	});
 

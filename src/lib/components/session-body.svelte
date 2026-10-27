@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { toast } from 'svelte-sonner';
-	import { formatWeekday, today } from '$lib/date';
+	import { formatWeekday } from '$lib/date';
 	import type { Occasion } from '$lib/client/session-href';
 	import { createTeachingNotes } from '$lib/client/teaching-note';
 	import type { SessionDetail, WriteReport } from '$lib/server/planner';
@@ -17,9 +17,6 @@
 	// The Session page's body. The occasion comes from the page's address, so the page remounts
 	// the body for another Session and no state carries over.
 	let { occasion }: { occasion: Occasion } = $props();
-
-	// A Session that has started — today or earlier — puts the note before the plan on a phone.
-	const started = $derived(occasion.date <= today());
 
 	// The note's persistence rules (issue #89) live in the module; here they meet the exits.
 	// Every exit — Back, a link out, switching Session — unmounts the body or re-runs the effect
@@ -45,6 +42,10 @@
 	});
 
 	let detail = $state<SessionDetail | null>(null);
+	// A Session that has started — the server's today or earlier — puts the note before the plan on
+	// a phone.
+	const started = $derived(detail !== null && occasion.date <= detail.today);
+
 	let missing = $state(false);
 	let loadFailed = $state(false);
 	let note = $state('');
@@ -174,7 +175,7 @@
 	<span class="text-xs text-muted-foreground">
 		{formatWeekday(occasion.date)} · P{occasion.period}
 	</span>
-	{#if occasion.date >= today() && detail?.ready !== null && detail?.ready !== undefined}
+	{#if detail && occasion.date >= detail.today && detail.ready !== null}
 		<Badge variant="outline" class="text-xs {detail.ready ? '' : 'text-muted-foreground'}">
 			{detail.ready ? 'Ready' : 'Not ready'}
 		</Badge>
