@@ -3,10 +3,6 @@
 An electronic teacher planner. Self-hosted, single-user, UK state secondary school.
 Package manager: bun.
 
-## Coding standards
-
-Follow `CODING_STANDARDS.md` for all code.
-
 ## Tests
 
 Test-driven: write a failing test (red), make it pass with the least code (green), then refactor.
