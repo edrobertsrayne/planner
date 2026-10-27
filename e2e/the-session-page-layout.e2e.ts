@@ -5,7 +5,7 @@ import {
 	expectNoHorizontalScroll,
 	openSessionWithLesson,
 	resetTo,
-	todayIso
+	TODAY
 } from './helpers.ts';
 
 test.beforeAll(() => resetTo('standard'));
@@ -26,7 +26,7 @@ test.describe('the Session page on a phone', () => {
 		await expectNoHorizontalScroll(page);
 
 		const date = path.split('/')[3];
-		const started = date <= todayIso();
+		const started = date <= TODAY;
 		const note = await page.locator('[data-note]').boundingBox();
 		const plan = await page.locator('[data-plan]').boundingBox();
 		expect(note && plan && (started ? note.y < plan.y : plan.y < note.y)).toBe(true);

@@ -1,5 +1,5 @@
 import { defineConfig } from '@playwright/test';
-import { DATABASE_URL, ORIGIN } from './e2e/helpers.ts';
+import { DATABASE_URL, ORIGIN, PLANNER_NOW } from './e2e/helpers.ts';
 import { existsSync } from 'fs';
 
 // Use installed chromium on dev machine
@@ -36,7 +36,9 @@ export default defineConfig({
 			PORT: '4173',
 			ORIGIN,
 			BETTER_AUTH_URL: ORIGIN,
-			BETTER_AUTH_SECRET: 'e2e-suite-secret-fixed-value-not-used-outside-tests'
+			BETTER_AUTH_SECRET: 'e2e-suite-secret-fixed-value-not-used-outside-tests',
+			// Every run is on the same day (TODAY in e2e/helpers.ts), whatever the real date.
+			PLANNER_NOW
 		}
 	},
 	testMatch: '**/*.e2e.{ts,js}'

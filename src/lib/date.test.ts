@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { addDays, isRealDate, mondayOf, today } from './date';
+import { addDays, isRealDate, mondayOf, setClock, today } from './date';
 
 describe('today', () => {
 	afterEach(() => {
@@ -19,6 +19,29 @@ describe('today', () => {
 		vi.setSystemTime(new Date('2026-12-01T23:30:00Z'));
 
 		expect(today()).toBe('2026-12-01');
+	});
+});
+
+describe('setClock', () => {
+	// The clock is module state: put it back on the real time so later tests read the real day.
+	afterEach(() => {
+		vi.useRealTimers();
+		setClock(new Date().toISOString());
+	});
+
+	test('starts today at the given instant, and the day still turns at London midnight', () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-03-10T12:00:00Z'));
+
+		setClock('2026-11-04T08:00:00Z');
+		expect(today()).toBe('2026-11-04');
+
+		vi.advanceTimersByTime(16 * 60 * 60 * 1000);
+		expect(today()).toBe('2026-11-05');
+	});
+
+	test('refuses an instant it cannot read, rather than running on the real day', () => {
+		expect(() => setClock('next Wednesday')).toThrow('PLANNER_NOW');
 	});
 });
 

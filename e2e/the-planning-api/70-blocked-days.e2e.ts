@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { apiKey, keysOf } from './helpers.ts';
-import { BEARER, nextSaturday, nextWeekday, plusDays, resetTo, todayIso } from '../helpers.ts';
+import { BEARER, isoDate, resetTo } from '../helpers.ts';
 
 // Covers the three Blocked Day endpoints over real HTTP (issues #159 and #165): the key check,
 // the Rewind's report beside each write, the weekend and duplicate refusals, and removal
@@ -28,11 +28,9 @@ test.describe.serial('the Blocked Day endpoints', () => {
 		expect(empty.status()).toBe(200);
 		expect(await empty.json()).toEqual({ blockedDays: [] });
 
-		// No Term needs to be set for a Blocked Day (see disruptions.ts) — this file leans only on
-		// nextWeekday/nextSaturday to land on a real weekday or weekend, so these offsets from
-		// today hold whatever real weekday the suite runs on, with no Term span to stay inside.
-		const today = todayIso();
-		const inset = nextWeekday(plusDays(today, 90));
+		// No Term needs to be set for a Blocked Day (see disruptions.ts), so these dates sit past
+		// the year. TODAY is a Wednesday: this is a Tuesday.
+		const inset = isoDate(90);
 
 		// A date with no note at all: 201, the note null, and the Rewind's report beside it.
 		const created = await request.post('/api/blocked-days', {
@@ -46,7 +44,7 @@ test.describe.serial('the Blocked Day endpoints', () => {
 
 		// A weekend is a 400 where an already-blocked date is a 409 — the two must be
 		// distinguishable, and the teacher is told which.
-		const saturday = nextSaturday(plusDays(today, 95));
+		const saturday = isoDate(94);
 		const weekend = await request.post('/api/blocked-days', {
 			headers: BEARER(token),
 			data: { date: saturday }
@@ -66,7 +64,7 @@ test.describe.serial('the Blocked Day endpoints', () => {
 		});
 
 		// Extra fields in a body are read and ignored, and the note is stored trimmed.
-		const bankHoliday = nextWeekday(plusDays(today, 100));
+		const bankHoliday = isoDate(100); // a Friday
 		const withExtra = await request.post('/api/blocked-days', {
 			headers: BEARER(token),
 			data: { date: bankHoliday, note: '  Bank holiday ', titel: 'extra' }

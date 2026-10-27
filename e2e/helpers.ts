@@ -85,15 +85,15 @@ export function runFixture(...args: string[]): string {
 	});
 }
 
-export function todayIso(): string {
-	return new Date().toISOString().slice(0, 10);
-}
+// The day the whole suite runs on, whatever the real date: the server (PLANNER_NOW in
+// playwright.config.ts) and the fixture script (scripts/e2e-fixtures.ts) both start their clock
+// here, so a test written on one weekday holds on every other. A Wednesday, 08:00 in London.
+export const TODAY = '2026-11-04';
+export const PLANNER_NOW = `${TODAY}T08:00:00Z`;
 
-// Today plus `offsetDays`, as an ISO date.
+// TODAY plus `offsetDays`, as an ISO date.
 export function isoDate(offsetDays: number): string {
-	const d = new Date();
-	d.setUTCDate(d.getUTCDate() + offsetDays);
-	return d.toISOString().slice(0, 10);
+	return plusDays(TODAY, offsetDays);
 }
 
 export function plusDays(iso: string, days: number): string {
@@ -104,20 +104,6 @@ export function plusDays(iso: string, days: number): string {
 
 export function weekdayOf(iso: string): number {
 	return new Date(`${iso}T00:00:00Z`).getUTCDay();
-}
-
-// The next Monday-to-Friday date on or after `iso`.
-export function nextWeekday(iso: string): string {
-	let date = iso;
-	while (weekdayOf(date) === 0 || weekdayOf(date) === 6) date = plusDays(date, 1);
-	return date;
-}
-
-// The next Saturday on or after `iso`.
-export function nextSaturday(iso: string): string {
-	let date = iso;
-	while (weekdayOf(date) !== 6) date = plusDays(date, 1);
-	return date;
 }
 
 // The Monday of the ISO week `iso` falls in, from whichever day getUTCDay() reports.

@@ -38,11 +38,24 @@ export function mondayOf(iso: string): string {
 	return addDays(iso, -((weekday(iso) + 6) % 7));
 }
 
+// The real clock, unless `setClock` has moved it.
+let now = () => new Date();
+
+// Starts the clock at `iso` and lets it run on from there. Only the e2e suite does this, through
+// PLANNER_NOW (hooks.server.ts, scripts/e2e-fixtures.ts), so every run sees the same day whatever
+// the real date. Better Auth's session times keep the real clock.
+export function setClock(iso: string) {
+	const start = Date.parse(iso);
+	if (Number.isNaN(start)) throw new Error(`PLANNER_NOW is not a date and time: "${iso}"`);
+	const offset = start - Date.now();
+	now = () => new Date(Date.now() + offset);
+}
+
 // The scheduling boundary every write is measured from: re-derivation writes on and after this
 // date and never before it. The Europe/London calendar day, because UTC would date a late-evening
 // BST write to yesterday; en-CA happens to format a date as YYYY-MM-DD.
 export function today(): string {
-	return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
+	return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(now());
 }
 
 function format(iso: string, options: Intl.DateTimeFormatOptions): string {

@@ -37,8 +37,11 @@ import {
 	sequenceLessonIds,
 	takeSlot
 } from '../src/lib/server/planner/index.ts';
-import { today } from '../src/lib/date.ts';
-import { DATABASE_URL, EMAIL, PASSWORD, isoDate } from '../e2e/helpers.ts';
+import { setClock, today } from '../src/lib/date.ts';
+import { DATABASE_URL, EMAIL, PASSWORD, PLANNER_NOW, isoDate } from '../e2e/helpers.ts';
+
+// The same day the suite's server runs on, so a fixture's "today" is the app's.
+setClock(PLANNER_NOW);
 
 // Bun loads `.env`, which names the developer's own database. A reset through that would wipe every
 // row of it and its Attachments, so this script writes the suite's scratch file and nothing else.
@@ -74,8 +77,8 @@ async function createUser(origin: string) {
 
 function seedStandard() {
 	const now = today();
-	// A calendar spanning well before and after whatever real date the suite runs on, so no file
-	// depends on the real date. Six Terms; only the second, straddling today, is load-bearing.
+	// A calendar spanning well before and after TODAY (e2e/helpers.ts). Six Terms; only the
+	// second, straddling today, is load-bearing.
 	// The Week letters are derived from these dates. Terms go in without a rederive.
 	for (const [opens, closes] of [
 		[-84, -21],
@@ -109,8 +112,9 @@ function seedStandard() {
 		takeSlot(db, { classId: classA.id, week: letter, day, period: 1, from: now, today: now });
 	}
 	assignTopic(db, { classId: classA.id, topicId: forces.id, today: now });
-	// Tuesday P3, a day 9B leaves untouched, in BOTH letters: whatever the run date, a Tuesday
-	// sits within the Agenda's This Week horizon, and the week the Calendar test loads carries one.
+	// Tuesday P3, a day 9B leaves untouched, in BOTH letters. TODAY is a Wednesday, so 9C/Sc1's
+	// next Session is next Tuesday: inside the Agenda's This Week horizon, and never today, so its
+	// first Lesson is never Fixed.
 	for (const week of ['A', 'B'] as const) {
 		takeSlot(db, { classId: classB.id, week, day: 2, period: 3, from: now, today: now });
 	}
