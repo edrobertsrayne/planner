@@ -1,9 +1,9 @@
-import { fail } from '@sveltejs/kit';
 import { TERM_NAMES } from '$lib/calendar/generate-teaching-weeks';
 import { defaultWeek } from '$lib/calendar/default-week';
 import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
-import { refusal } from '$lib/server/form';
+import { formAction, found, trimmed } from '$lib/server/form';
+import { Refused } from '$lib/server/planner';
 import { asc } from 'drizzle-orm';
 import * as schema from '$lib/server/db/schema';
 import {
@@ -53,71 +53,46 @@ export const load: PageServerLoad = ({ url }) => {
 };
 
 export const actions: Actions = {
-	blockDay: async ({ request }) => {
-		const data = await request.formData();
+	blockDay: formAction((data) => {
 		const date = String(data.get('date') ?? '');
 		const note = String(data.get('note') ?? '');
-		if (!date) return fail(400, { error: 'No date given.' });
+		if (!date) throw new Refused('invalid', 'No date given.');
 
-		try {
-			const report = blockDay(db, { date, note, today: today() });
-			return { report };
-		} catch (error) {
-			return refusal(error);
-		}
-	},
+		return { report: blockDay(db, { date, note, today: today() }) };
+	}),
 
-	unblockDay: async ({ request }) => {
-		const data = await request.formData();
-		const date = String(data.get('date') ?? '');
+	unblockDay: formAction((data) => ({
+		report: found(
+			unblockDay(db, { date: String(data.get('date') ?? ''), today: today() }),
+			'Blocked Day'
+		)
+	})),
 
-		const report = unblockDay(db, { date, today: today() });
-		if (!report) return fail(400, { error: 'No such Blocked Day.' });
-		return { report };
-	},
-
-	blockSlot: async ({ request }) => {
-		const data = await request.formData();
+	blockSlot: formAction((data) => {
 		const classId = String(data.get('classId') ?? '');
 		const date = String(data.get('date') ?? '');
 		const slotId = String(data.get('slotId') ?? '');
 		const note = String(data.get('note') ?? '');
-		if (!classId || !date || !slotId) return fail(400, { error: 'Missing Slot to block.' });
+		if (!classId || !date || !slotId) throw new Refused('invalid', 'Missing Slot to block.');
 
-		try {
-			const report = blockSlot(db, { classId, date, slotId, note, today: today() });
-			return { report };
-		} catch (error) {
-			return refusal(error);
-		}
-	},
+		return { report: blockSlot(db, { classId, date, slotId, note, today: today() }) };
+	}),
 
-	unblockSlot: async ({ request }) => {
-		const data = await request.formData();
-		const id = String(data.get('id') ?? '');
-
-		const report = unblockSlot(db, { id, today: today() });
-		if (!report) return fail(400, { error: 'No such Blocked Slot.' });
-		return { report };
-	},
+	unblockSlot: formAction((data) => ({
+		report: found(unblockSlot(db, { id: trimmed(data, 'id'), today: today() }), 'Blocked Slot')
+	})),
 
 	// The whole year, replaced as one document through the Terms seam — the seam owns every
 	// rule, so the action validates nothing of its own. The six rows are read in year position,
 	// named by the canonical Term names and not this action's own count. The report
 	// travels back with the save; an empty one is stated plainly rather than left to read as
 	// silence.
-	saveYear: async ({ request }) => {
-		const data = await request.formData();
+	saveYear: formAction((data) => {
 		const terms = TERM_NAMES.map((_, i) => ({
 			opens: String(data.get(`opens-${i}`) ?? ''),
 			closes: String(data.get(`closes-${i}`) ?? '')
 		}));
 
-		try {
-			const report = replaceTerms(db, { terms, today: today() });
-			return { report, yearSaved: true };
-		} catch (error) {
-			return refusal(error);
-		}
-	}
+		return { report: replaceTerms(db, { terms, today: today() }), yearSaved: true };
+	})
 };

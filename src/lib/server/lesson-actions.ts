@@ -1,7 +1,7 @@
-import { fail, type Actions } from '@sveltejs/kit';
+import type { Actions } from '@sveltejs/kit';
 import { today } from '$lib/date';
 import { DATABASE_URL, db } from '$lib/server/db/client';
-import { refusal, trimmed } from '$lib/server/form';
+import { formAction, found, trimmed } from '$lib/server/form';
 import {
 	attachTag,
 	attachmentsDir,
@@ -13,8 +13,10 @@ import {
 	detachTag,
 	editLesson,
 	moveLink,
+	Refused,
 	reportOf,
 	updateLink,
+	type LessonChange,
 	type WriteReport
 } from '$lib/server/planner';
 
@@ -24,184 +26,124 @@ const edited = <L>(result: { lesson: L } & WriteReport) => ({
 	report: reportOf(result)
 });
 
+// The four edits differ only in the change they send; the read, the 404 and the answer are the
+// same write. One body, so a new edit cannot forget the report or the missing-row answer.
+const editAction = (change: (data: FormData) => LessonChange) =>
+	formAction((data) => {
+		const result = editLesson(db, {
+			id: trimmed(data, 'id'),
+			change: change(data),
+			today: today()
+		});
+		return edited(found(result, 'Lesson'));
+	});
+
 // The lesson-editing actions the Lesson editor posts. Planning shares only setLessonStatus, the
 // one status toggle its rows carry.
 export const lessonActions = {
-	updateLesson: async ({ request }) => {
-		const data = await request.formData();
-		const id = trimmed(data, 'id');
-		const title = String(data.get('title') ?? '');
-		const body = String(data.get('body') ?? '');
-		const length = Number(data.get('length'));
-		try {
-			const result = editLesson(db, { id, change: { title, body, length }, today: today() });
-			if (!result) return fail(404, { error: 'No such Lesson.' });
-			return edited(result);
-		} catch (error) {
-			return refusal(error);
-		}
-	},
+	updateLesson: editAction((data) => ({
+		title: String(data.get('title') ?? ''),
+		body: String(data.get('body') ?? ''),
+		length: Number(data.get('length'))
+	})),
 
-	setLessonStatus: async ({ request }) => {
-		const data = await request.formData();
-		const id = trimmed(data, 'id');
-		const status = String(data.get('status') ?? '');
-		try {
-			const result = editLesson(db, { id, change: { status }, today: today() });
-			if (!result) return fail(404, { error: 'No such Lesson.' });
-			return edited(result);
-		} catch (error) {
-			return refusal(error);
-		}
-	},
+	setLessonStatus: editAction((data) => ({ status: String(data.get('status') ?? '') })),
 
-	moveLessonToTopic: async ({ request }) => {
-		const data = await request.formData();
-		const id = trimmed(data, 'id');
-		const topicId = trimmed(data, 'topicId');
-		try {
-			const result = editLesson(db, { id, change: { topicId }, today: today() });
-			if (!result) return fail(404, { error: 'No such Lesson.' });
-			return edited(result);
-		} catch (error) {
-			return refusal(error);
-		}
-	},
+	moveLessonToTopic: editAction((data) => ({ topicId: trimmed(data, 'topicId') })),
 
 	// The Lesson keeps its title, plan, Tags, Links and Attachments and leaves its Topic; a Topic
 	// can take it again (ADR-0026).
-	detachLesson: async ({ request }) => {
-		const data = await request.formData();
-		const id = trimmed(data, 'id');
-		try {
-			const result = editLesson(db, { id, change: { topicId: null }, today: today() });
-			if (!result) return fail(404, { error: 'No such Lesson.' });
-			return edited(result);
-		} catch (error) {
-			return refusal(error);
-		}
-	},
+	detachLesson: editAction(() => ({ topicId: null })),
 
-	createLink: async ({ request }) => {
-		const data = await request.formData();
-		const lessonId = trimmed(data, 'lessonId');
-		const label = String(data.get('label') ?? '');
-		const url = String(data.get('url') ?? '');
-		try {
-			return { link: createLink(db, { lessonId, label, url }) };
-		} catch (error) {
-			return refusal(error);
-		}
-	},
+	createLink: formAction((data) => ({
+		link: createLink(db, {
+			lessonId: trimmed(data, 'lessonId'),
+			label: String(data.get('label') ?? ''),
+			url: String(data.get('url') ?? '')
+		})
+	})),
 
-	updateLink: async ({ request }) => {
-		const data = await request.formData();
-		const id = trimmed(data, 'id');
-		const label = String(data.get('label') ?? '');
-		const url = String(data.get('url') ?? '');
-		try {
-			const link = updateLink(db, { id, label, url });
-			if (!link) return fail(404, { error: 'No such Link.' });
-			return { link };
-		} catch (error) {
-			return refusal(error);
-		}
-	},
+	updateLink: formAction((data) => ({
+		link: found(
+			updateLink(db, {
+				id: trimmed(data, 'id'),
+				label: String(data.get('label') ?? ''),
+				url: String(data.get('url') ?? '')
+			}),
+			'Link'
+		)
+	})),
 
 	// The seam writes the reason: a Lesson a Class has already been taught refuses with the Detach
 	// hint, and one a Placement names with the Placement way out. A Lesson that a Sequence holds
-	// asks first: the answer carries `needsConfirm`, and the page asks again with `confirmed`.
-	deleteLesson: async ({ request }) => {
-		const data = await request.formData();
-		const id = trimmed(data, 'id');
-		try {
-			const result = deleteLesson(db, {
-				id,
-				today: today(),
-				dir: attachmentsDir(DATABASE_URL),
-				confirmed: trimmed(data, 'confirmed') === 'true'
-			});
-			if (!result) return fail(404, { error: 'No such Lesson.' });
-			if ('needsConfirm' in result) return fail(409, { error: result.reason, needsConfirm: true });
-			return { report: reportOf(result) };
-		} catch (error) {
-			return refusal(error);
-		}
-	},
+	// throws an `unconfirmed` refusal, which the page's dialog asks again with `confirmed`.
+	deleteLesson: formAction((data) => ({
+		report: reportOf(
+			found(
+				deleteLesson(db, {
+					id: trimmed(data, 'id'),
+					today: today(),
+					dir: attachmentsDir(DATABASE_URL),
+					confirmed: trimmed(data, 'confirmed') === 'true'
+				}),
+				'Lesson'
+			)
+		)
+	})),
 
-	deleteLink: async ({ request }) => {
-		const data = await request.formData();
-		const id = trimmed(data, 'id');
-		const link = deleteLink(db, { id });
-		if (!link) return fail(404, { error: 'No such Link.' });
+	deleteLink: formAction((data) => {
+		found(deleteLink(db, { id: trimmed(data, 'id') }), 'Link');
 		return {};
-	},
+	}),
 
-	moveLink: async ({ request }) => {
-		const data = await request.formData();
-		const lessonId = trimmed(data, 'lessonId');
-		const id = trimmed(data, 'id');
+	moveLink: formAction((data) => {
 		const direction = trimmed(data, 'direction');
-		if (direction !== 'up' && direction !== 'down') return fail(400, { error: 'Bad direction.' });
-		moveLink(db, { lessonId, id, direction });
-		return {};
-	},
-
-	attachTag: async ({ request }) => {
-		const data = await request.formData();
-		const lessonId = trimmed(data, 'lessonId');
-		// The seam trims what it stores (ADR-0025).
-		const name = String(data.get('name') ?? '');
-		try {
-			attachTag(db, { lessonId, name });
-			return {};
-		} catch (error) {
-			return refusal(error);
+		if (direction !== 'up' && direction !== 'down') {
+			throw new Refused('invalid', 'Bad direction.');
 		}
-	},
-
-	detachTag: async ({ request }) => {
-		const data = await request.formData();
-		const lessonId = trimmed(data, 'lessonId');
-		const tagId = trimmed(data, 'tagId');
-		detachTag(db, { lessonId, tagId });
+		moveLink(db, { lessonId: trimmed(data, 'lessonId'), id: trimmed(data, 'id'), direction });
 		return {};
-	},
+	}),
+
+	attachTag: formAction((data) => {
+		// The seam trims what it stores (ADR-0025).
+		attachTag(db, {
+			lessonId: trimmed(data, 'lessonId'),
+			name: String(data.get('name') ?? '')
+		});
+		return {};
+	}),
+
+	detachTag: formAction((data) => {
+		detachTag(db, { lessonId: trimmed(data, 'lessonId'), tagId: trimmed(data, 'tagId') });
+		return {};
+	}),
 
 	// Thin over the seam's create: read the multipart form, call create, and let a refusal ride
 	// the standard failure payload — its message is already written for Ed, and the client's
 	// toast convention shows it as-is. Anything else (a disk fault, a foreign-key violation) is a
-	// server fault, not a bad request, and `refusal` rethrows it to reach the error page.
-	createAttachment: async ({ request }) => {
-		const data = await request.formData();
-		const lessonId = trimmed(data, 'lessonId');
+	// server fault, not a bad request, and the wrapper rethrows it to reach the error page.
+	createAttachment: formAction(async (data) => {
 		const file = data.get('file');
 		if (!(file instanceof File) || !file.name) {
-			return fail(400, { error: 'Choose a file to attach.' });
+			throw new Refused('invalid', 'Choose a file to attach.');
 		}
-		try {
-			return {
-				attachment: createAttachment(
-					db,
-					{
-						lessonId,
-						filename: file.name,
-						mimeType: file.type,
-						bytes: new Uint8Array(await file.arrayBuffer())
-					},
-					attachmentsDir(DATABASE_URL)
-				)
-			};
-		} catch (error) {
-			return refusal(error);
-		}
-	},
+		return {
+			attachment: createAttachment(
+				db,
+				{
+					lessonId: trimmed(data, 'lessonId'),
+					filename: file.name,
+					mimeType: file.type,
+					bytes: new Uint8Array(await file.arrayBuffer())
+				},
+				attachmentsDir(DATABASE_URL)
+			)
+		};
+	}),
 
-	deleteAttachment: async ({ request }) => {
-		const data = await request.formData();
-		const id = trimmed(data, 'id');
-		const attachment = deleteAttachment(db, id, attachmentsDir(DATABASE_URL));
-		if (!attachment) return fail(404, { error: 'No such Attachment.' });
+	deleteAttachment: formAction((data) => {
+		found(deleteAttachment(db, trimmed(data, 'id'), attachmentsDir(DATABASE_URL)), 'Attachment');
 		return {};
-	}
+	})
 } satisfies Actions;

@@ -1,6 +1,6 @@
-import { error, fail, redirect } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
 import { db } from '$lib/server/db/client';
-import { refusal, trimmed } from '$lib/server/form';
+import { formAction, found, trimmed } from '$lib/server/form';
 import {
 	courseSummary,
 	createLesson,
@@ -14,7 +14,8 @@ import {
 	renameCourse,
 	renameTopic,
 	tagsByLesson,
-	topicsOf
+	topicsOf,
+	Refused
 } from '$lib/server/planner';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -48,100 +49,69 @@ export const load: PageServerLoad = ({ params, url }) => {
 };
 
 export const actions: Actions = {
-	renameCourse: async ({ request }) => {
-		const data = await request.formData();
-		const id = trimmed(data, 'id');
-		const name = String(data.get('name') ?? '');
-		try {
-			const course = renameCourse(db, { id, name });
-			if (!course) return fail(404, { error: 'No such Course.' });
-			return { course };
-		} catch (error) {
-			return refusal(error);
-		}
-	},
+	renameCourse: formAction((data) => ({
+		course: found(
+			renameCourse(db, { id: trimmed(data, 'id'), name: String(data.get('name') ?? '') }),
+			'Course'
+		)
+	})),
 
-	deleteCourse: async ({ request }) => {
-		const data = await request.formData();
-		const id = trimmed(data, 'id');
-		try {
-			const result = deleteCourse(db, id, { confirmed: trimmed(data, 'confirmed') === 'true' });
-			if (!result) return fail(404, { error: 'No such Course.' });
-			if ('needsConfirm' in result) return fail(409, { error: result.reason, needsConfirm: true });
-		} catch (error) {
-			return refusal(error);
-		}
+	// An empty Course goes at once; one that still holds Topics throws `unconfirmed`, which the
+	// dialog asks again with `confirmed`.
+	deleteCourse: formAction((data) => {
+		found(
+			deleteCourse(db, trimmed(data, 'id'), {
+				confirmed: trimmed(data, 'confirmed') === 'true'
+			}),
+			'Course'
+		);
 		redirect(303, '/courses');
-	},
+	}),
 
-	createTopic: async ({ request }) => {
-		const data = await request.formData();
-		const courseId = trimmed(data, 'courseId');
-		const name = String(data.get('name') ?? '');
-		try {
-			return { topic: createTopic(db, { courseId, name }) };
-		} catch (error) {
-			return refusal(error);
-		}
-	},
+	createTopic: formAction((data) => ({
+		topic: createTopic(db, {
+			courseId: trimmed(data, 'courseId'),
+			name: String(data.get('name') ?? '')
+		})
+	})),
 
-	renameTopic: async ({ request }) => {
-		const data = await request.formData();
-		const id = trimmed(data, 'id');
-		const name = String(data.get('name') ?? '');
-		try {
-			const topic = renameTopic(db, { id, name });
-			if (!topic) return fail(404, { error: 'No such Topic.' });
-			return { topic };
-		} catch (error) {
-			return refusal(error);
-		}
-	},
+	renameTopic: formAction((data) => ({
+		topic: found(
+			renameTopic(db, { id: trimmed(data, 'id'), name: String(data.get('name') ?? '') }),
+			'Topic'
+		)
+	})),
 
-	moveTopic: async ({ request }) => {
-		const data = await request.formData();
-		const id = trimmed(data, 'id');
-		const courseId = trimmed(data, 'courseId');
-		try {
-			const topic = moveTopicToCourse(db, { id, courseId });
-			if (!topic) return fail(404, { error: 'No such Topic.' });
-			return { topic };
-		} catch (error) {
-			return refusal(error);
-		}
-	},
+	moveTopic: formAction((data) => ({
+		topic: found(
+			moveTopicToCourse(db, { id: trimmed(data, 'id'), courseId: trimmed(data, 'courseId') }),
+			'Topic'
+		)
+	})),
 
-	deleteTopic: async ({ request }) => {
-		const data = await request.formData();
-		const id = trimmed(data, 'id');
-		try {
-			const result = deleteTopic(db, id, { confirmed: trimmed(data, 'confirmed') === 'true' });
-			if (!result) return fail(404, { error: 'No such Topic.' });
-			if ('needsConfirm' in result) return fail(409, { error: result.reason, needsConfirm: true });
-			return {};
-		} catch (error) {
-			return refusal(error);
-		}
-	},
+	deleteTopic: formAction((data) => {
+		found(
+			deleteTopic(db, trimmed(data, 'id'), {
+				confirmed: trimmed(data, 'confirmed') === 'true'
+			}),
+			'Topic'
+		);
+		return {};
+	}),
 
-	createLesson: async ({ request }) => {
-		const data = await request.formData();
-		const topicId = trimmed(data, 'topicId');
-		const title = String(data.get('title') ?? '');
-		try {
-			const created = createLesson(db, { topicId, title });
-			return { lesson: created.lesson };
-		} catch (error) {
-			return refusal(error);
-		}
-	},
+	createLesson: formAction((data) => ({
+		lesson: createLesson(db, {
+			topicId: trimmed(data, 'topicId'),
+			title: String(data.get('title') ?? '')
+		}).lesson
+	})),
 
-	moveLesson: async ({ request }) => {
-		const data = await request.formData();
-		const topicId = trimmed(data, 'topicId');
-		const id = trimmed(data, 'id');
+	moveLesson: formAction((data) => {
 		const direction = trimmed(data, 'direction');
-		if (direction !== 'up' && direction !== 'down') return fail(400, { error: 'Bad direction.' });
-		moveLesson(db, { topicId, id, direction });
-	}
+		if (direction !== 'up' && direction !== 'down') {
+			throw new Refused('invalid', 'Bad direction.');
+		}
+		moveLesson(db, { topicId: trimmed(data, 'topicId'), id: trimmed(data, 'id'), direction });
+		return {};
+	})
 };
