@@ -1,27 +1,16 @@
 import { describe, expect, test } from 'vitest';
 import {
-	agendaRows,
+	runsOf,
 	schedule,
 	schoolHolidays,
 	termWindowEnd,
 	timetabledSlots,
 	type Calendar,
 	type Placement,
+	type RunPart,
 	type ScheduleResult,
 	type TimetabledSlot
 } from './engine';
-
-function resultOf(partial: Partial<ScheduleResult>): ScheduleResult {
-	return {
-		boundary: '2026-09-03',
-		history: [],
-		scheduled: [],
-		unplaced: [],
-		openSlots: [],
-		strandedPlacementIds: [],
-		...partial
-	};
-}
 
 // One Class, one Teaching Week (Mon 7 Sep – Fri 11 Sep 2026), three Periods every day — enough
 // room to collide, block and shift-right without a second week's bookkeeping.
@@ -66,176 +55,62 @@ function scheduleOf(cal: Calendar, placements: Placement[]): ScheduleResult {
 	});
 }
 
-describe('agendaRows', () => {
-	test('a Lesson with Length 1 is one row', () => {
-		const result = resultOf({
-			scheduled: [
-				{
-					classId: 'c1',
-					date: '2026-09-03',
-					period: 5,
-					slotId: 's1',
-					week: 'A',
-					lessonId: 'l1',
-					part: 1,
-					of: 1
-				}
-			]
-		});
+describe('runsOf', () => {
+	const part = (overrides: Partial<RunPart> = {}): RunPart => ({
+		classId: 'c1',
+		date: '2026-09-03',
+		period: 5,
+		lessonId: 'l1',
+		slotId: 's1',
+		...overrides
+	});
 
-		expect(agendaRows('c1', result)).toEqual([
+	test('a Lesson of one Period is one run', () => {
+		expect(runsOf([part()])).toEqual([
 			{
 				classId: 'c1',
 				date: '2026-09-03',
-				week: 'A',
 				periodFrom: 5,
 				periodTo: 5,
-				slotIds: ['s1'],
-				lesson: { lessonId: 'l1', part: 1, of: 1 }
+				lessonId: 'l1',
+				slotIds: ['s1']
 			}
 		]);
 	});
 
-	test('a Lesson with Length > 1 in consecutive Periods on the same date is one row spanning them', () => {
-		// 9B/Sc1's Thursday double, P5 and P6 on the same date.
-		const result = resultOf({
-			scheduled: [
-				{
-					classId: 'c1',
-					date: '2026-09-03',
-					period: 5,
-					slotId: 's1',
-					week: 'A',
-					lessonId: 'l1',
-					part: 1,
-					of: 2
-				},
-				{
-					classId: 'c1',
-					date: '2026-09-03',
-					period: 6,
-					slotId: 's2',
-					week: 'A',
-					lessonId: 'l1',
-					part: 2,
-					of: 2
-				}
-			]
-		});
-
-		expect(agendaRows('c1', result)).toEqual([
+	test('consecutive Periods of one Lesson on one date are one run spanning them', () => {
+		expect(runsOf([part(), part({ period: 6, slotId: 's2' })])).toEqual([
 			{
 				classId: 'c1',
 				date: '2026-09-03',
-				week: 'A',
 				periodFrom: 5,
 				periodTo: 6,
-				slotIds: ['s1', 's2'],
-				lesson: { lessonId: 'l1', part: 2, of: 2 }
+				lessonId: 'l1',
+				slotIds: ['s1', 's2']
 			}
 		]);
 	});
 
-	test('a Lesson split across two dates is never merged into one row', () => {
-		const result = resultOf({
-			scheduled: [
-				{
-					classId: 'c1',
-					date: '2026-09-03',
-					period: 6,
-					slotId: 's1',
-					week: 'A',
-					lessonId: 'l1',
-					part: 1,
-					of: 2
-				},
-				{
-					classId: 'c1',
-					date: '2026-09-08',
-					period: 1,
-					slotId: 's2',
-					week: 'B',
-					lessonId: 'l1',
-					part: 2,
-					of: 2
-				}
-			]
-		});
+	test('a Lesson split across two dates is never merged into one run', () => {
+		const runs = runsOf([part({ period: 6 }), part({ date: '2026-09-08', period: 1 })]);
 
-		const rows = agendaRows('c1', result);
-		expect(rows).toHaveLength(2);
-		expect(rows[0]).toMatchObject({ date: '2026-09-03', periodFrom: 6, periodTo: 6 });
-		expect(rows[1]).toMatchObject({ date: '2026-09-08', periodFrom: 1, periodTo: 1 });
+		expect(runs).toHaveLength(2);
+		expect(runs[0]).toMatchObject({ date: '2026-09-03', periodFrom: 6, periodTo: 6 });
+		expect(runs[1]).toMatchObject({ date: '2026-09-08', periodFrom: 1, periodTo: 1 });
 	});
 
 	test('two different Lessons in adjacent Periods on the same date are never merged', () => {
-		const result = resultOf({
-			scheduled: [
-				{
-					classId: 'c1',
-					date: '2026-09-03',
-					period: 5,
-					slotId: 's1',
-					week: 'A',
-					lessonId: 'l1',
-					part: 1,
-					of: 1
-				},
-				{
-					classId: 'c1',
-					date: '2026-09-03',
-					period: 6,
-					slotId: 's2',
-					week: 'A',
-					lessonId: 'l2',
-					part: 1,
-					of: 1
-				}
-			]
-		});
-
-		expect(agendaRows('c1', result)).toHaveLength(2);
+		expect(runsOf([part(), part({ period: 6, lessonId: 'l2' })])).toHaveLength(2);
 	});
 
-	test('an Open Slot is a row carrying no Lesson', () => {
-		const result = resultOf({
-			openSlots: [{ date: '2026-09-03', period: 5, slotId: 's1', week: 'A' }]
-		});
-
-		expect(agendaRows('c1', result)).toEqual([
-			{
-				classId: 'c1',
-				date: '2026-09-03',
-				week: 'A',
-				periodFrom: 5,
-				periodTo: 5,
-				slotIds: ['s1'],
-				lesson: null
-			}
-		]);
+	test('two Classes in adjacent Periods are never merged', () => {
+		expect(runsOf([part(), part({ period: 6, classId: 'c2' })])).toHaveLength(2);
 	});
 
-	test('scheduled rows precede open rows, both tagged with the given Class', () => {
-		const result = resultOf({
-			scheduled: [
-				{
-					classId: 'c1',
-					date: '2026-09-03',
-					period: 5,
-					slotId: 's1',
-					week: 'A',
-					lessonId: 'l1',
-					part: 1,
-					of: 1
-				}
-			],
-			openSlots: [{ date: '2026-09-08', period: 1, slotId: 's2', week: 'B' }]
-		});
+	test('a run records no Slot when one of its Periods has none', () => {
+		const [run] = runsOf([part({ slotId: null }), part({ period: 6, slotId: 's2' })]);
 
-		const rows = agendaRows('c1', result);
-		expect(rows.map((r) => r.classId)).toEqual(['c1', 'c1']);
-		expect(rows[0].lesson).not.toBeNull();
-		expect(rows[1].lesson).toBeNull();
+		expect(run.slotIds).toEqual([]);
 	});
 });
 
@@ -317,6 +192,31 @@ describe('timetabledSlots', () => {
 });
 
 describe('schedule with Placements', () => {
+	test('history resolves each recorded Session to its Slot and, when a Placement names the Lesson, its Placement', () => {
+		const result = schedule({
+			cal: calendarOf(),
+			lessons: [],
+			classId: 'c1',
+			sessions: [
+				{ classId: 'c1', date: DAYS[1], period: 1, lessonId: 'seq' },
+				{ classId: 'c1', date: DAYS[1], period: 3, lessonId: 'pl' },
+				{ classId: 'c1', date: DAYS[1], period: 4, lessonId: 'gone' }
+			],
+			continuations: [],
+			placements: [
+				{ id: 'p1', classId: 'c1', date: DAYS[1], slotId: 'd1p3', lessonId: 'pl', length: 1 }
+			],
+			boundary: DAYS[2]
+		});
+
+		expect(result.history).toMatchObject([
+			{ date: DAYS[1], period: 1, lessonId: 'seq', slotId: 'd1p1', placementId: undefined },
+			{ date: DAYS[1], period: 3, lessonId: 'pl', slotId: 'd1p3', placementId: 'p1' },
+			// No Slot holds P4: the record keeps the occasion, with no Slot left to name.
+			{ date: DAYS[1], period: 4, lessonId: 'gone', slotId: null }
+		]);
+	});
+
 	test('a Length-1 and a Length-2 Placement lay onto the stream with no disruption', () => {
 		const result = scheduleOf(calendarOf(), [
 			{ id: 'p1', classId: 'c1', date: DAYS[1], slotId: 'd1p1', lessonId: 'l1', length: 1 },
@@ -401,21 +301,19 @@ describe('schedule with Placements', () => {
 		expect(later.map((s) => s.period)).toEqual([3]);
 	});
 
-	test("a Placement's parts collapse into one agendaRows entry, mirroring a Continuation", () => {
+	test("a Placement's parts collapse into one run, mirroring a Continuation", () => {
 		const result = scheduleOf(calendarOf(), [
 			{ id: 'p1', classId: 'c1', date: DAYS[1], slotId: 'd1p1', lessonId: 'l1', length: 2 }
 		]);
 
-		const rows = agendaRows('c1', result).filter((r) => r.lesson?.lessonId === 'l1');
-		expect(rows).toEqual([
+		expect(runsOf(result.scheduled).filter((run) => run.lessonId === 'l1')).toEqual([
 			{
 				classId: 'c1',
 				date: DAYS[1],
-				week: 'A',
 				periodFrom: 1,
 				periodTo: 2,
-				slotIds: ['d1p1', 'd1p2'],
-				lesson: { lessonId: 'l1', part: 2, of: 2 }
+				lessonId: 'l1',
+				slotIds: ['d1p1', 'd1p2']
 			}
 		]);
 	});

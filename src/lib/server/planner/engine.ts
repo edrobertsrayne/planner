@@ -82,6 +82,16 @@ export interface SessionRecord {
 	lessonId: string;
 }
 
+// A recorded Session as the engine reports it: its occasion resolved against the Calendar as it
+// stands now. `slotId` is null when no Slot holds the position any more — a Term change or an ended
+// Slot can leave the record on an occasion the Timetable no longer has — and `placementId` is set
+// when a Placement names the Lesson on this Class, which is what tells a placed part from a
+// Sequence Lesson's.
+export interface HistorySession extends SessionRecord {
+	slotId: string | null;
+	placementId?: string;
+}
+
 export interface RemainingPart {
 	lessonId: string;
 	part: number;
@@ -97,7 +107,7 @@ export interface ScheduledSession extends RemainingPart, AvailableSlot {
 
 export interface ScheduleResult {
 	boundary: string;
-	history: SessionRecord[];
+	history: HistorySession[];
 	scheduled: ScheduledSession[];
 	unplaced: RemainingPart[];
 	openSlots: AvailableSlot[];
@@ -374,9 +384,20 @@ export function schedule({
 	placements: Placement[];
 	boundary: string;
 }): ScheduleResult {
-	const history = sessions
+	const ownPlacements = placements.filter((p) => p.classId === classId);
+	const placementOf = new Map(ownPlacements.map((p) => [p.lessonId, p.id]));
+	const slots = new Map(
+		timetabledSlots(cal, classId).map((slot) => [`${slot.date}|${slot.period}`, slot.slotId])
+	);
+
+	const history: HistorySession[] = sessions
 		.filter((s) => s.classId === classId && s.date < boundary)
-		.sort((a, b) => (a.date + a.period).localeCompare(b.date + b.period));
+		.sort((a, b) => (a.date + a.period).localeCompare(b.date + b.period))
+		.map((session) => ({
+			...session,
+			slotId: slots.get(`${session.date}|${session.period}`) ?? null,
+			placementId: placementOf.get(session.lessonId)
+		}));
 
 	const delivered: Record<string, number> = {};
 	for (const s of history) delivered[s.lessonId] = (delivered[s.lessonId] || 0) + 1;
@@ -388,7 +409,7 @@ export function schedule({
 		unplaced: strandedParts
 	} = layPlacements(
 		cal,
-		placements.filter((p) => p.classId === classId),
+		ownPlacements,
 		continuations,
 		delivered,
 		availableSlots(cal, classId, boundary)
@@ -423,63 +444,60 @@ export function runway(result: ScheduleResult): Runway {
 	};
 }
 
-export interface AgendaRow {
+export interface RunPart {
 	classId: string;
 	date: string;
-	week: 'A' | 'B';
-	periodFrom: number;
-	periodTo: number;
-	// One id per Period the row covers, in order: slotIds[i] belongs to periodFrom + i.
-	// A Lesson with a Length above one, or a Continuation, carries one Slot per Period it
-	// covers; every other kind of row carries exactly one.
-	slotIds: string[];
-	lesson: { lessonId: string; part: number; of: number } | null;
+	period: number;
+	lessonId: string;
+	slotId: string | null;
 }
 
-// A view of a ScheduleResult for the Agenda: one row per occasion, a Lesson with Length
-// (or a Continuation) above 1 collapsed into a single row spanning its Periods rather than
-// reported once per Period. Only ever merges within one date — `scheduled` is chronological, so a
-// Lesson that runs into the next day's first Slot never lands in adjacent array positions with
-// contiguous Periods, and the Agenda groups by day regardless.
-export function agendaRows(classId: string, result: ScheduleResult): AgendaRow[] {
-	const rows: AgendaRow[] = [];
+export interface Run {
+	classId: string;
+	date: string;
+	periodFrom: number;
+	periodTo: number;
+	lessonId: string;
+	// One id per Period the run covers, in order: slotIds[i] belongs to periodFrom + i. Empty when
+	// a Period's occasion has no Slot any more — a recorded Session on a position the Timetable no
+	// longer holds has no Slot left to block or to name a Room for.
+	slotIds: string[];
+}
 
-	for (const p of result.scheduled) {
-		const prev = rows[rows.length - 1];
+// One run per Lesson over consecutive Periods on one date: a Lesson with Length above one, a
+// Continuation, or a Placement's run is one row spanning its Periods rather than one per Period.
+// The same rule reports the schedule and the record, so the Agenda's days ahead, its look-back and
+// the Calendar's past never disagree about what was one run. Parts must be in calendar order — the
+// schedule lays them that way, and a recorded Session is read Class, date, Period — and a run never
+// crosses a date: a Lesson that runs into the next day's first Slot has a date change between its
+// parts.
+export function runsOf(parts: readonly RunPart[]): Run[] {
+	const runs: (Omit<Run, 'slotIds'> & { slotIds: (string | null)[] })[] = [];
+
+	for (const part of parts) {
+		const prev = runs.at(-1);
 		if (
-			prev?.lesson &&
-			prev.date === p.date &&
-			prev.periodTo + 1 === p.period &&
-			prev.lesson.lessonId === p.lessonId &&
-			prev.lesson.part + 1 === p.part
+			prev &&
+			prev.classId === part.classId &&
+			prev.date === part.date &&
+			prev.periodTo + 1 === part.period &&
+			prev.lessonId === part.lessonId
 		) {
-			prev.periodTo = p.period;
-			prev.slotIds.push(p.slotId);
-			prev.lesson = { lessonId: p.lessonId, part: p.part, of: p.of };
-		} else {
-			rows.push({
-				classId,
-				date: p.date,
-				week: p.week,
-				periodFrom: p.period,
-				periodTo: p.period,
-				slotIds: [p.slotId],
-				lesson: { lessonId: p.lessonId, part: p.part, of: p.of }
-			});
+			prev.periodTo = part.period;
+			prev.slotIds.push(part.slotId);
+			continue;
 		}
-	}
-
-	for (const slot of result.openSlots) {
-		rows.push({
-			classId,
-			date: slot.date,
-			week: slot.week,
-			periodFrom: slot.period,
-			periodTo: slot.period,
-			slotIds: [slot.slotId],
-			lesson: null
+		runs.push({
+			classId: part.classId,
+			date: part.date,
+			periodFrom: part.period,
+			periodTo: part.period,
+			lessonId: part.lessonId,
+			slotIds: [part.slotId]
 		});
 	}
 
-	return rows;
+	return runs.map(({ slotIds, ...run }) =>
+		slotIds.every((id): id is string => id !== null) ? { ...run, slotIds } : { ...run, slotIds: [] }
+	);
 }
