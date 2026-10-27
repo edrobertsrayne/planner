@@ -1,7 +1,7 @@
-import { fail, redirect } from '@sveltejs/kit';
+import { redirect } from '@sveltejs/kit';
 import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
-import { refusal, trimmed } from '$lib/server/form';
+import { formAction, found, trimmed } from '$lib/server/form';
 import {
 	academicYearStart,
 	deleteClass,
@@ -15,6 +15,7 @@ import {
 	removeFromSequence,
 	renameClass,
 	reportOf,
+	Refused,
 	setSlotRoom,
 	sequenceView,
 	toggleSlot
@@ -24,7 +25,7 @@ import {
 	assignLines,
 	changeLine,
 	removedLine,
-	type SequenceResult
+	sequenceAnswer
 } from '$lib/sequence-text';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -54,21 +55,14 @@ export const load: PageServerLoad = ({ params, url }) => {
 };
 
 export const actions: Actions = {
-	renameClass: async ({ request }) => {
-		const data = await request.formData();
-		const id = trimmed(data, 'id');
-		const label = String(data.get('label') ?? '');
-		try {
-			const cls = renameClass(db, { id, label });
-			if (!cls) return fail(404, { error: 'No such Class.' });
-			return { class: cls };
-		} catch (error) {
-			return refusal(error);
-		}
-	},
+	renameClass: formAction((data) => ({
+		class: found(
+			renameClass(db, { id: trimmed(data, 'id'), label: String(data.get('label') ?? '') }),
+			'Class'
+		)
+	})),
 
-	toggleSlot: async ({ request }) => {
-		const data = await request.formData();
+	toggleSlot: formAction((data) => {
 		const classId = trimmed(data, 'classId');
 		const week = trimmed(data, 'week');
 		const day = Number(data.get('day'));
@@ -77,119 +71,85 @@ export const actions: Actions = {
 		// Slot from the start of the year would delete it, and its Placements and Blocked Slots
 		// would stop the delete.
 		const from = trimmed(data, 'from');
-		if (!from) return fail(400, { error: 'Choose a date to change the Timetable.' });
+		if (!from) throw new Refused('invalid', 'Choose a date to change the Timetable.');
 
-		try {
-			const toggled = toggleSlot(db, { classId, week, day, period, from, today: today() });
-			return { report: toggled && reportOf(toggled) };
-		} catch (error) {
-			return refusal(error);
-		}
-	},
+		const toggled = toggleSlot(db, { classId, week, day, period, from, today: today() });
+		return { report: toggled && reportOf(toggled) };
+	}),
 
-	deleteClass: async ({ request }) => {
-		const data = await request.formData();
-		const id = trimmed(data, 'id');
-		const result = deleteClass(db, {
-			id,
-			today: today(),
-			confirmed: trimmed(data, 'confirmed') === 'true'
-		});
-		if (!result) return fail(404, { error: 'No such Class.' });
-		if ('needsConfirm' in result) return fail(409, { error: result.reason, needsConfirm: true });
+	deleteClass: formAction((data) => {
+		found(
+			deleteClass(db, {
+				id: trimmed(data, 'id'),
+				today: today(),
+				confirmed: trimmed(data, 'confirmed') === 'true'
+			}),
+			'Class'
+		);
 		redirect(303, '/classes');
-	},
+	}),
 
-	assignTopic: async ({ request }) => {
-		const data = await request.formData();
-		const classId = trimmed(data, 'classId');
-		const topicId = trimmed(data, 'topicId');
-		try {
-			const result = assignTopic(db, { classId, topicId, today: today() });
-			return {
-				report: reportOf(result),
-				sequenceResult: {
-					kind: 'assign',
-					lines: assignLines(result),
-					changed: [],
-					ringed: []
-				} satisfies SequenceResult
-			};
-		} catch (error) {
-			return refusal(error);
-		}
-	},
+	assignTopic: formAction((data) => {
+		const result = assignTopic(db, {
+			classId: trimmed(data, 'classId'),
+			topicId: trimmed(data, 'topicId'),
+			today: today()
+		});
+		return sequenceAnswer('assign', {
+			report: reportOf(result),
+			changed: result.changed,
+			lines: assignLines(result)
+		});
+	}),
 
-	moveLessons: async ({ request }) => {
-		const data = await request.formData();
-		const classId = trimmed(data, 'classId');
-		const targetId = trimmed(data, 'targetId');
+	moveLessons: formAction((data) => {
 		const lessonIds = trimmed(data, 'lessonIds').split(',').filter(Boolean);
-		try {
-			const result = moveLessons(db, { classId, lessonIds, targetId, today: today() });
-			return {
-				report: reportOf(result),
-				sequenceResult: {
-					kind: 'move',
-					lines: [changeLine(result.changed.length)],
-					changed: result.changed,
-					ringed: lessonIds
-				} satisfies SequenceResult
-			};
-		} catch (error) {
-			return refusal(error);
-		}
-	},
+		const result = moveLessons(db, {
+			classId: trimmed(data, 'classId'),
+			lessonIds,
+			targetId: trimmed(data, 'targetId'),
+			today: today()
+		});
+		return sequenceAnswer('move', {
+			report: reportOf(result),
+			changed: result.changed,
+			lines: [changeLine(result.changed.length)],
+			ringed: lessonIds
+		});
+	}),
 
-	removeLessons: async ({ request }) => {
-		const data = await request.formData();
-		const classId = trimmed(data, 'classId');
+	removeLessons: formAction((data) => {
 		const lessonIds = trimmed(data, 'lessonIds').split(',').filter(Boolean);
-		try {
-			const result = removeFromSequence(db, { classId, lessonIds, today: today() });
-			return {
-				report: reportOf(result),
-				sequenceResult: {
-					kind: 'remove',
-					lines: [removedLine(lessonIds.length), changeLine(result.changed.length)],
-					changed: result.changed,
-					ringed: []
-				} satisfies SequenceResult
-			};
-		} catch (error) {
-			return refusal(error);
-		}
-	},
+		const result = removeFromSequence(db, {
+			classId: trimmed(data, 'classId'),
+			lessonIds,
+			today: today()
+		});
+		return sequenceAnswer('remove', {
+			report: reportOf(result),
+			changed: result.changed,
+			lines: [removedLine(lessonIds.length), changeLine(result.changed.length)]
+		});
+	}),
 
-	addLesson: async ({ request }) => {
-		const data = await request.formData();
-		const classId = trimmed(data, 'classId');
-		const afterLessonId = trimmed(data, 'afterLessonId') || null;
-		try {
-			const result = addLesson(db, {
-				classId,
-				title: String(data.get('title') ?? ''),
-				afterLessonId,
-				today: today()
-			});
-			return {
-				report: reportOf(result),
-				sequenceResult: {
-					kind: 'add',
-					lines: [addedLine(result.lesson.title), changeLine(result.changed.length)],
-					changed: result.changed,
-					ringed: []
-				} satisfies SequenceResult
-			};
-		} catch (error) {
-			return refusal(error);
-		}
-	},
+	addLesson: formAction((data) => {
+		const result = addLesson(db, {
+			classId: trimmed(data, 'classId'),
+			title: String(data.get('title') ?? ''),
+			afterLessonId: trimmed(data, 'afterLessonId') || null,
+			today: today()
+		});
+		return sequenceAnswer('add', {
+			report: reportOf(result),
+			changed: result.changed,
+			lines: [addedLine(result.lesson.title), changeLine(result.changed.length)]
+		});
+	}),
 
-	setSlotRoom: async ({ request }) => {
-		const data = await request.formData();
-		const slot = setSlotRoom(db, { id: trimmed(data, 'id'), room: String(data.get('room') ?? '') });
-		if (!slot) return fail(404, { error: 'No such Slot.' });
-		return { slot };
-	}
+	setSlotRoom: formAction((data) => ({
+		slot: found(
+			setSlotRoom(db, { id: trimmed(data, 'id'), room: String(data.get('room') ?? '') }),
+			'Slot'
+		)
+	}))
 };

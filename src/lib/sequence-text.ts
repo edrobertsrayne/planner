@@ -2,7 +2,7 @@
 // Add Lesson, Remove) and the two layouts cannot word the same thing differently.
 import { formatDateShort } from './date';
 import { plural } from './plural';
-import type { DateChange } from './server/planner';
+import type { DateChange, WriteReport } from './server/planner';
 
 // What a Sequence write answers with: its words, each Lesson that got a new first Slot, and the
 // Lessons to ring. `kind` names the write, for the page and its tests to find the line.
@@ -11,6 +11,24 @@ export interface SequenceResult {
 	lines: string[];
 	changed: DateChange[];
 	ringed: string[];
+}
+
+// Every Sequence write — Assign Topic, Move, Add Lesson, Remove — answers the same two fields:
+// the Rewind report and what to say about it. One builder, so the two Class pages cannot drift
+// into two shapes again.
+export function sequenceAnswer(
+	kind: SequenceResult['kind'],
+	{
+		report,
+		changed,
+		lines,
+		ringed = []
+	}: { report: WriteReport; changed: DateChange[]; lines: string[]; ringed?: string[] }
+): { report: WriteReport; sequenceResult: SequenceResult } {
+	return {
+		report: { placementsMoved: report.placementsMoved },
+		sequenceResult: { kind, lines, changed, ringed }
+	};
 }
 
 // "N Lessons change date." after a Sequence write.
