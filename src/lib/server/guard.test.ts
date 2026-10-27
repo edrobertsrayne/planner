@@ -3,6 +3,7 @@ import { crossSiteFormRefused, guardRedirect, isPublicRoute } from './guard';
 
 const site = 'https://planner.example';
 const form = {
+	zone: 'app' as const,
 	method: 'POST',
 	pathname: '/courses',
 	contentType: 'multipart/form-data; boundary=x'
@@ -31,11 +32,21 @@ describe('crossSiteFormRefused', () => {
 		);
 	});
 
-	it('leaves /api to its Bearer key, so a script can upload a file with no origin', () => {
+	it('leaves both API zones to their own checks, so a script can upload with no origin', () => {
 		expect(
 			crossSiteFormRefused({
 				...form,
+				zone: 'api',
 				pathname: '/api/lessons/1/attachments',
+				origin: null,
+				siteOrigin: site
+			})
+		).toBe(false);
+		expect(
+			crossSiteFormRefused({
+				...form,
+				zone: 'auth',
+				pathname: '/api/auth/sign-in/email',
 				origin: null,
 				siteOrigin: site
 			})
@@ -63,7 +74,14 @@ describe('isPublicRoute', () => {
 });
 
 const request = (overrides: Partial<Parameters<typeof guardRedirect>[0]>) =>
-	guardRedirect({ pathname: '/', search: '', userExists: true, signedIn: true, ...overrides });
+	guardRedirect({
+		zone: 'app',
+		pathname: '/',
+		search: '',
+		userExists: true,
+		signedIn: true,
+		...overrides
+	});
 
 describe('guardRedirect', () => {
 	describe('before setup', () => {
@@ -72,9 +90,26 @@ describe('guardRedirect', () => {
 			expect(request({ pathname: '/calendar', userExists: false, signedIn: false })).toBe('/setup');
 		});
 
-		it('lets /api/* through even before setup (it returns 401 on its own)', () => {
-			expect(request({ pathname: '/api/courses', userExists: false, signedIn: false })).toBeNull();
-			expect(request({ pathname: '/api', userExists: false, signedIn: false })).toBeNull();
+		it('lets the API zones through even before setup (they answer on their own)', () => {
+			expect(
+				request({
+					zone: 'api',
+					pathname: '/api/courses',
+					userExists: false,
+					signedIn: false
+				})
+			).toBeNull();
+			expect(
+				request({ zone: 'api', pathname: '/api', userExists: false, signedIn: false })
+			).toBeNull();
+			expect(
+				request({
+					zone: 'auth',
+					pathname: '/api/auth/sign-in/email',
+					userExists: false,
+					signedIn: false
+				})
+			).toBeNull();
 		});
 
 		it('sends the login page to the wizard too — there is nothing to log in to', () => {
@@ -118,9 +153,12 @@ describe('guardRedirect', () => {
 			expect(request({ pathname: '/settings', signedIn: true })).toBeNull();
 		});
 
-		it('lets /api/* through when signed out', () => {
-			expect(request({ pathname: '/api/courses', signedIn: false })).toBeNull();
-			expect(request({ pathname: '/api', signedIn: false })).toBeNull();
+		it('lets the API zones through when signed out', () => {
+			expect(request({ zone: 'api', pathname: '/api/courses', signedIn: false })).toBeNull();
+			expect(request({ zone: 'api', pathname: '/api', signedIn: false })).toBeNull();
+			expect(
+				request({ zone: 'auth', pathname: '/api/auth/get-session', signedIn: false })
+			).toBeNull();
 		});
 
 		it('lets /api/* through when signed in', () => {
