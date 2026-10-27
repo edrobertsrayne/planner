@@ -157,6 +157,17 @@ describe('authoring Courses, Topics and Lessons', () => {
 		})!.lesson;
 		expect(lessonsOf(db, topic.id).map((l) => l.title)).toEqual([renamed.title, second.title]);
 	});
+
+	test('creating a Topic refuses a Course that is not there', () => {
+		const { db } = setUpAuthoring();
+
+		refused(
+			() => createTopic(db, { courseId: 'does-not-exist', name: 'Forces' }),
+			'missing',
+			'Course not found.'
+		);
+		expect(db.select().from(schema.topic).all()).toEqual([]);
+	});
 });
 
 describe('moving a Topic to another Course', () => {

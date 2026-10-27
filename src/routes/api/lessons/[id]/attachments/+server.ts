@@ -1,7 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { DATABASE_URL, db } from '$lib/server/db/client';
-import { lesson } from '$lib/server/db/schema';
-import { refusalJson, requireExisting } from '$lib/server/api-helpers';
+import { refusalJson } from '$lib/server/api-helpers';
 import { attachmentsDir, createAttachment } from '$lib/server/planner';
 import type { RequestHandler } from './$types';
 
@@ -9,9 +8,6 @@ import type { RequestHandler } from './$types';
 // ceiling and the mismatch refusal all live in `createAttachment`. Only its own refusal is a 400;
 // anything else (a disk fault, a foreign-key violation) is a server fault and is left to throw.
 export const POST: RequestHandler = async (event) => {
-	const missing = requireExisting(db, lesson, event.params.id, 'Lesson not found.');
-	if (missing) return missing;
-
 	// A request that is not multipart makes `formData()` throw; it is the same 400 as a multipart
 	// request with no `file` part, because the caller sent no file in either case.
 	let data: FormData;

@@ -6,7 +6,7 @@ import { classDeleteText } from '$lib/delete-text';
 import * as schema from '../db/schema';
 import { lessonNames, loadCalendar, scheduleFor, type Db } from './derive';
 import { runway as deriveRunway, type Calendar, type Runway } from './engine';
-import { required } from './fields';
+import { required, requireRow } from './fields';
 import { teachingNotesFor } from './teaching-notes';
 import { inTransaction } from '../db';
 import type { ConfirmQuestion } from './courses';
@@ -14,6 +14,7 @@ import type { ConfirmQuestion } from './courses';
 // The Tone is assigned once here, at creation — the next unused position of the fixed walk
 // (ADR-0013) — and never touched again by any other write.
 export function createClass(db: Db, { label, courseId }: { label: string; courseId: string }) {
+	requireRow(db, schema.course, courseId, 'Course not found.');
 	const tonesInUse = db
 		.select({ tone: schema.classes.tone })
 		.from(schema.classes)

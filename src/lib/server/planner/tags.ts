@@ -3,7 +3,7 @@
 // create-or-refuse, is the point. A Tag is descriptive metadata and never changes a date.
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import * as schema from '../db/schema';
-import { required } from './fields';
+import { required, requireRow } from './fields';
 import { inTransaction } from '../db';
 import type { Db } from './derive';
 
@@ -69,6 +69,7 @@ export function attachTag(
 	{ lessonId, name }: { lessonId: string; name: string }
 ): string[] {
 	const trimmed = required(name, 'A Tag needs a name.');
+	requireRow(db, schema.lesson, lessonId, 'Lesson not found.');
 
 	// The Tag row and its lesson_tag attachment are one write: if the attachment fails, the Tag
 	// it would have left behind is rolled back with it.

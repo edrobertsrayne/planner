@@ -136,11 +136,13 @@ describe('Tags on a Lesson', () => {
 		expect(listTagNames(db)).toEqual(['Assessment', 'Trip']);
 	});
 
-	test('attaching to a Lesson that does not exist leaves no orphan Tag behind', () => {
+	test('attaching to a Lesson that does not exist refuses and leaves no orphan Tag behind', () => {
 		const { db } = setUpLesson();
 
-		expect(() => attachTag(db, { lessonId: 'does-not-exist', name: 'Practical' })).toThrow(
-			/Failed query: insert into "lesson_tag"/
+		refused(
+			() => attachTag(db, { lessonId: 'does-not-exist', name: 'Practical' }),
+			'missing',
+			'Lesson not found.'
 		);
 
 		// The Tag and its attachment are one write: a Lesson that is not there writes neither.

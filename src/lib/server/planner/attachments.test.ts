@@ -40,6 +40,30 @@ function setUpLesson() {
 }
 
 describe('attachment storage', () => {
+	test('refuses a Lesson that is not there, writing no row and no file', () => {
+		const { db, dir } = setUpAuthoring();
+		const atDir = attachmentsDir(join(dir, 'test.db'));
+
+		refused(
+			() =>
+				createAttachment(
+					db,
+					{
+						lessonId: 'does-not-exist',
+						filename: 'worksheet.pdf',
+						mimeType: 'application/pdf',
+						bytes: new Uint8Array(2)
+					},
+					atDir
+				),
+			'missing',
+			'Lesson not found.'
+		);
+
+		expect(db.select().from(schema.attachment).all()).toEqual([]);
+		expect(existsSync(atDir) && readdirSync(atDir).length > 0).toBe(false);
+	});
+
 	test('a valid file is stored beside the database and its row appended in order', () => {
 		const { db, lesson, atDir } = setUpLesson();
 		const bytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]);
@@ -234,20 +258,35 @@ describe('attachment storage', () => {
 	});
 
 	test('a create that fails halfway leaves neither row nor file', () => {
-		const { db, atDir } = setUpLesson();
+		const { db, lesson, atDir } = setUpLesson();
+
+		// The file is written before the row, so an insert that fails must undo the file.
+		const failing = new Proxy(db, {
+			get(target, property, receiver) {
+				if (property !== 'insert') return Reflect.get(target, property, receiver);
+				const write = Reflect.get(target, property, receiver) as (table: unknown) => unknown;
+				const refused: Record<string, unknown> = {};
+				for (const step of ['values', 'returning']) refused[step] = () => refused;
+				refused.all = () => {
+					throw new Error('attachment insert failed');
+				};
+				return (table: unknown) =>
+					table === schema.attachment ? refused : write.call(target, table);
+			}
+		});
 
 		expect(() =>
 			createAttachment(
-				db,
+				failing,
 				{
-					lessonId: 'does-not-exist',
+					lessonId: lesson.id,
 					filename: 'worksheet.pdf',
 					mimeType: 'application/pdf',
 					bytes: new Uint8Array(4)
 				},
 				atDir
 			)
-		).toThrow(/Failed query/);
+		).toThrow(/attachment insert failed/);
 
 		expect(readdirSync(atDir)).toEqual([]);
 	});

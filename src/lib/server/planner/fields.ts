@@ -4,7 +4,24 @@
 // refuses with one message. Only a value that would break something has a rule: an empty name,
 // a Link url that is not http(s), a Length the layout cannot draw, a status the database
 // refuses. No size limit exists — the request body limit bounds every write.
+import { eq } from 'drizzle-orm';
+import type { SQLiteColumn, SQLiteTable } from 'drizzle-orm/sqlite-core';
 import { Refused } from './refused';
+import type { Db } from './derive';
+
+// A record the request names must exist before the write that hangs off it: a Lesson's Topic, a
+// Tag's Lesson, a Class's Course. One guard for every create, so each refuses with the same kind
+// and a message already written for the teacher to read.
+export function requireRow<T extends SQLiteTable & { id: SQLiteColumn; $inferSelect: unknown }>(
+	db: Db,
+	table: T,
+	id: string,
+	message: string
+): T['$inferSelect'] {
+	const [row] = db.select().from(table).where(eq(table.id, id)).all();
+	if (!row) throw new Refused('missing', message);
+	return row as T['$inferSelect'];
+}
 
 // Trims a name, title, label or note, and refuses one that is empty after trimming.
 export function required(value: string, message: string): string {

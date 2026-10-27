@@ -207,6 +207,35 @@ describe("a Lesson's planning status", () => {
 
 // One Lesson edit owns every rule for a change to one Lesson, so the Lesson editor and the API
 // give the same answer to the same change (issue #356).
+describe('a create guards its parent', () => {
+	test('a new Lesson refuses a Topic that is not there', () => {
+		const { db } = setUpAuthoring();
+
+		refused(
+			() => createLesson(db, { topicId: 'does-not-exist', title: 'Newton I' }),
+			'missing',
+			'Topic not found.'
+		);
+		expect(db.select().from(schema.lesson).all()).toEqual([]);
+	});
+
+	test('a new Link refuses a Lesson that is not there', () => {
+		const { db } = setUpAuthoring();
+
+		refused(
+			() =>
+				createLink(db, {
+					lessonId: 'does-not-exist',
+					url: 'https://example.com',
+					label: 'Reading'
+				}),
+			'missing',
+			'Lesson not found.'
+		);
+		expect(db.select().from(schema.link).all()).toEqual([]);
+	});
+});
+
 describe('one Lesson edit', () => {
 	function placeStandalone(db: ReturnType<typeof setUp>['db'], classId: string) {
 		const mondaySlot = db

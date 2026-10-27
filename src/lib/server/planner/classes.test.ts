@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { describe, expect, test } from 'vitest';
 import { runway } from './engine';
-import { failingCommit, makeLessons, makeTopic, setUp } from './fixtures';
+import { failingCommit, makeLessons, makeTopic, refused, setUp, setUpAuthoring } from './fixtures';
 import {
 	activeSlots,
 	assignTopic,
@@ -52,6 +52,19 @@ describe('reading Classes and their Timetable back', () => {
 		const onADate = activeSlots(db, '2026-09-07');
 		expect(onADate).toHaveLength(8);
 		expect(new Set(onADate.map((s) => s.classId))).toEqual(new Set([classA.id, classB.id]));
+	});
+});
+
+describe('creating a Class', () => {
+	test('refuses a Course that is not there', () => {
+		const { db } = setUpAuthoring();
+
+		refused(
+			() => createClass(db, { label: '9C/Sc2', courseId: 'does-not-exist' }),
+			'missing',
+			'Course not found.'
+		);
+		expect(db.select().from(schema.classes).all()).toEqual([]);
 	});
 });
 

@@ -3,7 +3,7 @@
 import { asc, eq } from 'drizzle-orm';
 import * as schema from '../db/schema';
 import { nextPosition, swapTargets, type Direction } from './ordering';
-import { linkUrl, required } from './fields';
+import { linkUrl, required, requireRow } from './fields';
 import type { Db } from './derive';
 
 export function linksOf(db: Db, lessonId: string) {
@@ -29,6 +29,7 @@ export function createLink(
 ) {
 	label = required(label, 'A Link needs a label.');
 	url = linkUrl(url);
+	requireRow(db, schema.lesson, lessonId, 'Lesson not found.');
 	const position = nextPosition(
 		db
 			.select({ position: schema.link.position })

@@ -9,7 +9,7 @@ import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import { Refused } from './refused';
 import { lessonsOf } from './lessons';
-import { required } from './fields';
+import { required, requireRow } from './fields';
 import type { Db } from './derive';
 
 // A delete that needs an answer first: the caller shows `reason` and asks again with `confirmed`.
@@ -239,8 +239,7 @@ export function deleteCourse(
 }
 
 export function createTopic(db: Db, { courseId, name }: { courseId: string; name: string }) {
-	const [course] = db.select().from(schema.course).where(eq(schema.course.id, courseId)).all();
-	if (!course) throw new Refused('missing', 'Course not found.');
+	const course = requireRow(db, schema.course, courseId, 'Course not found.');
 	const trimmed = required(name, 'A Topic needs a name.');
 	assertTopicNameAvailable(db, { courseId, courseName: course.name, name: trimmed });
 	const [row] = db.insert(schema.topic).values({ courseId, name: trimmed }).returning().all();
@@ -278,8 +277,7 @@ export function renameTopic(db: Db, { id, name }: { id: string; name: string }) 
 export function moveTopicToCourse(db: Db, { id, courseId }: { id: string; courseId: string }) {
 	const [existing] = db.select().from(schema.topic).where(eq(schema.topic.id, id)).all();
 	if (!existing) return undefined;
-	const [target] = db.select().from(schema.course).where(eq(schema.course.id, courseId)).all();
-	if (!target) throw new Refused('missing', 'Course not found.');
+	const target = requireRow(db, schema.course, courseId, 'Course not found.');
 	assertTopicNameAvailable(db, {
 		courseId,
 		name: existing.name,

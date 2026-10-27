@@ -12,7 +12,7 @@ import { nextPosition, swapTargets, type Direction } from './ordering';
 import { attachmentsOf } from './attachments';
 import { Refused } from './refused';
 import { fixedOn } from './sequence';
-import { lessonBody, lessonLength, lessonStatus, required } from './fields';
+import { lessonBody, lessonLength, lessonStatus, required, requireRow } from './fields';
 import { linksOf } from './links';
 import { attachedTags } from './tags';
 import type { ConfirmQuestion } from './courses';
@@ -55,6 +55,7 @@ export function createLesson(
 		status?: string;
 	}
 ): { lesson: typeof schema.lesson.$inferSelect } {
+	requireRow(db, schema.topic, topicId, 'Topic not found.');
 	const [row] = db
 		.insert(schema.lesson)
 		.values({
@@ -158,12 +159,7 @@ export function editLesson(
 	const { topicId } = change;
 	const moves = topicId !== undefined && topicId !== row.topicId;
 	if (moves && topicId !== null) {
-		const [topic] = db
-			.select({ id: schema.topic.id })
-			.from(schema.topic)
-			.where(eq(schema.topic.id, topicId))
-			.all();
-		if (!topic) throw new Refused('missing', 'Topic not found.');
+		requireRow(db, schema.topic, topicId, 'Topic not found.');
 		next.position = endOfTopic(db, topicId);
 	}
 	if (moves) next.topicId = topicId;

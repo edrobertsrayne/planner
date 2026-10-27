@@ -10,6 +10,7 @@ import { dirname, join } from 'node:path';
 import { asc, eq } from 'drizzle-orm';
 import type { Db } from './derive';
 import { nextPosition } from './ordering';
+import { requireRow } from './fields';
 import { Refused } from './refused';
 import * as schema from '../db/schema';
 
@@ -121,6 +122,8 @@ export function createAttachment(
 	}: { lessonId: string; filename: string; mimeType: string; bytes: Uint8Array },
 	dir: string
 ): typeof schema.attachment.$inferSelect {
+	requireRow(db, schema.lesson, lessonId, 'Lesson not found.');
+
 	// Browsers report the Content-Type inconsistently across platforms, and decorate it with
 	// parameters. Normalise before checking, and store the normalised form — never arbitrary
 	// client input, but not server-derived either (spec #220) — so the serving route never

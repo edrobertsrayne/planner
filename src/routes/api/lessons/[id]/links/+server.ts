@@ -13,10 +13,6 @@ export const GET: RequestHandler = async (event) => {
 };
 
 export const POST: RequestHandler = async (event) => {
-	// `createLink` does not check its Lesson, so the route does, before reading the body.
-	const missing = requireExisting(db, lesson, event.params.id, 'Lesson not found.');
-	if (missing) return missing;
-
 	const data = await readJson(event.request);
 	if (data instanceof Response) return data;
 

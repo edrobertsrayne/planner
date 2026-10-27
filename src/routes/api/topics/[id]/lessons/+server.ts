@@ -14,11 +14,6 @@ export const GET: RequestHandler = async (event) => {
 };
 
 export const POST: RequestHandler = async (event) => {
-	// A new Lesson needs a Topic to hang off; `createLesson` does not check, so the route does.
-	if (!topicById(db, event.params.id)) {
-		return json({ error: 'Topic not found.' }, { status: 404 });
-	}
-
 	const body = await readJson(event.request);
 	if (body instanceof Response) return body;
 
