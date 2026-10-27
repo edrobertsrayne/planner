@@ -35,9 +35,10 @@ The planner makes a **Backup** on demand and can **Restore** one into an empty i
   table names a migration this app does not have). An older Backup is accepted, and the usual
   startup migrations upgrade it.
 - **Both directions stream.** Back up reads one Attachment at a time into the response, and stores
-  Attachments without compression. Restore writes the upload to a temporary file in the data folder
-  before it checks and unpacks it. Memory use does not grow with the number of Attachments. Only the
-  Restore route takes a body larger than the app-wide `BODY_SIZE_LIMIT`.
+  Attachments without compression. Restore unpacks the request body straight into a scratch folder
+  in the data folder, so the upload is never written a second time before it is checked. Memory use
+  does not grow with the number of Attachments. Only the Restore route takes a body larger than the
+  app-wide `BODY_SIZE_LIMIT`.
 
 ## Considered options
 
@@ -61,7 +62,7 @@ to the server.
 - **ADR-0008's durability rule stays.** Scheduled copies and a persistent disk are still the
   deployer's job. A Backup is a way to move the planner and a copy the teacher keeps. It is not a
   backup schedule.
-- A Restore needs free disk space of about twice the Backup size, for the temporary archive and the
-  unpacked files together.
+- A Restore needs free disk space of about the Backup size, for the unpacked database and
+  Attachments in the scratch folder.
 - A Restore that is larger than a proxy's body limit fails. The fix is a path to the server with no
   limit, for example direct access, Tailscale, or a proxy you control.

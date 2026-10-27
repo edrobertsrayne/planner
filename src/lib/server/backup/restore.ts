@@ -64,22 +64,21 @@ export async function restoreBackup(options: {
 
 	if (!options.contentLength) throw new RestoreRefused('The upload did not say how large it is.');
 	const { bavail, bsize } = statfsSync(dataDir);
-	if (bavail * bsize < 2 * options.contentLength) {
+	// The upload is unpacked file for file into the scratch folder, so the space it needs is about
+	// its own size: there is no second copy of the archive on disk.
+	if (bavail * bsize < options.contentLength) {
 		throw new RestoreRefused(
-			'There is not enough free disk space to restore this Backup. Restore needs about twice its size.'
+			'There is not enough free disk space to restore this Backup. Restore needs about as much free space as the Backup is large.'
 		);
 	}
 
 	const work = join(dataDir, `.restore-${crypto.randomUUID()}`);
-	const archive = join(work, 'upload.tar');
 	const stagedDatabase = join(work, DATABASE_ENTRY);
 	const stagedAttachments = join(work, 'attachments');
 	mkdirSync(stagedAttachments, { recursive: true });
 
 	try {
-		await writeUpload(options.body, archive);
-		await unpack(archive, stagedDatabase, stagedAttachments);
-		rmSync(archive);
+		await unpack(options.body, stagedDatabase, stagedAttachments);
 
 		checkStaged(stagedDatabase, stagedAttachments, options.migrationsFolder ?? 'drizzle');
 
@@ -93,19 +92,14 @@ export async function restoreBackup(options: {
 	}
 }
 
-async function writeUpload(body: ReadableStream<Uint8Array>, path: string) {
-	const fd = openSync(path, 'w');
-	try {
-		for await (const chunk of body) writeSync(fd, chunk);
-	} finally {
-		closeSync(fd);
-	}
-}
-
-async function unpack(archive: string, databasePath: string, attachmentsPath: string) {
+async function unpack(
+	body: ReadableStream<Uint8Array>,
+	databasePath: string,
+	attachmentsPath: string
+) {
 	const seen = new Set<string>();
 	try {
-		await untar(Bun.file(archive).stream(), (name) => {
+		await untar(body, (name) => {
 			let path: string;
 			if (name === DATABASE_ENTRY) path = databasePath;
 			else if (
@@ -217,12 +211,19 @@ function swap(
 		throw new RestoreRefused('This planner already has an account.');
 	}
 	live.close();
+	const liveAttachments = attachmentsDir(databaseUrl);
+	let attachmentsMoved = false;
 	try {
-		const liveAttachments = attachmentsDir(databaseUrl);
 		rmSync(liveAttachments, { recursive: true, force: true });
 		renameSync(stagedAttachments, liveAttachments);
+		attachmentsMoved = true;
 		for (const suffix of ['', '-wal', '-shm']) rmSync(databaseUrl + suffix, { force: true });
 		renameSync(stagedDatabase, databaseUrl);
+	} catch (cause) {
+		// The database is still the empty one the wizard had. The Attachments that moved beside it
+		// belong to a Restore that did not land, so they go too: the instance stays empty.
+		if (attachmentsMoved) rmSync(liveAttachments, { recursive: true, force: true });
+		throw cause;
 	} finally {
 		live.reopen();
 	}

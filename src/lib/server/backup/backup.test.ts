@@ -3,6 +3,7 @@ import {
 	chmodSync,
 	closeSync,
 	cpSync,
+	existsSync,
 	mkdirSync,
 	mkdtempSync,
 	openSync,
@@ -109,7 +110,11 @@ function streamOf(bytes: Uint8Array) {
 	return new Response(bytes as Uint8Array<ArrayBuffer>).body!;
 }
 
-function restoreInto(target: ReturnType<typeof instance>, archive: Uint8Array) {
+function restoreInto(
+	target: ReturnType<typeof instance>,
+	archive: Uint8Array,
+	body: ReadableStream<Uint8Array> = streamOf(archive)
+) {
 	let current = target;
 	const live: LiveDatabase = {
 		client: target.client,
@@ -121,7 +126,7 @@ function restoreInto(target: ReturnType<typeof instance>, archive: Uint8Array) {
 		}
 	};
 	const done = restoreBackup({
-		body: streamOf(archive),
+		body,
 		contentLength: archive.length,
 		databaseUrl: target.databaseUrl,
 		live,
@@ -349,6 +354,32 @@ describe('Restore refuses before it writes anything', () => {
 		expect(target.db.select().from(schema.course).all()).toHaveLength(1);
 	});
 
+	test('the upload is unpacked straight from the request, with no second copy on disk', async () => {
+		const source = instance();
+		populate(source);
+		const archive = await collect(createBackup(source.client, source.databaseUrl).body);
+
+		const target = instance();
+		const seen = new Set<string>();
+		const reader = streamOf(archive).getReader();
+		const body = new ReadableStream<Uint8Array>({
+			async pull(controller) {
+				// What the scratch folder holds while the restore is still reading the upload.
+				for (const dir of scratch(target)) {
+					for (const name of readdirSync(join(target.dir, dir))) seen.add(name);
+				}
+				const { done, value } = await reader.read();
+				if (done) controller.close();
+				else controller.enqueue(value);
+			}
+		});
+
+		await restoreInto(target, archive, body).done;
+
+		expect(seen).not.toContain('upload.tar');
+		expect(seen).toContain(DATABASE_ENTRY);
+	});
+
 	test('an instance that already has a user', async () => {
 		const source = instance();
 		populate(source);
@@ -391,5 +422,47 @@ describe('A Restore that fails at the swap', () => {
 		} finally {
 			chmodSync(locked, 0o700);
 		}
+	});
+
+	test('a swap that fails after moving the Attachments removes them again', async () => {
+		const source = instance();
+		populate(source);
+		const archive = await collect(createBackup(source.client, source.databaseUrl).body);
+
+		const target = instance();
+		let current = target;
+		const live: LiveDatabase = {
+			client: target.client,
+			close: () => {
+				current.client.close();
+				for (const suffix of ['', '-wal', '-shm'])
+					rmSync(target.databaseUrl + suffix, { force: true });
+				// The name the database has to be renamed onto is a directory, so the swap fails
+				// after the Attachments have already moved.
+				mkdirSync(target.databaseUrl);
+			},
+			reopen: () => {
+				rmSync(target.databaseUrl, { recursive: true, force: true });
+				const reopened = openDatabase(target.databaseUrl);
+				runMigrations(reopened.client, 'drizzle');
+				current = { ...target, ...reopened };
+			}
+		};
+
+		const failure = await restoreBackup({
+			body: streamOf(archive),
+			contentLength: archive.length,
+			databaseUrl: target.databaseUrl,
+			live,
+			migrationsFolder: 'drizzle'
+		}).catch((cause: unknown) => cause);
+
+		expect(failure).toBeInstanceOf(Error);
+		expect(failure).not.toBeInstanceOf(RestoreRefused);
+		// The Attachments moved for a Restore that did not land; they are not left beside the empty
+		// database.
+		expect(existsSync(attachmentsDir(target.databaseUrl))).toBe(false);
+		expect(scratch(target)).toEqual([]);
+		expect(current.db.select().from(schema.course).all()).toEqual([]);
 	});
 });
