@@ -305,7 +305,7 @@ opens a Session from its row on the Agenda or the Calendar.
 **Agenda**:
 The chronological stream of upcoming Sessions across every Class, grouped by day, reaching a
 horizon the teacher chooses: a number of Term days, or **All**, to the end of the last Term. A
-School Holiday is skipped, not counted, so This Week on a School Holiday shows the next Term's first
+School Holiday is skipped, not counted, so One Week on a School Holiday shows the next Term's first
 week. Every School Holiday the window touches shows as one card at its place in the stream, naming
 its first and last day. A Blocked Day shows as a panel under its day heading, with its note. A
 Blocked Slot shows as a row of its own in its position, with its note; it opens nothing and carries

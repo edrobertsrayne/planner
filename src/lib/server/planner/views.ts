@@ -168,7 +168,7 @@ function toEntries(
 
 // The chronological stream of upcoming Sessions across every Class, grouped by day (issue #34).
 // Windowed to a horizon of Term days from `today` (termWindowEnd): a weekend or a Blocked Day
-// inside a Term honestly produces no row, while a School Holiday is skipped, so This Week on a
+// inside a Term honestly produces no row, while a School Holiday is skipped, so One Week on a
 // holiday shows the next Term's first week. A `null` horizon keeps every row to the close of the
 // last Term (issue #281). `horizonEnds` is the window's last day, for the prose about it.
 // Alongside the rows, what the window removes: its Blocked Days, its Blocked Slots as rows of
