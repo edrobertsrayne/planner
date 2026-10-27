@@ -4,6 +4,7 @@
 	import { classTone } from '$lib/class-tone';
 	import { createThenSelect } from '$lib/client/enhance';
 	import PageHeader from '$lib/components/page-header.svelte';
+	import PlusIcon from '@lucide/svelte/icons/plus';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { plural } from '$lib/plural';
@@ -71,8 +72,13 @@
 			<li class="px-2 py-1.5 text-xs text-muted-foreground">No Courses yet.</li>
 		{/if}
 		{#if wide.current}
-			<li class="rounded-xl border border-dashed p-4">
+			<li
+				class="flex min-h-44 flex-col items-center justify-center gap-1 rounded-xl border border-dashed p-4 text-muted-foreground"
+			>
+				<PlusIcon class="size-4" />
+				<span class="text-sm font-medium">New Course</span>
 				<form
+					class="mt-2 w-full"
 					method="POST"
 					action="?/createCourse"
 					use:enhance={createThenSelect(
