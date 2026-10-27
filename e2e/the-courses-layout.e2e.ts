@@ -25,13 +25,15 @@ test.describe('the Courses screen on a laptop', () => {
 		await expect(page).toHaveURL(/\/courses\/[^/?]+$/);
 	});
 
-	test('typing a name in the New Course tile and pressing Enter opens the new Course', async ({
+	test('the New Course tile opens a dialog that creates the Course and opens it', async ({
 		page
 	}) => {
 		await login(page, '/courses');
+		await expect(page.getByPlaceholder('New Course name')).toHaveCount(0);
 		const name = `Tile Course ${Date.now()}`;
-		await page.getByPlaceholder('New Course name').fill(name);
-		await page.keyboard.press('Enter');
+		await page.getByRole('button', { name: 'New Course' }).click();
+		await page.getByLabel('Name').fill(name);
+		await page.getByRole('button', { name: 'Create Course' }).click();
 		await expect(page).toHaveURL(/\/courses\/[^/?]+$/);
 		await expect(page.getByRole('heading', { name })).toBeVisible();
 	});
@@ -89,7 +91,7 @@ test.describe('the Courses screens on a phone write nothing', () => {
 	test('the Courses screen has no New Course tile', async ({ page }) => {
 		await login(page, '/courses');
 		await expect(page.getByRole('link', { name: /KS3 Science/ })).toBeVisible();
-		await expect(page.getByPlaceholder('New Course name')).toHaveCount(0);
+		await expect(page.getByRole('button', { name: 'New Course' })).toBeHidden();
 		await expectNoHorizontalScroll(page);
 	});
 

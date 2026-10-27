@@ -74,9 +74,9 @@ test.describe('the Course and Topic editors', () => {
 
 	test('Move to… files a Topic in another Course and refuses a name clash', async ({ page }) => {
 		await login(page, '/courses');
-		const courseBox = page.getByPlaceholder('New Course name — press Enter');
-		await courseBox.fill('Move target');
-		await courseBox.press('Enter');
+		await page.getByRole('button', { name: 'New Course' }).click();
+		await page.getByLabel('Name').fill('Move target');
+		await page.getByRole('button', { name: 'Create Course' }).click();
 		await expect(page.getByRole('heading', { level: 1, name: 'Move target' })).toBeVisible();
 
 		await openCourse(page);
