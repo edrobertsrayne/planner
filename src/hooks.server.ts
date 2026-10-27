@@ -1,6 +1,8 @@
-import { error, json, redirect, type Handle } from '@sveltejs/kit';
+import { error, json, redirect, type Handle, type ServerInit } from '@sveltejs/kit';
 import { sequence } from '@sveltejs/kit/hooks';
 import { building } from '$app/environment';
+import { env } from '$env/dynamic/private';
+import { setClock } from '$lib/date';
 import { auth } from '$lib/server/auth';
 import { hasUser } from '$lib/server/setup';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
@@ -107,6 +109,12 @@ const handleGuard: Handle = async ({ event, resolve }) => {
 	if (target) redirect(303, target);
 
 	return resolve(event);
+};
+
+// The e2e suite runs the server on a fixed day (PLANNER_NOW in playwright.config.ts), so no test
+// depends on which real day it runs. Unset everywhere else.
+export const init: ServerInit = () => {
+	if (env.PLANNER_NOW) setClock(env.PLANNER_NOW);
 };
 
 export const handle: Handle = sequence(

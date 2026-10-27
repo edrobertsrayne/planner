@@ -2,14 +2,13 @@ import { test, expect, type Page } from '@playwright/test';
 import {
 	EMAIL,
 	PASSWORD,
+	TODAY,
+	isoDate,
 	mondayOf,
-	nextSaturday,
-	nextWeekday,
 	plusDays,
 	resetTo,
 	runFixture,
-	signIn,
-	todayIso
+	signIn
 } from './helpers.ts';
 
 // Covers the Calendar's setup mode (issue #166): opening it, the six fixed Term rows, the live
@@ -148,12 +147,10 @@ test.describe.serial('the Calendar setup mode', () => {
 	test('a Blocked Day is added from setup mode, refused where the date cannot be one, and removed', async () => {
 		await page.getByRole('button', { name: 'Set up year' }).click();
 
-		// A weekday inside the second Term — so adding it says plainly that no Placement moved,
-		// and the week it falls in loses a teaching day.
-		// Holds on any real-world day the suite runs on: nextWeekday absorbs a Saturday or Sunday
-		// "today" by stepping forward at most two days, and the second Term (isoDate(-14) to
-		// isoDate(56) in teaching-flows.e2e.ts) is wide enough around day 40 to swallow that step.
-		const inset = nextWeekday(plusDays(todayIso(), 40));
+		// A weekday inside the second Term (isoDate(-14) to isoDate(56)) — so adding it says
+		// plainly that no Placement moved, and the week it falls in loses a teaching day. TODAY is
+		// a Wednesday, so this is a Monday.
+		const inset = isoDate(40);
 		const insetMonday = mondayOf(inset);
 		const insetWeek = page
 			.locator('[data-week-preview] tbody tr')
@@ -178,7 +175,7 @@ test.describe.serial('the Calendar setup mode', () => {
 			page.getByRole('alert').filter({ hasText: 'is already a Blocked Day.' })
 		).toBeVisible();
 
-		const saturday = nextSaturday(plusDays(inset, 1));
+		const saturday = isoDate(45); // the Saturday after the Monday `inset`
 		await page.getByLabel('Blocked Day date').fill(saturday);
 		await page.getByRole('button', { name: 'Add day' }).click();
 		await expect(
@@ -193,10 +190,9 @@ test.describe.serial('the Calendar setup mode', () => {
 		// server here; the seam's own refusals are covered in the planner barrel suite.
 		await expect(page.getByRole('alert').filter({ hasText: 'No date given.' })).toBeVisible();
 
-		// A date outside every Term is accepted — a closure does not need a Term to be real.
-		// Holds on any real-world day: the sixth Term closes at isoDate(168), so day 250 clears it
-		// by well over the two days nextWeekday can add.
-		const outside = nextWeekday(plusDays(todayIso(), 250));
+		// A date outside every Term is accepted — a closure does not need a Term to be real. The
+		// sixth Term closes at isoDate(168); this is a Monday well after it.
+		const outside = isoDate(250);
 		await page.getByLabel('Blocked Day date').fill(outside);
 		await page.getByRole('button', { name: 'Add day' }).click();
 		await expect(page.getByLabel(`Remove Blocked Day ${outside}`)).toBeVisible();
@@ -215,13 +211,10 @@ test.describe.serial('the Calendar setup mode', () => {
 	});
 
 	test('a Blocked Day and a School Holiday each collapse into one panel, told apart by shade', async () => {
-		// A year built around the current week: Term 1 closes on its Monday and Term 2 opens on
-		// its Wednesday, so the Tuesday of that week is outside every Term — a School Holiday —
-		// and Monday with Wednesday to Friday are teaching days.
-		// Holds on any real-world day, including a Saturday or Sunday "today": mondayOf walks
-		// back to that ISO week's Monday, so the built week is always Monday-to-Friday even
-		// when the suite itself runs over the weekend.
-		const monday = mondayOf(todayIso());
+		// A year built around TODAY's week: Term 1 closes on its Monday and Term 2 opens on its
+		// Wednesday, so the Tuesday of that week is outside every Term — a School Holiday — and
+		// Monday with Wednesday to Friday are teaching days.
+		const monday = mondayOf(TODAY);
 		const thursday = plusDays(monday, 3);
 		const terms = [
 			{ opens: plusDays(monday, -84), closes: monday },
@@ -290,8 +283,7 @@ test.describe.serial('the Calendar setup mode', () => {
 		await expect(page.locator('td[data-day-kind="blocked"]')).toContainText('No teaching');
 
 		// A Blocked Day with no note is the other row of the table: the plain fallback headline,
-		// entered with a single menu click and no note asked for. Wednesday is in Term 2
-		// whatever the real date.
+		// entered with a single menu click and no note asked for. Wednesday is in Term 2.
 		await blockDayFromHeader('Wed');
 		await expect(page.locator('thead th[data-day-kind="blocked"]')).toHaveCount(2);
 		await expect(page.locator('td[data-day-kind="blocked"]')).toHaveCount(2);
@@ -311,13 +303,12 @@ test.describe.serial('the Calendar setup mode', () => {
 	});
 
 	test('a Slot is blocked from its day menu, noted over its tile, and unblocked from the same menu', async () => {
-		// The classes' Slots were written for the Week letter the Calendar opened on when
-		// teaching-flows ran — A on a Monday-to-Friday, B over a weekend. One of the two weeks
-		// after the engineered one carries that letter, and both lie wholly inside Term 2, so
-		// five teaching days each: land on the one that shows a tile, then Monday's P1 is
-		// 9B/Sc1's Slot. The day menu is the only door to blocking: its "Block one Slot"
-		// heading lists the day's Periods, one line per real Slot.
-		const monday = mondayOf(todayIso());
+		// The classes' Slots were written for the Week letter of TODAY's week. One of the two weeks
+		// after it carries that letter, and both lie wholly inside Term 2, so five teaching days
+		// each: land on the one that shows a tile, then Monday's P1 is 9B/Sc1's Slot. The day menu
+		// is the only door to blocking: its "Block one Slot" heading lists the day's Periods, one
+		// line per real Slot.
+		const monday = mondayOf(TODAY);
 		const cell = page.locator('tbody tr').first().locator('td').first();
 		for (const offset of [7, 14]) {
 			await page.goto(`/calendar?week=${plusDays(monday, offset)}`);
@@ -369,9 +360,9 @@ test.describe.serial('the Calendar setup mode', () => {
 	});
 
 	test('a refused note stays in the form, and the corrected one blocks', async () => {
-		// The same week the previous test landed on: one of the two weeks after the engineered
-		// one carries the Slots' letter, and Monday's P1 is 9B/Sc1's Slot.
-		const monday = mondayOf(todayIso());
+		// The same week the previous test landed on: one of the two weeks after TODAY's carries the
+		// Slots' letter, and Monday's P1 is 9B/Sc1's Slot.
+		const monday = mondayOf(TODAY);
 		const cell = page.locator('tbody tr').first().locator('td').first();
 		for (const offset of [7, 14]) {
 			await page.goto(`/calendar?week=${plusDays(monday, offset)}`);
@@ -425,7 +416,7 @@ test.describe.serial('the Calendar setup mode', () => {
 	});
 
 	test('closing the note form by Escape hands focus back to the day menu', async () => {
-		const monday = mondayOf(todayIso());
+		const monday = mondayOf(TODAY);
 		const cell = page.locator('tbody tr').first().locator('td').first();
 		let landedMonday = monday;
 		for (const offset of [7, 14]) {

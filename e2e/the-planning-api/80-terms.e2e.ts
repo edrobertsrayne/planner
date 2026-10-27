@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { apiKey, keysOf } from './helpers.ts';
-import { BEARER, plusDays, resetTo, runFixture, todayIso } from '../helpers.ts';
+import { BEARER, isoDate, resetTo, runFixture } from '../helpers.ts';
 
 // Covers the two Term endpoints over real HTTP (issue #164): reading the year back and replacing
 // it as one document, with every refusal the seam owns — the wrong count, an unreal date, a Term
@@ -31,10 +31,8 @@ test.describe.serial('the Term endpoints', () => {
 
 		// Six Terms spanning today, given in no particular order — the read derives the names
 		// from position and answers 200 with the new six beside an empty report.
-		// Term validation only checks open-before-close and no overlap (terms.ts) — no weekday
-		// rule — so these offsets from today hold whatever real weekday the suite runs on.
-		const opens = [-84, -14, 70, 98, 126, 154].map((d) => plusDays(todayIso(), d));
-		const closes = [-21, 56, 84, 112, 140, 168].map((d) => plusDays(todayIso(), d));
+		const opens = [-84, -14, 70, 98, 126, 154].map(isoDate);
+		const closes = [-21, 56, 84, 112, 140, 168].map(isoDate);
 		const shuffled = [3, 0, 5, 1, 4, 2].map((i) => ({ opens: opens[i], closes: closes[i] }));
 
 		const put = await request.put('/api/terms', {
@@ -73,10 +71,7 @@ test.describe.serial('the Term endpoints', () => {
 		const seven = await request.put('/api/terms', {
 			headers: BEARER(token),
 			data: {
-				terms: [
-					...shuffled,
-					{ opens: plusDays(todayIso(), 200), closes: plusDays(todayIso(), 210) }
-				]
+				terms: [...shuffled, { opens: isoDate(200), closes: isoDate(210) }]
 			}
 		});
 		expect(seven.status()).toBe(400);

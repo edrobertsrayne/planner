@@ -11,7 +11,7 @@ import {
 	ORIGIN,
 	resetTo,
 	runFixture,
-	todayIso
+	TODAY
 } from './helpers.ts';
 
 // The structure-editing tests of the responsive work (issue #320): the Course, Topic and Lesson
@@ -297,8 +297,7 @@ test.describe('the Lesson editor for a Standalone Lesson', () => {
 		page
 	}) => {
 		const id = standaloneLesson('Placed carousel');
-		const date = new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10);
-		runFixture('place-lesson', id, '9C/Sc1', date);
+		runFixture('place-lesson', id, '9C/Sc1', isoDate(10));
 		await login(page, `/lessons/${id}`);
 		await expectLessonPage(page);
 
@@ -408,9 +407,7 @@ test.describe('Continuations on the Session page', () => {
 		page
 	}) => {
 		await login(page);
-		// A started Session is not on the Agenda every run date: 9B/Sc1 teaches Mon, Wed and Fri P1
-		// and 9C/Sc1 Tuesday P3, so on a Thursday or a weekend no row ahead is dated today or earlier.
-		// Record one in the past seven days — scripts/e2e-fixtures.ts writes what the app has no way
+		// Record a started Session yesterday — scripts/e2e-fixtures.ts writes what the app has no way
 		// to make — and take it from the look-back, where the teacher opens a past Session. P6 is a
 		// Period 9B/Sc1 never holds, so the row can never collide with a scheduled one; teaching-flows
 		// writes its past Session the same way.
@@ -428,7 +425,7 @@ test.describe('Continuations on the Session page', () => {
 			.filter({ hasNotText: 'Open Slot' })
 			.locator('a[href^="/sessions/"]')
 			.evaluateAll((links) => links.map((a) => a.getAttribute('href')!));
-		const started = hrefs.find((href) => href.split('/')[3] <= todayIso());
+		const started = hrefs.find((href) => href.split('/')[3] <= TODAY);
 		expect(started, 'the look-back holds a started Session with a Lesson').toBeDefined();
 		await page.goto(started!);
 
