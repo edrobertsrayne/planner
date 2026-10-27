@@ -161,6 +161,16 @@ Concrete evidence that the change works. Show a before and after.
 
 Screenshots are S-tier - when the environment is set up for it and the change is visual. For data and a logged-in app to capture, use the `demo-db` skill.
 
+Upload screenshots with `gh`'s `--attach` flag (on `gh pr create`, `gh pr edit`, and `gh pr comment`). Write the body to a file that references each screenshot by its local path, then attach the same files. `gh` swaps each local path for the uploaded URL:
+
+```shell
+# body.md contains: **After:** ![Courses page after](/tmp/after.png)
+gh pr create --title "…" --body-file body.md --attach /tmp/before.png --attach /tmp/after.png
+gh pr edit <N> --body-file body.md --attach /tmp/after.png   # replaces the existing body
+```
+
+An attached file that the body does not reference is appended to the end of the body.
+
 Execution-based evidence is A-tier. Test results, console output. Show the exact test that now fails and passes, using pseudocode.
 
 ### Merge Danger
