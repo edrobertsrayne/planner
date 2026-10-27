@@ -102,12 +102,9 @@ export interface ClassLane {
 // One lane per Class (issue #37): what was last taught and its Teaching note, what is queued
 // next, and the Runway. Reuses classSchedule's single derived answer per Class; there is no separate
 // Classes-view computation. The Calendar and the Teaching notes are each read once for every lane,
-// not once per lane. `classId` restricts to one Class, for the lane atop its own Class page.
-export function classLanes(
-	db: Db,
-	{ today, classId }: { today: string; classId?: string }
-): ClassLane[] {
-	const classes = listClasses(db).filter((c) => !classId || c.id === classId);
+// not once per lane.
+export function classLanes(db: Db, { today }: { today: string }): ClassLane[] {
+	const classes = listClasses(db);
 	const cal = loadCalendar(db);
 	const notes = teachingNotesFor(
 		db,

@@ -38,24 +38,25 @@ test.describe.serial('a Teaching note and the Sequence after a Lesson write', ()
 		await expect(page).toHaveURL(/\/classes\/[^/]+$/);
 	}
 
-	function nextSessions() {
+	// The fixture Class's upcoming Sessions on the Agenda, every row to the end of the year.
+	async function agendaSessions() {
+		await page.goto('/?horizon=all');
 		return page
-			.locator('section')
-			.filter({ has: page.getByRole('heading', { name: 'Next Sessions' }) })
-			.locator('li');
+			.locator('li')
+			.filter({ hasText: FIXTURE_CLASS_LABEL })
+			.filter({ has: page.locator('a[href^="/sessions/"]') });
 	}
 
-	// The Session page of the nth Session the Class teaches next.
+	// The Session page of the nth Session the Class teaches next, from the Agenda.
 	async function openNextSession(index: number) {
-		await openFixtureClass();
-		await nextSessions().nth(index).getByRole('link').first().click();
+		const rows = await agendaSessions();
+		await rows.nth(index).getByRole('link').first().click();
 		await expect(page.getByRole('button', { name: 'Back' })).toBeVisible();
 	}
 
-	// × on a card of the Sequence tab takes the Lesson out of this Class and keeps the Lesson.
+	// × on a card of the Sequence takes the Lesson out of this Class and keeps the Lesson.
 	async function removeFromSequence(title: string) {
 		await openFixtureClass();
-		await page.getByRole('tab', { name: /^Sequence/ }).click();
 		await page.getByRole('button', { name: `Remove ${title}` }).click();
 		await page.getByRole('dialog').getByRole('button', { name: 'Remove', exact: true }).click();
 		await expect(page.locator('[data-remove-result]')).toContainText('Removed 1 Lesson.');
@@ -79,7 +80,6 @@ test.describe.serial('a Teaching note and the Sequence after a Lesson write', ()
 		}
 
 		await openFixtureClass();
-		await page.getByRole('tab', { name: /^Sequence/ }).click();
 		for (const [name, added] of [
 			['Rewind A', 'Added 1 Lesson'],
 			['Rewind B', 'Added 2 Lessons']
@@ -118,7 +118,6 @@ test.describe.serial('a Teaching note and the Sequence after a Lesson write', ()
 	test('a Lesson moved in front of a noted Lesson moves its Teaching note to the new date', async () => {
 		await openFixtureClass();
 		await page.goto(`${page.url()}?layout=list`);
-		await page.getByRole('tab', { name: /^Sequence/ }).click();
 		const titles = page.locator('[data-sequence] [data-title]');
 		await expect(titles).toHaveText(['A one', 'B one', 'B two']);
 
@@ -140,15 +139,14 @@ test.describe.serial('a Teaching note and the Sequence after a Lesson write', ()
 		await expect(page.getByLabel('How it went')).toHaveText('book the ripple tank');
 		await page.getByRole('button', { name: 'Back' }).click();
 
-		await nextSessions().nth(1).getByRole('link').first().click();
+		await openNextSession(1);
 		await expect(page.locator('main')).toContainText('B two');
 		await expect(page.getByLabel('How it went')).toHaveText('');
 		await page.getByRole('button', { name: 'Back' }).click();
 	});
 
 	test('a Lesson added in a Topic changes no date in the Class', async () => {
-		await openFixtureClass();
-		const before = await nextSessions().allInnerTexts();
+		const before = await (await agendaSessions()).allInnerTexts();
 		expect(before[0]).toContain('A one');
 
 		await page.goto(`/courses/${courseId}?topic=${topicIds[1]}`);
@@ -160,8 +158,8 @@ test.describe.serial('a Teaching note and the Sequence after a Lesson write', ()
 		await expect(box).toBeFocused();
 
 		// The new Lesson joins no Sequence: the Class has the same Sessions and three Lessons.
+		expect(await (await agendaSessions()).allInnerTexts()).toEqual(before);
 		await openFixtureClass();
-		expect(await nextSessions().allInnerTexts()).toEqual(before);
-		await expect(page.getByRole('tab', { name: 'Sequence 3' })).toBeVisible();
+		await expect(page.locator('[data-lesson-card]')).toHaveCount(3);
 	});
 });

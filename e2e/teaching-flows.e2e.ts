@@ -99,32 +99,8 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expectSessionClosed(page);
 	});
 
-	test('opening a Session from the Class page, and going Back to the Class page', async () => {
-		await page.goto(`/classes/${classAId}`);
-
-		// Overview leads with the next five Sessions (issue #348): 'Motion' on the next Slot,
-		// then the Open Slots the plan runs out into.
-		const nextSessions = page
-			.locator('section')
-			.filter({ has: page.getByRole('heading', { name: 'Next Sessions' }) });
-		await expect(nextSessions.locator('li')).toHaveCount(5);
-		await expect(nextSessions.locator('li').first()).toContainText('Motion');
-		await expect(nextSessions.locator('li').nth(1)).toContainText('Open Slot');
-
-		await nextSessions.locator('li').first().getByRole('link').click();
-
-		await openSessionAndExpect(page);
-		await expect(page.locator('main')).toContainText('Motion');
-
-		await page.getByRole('button', { name: 'Back' }).click();
-		await expectSessionClosed(page);
-		await expect(page).toHaveURL(`/classes/${classAId}`);
-	});
-
-	test('a Topic is assigned to a Class on its Sequence tab, and its Lessons then show there', async () => {
+	test('a Topic is assigned to a Class on its Overview, and its Lessons then show there', async () => {
 		await page.goto(`/classes/${classBId}?layout=list`);
-		await expect(page.getByRole('tab', { name: 'Sequence 0' })).toBeVisible();
-		await page.getByRole('tab', { name: 'Sequence' }).click();
 		await expect(page.getByText('No Lessons in this Sequence yet.')).toBeVisible();
 
 		// The menu counts the Lessons that the Sequence or a Placement already holds.
@@ -140,7 +116,6 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expect(entries.nth(0)).toContainText('Speed');
 		await expect(entries.nth(0)).toContainText('Forces');
 		await expect(entries.nth(1)).toContainText('Motion');
-		await expect(page.getByRole('tab', { name: 'Sequence 2' })).toBeVisible();
 
 		// Assigning it again adds nothing: every Lesson is counted, so its menu item is off.
 		await page.getByRole('button', { name: 'Assign Topic' }).click();
@@ -170,7 +145,6 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 
 	test('× removes a Lesson from one Class after a confirm, and Assign Topic brings it back', async () => {
 		await page.goto(`/classes/${classBId}?layout=list`);
-		await page.getByRole('tab', { name: 'Sequence' }).click();
 		const entries = page.locator('[data-sequence] > li');
 		await expect(entries).toHaveCount(2);
 
@@ -187,7 +161,6 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expect(entries.first()).toContainText('Speed');
 		await expect(page.locator('[data-remove-result]')).toContainText('Removed 1 Lesson.');
 		await expect(page.locator('[data-remove-result]')).toContainText('Lessons change date');
-		await expect(page.getByRole('tab', { name: 'Sequence 1' })).toBeVisible();
 
 		// The Lesson stays in the Course, so Assign Topic adds it back at the end.
 		await page.getByRole('button', { name: 'Assign Topic' }).click();

@@ -9,7 +9,12 @@ import {
 	runFixture
 } from './helpers.ts';
 
-test.beforeAll(() => resetTo('standard'));
+test.beforeAll(() => {
+	resetTo('standard');
+	// A Lesson of its own at the end of 9B/Sc1's Sequence, so a grip is always there: on a day
+	// 9B/Sc1 has a Slot the queue's own next Lesson is Fixed, and a Fixed Lesson carries no grip.
+	runFixture('add-lesson', '9B/Sc1', 'Grip target');
+});
 
 // The Classes screen, the Class page and its chip row at each size. Touch mode: Playwright's
 // Chromium matches `(pointer: coarse)` as soon as `hasTouch` is true; `isMobile` is not needed.
@@ -18,8 +23,8 @@ test.beforeAll(() => resetTo('standard'));
 // It leaves a `Grip target` Lesson at the end of 9B/Sc1's Sequence; everything else it makes it
 // undoes.
 
-// The Class page (issue #347): Overview and Timetable tabs from `md` up; on a phone Overview
-// only, and nothing written there.
+// The Class page: Overview (the default, the Class's Sequence) and Timetable tabs from `md` up; on
+// a phone the Sequence only, read-only.
 async function openClassPage(page: Page) {
 	await login(page, '/classes');
 	const href = await page
@@ -36,13 +41,8 @@ test.describe('the Class page on a tablet in portrait', () => {
 	test('the Class tabs and the Sequence drag grips keep a 44 px target on touch', async ({
 		page
 	}) => {
-		// A Lesson of its own at the end of the Sequence, so a grip is always there to measure:
-		// on a day 9B/Sc1 has a Slot the queue's own next Lesson is Fixed, and a Fixed Lesson
-		// carries no grip (SequenceWeeks.svelte).
-		runFixture('add-lesson', '9B/Sc1', 'Grip target');
 		await openClassPage(page);
-		await expectHitArea44(page, 'Overview', 'tab');
-		await page.getByRole('tab', { name: /^Sequence/ }).click();
+		await expectHitArea44(page, /^Timetable/, 'tab');
 		await expectBox44(page.getByRole('button', { name: 'Drag Grip target' }));
 	});
 });
@@ -140,22 +140,21 @@ test.describe('the Classes screen on a phone writes nothing', () => {
 test.describe('the Class page on a laptop', () => {
 	test.use({ viewport: { width: 1280, height: 720 } });
 
-	test('opens on Overview, and the Timetable tab shows its Slot count and the Timetable', async ({
+	test('opens on the Overview, and the Timetable tab shows its Slot count and the Timetable', async ({
 		page
 	}) => {
 		await openClassPage(page);
 		await expect(page.getByRole('tablist')).toBeVisible();
-		await expect(page.getByRole('tab', { name: 'Overview' })).toHaveAttribute(
-			'aria-selected',
-			'true'
-		);
-		// Overview first, with the Sequence tab after the Timetable tab; neither shows yet.
-		await expect(page.getByRole('tab', { name: /^Sequence/ })).toBeVisible();
-		await expect(page.getByRole('heading', { name: 'Next Sessions' })).toBeVisible();
+		const tabs = page.getByRole('tab');
+		await expect(tabs).toHaveCount(2);
+		await expect(tabs.nth(0)).toHaveAccessibleName('Overview');
+		await expect(tabs.nth(0)).toHaveAttribute('aria-selected', 'true');
+		await expect(tabs.nth(1)).toHaveAccessibleName(/^Timetable/);
+		await expect(page.getByRole('button', { name: 'Assign Topic' })).toBeVisible();
 		await expect(page.getByLabel('Timetable as at — pick any date')).toBeHidden();
-		await expect(page.getByRole('button', { name: 'Assign Topic' })).toBeHidden();
 
 		await page.getByRole('tab', { name: /^Timetable/ }).click();
+		await expect(page.getByRole('button', { name: 'Assign Topic' })).toBeHidden();
 		await expect(page.getByRole('tab', { name: /^Timetable/ })).toHaveAttribute(
 			'aria-selected',
 			'true'
@@ -171,19 +170,22 @@ test.describe('the Class page on a phone writes nothing', () => {
 	const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];
 	test.use({ viewport, userAgent, deviceScaleFactor, isMobile, hasTouch });
 
-	test('no tabs, no Timetable, no Sequence; Overview only (story 116)', async ({ page }) => {
+	test('no tabs, no Timetable; the Sequence reads and nothing is written (story 116)', async ({
+		page
+	}) => {
 		await openClassPage(page);
 		await expectNoHorizontalScroll(page);
-		// No tabs at all: A chosen Timetable tab on a wider window still shows Overview here.
 		await expect(page.getByRole('tablist')).toBeHidden();
-		await expect(page.getByRole('tab', { name: 'Overview' })).toBeHidden();
-		// The Timetable itself is gone, with its "Timetable as at" control.
 		await expect(page.getByLabel('Timetable as at — pick any date')).toBeHidden();
-		// Overview reads. The Sequence tab and its Assign Topic menu are not there.
-		await expect(page.getByRole('heading', { name: 'Next Sessions' })).toBeVisible();
-		await expect(page.getByText('Runway', { exact: true })).toBeVisible();
-		await expect(page.getByRole('progressbar')).toHaveCount(0);
-		await expect(page.getByRole('tab', { name: /^Sequence/ })).toBeHidden();
+		// The Sequence reads: its Lessons link to the Lesson page.
+		await expect(page.getByRole('heading', { name: 'Sequence', level: 2 })).toBeVisible();
+		await expect(page.getByRole('link', { name: /Grip target/ })).toBeVisible();
+		// Nothing written: no toolbar, grip, ×, week Add or chip Select.
 		await expect(page.getByRole('button', { name: 'Assign Topic' })).toBeHidden();
+		await expect(page.getByRole('button', { name: 'Add Lesson' })).toBeHidden();
+		await expect(page.getByRole('button', { name: 'Drag Grip target' })).toHaveCount(0);
+		await expect(page.getByRole('button', { name: 'Remove Grip target' })).toHaveCount(0);
+		await expect(page.getByRole('button', { name: /^Add a Lesson to the week of/ })).toHaveCount(0);
+		await expect(page.getByRole('button', { name: /^Select / })).toHaveCount(0);
 	});
 });
