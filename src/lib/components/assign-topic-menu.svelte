@@ -2,7 +2,7 @@
 	import { enhance } from '$app/forms';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import type { SubmitFunction } from '@sveltejs/kit';
-	import { submitWithValue } from '$lib/client/enhance';
+	import { submitForm } from '$lib/client/enhance';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import type { TopicOption } from '$lib/server/planner';
@@ -40,7 +40,7 @@
 				<DropdownMenu.Item
 					class="whitespace-nowrap"
 					disabled={all}
-					onSelect={() => submitWithValue(form, 'topicId', topic.id)}
+					onSelect={() => submitForm(form, { fields: { topicId: topic.id } })}
 				>
 					{topic.name} ·
 					{all ? 'all' : `${topic.counted} of ${topic.lessonCount}`} in Sequence or Placed

@@ -8,7 +8,7 @@
 	import NewClassDialog from './NewClassDialog.svelte';
 	import AssignTopicMenu from '$lib/components/assign-topic-menu.svelte';
 	import RewindReport from '$lib/components/rewind-report.svelte';
-	import { failureReason, hasReport, reportOfResult } from '$lib/client/enhance';
+	import { failureReason, hasReport, reportOfResult, sequenceOfResult } from '$lib/client/enhance';
 	import { toast } from 'svelte-sonner';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import type { PageProps } from './$types';
@@ -27,9 +27,8 @@
 				toast.error(failureReason(result, 'Could not assign the Topic.'));
 				return;
 			}
-			if (result.type === 'success' && Array.isArray(result.data?.lines)) {
-				toast.success(`${classLabel}: ${result.data.lines.join(' ')}`);
-			}
+			const sequence = sequenceOfResult(result);
+			if (sequence) toast.success(`${classLabel}: ${sequence.lines.join(' ')}`);
 			const report = reportOfResult(result);
 			if (hasReport(report)) {
 				toast.custom(RewindReport, { componentProps: { report }, duration: 20000 });

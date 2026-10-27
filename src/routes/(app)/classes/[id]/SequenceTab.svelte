@@ -3,7 +3,7 @@
 	import { page } from '$app/state';
 	import ListChecksIcon from '@lucide/svelte/icons/list-checks';
 	import PlusIcon from '@lucide/svelte/icons/plus';
-	import { onFail, replaceQuery, submitWithValue } from '$lib/client/enhance';
+	import { onFail, replaceQuery, submitForm } from '$lib/client/enhance';
 	import { createSequenceDrag, type DragSnapshot } from '$lib/client/sequence-drag';
 	import { lossSentence, type SequenceResult } from '$lib/sequence-text';
 	import { layOutSequence, type SlotFill } from '$lib/sequence-layout';
@@ -113,9 +113,7 @@
 	const drag = createSequenceDrag({
 		onChange: (snapshot) => (dragState = snapshot),
 		onDrop: (lessonIds, target) => {
-			if (!moveForm) return;
-			(moveForm.elements.namedItem('lessonIds') as HTMLInputElement).value = lessonIds.join(',');
-			submitWithValue(moveForm, 'targetId', target);
+			submitForm(moveForm, { fields: { lessonIds: lessonIds.join(','), targetId: target } });
 		}
 	});
 	const dragIds = $derived(dragState.ids);
