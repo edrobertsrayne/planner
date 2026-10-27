@@ -1,11 +1,10 @@
 // Import — one Topic, with its Lessons and their Links, in one all-or-nothing transaction, and
 // optionally its Course. Each step is the one-at-a-time writer, so every field runs the rule it
 // runs on create; a refusal on the ninth Lesson leaves nothing behind.
-import { eq, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
-import { Refused } from './refused';
-import { required } from './fields';
+import { required, requireRow } from './fields';
 import { createCourse, createTopic } from './courses';
 import { createLesson } from './lessons';
 import { createLink } from './links';
@@ -14,8 +13,7 @@ import type { Db } from './derive';
 // What an Import asks for: the Course, named by its id or its name, one Topic, and that Topic's
 // Lessons with their Links.
 type ImportRequest = {
-	courseId?: string;
-	courseName?: string;
+	course: { id: string } | { name: string };
 	topicName: string;
 	lessons: Array<{
 		title: string;
@@ -40,13 +38,13 @@ type ImportedTopic = {
 };
 
 // The Course an Import targets: the one with that name, created when the name is new, or the one
-// with that id, which must exist. The guard in importTopic promises exactly one of the two.
+// with that id, which must exist.
 function importCourse(
 	db: Db,
-	{ id, name }: { id?: string; name?: string }
+	course: ImportRequest['course']
 ): { course: { id: string; name: string }; created: boolean } {
-	if (name !== undefined) {
-		const trimmed = required(name, 'A Course needs a name.');
+	if ('name' in course) {
+		const trimmed = required(course.name, 'A Course needs a name.');
 		const [existing] = db
 			.select({ id: schema.course.id, name: schema.course.name })
 			.from(schema.course)
@@ -55,12 +53,7 @@ function importCourse(
 		if (existing) return { course: existing, created: false };
 		return { course: createCourse(db, { name: trimmed }), created: true };
 	}
-	const [found] = db
-		.select({ id: schema.course.id, name: schema.course.name })
-		.from(schema.course)
-		.where(eq(schema.course.id, id ?? ''))
-		.all();
-	if (!found) throw new Refused('missing', 'Course not found.');
+	const found = requireRow(db, schema.course, course.id, 'Course not found.');
 	return { course: found, created: false };
 }
 
@@ -70,17 +63,10 @@ function importCourse(
 // refusal on the ninth Lesson leaves nothing behind: `Refused` rolls the write back on the way out
 // through `inTransaction`, and every other throw rolls back too and propagates, so an unexpected
 // fault reaches the door as the 500 it is, with nothing committed.
-export function importTopic(
-	db: Db,
-	{ courseId, courseName, topicName, lessons }: ImportRequest
-): ImportedTopic {
-	if ((courseId === undefined) === (courseName === undefined)) {
-		throw new Refused('invalid', 'The "course" field must carry exactly one of "id" or "name".');
-	}
-
+export function importTopic(db: Db, { course, topicName, lessons }: ImportRequest): ImportedTopic {
 	return inTransaction(db.$client, () => {
-		const { course, created: courseCreated } = importCourse(db, { id: courseId, name: courseName });
-		const topic = createTopic(db, { courseId: course.id, name: topicName });
+		const { course: target, created: courseCreated } = importCourse(db, course);
+		const topic = createTopic(db, { courseId: target.id, name: topicName });
 		const created: ImportedTopic['lessons'] = lessons.map((lesson) => {
 			const { lesson: row } = createLesson(db, {
 				topicId: topic.id,
@@ -101,7 +87,7 @@ export function importTopic(
 		});
 
 		return {
-			course: { id: course.id, name: course.name },
+			course: { id: target.id, name: target.name },
 			courseCreated,
 			topic: { id: topic.id, name: topic.name, courseId: topic.courseId },
 			lessons: created

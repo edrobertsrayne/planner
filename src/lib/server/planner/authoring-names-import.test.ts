@@ -148,7 +148,7 @@ describe('importing a Topic with its Lessons and Links', () => {
 		const { db } = setUpAuthoring();
 
 		const result = importTopic(db, {
-			courseName: 'Year 9 Physics',
+			course: { name: 'Year 9 Physics' },
 			topicName: 'Forces',
 			lessons: [
 				{
@@ -175,7 +175,7 @@ describe('importing a Topic with its Lessons and Links', () => {
 		const course = createCourse(db, { name: 'Year 9 Physics' });
 
 		const result = importTopic(db, {
-			courseId: course.id,
+			course: { id: course.id },
 			topicName: 'Waves',
 			lessons: [{ title: 'Reflection' }]
 		});
@@ -190,7 +190,7 @@ describe('importing a Topic with its Lessons and Links', () => {
 		createCourse(db, { name: 'Year 9 Physics' });
 
 		const result = importTopic(db, {
-			courseName: '  YEAR 9 PHYSICS  ',
+			course: { name: '  YEAR 9 PHYSICS  ' },
 			topicName: 'Waves',
 			lessons: [{ title: 'Reflection' }]
 		});
@@ -200,29 +200,21 @@ describe('importing a Topic with its Lessons and Links', () => {
 		expect(listCourses(db)).toHaveLength(1);
 	});
 
-	test('refuses when the course field carries both id and name, or neither', () => {
+	test('refuses a Course id the database does not hold, creating nothing', () => {
 		const { db } = setUpAuthoring();
-		const course = createCourse(db, { name: 'Year 9 Physics' });
 
 		refused(
 			() =>
 				importTopic(db, {
-					courseId: course.id,
-					courseName: 'Year 9 Physics',
+					course: { id: 'does-not-exist' },
 					topicName: 'Waves',
 					lessons: []
 				}),
-			'invalid',
-			'The "course" field must carry exactly one of "id" or "name".'
+			'missing',
+			'Course not found.'
 		);
 
-		refused(
-			() => importTopic(db, { topicName: 'Waves', lessons: [] }),
-			'invalid',
-			'The "course" field must carry exactly one of "id" or "name".'
-		);
-
-		expect(topicsOf(db, course.id)).toHaveLength(0);
+		expect(listCourses(db)).toEqual([]);
 	});
 
 	test('refuses a Topic name that collides in the target Course, creating nothing', () => {
@@ -233,7 +225,7 @@ describe('importing a Topic with its Lessons and Links', () => {
 		refused(
 			() =>
 				importTopic(db, {
-					courseId: course.id,
+					course: { id: course.id },
 					topicName: 'forces',
 					lessons: [{ title: 'Newton I' }]
 				}),
@@ -252,7 +244,7 @@ describe('importing a Topic with its Lessons and Links', () => {
 		refused(
 			() =>
 				importTopic(db, {
-					courseName: 'Year 9 Physics',
+					course: { name: 'Year 9 Physics' },
 					topicName: 'Forces',
 					lessons: [
 						{ title: 'Newton I', links: [{ url: 'https://example.com/a', label: 'Sheet' }] },
@@ -279,7 +271,7 @@ describe('importing a Topic with its Lessons and Links', () => {
 		refused(
 			() =>
 				importTopic(db, {
-					courseName: 'Year 9 Physics',
+					course: { name: 'Year 9 Physics' },
 					topicName: 'Forces',
 					lessons: [lesson]
 				}),

@@ -49,7 +49,7 @@ describe('a Course Tone', () => {
 		const { db } = setUpAuthoring();
 		createCourse(db, { name: 'Year 9 Physics' });
 		const { course } = importTopic(db, {
-			courseName: 'Year 10 Chemistry',
+			course: { name: 'Year 10 Chemistry' },
 			topicName: 'Moles',
 			lessons: [{ title: 'Intro' }]
 		});

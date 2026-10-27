@@ -75,8 +75,20 @@ export const POST: RequestHandler = async (event) => {
 	const courseId = typeof course.id === 'string' ? course.id : undefined;
 	const courseName = typeof course.name === 'string' ? course.name : undefined;
 
+	// Exactly one of the two names the target Course. The seam's request type says so, so the
+	// door turns the body into one shape or refuses it here.
+	let target: { id: string } | { name: string };
+	if (courseId !== undefined && courseName === undefined) target = { id: courseId };
+	else if (courseName !== undefined && courseId === undefined) target = { name: courseName };
+	else {
+		return json(
+			{ error: 'The "course" field must carry exactly one of "id" or "name".' },
+			{ status: 400 }
+		);
+	}
+
 	try {
-		const created = importTopic(db, { courseId, courseName, topicName, lessons });
+		const created = importTopic(db, { course: target, topicName, lessons });
 
 		return json(
 			{
