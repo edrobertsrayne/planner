@@ -1,7 +1,5 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import type { SubmitFunction } from '@sveltejs/kit';
-	import { tick } from 'svelte';
 	import { resolve } from '$app/paths';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
@@ -9,12 +7,8 @@
 	import { classTone } from '$lib/class-tone';
 	import { courseHref } from '$lib/client/back';
 	import { STATUS_LABEL } from '$lib/lesson-status';
-	import {
-		createInPlace,
-		createThenSelect,
-		failureReason,
-		submitWithValue
-	} from '$lib/client/enhance';
+	import { createDeleteAsk } from '$lib/client/confirm-delete.svelte';
+	import { createInPlace, createThenSelect, submitForm } from '$lib/client/enhance';
 	import { plural } from '$lib/plural';
 	import RenameableRow from '$lib/components/renameable-row.svelte';
 	import ReorderButtons from '$lib/components/reorder-buttons.svelte';
@@ -40,37 +34,23 @@
 
 	// A delete is asked unconfirmed first. The action answers `needsConfirm` with the reason when
 	// Lessons would be detached, and the dialog then posts the delete with `confirmed`. An empty
-	// Topic or Course goes at once.
-	let pendingDelete = $state<{
-		kind: 'course' | 'topic';
-		id: string;
-		name: string;
-		description: string;
-	} | null>(null);
+	// Topic or Course goes at once. The row's name travels in the hidden form so the dialog can
+	// say which one it is asking about.
 	let deleteForm = $state<HTMLFormElement>();
-	let deleteAction = $state('?/deleteTopic');
-	let asked: { kind: 'course' | 'topic'; id: string; name: string } | null = null;
+	const deleter = createDeleteAsk((data) => ({
+		id: String(data.get('id') ?? ''),
+		name: String(data.get('name') ?? '')
+	}));
 
 	// Move to… files the shown Topic in another Course. One hidden form carries the chosen Course.
 	let moveForm = $state<HTMLFormElement>();
 
-	async function submitDelete(kind: 'course' | 'topic', id: string, name: string): Promise<void> {
-		asked = { kind, id, name };
-		deleteAction = kind === 'topic' ? '?/deleteTopic' : '?/deleteCourse';
-		await tick();
-		submitWithValue(deleteForm, 'id', id);
+	function submitDelete(kind: 'course' | 'topic', id: string, name: string): void {
+		submitForm(deleteForm, {
+			action: kind === 'topic' ? '?/deleteTopic' : '?/deleteCourse',
+			fields: { id, name }
+		});
 	}
-
-	const answerDelete: SubmitFunction = () => {
-		const target = asked;
-		return async ({ result, update }) => {
-			if (target && result.type === 'failure' && result.data?.needsConfirm) {
-				pendingDelete = { ...target, description: failureReason(result, 'Delete it?') };
-			} else {
-				await update();
-			}
-		};
-	};
 </script>
 
 <svelte:head><title>{data.course.name}</title></svelte:head>
@@ -248,7 +228,8 @@
 								</DropdownMenu.Trigger>
 								<DropdownMenu.Content align="end">
 									{#each data.otherCourses as c (c.id)}
-										<DropdownMenu.Item onSelect={() => submitWithValue(moveForm, 'courseId', c.id)}
+										<DropdownMenu.Item
+											onSelect={() => submitForm(moveForm, { fields: { courseId: c.id } })}
 											>{c.name}</DropdownMenu.Item
 										>
 									{/each}
@@ -327,11 +308,8 @@
 	</div>
 </div>
 
-<ConfirmDeleteDialog
-	bind:target={pendingDelete}
-	action={pendingDelete?.kind === 'topic' ? '?/deleteTopic' : '?/deleteCourse'}
-/>
+<ConfirmDeleteDialog bind:target={deleter.pending} />
 
-<form method="POST" action={deleteAction} use:enhance={answerDelete} bind:this={deleteForm} hidden>
+<form method="POST" use:enhance={deleter.ask} bind:this={deleteForm} hidden>
 	<input type="hidden" name="id" />
 </form>

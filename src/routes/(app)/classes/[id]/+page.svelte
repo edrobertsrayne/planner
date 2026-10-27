@@ -6,7 +6,8 @@
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
 	import { classTone } from '$lib/class-tone';
-	import { failureReason, replaceQuery } from '$lib/client/enhance';
+	import { createDeleteAsk } from '$lib/client/confirm-delete.svelte';
+	import { replaceQuery } from '$lib/client/enhance';
 	import { formatDate } from '$lib/date';
 	import { withParam } from '$lib/query';
 	import ConfirmDeleteDialog from '$lib/components/confirm-delete-dialog.svelte';
@@ -19,7 +20,6 @@
 	import SequenceTab from './SequenceTab.svelte';
 	import SlotRooms from './SlotRooms.svelte';
 	import TimetableGrid from './TimetableGrid.svelte';
-	import type { SubmitFunction } from '@sveltejs/kit';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -38,20 +38,7 @@
 	// Deleting a Class always asks first (ADR-0022): the unconfirmed post comes back with
 	// `needsConfirm` and the reason, which names what goes with it. The dialog then posts the same
 	// delete with `confirmed`, and the action lands the teacher on the Classes list.
-	let pendingDelete = $state<{ id: string; name: string; description: string } | null>(null);
-	const askDelete: SubmitFunction = () => {
-		return async ({ result, update }) => {
-			if (result.type === 'failure' && result.data?.needsConfirm) {
-				pendingDelete = {
-					id: data.class.id,
-					name: data.class.label,
-					description: failureReason(result, 'Delete it?')
-				};
-			} else {
-				await update();
-			}
-		};
-	};
+	const deleter = createDeleteAsk(() => ({ id: data.class.id, name: data.class.label }));
 	const slotCount = $derived(data.grid.filter((s) => s.classId === data.class.id).length);
 
 	const labelOf = (classId: string) => data.classes.find((c) => c.id === classId)?.label ?? classId;
@@ -114,7 +101,7 @@
 		</div>
 		<!-- The rename pencil's partner, and shown on the same widths: a phone writes nothing here. -->
 		{#if md.current}
-			<form method="POST" action="?/deleteClass" use:enhance={askDelete} class="ml-auto shrink-0">
+			<form method="POST" action="?/deleteClass" use:enhance={deleter.ask} class="ml-auto shrink-0">
 				<input type="hidden" name="id" value={data.class.id} />
 				<Button
 					type="submit"
@@ -224,4 +211,4 @@
 	</div>
 </div>
 
-<ConfirmDeleteDialog bind:target={pendingDelete} action="?/deleteClass" />
+<ConfirmDeleteDialog bind:target={deleter.pending} />
