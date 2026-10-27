@@ -2,14 +2,14 @@
 // renaming, moving or deleting one never re-derives; nor does the order of a Topic's Lessons,
 // because each Class holds its own Sequence (ADR-0026). A Course's Tone is assigned once, at
 // creation (ADR-0013). A delete that a Sequence or a Class makes risky asks first.
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { nextTone } from '$lib/class-tone';
 import { courseDeleteText, standaloneText } from '$lib/delete-text';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import { Refused } from './refused';
 import { lessonsOf } from './lessons';
-import { required, requireRow } from './fields';
+import { required, requireRow, sameName } from './fields';
 import type { Db } from './derive';
 
 // A delete that needs an answer first: the caller shows `reason` and asks again with `confirmed`.
@@ -32,9 +32,7 @@ function assertCourseNameAvailable(
 		.select({ name: schema.course.name })
 		.from(schema.course)
 		.where(
-			exceptId
-				? sql`${schema.course.id} != ${exceptId} AND lower(${schema.course.name}) = lower(${name})`
-				: sql`lower(${schema.course.name}) = lower(${name})`
+			and(sameName(schema.course.name, name), exceptId ? ne(schema.course.id, exceptId) : undefined)
 		)
 		.all();
 	if (collision) {
@@ -60,9 +58,8 @@ function assertTopicNameAvailable(
 		.where(
 			and(
 				eq(schema.topic.courseId, courseId),
-				exceptId
-					? sql`${schema.topic.id} != ${exceptId} AND lower(${schema.topic.name}) = lower(${name})`
-					: sql`lower(${schema.topic.name}) = lower(${name})`
+				sameName(schema.topic.name, name),
+				exceptId ? ne(schema.topic.id, exceptId) : undefined
 			)
 		)
 		.all();

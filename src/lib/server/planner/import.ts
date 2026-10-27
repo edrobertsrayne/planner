@@ -1,10 +1,9 @@
 // Import — one Topic, with its Lessons and their Links, in one all-or-nothing transaction, and
 // optionally its Course. Each step is the one-at-a-time writer, so every field runs the rule it
 // runs on create; a refusal on the ninth Lesson leaves nothing behind.
-import { sql } from 'drizzle-orm';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
-import { required, requireRow } from './fields';
+import { required, requireRow, sameName } from './fields';
 import { createCourse, createTopic } from './courses';
 import { createLesson } from './lessons';
 import { createLink } from './links';
@@ -48,7 +47,7 @@ function importCourse(
 		const [existing] = db
 			.select({ id: schema.course.id, name: schema.course.name })
 			.from(schema.course)
-			.where(sql`lower(${schema.course.name}) = lower(${trimmed})`)
+			.where(sameName(schema.course.name, trimmed))
 			.all();
 		if (existing) return { course: existing, created: false };
 		return { course: createCourse(db, { name: trimmed }), created: true };

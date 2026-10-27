@@ -1,9 +1,9 @@
 // Tags — short, user-typed labels a Lesson may carry. Names are unique across the planner,
 // case-insensitive; attaching a name that matches an existing Tag reuses it, because attach, never
 // create-or-refuse, is the point. A Tag is descriptive metadata and never changes a date.
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import * as schema from '../db/schema';
-import { required, requireRow } from './fields';
+import { required, requireRow, sameName } from './fields';
 import { inTransaction } from '../db';
 import type { Db } from './derive';
 
@@ -74,11 +74,7 @@ export function attachTag(
 	// The Tag row and its lesson_tag attachment are one write: if the attachment fails, the Tag
 	// it would have left behind is rolled back with it.
 	return inTransaction(db.$client, () => {
-		const [existing] = db
-			.select()
-			.from(schema.tag)
-			.where(sql`lower(${schema.tag.name}) = lower(${trimmed})`)
-			.all();
+		const [existing] = db.select().from(schema.tag).where(sameName(schema.tag.name, trimmed)).all();
 		const tagRow = existing ?? db.insert(schema.tag).values({ name: trimmed }).returning().all()[0];
 
 		db.insert(schema.lessonTag).values({ lessonId, tagId: tagRow.id }).onConflictDoNothing().run();

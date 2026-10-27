@@ -4,11 +4,17 @@
 // refuses with one message. Only a value that would break something has a rule: an empty name,
 // a Link url that is not http(s), a Length the layout cannot draw, a status the database
 // refuses. No size limit exists — the request body limit bounds every write.
-import { eq } from 'drizzle-orm';
+import { eq, sql, type SQL } from 'drizzle-orm';
 import type { SQLiteColumn, SQLiteTable } from 'drizzle-orm/sqlite-core';
 import { LESSON_STATUSES, type LessonStatus } from '$lib/lesson-status';
 import { Refused } from './refused';
 import type { Db } from './derive';
+
+// A name equals another case-insensitively — the comparison every unique Course, Topic and Tag
+// name shares. Both sides are already trimmed by the caller.
+export function sameName(column: SQLiteColumn, name: string): SQL<unknown> {
+	return sql`lower(${column}) = lower(${name})`;
+}
 
 // A record the request names must exist before the write that hangs off it: a Lesson's Topic, a
 // Tag's Lesson, a Class's Course. One guard for every create, so each refuses with the same kind
