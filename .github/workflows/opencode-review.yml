@@ -34,12 +34,3 @@ jobs:
         with:
           model: opencode-go/kimi-k3.1-pro
           use_github_token: true
-          prompt: |
-            Review this pull request. Comment only; don't change files.
-            Read AGENTS.md, GLOSSARY.md and any docs/adr/ record that touches the changed area first.
-            Check that:
-            - domain terms match GLOSSARY.md and none of the synonyms it lists to avoid appear;
-            - the change respects the ADRs, including no pupil-identifiable data;
-            - behaviour has a test at the lowest level that can see it;
-            - a migration follows docs/agents/migrations.md.
-            Report bugs and violations of those rules. Skip style nits that prettier and eslint enforce.
