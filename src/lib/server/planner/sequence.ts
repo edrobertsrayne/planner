@@ -7,9 +7,9 @@
 import { and, asc, eq, inArray, lte, ne } from 'drizzle-orm';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
-import { addDays } from '$lib/date';
+import { addDays, mondayOf, weekday } from '$lib/date';
 import type { LessonStatus } from '$lib/lesson-status';
-import { availableSlots, inAnyTerm, slotHolds, type ScheduleResult } from './engine';
+import { timetabledSlots, type Calendar, type ScheduleResult, type TimetabledSlot } from './engine';
 import {
 	lessonNames,
 	loadCalendar,
@@ -454,7 +454,7 @@ export function sequenceView(db: Db, { classId, today }: { classId: string; toda
 
 	const topics = topicOptions(db, { classId, courseId: cls.courseId });
 
-	const { weeks, freeAfter } = weekRows(db, { classId, cal, result, fixed, entries });
+	const { weeks, freeAfter } = weekRows(db, { classId, cal, result, fixed });
 	const chips = new Map<string, TopicChip>();
 	for (const entry of entries) {
 		if (!entry.topicId || !entry.topicName) continue;
@@ -480,81 +480,85 @@ function weekRows(
 		classId,
 		cal,
 		result,
-		fixed,
-		entries
+		fixed
 	}: {
 		classId: string;
-		cal: ReturnType<typeof loadCalendar>;
+		cal: Calendar;
 		result: ScheduleResult;
 		fixed: Set<string>;
-		entries: SequenceEntry[];
 	}
 ) {
-	const inSequence = new Set(entries.map((e) => e.lessonId));
-	const known = new Map<
-		string,
-		{ kind: 'taught' | 'placed'; lessonId: string } | { kind: 'movable' }
-	>();
-	const lessonKeys = new Set<string>();
-	const openKeys = new Set<string>();
-	const placedIds = new Set<string>();
-	for (const s of result.history) {
-		const kind = inSequence.has(s.lessonId) ? 'taught' : 'placed';
-		if (kind === 'placed') placedIds.add(s.lessonId);
-		known.set(occasionKey(s), { kind, lessonId: s.lessonId });
-	}
-	for (const s of result.scheduled) {
-		const key = occasionKey(s);
-		if (s.placementId || fixed.has(s.lessonId)) {
-			const kind = s.placementId ? 'placed' : 'taught';
-			if (kind === 'placed') placedIds.add(s.lessonId);
-			known.set(key, { kind, lessonId: s.lessonId });
-		} else {
-			lessonKeys.add(key);
-			known.set(key, { kind: 'movable' });
-		}
-	}
-	for (const s of result.openSlots) {
-		openKeys.add(occasionKey(s));
-		known.set(occasionKey(s), { kind: 'movable' });
-	}
-	const titles = lessonNames(db, [...placedIds]);
+	const recorded = new Map(result.history.map((session) => [occasionKey(session), session]));
+	const scheduled = new Map(result.scheduled.map((session) => [occasionKey(session), session]));
+	const open = new Set(result.openSlots.map(occasionKey));
 
-	// A Slot of the Class that is not an Available Slot, and not known, is blocked.
-	const available = new Set(availableSlots(cal, classId).map(occasionKey));
-	const own = cal.slots.filter((slot) => slot.classId === classId);
-	const all = cal.teachingWeeks.map((week) => {
-		const cells: WeekCell[] = [];
-		for (let day = 1; day <= 5; day++) {
-			const date = addDays(week.weekCommencing, day - 1);
-			if (!inAnyTerm(cal.terms, date)) continue;
-			for (const slot of own
-				.filter((s) => s.week === week.letter && s.day === day && slotHolds(s, date))
-				.sort((a, b) => a.period - b.period)) {
-				const key = occasionKey({ date, period: slot.period });
-				const at = known.get(key);
-				const base = { key, date, day, period: slot.period };
-				if (!at) cells.push({ ...base, kind: available.has(key) ? 'past' : 'blocked' });
-				else if (at.kind === 'movable') cells.push({ ...base, kind: 'movable' });
-				else if (at.kind === 'taught')
-					cells.push({ ...base, kind: 'taught', lessonId: at.lessonId });
-				else cells.push({ ...base, kind: 'placed', title: titles.get(at.lessonId)?.title ?? null });
-			}
-		}
-		return {
-			kind: 'week' as const,
-			weekCommencing: week.weekCommencing,
-			letter: week.letter,
-			cells
-		};
-	});
+	// The Lessons a Placement names, which the Class's Sequence does not hold, so a placed cell can
+	// show its title without the entries it is not in.
+	const titles = lessonNames(db, [
+		...new Set(
+			[...result.history, ...result.scheduled].flatMap((session) =>
+				session.placementId ? [session.lessonId] : []
+			)
+		)
+	]);
 
+	// What one occasion of the Class's Timetable shows: the record first (a taught Lesson is
+	// fixed), then the schedule's own rows, then an Open Slot, and otherwise a removal the Calendar
+	// made or a position before `today` the engine lays nothing on.
+	function cellFor(slot: TimetabledSlot): WeekCell {
+		const key = occasionKey(slot);
+		const base = { key, date: slot.date, day: weekday(slot.date), period: slot.period };
+
+		const taught = recorded.get(key);
+		if (taught) {
+			return taught.placementId
+				? { ...base, kind: 'placed', title: titles.get(taught.lessonId)?.title ?? null }
+				: { ...base, kind: 'taught', lessonId: taught.lessonId };
+		}
+
+		const at = scheduled.get(key);
+		if (at) {
+			if (at.placementId)
+				return { ...base, kind: 'placed', title: titles.get(at.lessonId)?.title ?? null };
+			return fixed.has(at.lessonId)
+				? { ...base, kind: 'taught', lessonId: at.lessonId }
+				: { ...base, kind: 'movable' };
+		}
+
+		if (open.has(key)) return { ...base, kind: 'movable' };
+		return { ...base, kind: slot.removedBy.length === 0 ? 'past' : 'blocked' };
+	}
+
+	// A date outside every Term takes no cell in these rows.
+	const byWeek = new Map<string, TimetabledSlot[]>();
+	for (const slot of timetabledSlots(cal, classId)) {
+		if (slot.removedBy.some((removal) => removal.kind === 'outside-term')) continue;
+		const week = mondayOf(slot.date);
+		const group = byWeek.get(week);
+		if (group) group.push(slot);
+		else byWeek.set(week, [slot]);
+	}
+
+	const all = cal.teachingWeeks.map((week) => ({
+		kind: 'week' as const,
+		weekCommencing: week.weekCommencing,
+		letter: week.letter,
+		cells: (byWeek.get(week.weekCommencing) ?? []).map(cellFor)
+	}));
+
+	// A row starts at the first week a movable Lesson stands in, or, when nothing is left to teach,
+	// the first week with an Open Slot. It ends a week past the last week a movable Lesson is in.
+	const movable = new Set(
+		result.scheduled
+			.filter((session) => !session.placementId && !fixed.has(session.lessonId))
+			.map(occasionKey)
+	);
 	const has = (keys: Set<string>) => (row: (typeof all)[number]) =>
 		row.cells.some((cell) => keys.has(cell.key));
-	let first = all.findIndex(has(lessonKeys));
-	if (first === -1) first = all.findIndex(has(openKeys));
+	let first = all.findIndex(has(movable));
+	if (first === -1) first = all.findIndex(has(open));
 	if (first === -1) return { weeks: [] as WeekRow[], freeAfter: 0 };
-	const last = all.findLastIndex(has(lessonKeys));
+	const last = all.findLastIndex(has(movable));
 	const shown = all.slice(first, Math.min(Math.max(last, first) + 2, all.length));
 
 	const weeks: WeekRow[] = [];
@@ -570,7 +574,7 @@ function weekRows(
 		weeks.push(row);
 	}
 	const freeShown = shown.reduce(
-		(n, row) => n + row.cells.filter((c) => openKeys.has(c.key)).length,
+		(n, row) => n + row.cells.filter((cell) => open.has(cell.key)).length,
 		0
 	);
 	return { weeks, freeAfter: result.openSlots.length - freeShown };

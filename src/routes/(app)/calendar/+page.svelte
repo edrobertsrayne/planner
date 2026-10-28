@@ -410,10 +410,10 @@
 													<span class="mt-0.5 hidden sm:block">
 														<span
 															class="line-clamp-2 text-xs leading-tight font-medium"
-															style:color={tone.fg}>{cell.lesson?.title}</span
+															style:color={tone.fg}>{cell.lesson.title}</span
 														>
 													</span>
-													{#if cell.lesson?.topicName}
+													{#if cell.lesson.topicName}
 														<span class="mt-auto hidden md:block">
 															<span
 																class="line-clamp-1 text-[11px] opacity-80"
