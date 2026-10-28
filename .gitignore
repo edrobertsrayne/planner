@@ -48,3 +48,4 @@ __screenshots__
 !.claude/settings.json
 !.claude/hooks
 !.claude/hooks/*
+!.claude/skills

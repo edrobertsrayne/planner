@@ -15,7 +15,7 @@ import {
 } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { readMigrationFiles } from 'drizzle-orm/migrator';
-import { runMigrations } from '../db';
+import { inTransaction, runMigrations } from '../db';
 import { attachmentsDir } from '../planner';
 import { ATTACHMENT_PREFIX, DATABASE_ENTRY } from './backup';
 import { BadArchive, untar } from './tar';
@@ -43,32 +43,23 @@ const NOT_PLANNER_DATA = new Set([
 
 const ATTACHMENT_ID = /^[\w-]+$/;
 
-export type LiveDatabase = {
-	/** The live client, to check that the instance holds no planner data. */
-	client: Database;
-	/** Releases the live database file so that it can be replaced. */
-	close(): void;
-	/** Opens whatever is at the database path now, migrating it. Called even after a failed swap. */
-	reopen(): void;
-};
-
 export async function restoreBackup(options: {
 	body: ReadableStream<Uint8Array>;
 	contentLength: number | null;
 	databaseUrl: string;
-	live: LiveDatabase;
+	client: Database;
 	migrationsFolder?: string;
 }): Promise<void> {
-	const { databaseUrl, live } = options;
+	const { databaseUrl, client } = options;
 	const dataDir = dirname(databaseUrl);
 
 	if (!options.contentLength) throw new RestoreRefused('The upload did not say how large it is.');
 	const { bavail, bsize } = statfsSync(dataDir);
-	// The upload is unpacked file for file into the scratch folder, so the space it needs is about
-	// its own size: there is no second copy of the archive on disk.
-	if (bavail * bsize < options.contentLength) {
+	// The unpacked Backup and the live database it is copied into exist together, so the scratch
+	// folder and the live file each need room for the Backup's contents.
+	if (bavail * bsize < 2 * options.contentLength) {
 		throw new RestoreRefused(
-			'There is not enough free disk space to restore this Backup. Restore needs about as much free space as the Backup is large.'
+			'There is not enough free disk space to restore this Backup. Restore needs about twice its size.'
 		);
 	}
 
@@ -82,11 +73,11 @@ export async function restoreBackup(options: {
 
 		checkStaged(stagedDatabase, stagedAttachments, options.migrationsFolder ?? 'drizzle');
 
-		if (hasPlannerData(live.client)) {
+		if (hasPlannerData(client)) {
 			throw new RestoreRefused('This planner already holds data, so it cannot be restored over.');
 		}
 
-		swap(databaseUrl, stagedDatabase, stagedAttachments, live);
+		apply(client, databaseUrl, stagedDatabase, stagedAttachments);
 	} finally {
 		rmSync(work, { recursive: true, force: true });
 	}
@@ -197,34 +188,90 @@ function hasPlannerData(client: Database): boolean {
 	return tables.some((name) => client.query(`SELECT 1 FROM "${name}" LIMIT 1`).get() !== null);
 }
 
-/** The only step that touches live files. It checks for a user and then moves the files in one
- * synchronous block, so a wizard sign-up cannot slip in between. The database is reopened whatever
- * happens: a failed swap leaves no database file, so the reopened one is empty and the wizard is
- * still open. */
-function swap(
+// The migrations table describes the schema, not the data, and the live database is already on the
+// same migrations as the upgraded staged copy. Leaving it alone means the copy never rewrites the
+// schema version it was checked against.
+const NOT_COPIED = new Set(['__drizzle_migrations']);
+
+/** The tables a Restore copies, in a stable order, from one attached database. */
+function copiedTables(client: Database, database: 'main' | 'staged'): string[] {
+	return client
+		.query<{ name: string }, []>(
+			`SELECT name FROM ${database}.sqlite_master
+			 WHERE type = 'table' AND name NOT LIKE 'sqlite_%'`
+		)
+		.all()
+		.map((row) => row.name)
+		.filter((name) => !NOT_COPIED.has(name))
+		.sort();
+}
+
+/** The only step that writes the live instance. The staged database is attached and its rows are
+ * copied into the live tables in one transaction, so the database part of a Restore either lands
+ * whole or not at all, and the live connection never closes. Attachments move inside that
+ * transaction; if it does not commit, the moved files are removed again.
+ *
+ * The caller serialises this with first-run sign-up (`firstRun`), so nothing can create a user
+ * between the check and the copy. */
+function apply(
+	client: Database,
 	databaseUrl: string,
 	stagedDatabase: string,
-	stagedAttachments: string,
-	live: LiveDatabase
+	stagedAttachments: string
 ) {
-	if (live.client.query('SELECT 1 FROM "user" LIMIT 1').get() !== null) {
+	if (client.query('SELECT 1 FROM "user" LIMIT 1').get() !== null) {
 		throw new RestoreRefused('This planner already has an account.');
 	}
-	live.close();
-	const liveAttachments = attachmentsDir(databaseUrl);
-	let attachmentsMoved = false;
+
+	client.run('ATTACH DATABASE ? AS staged', [stagedDatabase]);
 	try {
-		rmSync(liveAttachments, { recursive: true, force: true });
-		renameSync(stagedAttachments, liveAttachments);
-		attachmentsMoved = true;
-		for (const suffix of ['', '-wal', '-shm']) rmSync(databaseUrl + suffix, { force: true });
-		renameSync(stagedDatabase, databaseUrl);
-	} catch (cause) {
-		// The database is still the empty one the wizard had. The Attachments that moved beside it
-		// belong to a Restore that did not land, so they go too: the instance stays empty.
-		if (attachmentsMoved) rmSync(liveAttachments, { recursive: true, force: true });
-		throw cause;
+		const live = copiedTables(client, 'main');
+		const staged = copiedTables(client, 'staged');
+		// The staged copy was upgraded to this version's migrations. A different set of tables is not
+		// a Backup this version knows how to take apart.
+		if (live.join('\n') !== staged.join('\n')) throw new RestoreRefused(NOT_A_BACKUP);
+
+		const liveAttachments = attachmentsDir(databaseUrl);
+		let attachmentsMoved = false;
+		const journalMode = client.query<{ journal_mode: string }, []>('PRAGMA journal_mode').get()!
+			.journal_mode;
+
+		// Foreign keys stay off while every table is emptied and refilled. With them on, a child row
+		// inserted from another database before its parent is refused at COMMIT even when the parent
+		// arrives in the same transaction — defer_foreign_keys does not save it under Bun's SQLite —
+		// and one fixed table order cannot put every foreign key first. The staged copy was checked
+		// for orphans, and the copy is checked again before it commits.
+		client.run('PRAGMA foreign_keys = OFF');
+		try {
+			// Writing the whole database into a WAL would keep a second copy of it on disk until a
+			// checkpoint. The rollback journal holds only the pages being replaced, and the file is
+			// switched back when the copy is done.
+			client.run('PRAGMA journal_mode = DELETE');
+			inTransaction(client, () => {
+				for (const table of live) client.run(`DELETE FROM main."${table}"`);
+				for (const table of live) {
+					client.run(`INSERT INTO main."${table}" SELECT * FROM staged."${table}"`);
+				}
+				if (client.query('PRAGMA foreign_key_check').get() !== null) {
+					throw new RestoreRefused(ORPHAN_ROWS);
+				}
+				rmSync(liveAttachments, { recursive: true, force: true });
+				renameSync(stagedAttachments, liveAttachments);
+				attachmentsMoved = true;
+			});
+		} catch (cause) {
+			// The transaction rolled back; the files that moved beside it belong to a Restore that
+			// did not land.
+			if (attachmentsMoved) rmSync(liveAttachments, { recursive: true, force: true });
+			throw cause;
+		} finally {
+			try {
+				client.run(`PRAGMA journal_mode = ${journalMode}`);
+			} finally {
+				client.run('PRAGMA foreign_keys = ON');
+			}
+		}
 	} finally {
-		live.reopen();
+		client.run('DETACH DATABASE staged');
 	}
 }

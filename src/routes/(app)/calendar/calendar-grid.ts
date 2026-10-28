@@ -66,9 +66,9 @@ export interface BlockedSlotLine {
 
 export function blockedSlotLines(cells: readonly CalendarCell[], date: string): BlockedSlotLine[] {
 	return linesOn(cells, date, (c) =>
-		c.blockedSlotId === null
-			? []
-			: [{ blockedSlotId: c.blockedSlotId, period: c.periodFrom, classLabel: c.classLabel }]
+		c.kind === 'blocked' && c.blockedSlotId !== null
+			? [{ blockedSlotId: c.blockedSlotId, period: c.periodFrom, classLabel: c.classLabel }]
+			: []
 	);
 }
 

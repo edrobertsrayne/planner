@@ -1,4 +1,5 @@
 import type { User } from 'better-auth';
+import type { Zone } from '$lib/server/zone';
 
 // Baked in at build time by vite.config.ts (see buildInfo there).
 declare global {
@@ -10,6 +11,8 @@ declare global {
 	namespace App {
 		interface Locals {
 			user?: User;
+			/** Which part of the app the request belongs to; set once by `handleZone`. */
+			zone: Zone;
 		}
 
 		// interface Error {}

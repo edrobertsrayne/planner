@@ -14,7 +14,6 @@ import {
 	type Continuation,
 	type LessonInput,
 	type Placement,
-	type ScheduledSession,
 	type ScheduleResult,
 	type SessionRecord
 } from './engine';
@@ -72,23 +71,31 @@ export function loadCalendar(db: Db): Calendar {
 		.all();
 
 	const blockedDays = db
-		.select({ date: schema.blockedDay.date })
+		.select({
+			id: schema.blockedDay.id,
+			date: schema.blockedDay.date,
+			note: schema.blockedDay.note
+		})
 		.from(schema.blockedDay)
-		.all()
-		.map((row) => row.date);
+		.all();
 
 	const blockedSlots = db
 		.select({
+			id: schema.blockedSlot.id,
 			classId: schema.blockedSlot.classId,
 			date: schema.blockedSlot.date,
-			slotId: schema.blockedSlot.slotId
+			slotId: schema.blockedSlot.slotId,
+			note: schema.blockedSlot.note
 		})
 		.from(schema.blockedSlot)
 		.all();
 
 	return {
 		terms,
-		teachingWeeks: teachingWeeksFrom(terms, blockedDays),
+		teachingWeeks: teachingWeeksFrom(
+			terms,
+			blockedDays.map((day) => day.date)
+		),
 		slots,
 		blockedDays,
 		blockedSlots
@@ -106,8 +113,8 @@ function loadLessonStream(db: Db, classId: string): LessonInput[] {
 		.all();
 }
 
-// A Class's Placements, joined to their Lesson for `length` — same shape as
-// `loadContinuations`/`loadLessonStream`.
+// A Class's Placements, joined to their Lesson for `length` and to their anchor Slot for the
+// Period the teacher chose — same shape as `loadContinuations`/`loadLessonStream`.
 function loadPlacements(db: Db, classId: string): Placement[] {
 	return db
 		.select({
@@ -115,11 +122,13 @@ function loadPlacements(db: Db, classId: string): Placement[] {
 			classId: schema.placement.classId,
 			date: schema.placement.date,
 			slotId: schema.placement.slotId,
+			anchorPeriod: schema.slot.period,
 			lessonId: schema.placement.lessonId,
 			length: schema.lesson.length
 		})
 		.from(schema.placement)
 		.innerJoin(schema.lesson, eq(schema.lesson.id, schema.placement.lessonId))
+		.innerJoin(schema.slot, eq(schema.slot.id, schema.placement.slotId))
 		.where(eq(schema.placement.classId, classId))
 		.all();
 }
@@ -150,15 +159,10 @@ function loadSessions(db: Db, classId: string): SessionRecord[] {
 
 // One Class's schedule from a boundary — the seam's only route into the engine. Pure: never
 // writes. Callers that schedule several Classes at once pass a Calendar loaded once rather than
-// re-reading the whole Calendar per Class.
+// re-reading the whole Calendar per Class; the Placements are always the Class's stored ones.
 export function scheduleFor(
 	db: Db,
-	{
-		classId,
-		boundary,
-		cal,
-		placements
-	}: { classId: string; boundary: string; cal?: Calendar; placements?: Placement[] }
+	{ classId, boundary, cal }: { classId: string; boundary: string; cal?: Calendar }
 ): ScheduleResult {
 	return schedule({
 		cal: cal ?? loadCalendar(db),
@@ -166,7 +170,7 @@ export function scheduleFor(
 		classId,
 		sessions: loadSessions(db, classId),
 		continuations: loadContinuations(db, classId),
-		placements: placements ?? loadPlacements(db, classId),
+		placements: loadPlacements(db, classId),
 		boundary
 	});
 }
@@ -213,9 +217,7 @@ export function rederiveWithResult(
 		.all();
 	const byOccasion = new Map(existing.map((row) => [occasionKey(row), row]));
 
-	const resolvedCal = cal ?? loadCalendar(db);
-	const placements = loadPlacements(db, classId);
-	const result = scheduleFor(db, { classId, boundary, cal: resolvedCal, placements });
+	const result = scheduleFor(db, { classId, boundary, cal });
 
 	// A re-derivation only ever changes an occasion's Lesson; the row stays put. Whatever the
 	// Lesson becomes, the Continuation recorded against the old one goes: it was a reaction to a
@@ -252,10 +254,7 @@ export function rederiveWithResult(
 		db.delete(schema.session).where(eq(schema.session.id, row.id)).run();
 	}
 
-	return {
-		report: { placementsMoved: describePlacementsMoved(db, resolvedCal, placements, result) },
-		result
-	};
+	return { report: { placementsMoved: describePlacementsMoved(db, result) }, result };
 }
 
 // Folds one WriteReport per Class into the single combined report every multi-Class re-derive
@@ -328,40 +327,18 @@ export function lessonNames(db: Db, ids: readonly string[]): Map<string, LessonN
 	);
 }
 
-// A Placement's stored anchor, resolved to a Period via the Calendar's Slot table, compared
-// against where the first part of its run actually lands — matched by the Placement's id, since
-// that run is the Placement. A Placement with no first part scheduled this call is never reported:
-// either history already holds every part, or it holds part 1 and the run is a multi-day one still
-// in progress. History is frozen, so neither can have moved (ADR-0022). A Placement in
-// `strandedPlacementIds` has no landing for a different reason — every Slot at or after its
-// anchor is gone — and is always reported, since silence there would be indistinguishable from
-// "nothing changed".
-function describePlacementsMoved(
-	db: Db,
-	cal: Calendar,
-	placements: Placement[],
-	result: ScheduleResult
-): PlacementMoved[] {
-	if (placements.length === 0) return [];
-
-	const periodOf: Record<string, number> = Object.fromEntries(
-		cal.slots.map((s) => [s.id, s.period])
+// Where each Placement's run landed, as the engine already resolved it, compared against the
+// anchor the teacher chose. A Placement with no landing this call is never reported: either
+// history already holds every part, or it holds part 1 and the run is a multi-day one still in
+// progress. History is frozen, so neither can have moved (ADR-0022). A stranded Placement — every
+// Slot at or after its anchor gone — has a null landing and is always reported, since silence
+// there would be indistinguishable from "nothing changed".
+function describePlacementsMoved(db: Db, result: ScheduleResult): PlacementMoved[] {
+	const moved = result.placementLandings.filter(
+		({ anchor, landing }) =>
+			landing === null || landing.date !== anchor.date || landing.period !== anchor.period
 	);
-
-	const landing: Record<string, ScheduledSession> = {};
-	for (const s of result.scheduled) {
-		if (s.placementId && s.part === 1) landing[s.placementId] = s;
-	}
-
-	const stranded = new Set(result.strandedPlacementIds);
-	const moved = placements.filter((p) => {
-		const at = landing[p.id];
-		return at !== undefined && (at.date !== p.date || at.period !== (periodOf[p.slotId] ?? 0));
-	});
-	const strandedPlacements = placements.filter((p) => stranded.has(p.id));
-	const reported = [...moved, ...strandedPlacements];
-
-	if (reported.length === 0) return [];
+	if (moved.length === 0) return [];
 
 	const labels = new Map(
 		db
@@ -372,22 +349,18 @@ function describePlacementsMoved(
 	);
 	const names = lessonNames(
 		db,
-		reported.map((p) => p.lessonId)
+		moved.map((landing) => landing.lessonId)
 	);
 
-	return reported.map((p) => {
-		const at = landing[p.id];
-		const anchorPeriod = periodOf[p.slotId] ?? 0;
-		return {
-			placementId: p.id,
-			classId: p.classId,
-			classLabel: labels.get(p.classId) ?? p.classId,
-			lessonTitle: names.get(p.lessonId)?.title ?? p.lessonId,
-			anchorDate: p.date,
-			anchorPeriod,
-			date: at?.date ?? p.date,
-			period: at?.period ?? anchorPeriod,
-			...(at ? {} : { stranded: true })
-		};
-	});
+	return moved.map(({ placementId, classId, lessonId, anchor, landing }) => ({
+		placementId,
+		classId,
+		classLabel: labels.get(classId) ?? classId,
+		lessonTitle: names.get(lessonId)?.title ?? lessonId,
+		anchorDate: anchor.date,
+		anchorPeriod: anchor.period,
+		date: landing?.date ?? anchor.date,
+		period: landing?.period ?? anchor.period,
+		...(landing ? {} : { stranded: true })
+	}));
 }

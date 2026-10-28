@@ -11,6 +11,14 @@ import { crossSiteFormRefused, guardRedirect } from '$lib/server/guard';
 import { bodyTooLarge } from '$lib/server/body-limit';
 import { requireApiKey } from '$lib/server/api-key';
 import { apiWriteLine } from '$lib/server/api-log';
+import { zoneOf } from '$lib/server/zone';
+
+// One decision per request: which zone the path is in. Every later hook branches on
+// `event.locals.zone` rather than reading the path again.
+const handleZone: Handle = ({ event, resolve }) => {
+	event.locals.zone = zoneOf(event.url.pathname);
+	return resolve(event);
+};
 
 // Every response, pages and downloads alike: no file is sniffed into another type, a link out
 // carries no path from this app, and no page can be framed. A stored-XSS bug in a Lesson body is
@@ -26,9 +34,9 @@ const handleSecurityHeaders: Handle = ({ event, resolve }) => {
 
 const handleBodyLimit: Handle = ({ event, resolve }) => {
 	if (bodyTooLarge({ pathname: event.url.pathname, headers: event.request.headers })) {
-		// The API answers every error as JSON with an `error` key (spec §3.2), including this one;
-		// a browser page keeps the framework's own error page.
-		if (event.url.pathname.startsWith('/api/')) {
+		// Both API zones answer every error as JSON with an `error` key (spec §3.2), including this
+		// one; a browser page keeps the framework's own error page.
+		if (event.locals.zone !== 'app') {
 			return json({ error: 'The request body is too large.' }, { status: 413 });
 		}
 		error(413, 'The request body is too large.');
@@ -38,6 +46,7 @@ const handleBodyLimit: Handle = ({ event, resolve }) => {
 
 const handleCsrf: Handle = async ({ event, resolve }) => {
 	const refused = crossSiteFormRefused({
+		zone: event.locals.zone,
 		method: event.request.method,
 		pathname: event.url.pathname,
 		contentType: event.request.headers.get('content-type'),
@@ -52,12 +61,11 @@ const handleCsrf: Handle = async ({ event, resolve }) => {
 	return resolve(event);
 };
 
-// The API's one door: every `/api/*` request presents the bearer key here, before any handler
-// runs, so a new route cannot be left open by forgetting two lines. Better Auth's own endpoints
-// under `/api/auth/*` are a public surface of their own and check themselves.
+// The API's one door: every Planning API request presents the bearer key here, before any handler
+// runs, so a new route cannot be left open by forgetting two lines. Better Auth's own endpoints in
+// the auth zone are a public surface of their own and check themselves.
 const handleApiKey: Handle = async ({ event, resolve }) => {
-	const { pathname } = event.url;
-	if (!pathname.startsWith('/api/') || pathname.startsWith('/api/auth/')) return resolve(event);
+	if (event.locals.zone !== 'api') return resolve(event);
 
 	const refused = await requireApiKey(event);
 	if (refused) return refused;
@@ -69,6 +77,7 @@ const handleApiKey: Handle = async ({ event, resolve }) => {
 const handleApiLog: Handle = async ({ event, resolve }) => {
 	const response = await resolve(event);
 	const line = apiWriteLine({
+		zone: event.locals.zone,
 		method: event.request.method,
 		pathname: event.url.pathname,
 		status: response.status
@@ -78,6 +87,10 @@ const handleApiLog: Handle = async ({ event, resolve }) => {
 };
 
 const handleAuth: Handle = async ({ event, resolve }) => {
+	// Only the app reads a session. The API has the bearer key and Better Auth's own endpoints run
+	// their own handler; neither needs a session query or refresh.
+	if (event.locals.zone !== 'app') return svelteKitHandler({ event, resolve, auth, building });
+
 	// Reading the session also refreshes it, which is how a teacher who works every day is never
 	// signed out — and that path asks the auth library for its per-request state, which nothing else
 	// has set up on the way into the hook chain. The library's own endpoints wrap themselves the
@@ -95,11 +108,13 @@ const handleAuth: Handle = async ({ event, resolve }) => {
 };
 
 const handleGuard: Handle = async ({ event, resolve }) => {
-	// The API answers 401 from its own key check and never consults the session, so the query that
-	// answers "is there a user at all" is skipped for it.
-	if (event.url.pathname.startsWith('/api/')) return resolve(event);
+	// The API answers 401 from its own key check and never consults the session, and Better Auth's
+	// endpoints handle themselves, so the query that answers "is there a user at all" is skipped
+	// outside the app.
+	if (event.locals.zone !== 'app') return resolve(event);
 
 	const target = guardRedirect({
+		zone: event.locals.zone,
 		pathname: event.url.pathname,
 		search: event.url.search,
 		userExists: await hasUser(),
@@ -118,6 +133,7 @@ export const init: ServerInit = () => {
 };
 
 export const handle: Handle = sequence(
+	handleZone,
 	handleSecurityHeaders,
 	handleBodyLimit,
 	handleCsrf,

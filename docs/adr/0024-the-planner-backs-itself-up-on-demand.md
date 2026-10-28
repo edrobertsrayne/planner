@@ -62,7 +62,7 @@ to the server.
 - **ADR-0008's durability rule stays.** Scheduled copies and a persistent disk are still the
   deployer's job. A Backup is a way to move the planner and a copy the teacher keeps. It is not a
   backup schedule.
-- A Restore needs free disk space of about the Backup size, for the unpacked database and
-  Attachments in the scratch folder.
+- A Restore needs free disk space of about twice the Backup size: the unpacked copy and the live
+  database it is copied into exist together for the length of the transaction.
 - A Restore that is larger than a proxy's body limit fails. The fix is a path to the server with no
   limit, for example direct access, Tailscale, or a proxy you control.
