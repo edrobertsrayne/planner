@@ -8,6 +8,7 @@
 	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import SunIcon from '@lucide/svelte/icons/sun';
 	import BuildInfo from '$lib/components/build-info.svelte';
+	import FeedbackButton from '$lib/components/feedback-button.svelte';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { Toaster } from '$lib/components/ui/sonner';
@@ -170,3 +171,4 @@
 </Tooltip.Provider>
 
 <Toaster richColors />
+<FeedbackButton />
