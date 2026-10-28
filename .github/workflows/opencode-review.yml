@@ -1,0 +1,36 @@
+name: opencode-review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+# A new push supersedes the review of the previous one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    # Forks get no secrets and a read-only token, so the review could not run or comment.
+    if: ${{ !github.event.pull_request.draft && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      # Posting a comment or reaction on a PR needs pull-requests: write; issues: write alone is a 403.
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v7
+
+      - name: Review the pull request
+        # Pinned to the v1.19.4 commit, as in opencode.yml: this step runs with OPENCODE_API_KEY
+        # and a write token, so a new release must not reach it without review.
+        uses: anomalyco/opencode/github@148842ef7cb1bc34192b3fff57d0f9721ab9c801 # v1.19.4
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          model: opencode-go/kimi-k3.1-pro
+          use_github_token: true
