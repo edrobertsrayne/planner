@@ -6,6 +6,7 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import Markdown from '$lib/components/markdown.svelte';
 	import { touchTarget } from '$lib/components/ui/touch-target';
+	import type { SequenceBoard } from '$lib/client/sequence-board.svelte';
 	import { formatDateShort } from '$lib/date';
 	import { wasText } from '$lib/sequence-text';
 	import { topicColour } from '$lib/topic-colour';
@@ -13,36 +14,27 @@
 	import type { SequenceEntry } from '$lib/server/planner';
 
 	// One row of the Sequence tab's List layout (#428): the Lesson's card, its grip and its remove
-	// button. The tab owns the drag, selection and write; this file only draws one row.
+	// button. The tab's board owns the drag, selection and write; this file only draws one row.
 	let {
 		classId,
 		entry,
-		selected,
-		dragging,
-		ringed,
-		was = undefined,
-		selectMode,
-		dropLine,
-		onTap,
-		onGrip,
-		onRemove
+		board,
+		dropLine
 	}: {
 		classId: string;
 		entry: SequenceEntry;
-		selected: boolean;
-		// A drag is on: the row being carried fades.
-		dragging: boolean;
-		// The Lessons just moved: the row gets a ring.
-		ringed: boolean;
-		// The Lesson's old first date, when the last write moved it.
-		was?: string | null;
-		selectMode: boolean;
+		board: SequenceBoard;
 		// Where the drop line sits, or null when this row is not the drop target.
 		dropLine: 'above' | 'below' | null;
-		onTap: (event: MouseEvent, entry: SequenceEntry) => void;
-		onGrip: (event: PointerEvent, lessonId: string) => void;
-		onRemove: (entry: SequenceEntry) => void;
 	} = $props();
+
+	const selected = $derived(board.selectedIds.includes(entry.lessonId));
+	// A drag is on and this row is carried: it fades.
+	const dragging = $derived(board.dragIds.includes(entry.lessonId));
+	// The Lessons just moved: the row gets a ring.
+	const ringed = $derived(board.ringed.includes(entry.lessonId));
+	// The Lesson's old first date, when the last write moved it.
+	const was = $derived(board.was.get(entry.lessonId));
 </script>
 
 <li
@@ -68,7 +60,7 @@
 			type="button"
 			class="{touchTarget} flex w-7 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground max-md:hidden"
 			aria-label="Drag {entry.title}"
-			onpointerdown={(event) => onGrip(event, entry.lessonId)}
+			onpointerdown={(event) => board.start(event, entry.lessonId)}
 		>
 			<GripVerticalIcon class="size-4" />
 		</button>
@@ -76,7 +68,7 @@
 	<a
 		href={resolve(`/lessons/${entry.lessonId}?class=${classId}`)}
 		class="flex min-w-0 flex-1 flex-col gap-1 px-3 py-2 hover:bg-muted/40"
-		onclick={(event) => onTap(event, entry)}
+		onclick={(event) => board.tap(event, entry)}
 	>
 		<span class="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
 			<span class="text-sm font-medium" data-title>{entry.title}</span>
@@ -111,12 +103,12 @@
 			<Markdown source={entry.note} class="line-clamp-2 text-xs text-muted-foreground" />
 		{/if}
 	</a>
-	{#if !entry.fixed && !selectMode}
+	{#if !entry.fixed && !board.selectMode}
 		<button
 			type="button"
 			class="flex items-center px-3 text-muted-foreground hover:bg-muted/40 hover:text-foreground max-md:hidden"
 			aria-label={`Remove ${entry.title}`}
-			onclick={() => onRemove(entry)}
+			onclick={() => board.remove(entry)}
 		>
 			<XIcon class="size-4" aria-hidden="true" />
 		</button>

@@ -8,7 +8,8 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import Markdown from '$lib/components/markdown.svelte';
 	import { formatDateShort, formatDayMonth } from '$lib/date';
-	import type { SlotFill } from '$lib/sequence-layout';
+	import type { SequenceBoard } from '$lib/client/sequence-board.svelte';
+	import { weekAddAnchor } from '$lib/sequence-layout';
 	import { plural } from '$lib/plural';
 	import { wasText } from '$lib/sequence-text';
 	import { topicColour } from '$lib/topic-colour';
@@ -17,105 +18,63 @@
 	import type { SequenceEntry, WeekRow } from '$lib/server/planner';
 
 	// The By week layout: each week row holds the Class's Slots in fixed places, and the Lessons go
-	// through them. A drop takes the target's Slot, so `fills` (what each Slot shows) is the live
-	// preview while a drag is on. The drag itself belongs to the tab; this file only draws.
+	// through them. The tab's board says what each Slot shows now (the live preview while a drag is
+	// on), what is selected and where the drop would land; this file only draws it.
 	let {
 		classId,
 		weeks,
 		freeAfter,
 		entries,
-		pastEnd,
-		fills,
-		resting,
-		changing,
-		dragIds,
-		ringed,
-		was,
-		selectMode,
-		selected,
-		onTap,
-		onGrip,
-		onRemove,
-		addingRow,
-		onAdd,
+		board,
 		addField
 	}: {
 		classId: string;
 		weeks: WeekRow[];
 		freeAfter: number;
 		entries: SequenceEntry[];
-		// The Lessons with no Slot left, in Sequence order.
-		pastEnd: string[];
-		// What each movable Slot shows now: the preview during a drag, else the Sequence as it lies.
-		fills: Map<string, SlotFill>;
-		// The Sequence as it lies: a card's drop target stays put while the preview moves cards.
-		resting: Map<string, SlotFill>;
-		// Lessons that will change Slot if the drop happens now.
-		changing: Set<string>;
-		dragIds: string[];
-		// The Lessons just moved.
-		ringed: string[];
-		// Each Lesson whose first Slot changed in the last write, with its old date.
-		was: Map<string, string | null>;
-		// Select mode: a tap picks a Lesson instead of opening it, and the × buttons go.
-		selectMode: boolean;
-		selected: string[];
-		// In select mode a tap on a Lesson picks it instead of following its link.
-		onTap: (event: MouseEvent, entry: SequenceEntry) => void;
-		onGrip: (event: PointerEvent, lessonId: string) => void;
-		onRemove: (entry: SequenceEntry) => void;
-		// The row whose title field is open, and the one snippet that draws that field.
-		addingRow: number | 'tab' | null;
-		onAdd: (row: number, afterLessonId: string | null) => void;
+		// The tab's selection, drag and preview.
+		board: SequenceBoard;
+		// The one snippet that draws the inline Add Lesson field.
 		addField: Snippet;
 	} = $props();
-
-	// Where "+ Add" on a week puts a Lesson: in front of the first Lesson that starts in the week
-	// (so the new one takes that Slot), else, when the week has only Open Slots, at the end of the
-	// Sequence. Null in a week with no movable Slot (no "+ Add" there).
-	function addAnchor(row: Extract<WeekRow, { kind: 'week' }>): { after: string | null } | null {
-		const open = row.cells.find(
-			(cell) => cell.kind === 'movable' && (fills.get(cell.key)?.part ?? 1) === 1
-		);
-		if (!open) return null;
-		const order = entries.map((entry) => entry.lessonId);
-		const at = fills.get(open.key);
-		const index = at ? order.indexOf(at.lessonId) : order.length;
-		return { after: order[index - 1] ?? null };
-	}
 
 	const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 	const byId = $derived(new Map(entries.map((entry) => [entry.lessonId, entry])));
 	const taught = $derived(entries.filter((entry) => entry.fixed));
-	const dragging = $derived(dragIds.length > 0);
 </script>
 
 {#snippet lessonCard(entry: SequenceEntry, part: number, of: number, base: string | null)}
-	{@const isSelected = selected.includes(entry.lessonId)}
+	{@const isSelected = board.selectedIds.includes(entry.lessonId)}
 	<div
-		class="relative flex flex-1 items-stretch rounded-md border {dragIds.includes(entry.lessonId)
+		class="relative flex flex-1 items-stretch rounded-md border {board.dragIds.includes(
+			entry.lessonId
+		)
 			? 'opacity-40'
-			: ''} {isSelected ? 'border-primary ring-2 ring-primary' : ''} {changing.has(entry.lessonId)
+			: ''} {isSelected ? 'border-primary ring-2 ring-primary' : ''} {board.changing.has(
+			entry.lessonId
+		)
 			? 'border-dashed border-primary outline-dashed'
-			: ''} {!dragging && ringed.includes(entry.lessonId) ? 'ring-2 ring-amber-500' : ''}"
+			: ''} {!board.dragging && board.ringed.includes(entry.lessonId)
+			? 'ring-2 ring-amber-500'
+			: ''}"
 		style:background-color={topicColour(entry.topicId, isSelected ? 0.45 : 0.12)}
 		data-drop={base ?? undefined}
 		data-lesson-card
 		data-selected={isSelected ? '' : undefined}
-		data-changing={changing.has(entry.lessonId) ? '' : undefined}
+		data-changing={board.changing.has(entry.lessonId) ? '' : undefined}
 	>
 		<button
 			type="button"
 			class="{touchTarget} flex w-6 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground max-md:hidden"
 			aria-label="Drag {entry.title}"
-			onpointerdown={(event) => onGrip(event, entry.lessonId)}
+			onpointerdown={(event) => board.start(event, entry.lessonId)}
 		>
 			<GripVerticalIcon class="size-4" />
 		</button>
 		<a
 			href={resolve(`/lessons/${entry.lessonId}?class=${classId}`)}
 			class="flex min-w-0 flex-1 flex-col gap-0.5 py-1.5 pr-1 hover:bg-muted/40 max-md:pl-2"
-			onclick={(event) => onTap(event, entry)}
+			onclick={(event) => board.tap(event, entry)}
 		>
 			<span class="flex items-start gap-1">
 				<span class="text-sm leading-tight font-medium" data-title>{entry.title}</span>
@@ -133,19 +92,19 @@
 						<CheckIcon class="size-3" aria-hidden="true" />Ready
 					</span>
 				{/if}
-				{#if !dragging && was.has(entry.lessonId)}
+				{#if !board.dragging && board.was.has(entry.lessonId)}
 					<span class="text-amber-700 dark:text-amber-400" data-was
-						>{wasText(was.get(entry.lessonId) ?? null)}</span
+						>{wasText(board.was.get(entry.lessonId) ?? null)}</span
 					>
 				{/if}
 			</span>
 		</a>
-		{#if !selectMode}
+		{#if !board.selectMode}
 			<button
 				type="button"
 				class="flex items-start px-1.5 pt-1.5 text-muted-foreground hover:text-foreground max-md:hidden"
 				aria-label={`Remove ${entry.title}`}
-				onclick={() => onRemove(entry)}
+				onclick={() => board.remove(entry)}
 			>
 				<XIcon class="size-4" aria-hidden="true" />
 			</button>
@@ -166,7 +125,7 @@
 						<a
 							class="font-medium hover:underline"
 							href={resolve(`/lessons/${entry.lessonId}?class=${classId}`)}
-							onclick={(event) => onTap(event, entry)}>{entry.title}</a
+							onclick={(event) => board.tap(event, entry)}>{entry.title}</a
 						>
 						{#if entry.topicName}<span class="text-muted-foreground">{entry.topicName}</span>{/if}
 						{#if entry.firstDate}
@@ -190,16 +149,17 @@
 					School Holiday · {formatDayMonth(row.from)} – {formatDayMonth(row.to)}
 				</li>
 			{:else}
+				{@const anchor = weekAddAnchor(row, board.layout.fills, board.order)}
 				<li class="flex gap-3 border-t px-3 py-2 first:border-t-0" data-week>
 					<div class="w-20 shrink-0 text-xs">
 						<p class="font-medium">Week {row.letter}</p>
 						<p class="text-muted-foreground">{formatDayMonth(row.weekCommencing)}</p>
-						{#if addAnchor(row) && !dragging}
+						{#if anchor && !board.dragging}
 							<button
 								type="button"
 								class="mt-1 flex items-center gap-0.5 text-muted-foreground hover:text-foreground max-md:hidden"
 								aria-label="Add a Lesson to the week of {formatDayMonth(row.weekCommencing)}"
-								onclick={() => onAdd(i, addAnchor(row)!.after)}
+								onclick={() => board.openAdd(i, anchor.after)}
 							>
 								<PlusIcon class="size-3" aria-hidden="true" />Add
 							</button>
@@ -207,7 +167,7 @@
 					</div>
 					<div class="flex min-w-0 flex-1 flex-wrap gap-2">
 						{#each row.cells as cell (cell.key)}
-							{@const fill = cell.kind === 'movable' ? fills.get(cell.key) : undefined}
+							{@const fill = cell.kind === 'movable' ? board.layout.fills.get(cell.key) : undefined}
 							{@const entry = fill
 								? byId.get(fill.lessonId)
 								: cell.kind === 'taught'
@@ -226,7 +186,7 @@
 										entry,
 										fill.part,
 										fill.of,
-										resting.get(cell.key)?.lessonId ?? null
+										board.resting.fills.get(cell.key)?.lessonId ?? null
 									)}
 								{:else if cell.kind === 'movable'}
 									<div
@@ -241,7 +201,7 @@
 										class="flex min-h-10 flex-col justify-center gap-0.5 rounded-md border px-2 py-1.5 text-sm hover:bg-muted/40"
 										style:background-color={topicColour(entry.topicId, 0.12)}
 										data-fixed-card
-										onclick={(event) => onTap(event, entry)}
+										onclick={(event) => board.tap(event, entry)}
 									>
 										<span class="flex items-center gap-1.5">
 											<LockIcon class="size-3 shrink-0" aria-label="Fixed: already taught" />
@@ -275,7 +235,7 @@
 						{:else}
 							<p class="text-xs text-muted-foreground">No Slots this week.</p>
 						{/each}
-						{#if addingRow === i}
+						{#if board.adding?.row === i}
 							<div class="w-full">{@render addField()}</div>
 						{/if}
 					</div>
@@ -294,11 +254,11 @@
 		</p>
 	{/if}
 
-	{#if pastEnd.length}
+	{#if board.pastEnd.length}
 		<section class="mt-3 rounded-xl border border-destructive/40 p-3" data-past-end>
 			<h3 class="text-xs font-semibold text-destructive">Past the end of the year</h3>
 			<ul class="mt-2 grid gap-2 sm:grid-cols-2">
-				{#each pastEnd as lessonId (lessonId)}
+				{#each board.pastEnd as lessonId (lessonId)}
 					{@const entry = byId.get(lessonId)}
 					{#if entry}
 						<li class="flex flex-col gap-1" data-past-end-lesson>

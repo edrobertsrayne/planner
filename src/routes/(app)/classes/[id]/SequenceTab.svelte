@@ -4,10 +4,8 @@
 	import ListChecksIcon from '@lucide/svelte/icons/list-checks';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import { onFail, replaceQuery, submitForm } from '$lib/client/enhance';
-	import { createSequenceDrag, type DragSnapshot } from '$lib/client/sequence-drag';
+	import { createSequenceBoard } from '$lib/client/sequence-board.svelte';
 	import { lossSentence, type SequenceResult } from '$lib/sequence-text';
-	import { layOutSequence, type SlotFill } from '$lib/sequence-layout';
-	import { movedOrder } from '$lib/sequence-order';
 	import { withParam } from '$lib/query';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
@@ -53,130 +51,29 @@
 	// cancels.
 	let removing = $state<SequenceEntry[] | null>(null);
 
-	// Select mode: a tap picks or clears a Lesson, a drag on a picked Lesson moves all picked ones,
-	// and Done or Esc ends it. `chosen` is the selection in Sequence order, so a Lesson that left the
-	// Sequence drops out of it by itself.
-	let selectMode = $state(false);
-	let selected = $state<string[]>([]);
-	let refusal = $state<string | null>(null);
-	const chosen = $derived(entries.filter((entry) => selected.includes(entry.lessonId)));
-	const chosenIds = $derived(chosen.map((entry) => entry.lessonId));
-
-	function endSelect() {
-		selectMode = false;
-		selected = [];
-		refusal = null;
-	}
-
-	// A tap on a Lesson in select mode. A fixed Lesson cannot be selected.
-	function pick(entry: SequenceEntry) {
-		if (entry.fixed) {
-			refusal = `“${entry.title}” was taught, so it cannot be selected.`;
-			return;
-		}
-		refusal = null;
-		selected = selected.includes(entry.lessonId)
-			? selected.filter((id) => id !== entry.lessonId)
-			: [...selected, entry.lessonId];
-	}
-
-	// Select on a Topic chip: select mode on, and the Topic's untaught Lessons added.
-	function selectTopic(topicId: string) {
-		selectMode = true;
-		refusal = null;
-		const ids = entries.filter((e) => e.topicId === topicId && !e.fixed).map((e) => e.lessonId);
-		selected = [...selected, ...ids.filter((id) => !selected.includes(id))];
-	}
-
-	// In select mode a tap on a card picks it, and never follows the link.
-	function tapCard(event: MouseEvent, entry: SequenceEntry) {
-		if (!selectMode) return;
-		event.preventDefault();
-		pick(entry);
-	}
 	let moveForm = $state<HTMLFormElement | undefined>();
-	// Add Lesson's inline title field: `row` is the place it opens (the toolbar's, or a week row),
-	// `afterLessonId` the Lesson the new one follows (none: the first untaught place).
-	let adding = $state<{ row: number | 'tab'; afterLessonId: string | null } | null>(null);
 
-	// A drag starts at a grip and uses pointer events, so one path serves a mouse and a finger. The
-	// grip has `touch-action: none`; the rest of the card still lets a finger scroll the page. The
-	// engine in `$lib/client/sequence-drag` hit-tests the cards on each move and each auto-scroll
-	// step, because a Lesson can scroll under a pointer that is still. A fixed Lesson has no grip
-	// and no `data-drop`.
-	let dragState = $state<DragSnapshot>({
-		ids: [],
-		grabbedId: null,
-		overId: null,
-		point: { x: 0, y: 0 }
-	});
-	const drag = createSequenceDrag({
-		onChange: (snapshot) => (dragState = snapshot),
+	// The tab's board: the selection, the drag and its live layout preview, and the inline Add
+	// Lesson field. Both layouts draw it; this file keeps the writes.
+	const board = createSequenceBoard({
+		entries: () => entries,
+		weeks: () => weeks,
+		result: () => sequenceResult,
 		onDrop: (lessonIds, target) => {
 			submitForm(moveForm, { fields: { lessonIds: lessonIds.join(','), targetId: target } });
-		}
+		},
+		onRemove: (gone) => (removing = gone)
 	});
-	const dragIds = $derived(dragState.ids);
-	const overId = $derived(dragState.overId);
-	const ghost = $derived(dragState.point);
-	const dragging = $derived(dragState.ids.length > 0);
-	const dragged = $derived(entries.find((entry) => entry.lessonId === dragState.grabbedId));
-	const order = $derived(entries.map((entry) => entry.lessonId));
-	// The new order if the drop happened now, or null when it would do nothing.
-	const proposal = $derived(overId ? movedOrder(order, dragIds, overId) : null);
-	// The drop line sits on the side of the target that the Lesson comes from.
-	const lineAbove = $derived(!!overId && order.indexOf(overId) < order.indexOf(dragIds[0]));
-
-	// By week: the Slots stay, and the Lessons that can still move go through them, as the order
-	// lies now or, during a drag, as the drop would put them. Each Lesson that changes Slot is
-	// outlined.
-	const parts = $derived(new Map(entries.map((entry) => [entry.lessonId, entry.parts])));
-	const slotKeys = $derived(
-		weeks.flatMap((row) =>
-			row.kind === 'week' ? row.cells.filter((c) => c.kind === 'movable').map((c) => c.key) : []
-		)
-	);
-	const resting = $derived(layOutSequence(order, parts, slotKeys));
-	const layout = $derived(proposal ? layOutSequence(proposal, parts, slotKeys) : resting);
-	const firstSlotOf = (fills: Map<string, SlotFill>) => {
-		const first: Record<string, string> = {};
-		for (const [key, fill] of fills) first[fill.lessonId] ??= key;
-		return first;
-	};
-	const changing = $derived.by(() => {
-		const before = firstSlotOf(resting.fills);
-		const after = firstSlotOf(layout.fills);
-		return new Set(entries.map((e) => e.lessonId).filter((id) => before[id] !== after[id]));
-	});
-	// The Lessons past the end of the year stay listed during a drag, so the card under a finger
-	// is never removed; one that the drop would push out joins them.
-	const pastEndShown = $derived(
-		entries
-			.map((e) => e.lessonId)
-			.filter((id) => resting.pastEnd.includes(id) || layout.pastEnd.includes(id))
-	);
-
-	// Each card whose first Slot changed in the last Move, with its old date.
-	const was = $derived(new Map((sequenceResult?.changed ?? []).map((c) => [c.lessonId, c.was])));
-
-	function dragStart(event: PointerEvent, lessonId: string) {
-		if (dragging || !event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0))
-			return;
-		event.preventDefault();
-		// A drag on a picked Lesson carries the selection, in its order; any other carries one Lesson.
-		const ids = selectMode && chosenIds.includes(lessonId) ? chosenIds : [lessonId];
-		drag.start(event, ids, lessonId);
-	}
 </script>
 
 <svelte:window
-	onpointermove={(event) => drag.move(event)}
-	onpointerup={() => drag.end(true)}
-	onpointercancel={() => drag.end(false)}
+	onpointermove={board.move}
+	onpointerup={() => board.end(true)}
+	onpointercancel={() => board.end(false)}
 	onkeydown={(event) => {
 		if (event.key !== 'Escape') return;
-		if (dragging) drag.end(false);
-		else if (selectMode && !removing) endSelect();
+		if (board.dragging) board.end(false);
+		else if (board.selectMode && !removing) board.endSelect();
 	}}
 />
 
@@ -199,19 +96,19 @@
 		</div>
 		<div class="ml-auto flex items-center gap-2 max-md:hidden">
 			<Button
-				variant={selectMode ? 'default' : 'outline'}
+				variant={board.selectMode ? 'default' : 'outline'}
 				size="sm"
 				class="h-7 text-xs"
-				aria-pressed={selectMode}
-				onclick={() => (selectMode ? endSelect() : (selectMode = true))}
+				aria-pressed={board.selectMode}
+				onclick={board.toggleSelect}
 			>
-				<ListChecksIcon data-icon="inline-start" />{selectMode ? 'Done' : 'Select'}
+				<ListChecksIcon data-icon="inline-start" />{board.selectMode ? 'Done' : 'Select'}
 			</Button>
 			<Button
 				variant="outline"
 				size="sm"
 				class="h-7 text-xs"
-				onclick={() => (adding = { row: 'tab', afterLessonId: null })}
+				onclick={() => board.openAdd('tab', null)}
 			>
 				<PlusIcon data-icon="inline-start" />Add Lesson
 			</Button>
@@ -225,10 +122,10 @@
 			action="?/addLesson"
 			class="flex items-center gap-2"
 			data-add-lesson
-			use:enhance={onFail('Could not add the Lesson.', () => (adding = null))}
+			use:enhance={onFail('Could not add the Lesson.', board.closeAdd)}
 		>
 			<input type="hidden" name="classId" value={classId} />
-			<input type="hidden" name="afterLessonId" value={adding?.afterLessonId ?? ''} />
+			<input type="hidden" name="afterLessonId" value={board.adding?.afterLessonId ?? ''} />
 			<Input
 				name="title"
 				required
@@ -236,16 +133,10 @@
 				placeholder="Lesson title"
 				aria-label="Title of the new Lesson"
 				class="h-7 max-w-xs text-xs"
-				onkeydown={(event) => event.key === 'Escape' && (adding = null)}
+				onkeydown={(event) => event.key === 'Escape' && board.closeAdd()}
 			/>
 			<Button type="submit" size="sm" class="h-7 text-xs">Add</Button>
-			<Button
-				type="button"
-				variant="ghost"
-				size="sm"
-				class="h-7 text-xs"
-				onclick={() => (adding = null)}
-			>
+			<Button type="button" variant="ghost" size="sm" class="h-7 text-xs" onclick={board.closeAdd}>
 				Cancel
 			</Button>
 		</form>
@@ -262,7 +153,7 @@
 		<input type="hidden" name="targetId" />
 	</form>
 
-	{#if adding?.row === 'tab'}
+	{#if board.adding?.row === 'tab'}
 		<div class="mt-2">{@render addField()}</div>
 	{/if}
 
@@ -276,8 +167,8 @@
 		</p>
 	{/if}
 
-	{#if refusal}
-		<p class="mt-2 text-xs text-destructive" role="status" data-select-refusal>{refusal}</p>
+	{#if board.refusal}
+		<p class="mt-2 text-xs text-destructive" role="status" data-select-refusal>{board.refusal}</p>
 	{/if}
 
 	{#if chips.length}
@@ -294,7 +185,7 @@
 						type="button"
 						class="rounded-full px-1.5 text-[11px] font-medium text-primary hover:bg-muted max-md:hidden"
 						aria-label="Select {chip.name}"
-						onclick={() => selectTopic(chip.topicId)}
+						onclick={() => board.selectTopic(chip.topicId)}
 					>
 						Select
 					</button>
@@ -304,27 +195,7 @@
 	{/if}
 
 	{#if byWeek}
-		<SequenceWeeks
-			{classId}
-			{weeks}
-			{freeAfter}
-			{entries}
-			pastEnd={pastEndShown}
-			fills={layout.fills}
-			resting={resting.fills}
-			{changing}
-			{dragIds}
-			ringed={sequenceResult?.ringed ?? []}
-			{was}
-			{selectMode}
-			selected={chosenIds}
-			onTap={tapCard}
-			onGrip={dragStart}
-			onRemove={(entry) => (removing = [entry])}
-			addingRow={adding?.row ?? null}
-			onAdd={(row, afterLessonId) => (adding = { row, afterLessonId })}
-			{addField}
-		/>
+		<SequenceWeeks {classId} {weeks} {freeAfter} {entries} {board} {addField} />
 		{#if entries.length === 0}
 			<p class="mt-3 text-sm text-muted-foreground">
 				No Lessons in this Sequence yet. Use Assign Topic to add a Topic's Lessons.
@@ -333,23 +204,7 @@
 	{:else}
 		<ol class="mt-3 divide-y rounded-xl border" data-sequence>
 			{#each entries as entry (entry.lessonId)}
-				<SequenceListRow
-					{classId}
-					{entry}
-					selected={chosenIds.includes(entry.lessonId)}
-					dragging={dragIds.includes(entry.lessonId)}
-					ringed={sequenceResult?.ringed.includes(entry.lessonId) ?? false}
-					was={was.get(entry.lessonId)}
-					{selectMode}
-					dropLine={dragging && proposal && overId === entry.lessonId
-						? lineAbove
-							? 'above'
-							: 'below'
-						: null}
-					onTap={tapCard}
-					onGrip={dragStart}
-					onRemove={(entry) => (removing = [entry])}
-				/>
+				<SequenceListRow {classId} {entry} {board} dropLine={board.dropLine(entry.lessonId)} />
 			{:else}
 				<li class="px-3 py-4 text-sm text-muted-foreground">
 					No Lessons in this Sequence yet. Use Assign Topic to add a Topic's Lessons.
@@ -359,17 +214,19 @@
 	{/if}
 </section>
 
-{#if dragged}
+{#if board.dragged}
 	<div
 		class="pointer-events-none fixed z-50 rounded-lg border bg-background px-2 py-1 text-xs font-medium shadow-lg"
-		style:left="{ghost.x + 12}px"
-		style:top="{ghost.y + 12}px"
+		style:left="{board.ghost.x + 12}px"
+		style:top="{board.ghost.y + 12}px"
 	>
-		{dragIds.length > 1 ? `${dragIds.length} Lessons, from “${dragged.title}”` : dragged.title}
+		{board.dragIds.length > 1
+			? `${board.dragIds.length} Lessons, from “${board.dragged.title}”`
+			: board.dragged.title}
 	</div>
 {/if}
 
-{#if selectMode}
+{#if board.selectMode}
 	<div
 		class="fixed inset-x-0 bottom-6 z-40 mx-auto flex w-fit max-w-[95vw] flex-wrap items-center gap-2 rounded-xl border bg-background px-3 py-2 text-sm shadow-xl"
 		role="toolbar"
@@ -377,18 +234,18 @@
 		data-select-bar
 	>
 		<span class="font-medium" data-select-count>
-			{chosen.length ? `${chosen.length} selected` : 'Tap Lessons to select'}
+			{board.chosen.length ? `${board.chosen.length} selected` : 'Tap Lessons to select'}
 		</span>
 		<Button
 			size="sm"
 			variant="outline"
 			class="text-destructive"
-			disabled={chosen.length === 0}
-			onclick={() => (removing = chosen)}
+			disabled={board.chosen.length === 0}
+			onclick={() => (removing = board.chosen)}
 		>
 			Remove
 		</Button>
-		<Button size="sm" onclick={endSelect}>Done</Button>
+		<Button size="sm" onclick={board.endSelect}>Done</Button>
 	</div>
 {/if}
 
@@ -422,7 +279,7 @@
 					method="POST"
 					action="?/removeLessons"
 					use:enhance={onFail('Could not remove.', () => {
-						selected = selected.filter((id) => !removing?.some((e) => e.lessonId === id));
+						board.forget(removing?.map((e) => e.lessonId) ?? []);
 						removing = null;
 					})}
 				>
