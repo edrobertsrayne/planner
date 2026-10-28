@@ -21,8 +21,9 @@ jobs:
       issues: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
+          fetch-depth: 1
           persist-credentials: false
 
       - name: Run opencode
@@ -32,4 +33,4 @@ jobs:
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
         with:
-          model: opencode-go/glm-5.3-flash
+          model: opencode-go/deepseek-v4.1-flash
