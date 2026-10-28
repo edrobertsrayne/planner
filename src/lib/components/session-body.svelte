@@ -41,30 +41,39 @@
 			})
 	});
 
-	let detail = $state<SessionDetail | null>(null);
+	// The one load, in the four states the panel draws: still loading, no such Session, a load that
+	// failed, or the detail.
+	type LoadState =
+		| { state: 'loading' }
+		| { state: 'missing' }
+		| { state: 'failed' }
+		| { state: 'ready'; detail: SessionDetail };
+	let load = $state<LoadState>({ state: 'loading' });
+	const detail = $derived(load.state === 'ready' ? load.detail : null);
 	// A Session that has started — the server's today or earlier — puts the note before the plan on
 	// a phone.
 	const started = $derived(detail !== null && occasion.date <= detail.today);
 
-	let missing = $state(false);
-	let loadFailed = $state(false);
+	// The four writes share one busy slot and one error each; the panel shows the error that
+	// belongs to the place it draws.
+	type WriteKind = 'continue' | 'uncontinue' | 'place' | 'unplace';
+	let pending = $state<WriteKind | null>(null);
+	let errors = $state<Record<WriteKind, string | null>>({
+		continue: null,
+		uncontinue: null,
+		place: null,
+		unplace: null
+	});
 	let note = $state('');
-	let continuing = $state(false);
-	let removingContinuation = $state(false);
-	let continuationError = $state<string | null>(null);
 	let continuationReport = $state<WriteReport | null>(null);
 	let placeTitle = $state('');
-	let placing = $state(false);
-	let placeError = $state<string | null>(null);
-	let removingPlacement = $state(false);
-	let removeError = $state<string | null>(null);
 
 	// Take a fresh detail. The note belongs to the Lesson, not the occasion, so when a response
 	// changes the Lesson shown (Place, Remove placement, a Continuation moving the schedule),
 	// the note is reopened for the new Lesson.
 	function showDetail(d: SessionDetail) {
 		const before = detail?.lesson?.id ?? null;
-		detail = d;
+		load = { state: 'ready', detail: d };
 		if ((d.lesson?.id ?? null) === before) return;
 		note = d.lesson ? notes.open({ ...occasion, lessonId: d.lesson.id }, d.note) : '';
 	}
@@ -81,15 +90,34 @@
 				// 400/404 mean the occasion names no Session (a period that is not a whole number,
 				// an unknown Class). Anything else is a load that failed — a dropped connection, a
 				// server fault — and a draft note still waits in storage for the next load.
-				if (status === 400 || status === 404) missing = true;
-				else loadFailed = true;
+				load = { state: status === 400 || status === 404 ? 'missing' : 'failed' };
 			});
 		return () => notes.flush();
 	});
 
-	// The four writes share one shape: a JSON body out, a detail back, and a refusal that carries
-	// the reason to show. The page remounts this body for each occasion, so an answer always
-	// belongs to the Session on screen and needs no staleness check.
+	// The four writes share one shape: a JSON body out, a detail back, a refusal that carries the
+	// reason to show, and one busy slot at a time. `run` is that shape once. The page remounts this
+	// body for each occasion, so an answer always belongs to the Session on screen and needs no
+	// staleness check.
+	async function run(
+		kind: WriteKind,
+		request: () => Promise<SessionDetail & { report?: WriteReport }>,
+		onDone?: (answer: SessionDetail & { report?: WriteReport }) => void
+	) {
+		notes.flush();
+		pending = kind;
+		errors[kind] = null;
+		try {
+			const answer = await request();
+			showDetail(answer);
+			onDone?.(answer);
+		} catch (e) {
+			errors[kind] = (e as Error).message;
+		} finally {
+			pending = null;
+		}
+	}
+
 	async function post(
 		url: string,
 		method: 'POST' | 'DELETE',
@@ -104,69 +132,44 @@
 		return r.json();
 	}
 
-	async function markContinuation() {
-		notes.flush();
-		continuing = true;
-		continuationError = null;
+	function markContinuation() {
 		continuationReport = null;
-		try {
-			const d = await post('/session/continuation', 'POST', occasion);
-			showDetail(d);
-			continuationReport = d.report ?? null;
-			toast.success('Lesson continued onto the next Available Slot.');
-		} catch (e) {
-			continuationError = (e as Error).message;
-		} finally {
-			continuing = false;
-		}
+		return run(
+			'continue',
+			() => post('/session/continuation', 'POST', occasion),
+			(answer) => {
+				continuationReport = answer.report ?? null;
+				toast.success('Lesson continued onto the next Available Slot.');
+			}
+		);
 	}
 
-	async function removeContinuationNow() {
-		notes.flush();
-		removingContinuation = true;
-		continuationError = null;
+	function removeContinuationNow() {
 		continuationReport = null;
-		try {
-			const d = await post('/session/continuation', 'DELETE', occasion);
-			showDetail(d);
-			continuationReport = d.report ?? null;
-			toast.success('Continuation removed.');
-		} catch (e) {
-			continuationError = (e as Error).message;
-		} finally {
-			removingContinuation = false;
-		}
+		return run(
+			'uncontinue',
+			() => post('/session/continuation', 'DELETE', occasion),
+			(answer) => {
+				continuationReport = answer.report ?? null;
+				toast.success('Continuation removed.');
+			}
+		);
 	}
 
-	async function placeLessonNow() {
+	function placeLessonNow() {
 		const title = placeTitle.trim();
 		if (!title) return;
-		notes.flush();
-		placing = true;
-		placeError = null;
-		try {
-			showDetail(await post('/session/placement', 'POST', { ...occasion, title }));
-			placeTitle = '';
-		} catch (e) {
-			placeError = (e as Error).message;
-		} finally {
-			placing = false;
-		}
+		return run(
+			'place',
+			() => post('/session/placement', 'POST', { ...occasion, title }),
+			() => (placeTitle = '')
+		);
 	}
 
-	async function removePlacementNow() {
+	function removePlacementNow() {
 		const id = detail?.placement?.id;
 		if (!id) return;
-		notes.flush();
-		removingPlacement = true;
-		removeError = null;
-		try {
-			showDetail(await post('/session/placement', 'DELETE', { ...occasion, id }));
-		} catch (e) {
-			removeError = (e as Error).message;
-		} finally {
-			removingPlacement = false;
-		}
+		return run('unplace', () => post('/session/placement', 'DELETE', { ...occasion, id }));
 	}
 </script>
 
@@ -244,17 +247,17 @@
 									variant="ghost"
 									size="sm"
 									class="h-6 px-2 text-xs text-destructive"
-									disabled={removingPlacement}
+									disabled={pending !== null}
 									onclick={removePlacementNow}
 								>
-									{removingPlacement ? 'Removing…' : 'Remove placement'}
+									{pending === 'unplace' ? 'Removing…' : 'Remove placement'}
 								</Button>
 							{:else}
 								<span class="text-xs text-muted-foreground">stays with the Lesson</span>
 							{/if}
 						</div>
-						{#if removeError}
-							<p class="mb-1.5 text-xs text-destructive">{removeError}</p>
+						{#if errors.unplace}
+							<p class="mb-1.5 text-xs text-destructive">{errors.unplace}</p>
 						{/if}
 						<MarkdownEditor
 							value={note}
@@ -274,10 +277,10 @@
 					<Button
 						variant="outline"
 						size="sm"
-						disabled={continuing || removingContinuation}
+						disabled={pending !== null}
 						onclick={markContinuation}
 					>
-						{continuing ? 'Marking…' : 'Needs more time'}
+						{pending === 'continue' ? 'Marking…' : 'Needs more time'}
 					</Button>
 					<p class="mt-1.5 text-xs text-muted-foreground">
 						Widens this Lesson onto the Class's next Available Slot.
@@ -293,15 +296,15 @@
 								variant="ghost"
 								size="sm"
 								class="h-6 px-2 text-xs"
-								disabled={continuing || removingContinuation}
+								disabled={pending !== null}
 								onclick={removeContinuationNow}
 							>
-								{removingContinuation ? 'Removing…' : 'Remove one'}
+								{pending === 'uncontinue' ? 'Removing…' : 'Remove one'}
 							</Button>
 						</div>
 					{/if}
-					{#if continuationError}
-						<p class="mt-1 text-xs text-destructive">{continuationError}</p>
+					{#if errors.continue || errors.uncontinue}
+						<p class="mt-1 text-xs text-destructive">{errors.continue ?? errors.uncontinue}</p>
 					{/if}
 					<div class="mt-3 empty:hidden">
 						<RewindReport report={continuationReport} />
@@ -336,21 +339,21 @@
 					<Button
 						class="mt-2"
 						size="sm"
-						disabled={placing || !placeTitle.trim()}
+						disabled={pending !== null || !placeTitle.trim()}
 						onclick={placeLessonNow}
 					>
-						{placing ? 'Placing…' : 'Place'}
+						{pending === 'place' ? 'Placing…' : 'Place'}
 					</Button>
-					{#if placeError}
-						<p class="mt-1.5 text-xs text-destructive">{placeError}</p>
+					{#if errors.place}
+						<p class="mt-1.5 text-xs text-destructive">{errors.place}</p>
 					{/if}
 				</div>
 			{/if}
 		</div>
 	</div>
-{:else if missing}
+{:else if load.state === 'missing'}
 	<p class="mt-4 text-sm text-muted-foreground">No such Session.</p>
-{:else if loadFailed}
+{:else if load.state === 'failed'}
 	<p class="mt-4 text-sm text-muted-foreground">
 		Couldn't load this Session. Check your connection and reload.
 	</p>
