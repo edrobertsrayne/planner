@@ -11,36 +11,17 @@ if (!env.DATABASE_URL) throw new Error('DATABASE_URL is not set');
 export const DATABASE_URL = env.DATABASE_URL;
 
 // The build imports this module but runs no queries, and the database's folder (a mounted volume) may not exist yet.
-let current = openDatabase(building ? ':memory:' : DATABASE_URL);
+const opened = openDatabase(building ? ':memory:' : DATABASE_URL);
 
 if (!building) {
 	removeLeftovers(DATABASE_URL);
-	runMigrations(current.client);
+	runMigrations(opened.client);
 }
 
-// Restore replaces the database file under a running server (ADR-0024), and the auth library keeps
-// hold of `db` from start-up. So `client` and `db` are stable stand-ins that forward every access
-// to whichever connection is current, and `reopenDatabase` swaps that connection.
-function forwarding<T extends object>(target: () => T): T {
-	return new Proxy({} as T, {
-		get(_, property) {
-			const value = Reflect.get(target(), property);
-			return typeof value === 'function' ? value.bind(target()) : value;
-		}
-	});
-}
-
-export const client = forwarding(() => current.client);
-export const db = forwarding(() => current.db);
-
-export function closeDatabase() {
-	current.client.close();
-}
-
-export function reopenDatabase() {
-	current = openDatabase(DATABASE_URL);
-	runMigrations(current.client);
-}
+// One connection for the process's life. Restore copies the staged Backup into this database
+// through the live connection (ADR-0024), so nothing has to stand in for it or reopen it.
+export const client = opened.client;
+export const db = opened.db;
 
 /**
  * Deletes what a Restore that died part-way leaves beside the database: `.restore-<uuid>/`, the
