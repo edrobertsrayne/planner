@@ -5,7 +5,7 @@
 // fallback). Request bodies and the token are never logged.
 
 import { json } from '@sveltejs/kit';
-import { readJson } from '$lib/server/api-helpers';
+import { apiRoute, readJson } from '$lib/server/api-helpers';
 import { getServerEnv } from '$lib/server/env';
 import {
 	FeedbackError,
@@ -21,14 +21,13 @@ export const GET: RequestHandler = () =>
 		{ headers: { 'Cache-Control': 'no-store' } }
 	);
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = apiRoute(async ({ request }) => {
 	const token = getServerEnv('GITHUB_FEEDBACK_TOKEN');
 	if (token === '') {
 		return json({ error: 'Feedback is not configured on the server.' }, { status: 500 });
 	}
 
 	const body = await readJson(request);
-	if (body instanceof Response) return body;
 
 	try {
 		return json(await fileFeedback(token, validateFeedbackBody(body)), { status: 201 });
@@ -41,4 +40,4 @@ export const POST: RequestHandler = async ({ request }) => {
 		}
 		throw error;
 	}
-};
+});
