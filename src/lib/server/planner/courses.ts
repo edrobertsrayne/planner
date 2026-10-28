@@ -12,9 +12,6 @@ import { lessonsOf } from './lessons';
 import { required, requireRow, sameName } from './fields';
 import type { Db } from './derive';
 
-// A delete that needs an answer first: the caller shows `reason` and asks again with `confirmed`.
-export type ConfirmQuestion = { needsConfirm: true; reason: string };
-
 // Course and Topic names carry an explicit uniqueness rule (issue #131, §6 of the planning API
 // spec). The database indexes are the guard of last resort — so the seam refuses the write first
 // and never lets a raw SQLITE_CONSTRAINT reach the user. A collision is a `conflict`: the request
@@ -187,14 +184,14 @@ export function renameCourse(db: Db, { id, name }: { id: string; name: string })
 // and its Lessons become Standalone Lessons that every Sequence keeps (ADR-0026). The form's
 // dialog names the totals; the API has no confirm, so it answers 409 with the reason. A Class following the Course refuses unconditionally: confirming never overrides it.
 //
-// The confirm question is a return, not a throw — it is a question the form answers with
-// `confirmed=true`, not a refusal. An unknown id returns undefined, the door's 404; every other
-// refusal throws `Refused`.
+// The question is an `unconfirmed` refusal — the same throw a refusal always is, carrying the
+// reason to show — and the caller asks again with `confirmed=true`. An unknown id returns
+// undefined, the door's 404.
 export function deleteCourse(
 	db: Db,
 	id: string,
 	{ confirmed = false }: { confirmed?: boolean } = {}
-): typeof schema.course.$inferSelect | ConfirmQuestion | undefined {
+): typeof schema.course.$inferSelect | undefined {
 	const [course] = db.select().from(schema.course).where(eq(schema.course.id, id)).all();
 	if (!course) return undefined;
 
@@ -214,10 +211,10 @@ export function deleteCourse(
 			.from(schema.lesson)
 			.where(inArray(schema.lesson.topicId, topicIds))
 			.all();
-		return {
-			needsConfirm: true,
-			reason: `Delete ${course.name}? ${courseDeleteText(topicIds.length, lessonTotal)}`
-		};
+		throw new Refused(
+			'unconfirmed',
+			`Delete ${course.name}? ${courseDeleteText(topicIds.length, lessonTotal)}`
+		);
 	}
 
 	// The Lessons detach, the Topics go and the Course goes in one all-or-nothing write.
@@ -293,22 +290,19 @@ export function moveTopicToCourse(db: Db, { id, courseId }: { id: string; course
 // A Topic with no Lessons goes at once. A Topic that still holds Lessons asks first: its Lessons
 // become Standalone Lessons, and every Sequence keeps them (ADR-0026). Nothing is re-derived.
 //
-// The confirm question is a return, not a throw — it is a question the form answers with
-// `confirmed=true`, not a refusal. An unknown id returns undefined, the door's 404.
+// The question is an `unconfirmed` refusal, answered with `confirmed=true`. An unknown id returns
+// undefined, the door's 404.
 export function deleteTopic(
 	db: Db,
 	id: string,
 	{ confirmed = false }: { confirmed?: boolean } = {}
-): typeof schema.topic.$inferSelect | ConfirmQuestion | undefined {
+): typeof schema.topic.$inferSelect | undefined {
 	const [topic] = db.select().from(schema.topic).where(eq(schema.topic.id, id)).all();
 	if (!topic) return undefined;
 
 	const lessons = lessonsOf(db, id);
 	if (lessons.length > 0 && !confirmed) {
-		return {
-			needsConfirm: true,
-			reason: `Delete ${topic.name}? ${standaloneText(lessons.length)}`
-		};
+		throw new Refused('unconfirmed', `Delete ${topic.name}? ${standaloneText(lessons.length)}`);
 	}
 
 	// The Lessons detach and the Topic goes in one all-or-nothing write: a Topic half removed

@@ -1,9 +1,16 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { deserialize, enhance } from '$app/forms';
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { courseHref, useBack } from '$lib/client/back';
-	import { failureReason, hasReport, onFail, reportOfResult } from '$lib/client/enhance';
+	import { createDeleteAsk } from '$lib/client/confirm-delete.svelte';
+	import {
+		failureReason,
+		hasReport,
+		onFail,
+		reportOfResult,
+		submitForm
+	} from '$lib/client/enhance';
 	import { STATUS_LABEL } from '$lib/lesson-status';
 	import { toast } from 'svelte-sonner';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
@@ -13,7 +20,7 @@
 	import UnlinkIcon from '@lucide/svelte/icons/unlink';
 	import XIcon from '@lucide/svelte/icons/x';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import * as Dialog from '$lib/components/ui/dialog/index.js';
+	import ConfirmDeleteDialog from '$lib/components/confirm-delete-dialog.svelte';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import MarkdownEditor from '$lib/components/markdown-editor.svelte';
@@ -23,7 +30,7 @@
 	import LessonReadView from './LessonReadView.svelte';
 	import LinkRow from './LinkRow.svelte';
 	import { onMount } from 'svelte';
-	import type { SubmitFunction } from '@sveltejs/kit';
+	import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 	import RewindReport from '$lib/components/rewind-report.svelte';
 	import { createLessonSaver } from '$lib/client/lesson-save';
 	import type { PageProps } from './$types';
@@ -69,7 +76,6 @@
 	// a long plan written with no blur is never lost to a reload or a closed tab. Both send the same
 	// `?/updateLesson` form action the blur save does, so there is one write path (#422).
 	let lessonForm: HTMLFormElement | null = $state(null);
-	type ActionResult = { type?: string };
 	const saver = createLessonSaver({
 		save: async (keepalive) => {
 			if (!lessonForm) return;
@@ -82,7 +88,7 @@
 				headers: { 'x-sveltekit-action': 'true' }
 			});
 			if (keepalive) return;
-			const result: ActionResult = await response.json();
+			const result: ActionResult = deserialize(await response.text());
 			if (result.type !== 'success') throw new Error('The Lesson did not save.');
 		}
 	});
@@ -93,29 +99,31 @@
 	});
 
 	// A Lesson that a Sequence holds asks first. The action answers with `needsConfirm` and the
-	// reason, which names the Classes; the dialog then posts the same delete with `confirmed`.
-	let confirmDelete = $state<{ id: string; reason: string } | null>(null);
-	const onDelete: SubmitFunction = ({ formData }) => {
-		const id = String(formData.get('id'));
-		return async ({ result, update }) => {
-			confirmDelete = null;
-			if (result.type === 'success') {
-				toast.success('Lesson deleted.');
-				// This page goes with the Lesson, so the report outlives it as a toast.
-				const report = reportOfResult(result);
-				if (hasReport(report)) {
-					toast.custom(RewindReport, { componentProps: { report }, duration: 20000 });
-				}
-				await back();
-			} else if (result.type === 'failure' && result.data?.needsConfirm) {
-				confirmDelete = { id, reason: failureReason(result, 'Delete this Lesson?') };
-			} else if (result.type === 'failure') {
-				toast.error(failureReason(result, 'Could not delete the Lesson.'));
-			} else {
-				await update();
+	// reason, which names the Classes; the dialog then posts the same delete with `confirmed`. A
+	// Lesson that can go at once, or that cannot go at all, settles here.
+	async function settleDelete(result: ActionResult, update: () => Promise<void>): Promise<void> {
+		if (result.type === 'success') {
+			toast.success('Lesson deleted.');
+			// This page goes with the Lesson, so the report outlives it as a toast.
+			const report = reportOfResult(result);
+			if (hasReport(report)) {
+				toast.custom(RewindReport, { componentProps: { report }, duration: 20000 });
 			}
-		};
-	};
+			await back();
+		} else if (result.type === 'failure') {
+			toast.error(failureReason(result, 'Could not delete the Lesson.'));
+		} else {
+			await update();
+		}
+	}
+	const deleter = createDeleteAsk(
+		(data) => ({ id: String(data.get('id') ?? ''), name: 'this Lesson' }),
+		settleDelete
+	);
+	const onConfirmed: SubmitFunction =
+		() =>
+		({ result, update }) =>
+			settleDelete(result, () => update());
 
 	// Stepping follows the Class's Sequence, or the Topic's order without a Class, and stops at both ends. It replaces the history entry, so
 	// one browser Back leaves the Lesson editor however far Ed has stepped. It waits for a save
@@ -133,7 +141,7 @@
 		await goto(resolve(`/lessons/${id}${query}`), { replaceState: true });
 	}
 	function stepWithKey(e: KeyboardEvent) {
-		if (confirmDelete) return;
+		if (deleter.pending) return;
 		if (e.ctrlKey || e.metaKey || e.altKey) return;
 		if (e.key !== '[' && e.key !== ']') return;
 		const focused = document.activeElement as HTMLElement | null;
@@ -142,7 +150,7 @@
 		void step(e.key === '[' ? previousId : nextId);
 	}
 
-	let statusInput: HTMLInputElement | null = $state(null);
+	let statusForm = $state<HTMLFormElement>();
 	let addingLink = $state(false);
 	let addingTag = $state(false);
 	let fileInput: HTMLInputElement | null = $state(null);
@@ -271,19 +279,16 @@
 							class="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-3 rounded-lg border p-3 text-sm max-lg:order-2"
 						>
 							<span class="text-muted-foreground">Status</span>
-							<form method="POST" action="?/setLessonStatus" use:enhance>
+							<form method="POST" action="?/setLessonStatus" use:enhance bind:this={statusForm}>
 								<input type="hidden" name="id" value={lesson.id} />
-								<input type="hidden" name="status" value={lesson.status} bind:this={statusInput} />
+								<input type="hidden" name="status" value={lesson.status} />
 								<ToggleGroup.Root
 									type="single"
 									variant="outline"
 									size="sm"
 									value={lesson.status}
 									onValueChange={(v) => {
-										if (v && v !== lesson.status && statusInput) {
-											statusInput.value = v;
-											statusInput.form?.requestSubmit();
-										}
+										if (v && v !== lesson.status) submitForm(statusForm, { fields: { status: v } });
 									}}
 									class="justify-start"
 								>
@@ -559,7 +564,7 @@
 					</div>
 
 					<div class="flex flex-wrap items-center gap-1 border-t pt-3 max-lg:order-4">
-						<form method="POST" action="?/deleteLesson" use:enhance={onDelete}>
+						<form method="POST" action="?/deleteLesson" use:enhance={deleter.ask}>
 							<input type="hidden" name="id" value={lesson.id} />
 							<Button
 								type="submit"
@@ -601,28 +606,8 @@
 	{/key}
 </div>
 
-<Dialog.Root
-	open={confirmDelete !== null}
-	onOpenChange={(open) => {
-		if (!open) confirmDelete = null;
-	}}
->
-	<Dialog.Content class="sm:max-w-md">
-		<Dialog.Header>
-			<Dialog.Title>Delete this Lesson?</Dialog.Title>
-			<Dialog.Description>
-				{confirmDelete?.reason}
-			</Dialog.Description>
-		</Dialog.Header>
-		<Dialog.Footer>
-			<Button variant="outline" size="sm" class="h-7" onclick={() => (confirmDelete = null)}>
-				Cancel
-			</Button>
-			<form method="POST" action="?/deleteLesson" use:enhance={onDelete}>
-				<input type="hidden" name="id" value={confirmDelete?.id} />
-				<input type="hidden" name="confirmed" value="true" />
-				<Button type="submit" variant="destructive" size="sm" class="h-7">Delete</Button>
-			</form>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+<ConfirmDeleteDialog
+	bind:target={deleter.pending}
+	title={() => 'Delete this Lesson?'}
+	submit={onConfirmed}
+/>

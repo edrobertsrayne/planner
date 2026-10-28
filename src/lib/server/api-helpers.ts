@@ -1,3 +1,6 @@
+// The API door's shared pieces: one wrapper that turns a thrown failure into the spec's
+// `{ error }` body, one thrown failure type for the door's own 4xx answers, and the readers that
+// check a request body's shape before the seam sees it.
 import { json } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import type { SQLiteTable, SQLiteColumn } from 'drizzle-orm/sqlite-core';
@@ -5,12 +8,23 @@ import { Refused, refusalStatus } from './planner/refused';
 import type { LessonChange } from './planner/lessons';
 import type { Db } from './planner/derive';
 
-// The API door's one mapping of the seam's refusal: `{ error: message }` with the status the
-// refusal's kind carries. Anything else was not thrown deliberately — it rethrows, so an
-// unexpected fault is the 500 the framework serves, never a 4xx dressed as a bad request.
-export function refusalJson(error: unknown): Response {
-	if (!(error instanceof Refused)) throw error;
-	return json({ error: error.message }, { status: refusalStatus(error.kind) });
+// A failure the route itself decided: a body field of the wrong type, or a record the URL names
+// that the database does not hold. It is thrown, not returned, so the route reads as one flow and
+// the wrapper is the only place that writes a failure response.
+export class ApiFailure extends Error {
+	constructor(
+		readonly status: number,
+		message: string
+	) {
+		super(message);
+		this.name = 'ApiFailure';
+	}
+}
+
+// The route's own 404: the id in the URL is wrong. Never a refusal — the seam returns undefined
+// for a row it does not hold, and the door names it here.
+export function notFound(message: string): never {
+	throw new ApiFailure(404, message);
 }
 
 // A plain JSON object — not `null`, an array, or a scalar. A write body is one, and so is every
@@ -22,10 +36,30 @@ export function jsonObject(value: unknown): Record<string, unknown> | null {
 		: null;
 }
 
+// One API route: the handler answers its success, and anything it throws becomes the spec's one
+// failure shape. `ApiFailure` carries the status the door chose; `Refused` takes the status its
+// kind names, so a clash is a 409 and a missing parent a 404 from the same table the form door
+// uses. Anything else was not thrown deliberately and is left to the framework's 500.
+export function apiRoute<Event extends { request: Request }>(
+	handle: (event: Event) => Response | Promise<Response>
+): (event: Event) => Promise<Response> {
+	return async (event) => {
+		try {
+			return await handle(event);
+		} catch (error) {
+			if (error instanceof ApiFailure)
+				return json({ error: error.message }, { status: error.status });
+			if (error instanceof Refused)
+				return json({ error: error.message }, { status: refusalStatus(error.kind) });
+			throw error;
+		}
+	};
+}
+
 // Every route reads its JSON body through here. A body that does not parse — `{`, an empty
 // string — and one that parses to something other than an object — `null`, an array, a number —
 // are the same 400 the spec gives a malformed body (§3.3), never the framework's 500.
-export async function readJson(request: Request): Promise<Record<string, unknown> | Response> {
+export async function readJson(request: Request): Promise<Record<string, unknown>> {
 	let body: unknown;
 	try {
 		body = await request.json();
@@ -33,27 +67,28 @@ export async function readJson(request: Request): Promise<Record<string, unknown
 		body = null;
 	}
 	const object = jsonObject(body);
-	return object ?? json({ error: 'The body must be a JSON object.' }, { status: 400 });
+	if (!object) throw new ApiFailure(400, 'The body must be a JSON object.');
+	return object;
 }
 
-// Every route needs its target row to exist before it reads or writes further. Returns the 404
-// Response to return as-is, or null once the row is confirmed present.
+// Every route needs its target row to exist before it reads or writes further. A missing one is
+// the route's 404.
 export function requireExisting<T extends SQLiteTable & { id: SQLiteColumn }>(
 	db: Db,
 	table: T,
 	id: string,
 	notFoundMessage: string
-): Response | null {
+): void {
 	const [existing] = db.select({ id: table.id }).from(table).where(eq(table.id, id)).all();
-	return existing ? null : json({ error: notFoundMessage }, { status: 404 });
+	if (!existing) notFound(notFoundMessage);
 }
 
 // The API door's one type check. The seam takes names, titles, labels, urls and statuses as
 // strings and runs every value rule itself (ADR-0025); a body that sends something else is
 // refused here, before the seam is called.
-export function stringField(value: unknown, name: string): string | Response {
+export function stringField(value: unknown, name: string): string {
 	if (typeof value !== 'string') {
-		return json({ error: `The "${name}" field must be a string.` }, { status: 400 });
+		throw new ApiFailure(400, `The "${name}" field must be a string.`);
 	}
 	return value;
 }
@@ -62,34 +97,26 @@ export function stringField(value: unknown, name: string): string | Response {
 // cannot drift. An absent field is left out of the change: PATCH reads that as "unchanged" and a
 // create reads it as "the default". Whether a title is needed is a value rule, and stays in the
 // seam (§3.6).
-export function lessonFields(data: Record<string, unknown>): LessonChange | Response {
+export function lessonFields(data: Record<string, unknown>): LessonChange {
 	const fields: LessonChange = {};
 
-	if (data.title !== undefined) {
-		const title = stringField(data.title, 'title');
-		if (title instanceof Response) return title;
-		fields.title = title;
-	}
+	if (data.title !== undefined) fields.title = stringField(data.title, 'title');
 
 	if (data.body !== undefined) {
 		if (data.body !== null && typeof data.body !== 'string') {
-			return json({ error: 'The "body" field must be a string or null.' }, { status: 400 });
+			throw new ApiFailure(400, 'The "body" field must be a string or null.');
 		}
 		fields.body = data.body;
 	}
 
 	if (data.length !== undefined) {
 		if (typeof data.length !== 'number') {
-			return json({ error: 'The "length" field must be a number.' }, { status: 400 });
+			throw new ApiFailure(400, 'The "length" field must be a number.');
 		}
 		fields.length = data.length;
 	}
 
-	if (data.status !== undefined) {
-		const status = stringField(data.status, 'status');
-		if (status instanceof Response) return status;
-		fields.status = status;
-	}
+	if (data.status !== undefined) fields.status = stringField(data.status, 'status');
 
 	return fields;
 }

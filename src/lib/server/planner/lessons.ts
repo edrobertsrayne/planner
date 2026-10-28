@@ -13,7 +13,6 @@ import { fixedOn } from './sequence';
 import { lessonBody, lessonLength, lessonStatus, required, requireRow } from './fields';
 import { linksOf } from './links';
 import { attachedTags } from './tags';
-import type { ConfirmQuestion } from './courses';
 
 export function lessonsOf(db: Db, topicId: string) {
 	return db
@@ -210,11 +209,11 @@ function rederiveHolders(db: Db, lessonId: string, today: string): WriteReport {
 // Refuses too while any Placement names the Lesson (ADR-0022): the "no mark" answer to whether a
 // Standalone Lesson is schedulable depends entirely on a `placement` row naming it, so deleting
 // one out from under a live Placement would leave that row naming a Lesson that no longer exists.
-// When a Sequence holds the Lesson, the caller must confirm first (ADR-0026): the answer is a
-// `needsConfirm` question that names the Classes. The API has no confirm, so it turns that
-// question into a 409. On confirm, the cascade takes the entries, Readiness and Teaching notes,
-// and the Attachment rows; their files are unlinked only once the write has committed, so nothing
-// a failed re-derivation rolls back loses a file.
+// When a Sequence holds the Lesson, the caller must confirm first (ADR-0026): the seam throws an
+// `unconfirmed` refusal naming the Classes, and the caller asks again with `confirmed=true`. The
+// API has no confirm, so it shows that refusal's reason as a 409. On confirm, the cascade takes
+// the entries, Readiness and Teaching notes, and the Attachment rows; their files are unlinked
+// only once the write has committed, so nothing a failed re-derivation rolls back loses a file.
 // An unknown id returns undefined, the door's 404; every other refusal throws `Refused`.
 export function deleteLesson(
 	db: Db,
@@ -224,7 +223,7 @@ export function deleteLesson(
 		dir,
 		confirmed = false
 	}: { id: string; today: string; dir: string; confirmed?: boolean }
-): ({ lesson: typeof schema.lesson.$inferSelect } & WriteReport) | ConfirmQuestion | undefined {
+): ({ lesson: typeof schema.lesson.$inferSelect } & WriteReport) | undefined {
 	const [row] = db.select().from(schema.lesson).where(eq(schema.lesson.id, id)).all();
 	if (!row) return undefined;
 
@@ -255,7 +254,7 @@ export function deleteLesson(
 		.orderBy(asc(schema.classes.label))
 		.all();
 	if (sequenceClasses.length > 0 && !confirmed) {
-		return { needsConfirm: true, reason: lessonDeleteText(sequenceClasses.map((c) => c.label)) };
+		throw new Refused('unconfirmed', lessonDeleteText(sequenceClasses.map((c) => c.label)));
 	}
 
 	// Not-yet-taught Sessions carrying this Lesson are about to be replaced by the re-derivation

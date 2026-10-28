@@ -1,36 +1,31 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db/client';
 import {
+	ApiFailure,
+	apiRoute,
 	jsonObject,
 	lessonFields,
 	readJson,
-	refusalJson,
 	stringField
 } from '$lib/server/api-helpers';
 import { importTopic } from '$lib/server/planner';
 import type { RequestHandler } from './$types';
 
-export const POST: RequestHandler = async (event) => {
+export const POST: RequestHandler = apiRoute(async (event) => {
 	const data = await readJson(event.request);
-	if (data instanceof Response) return data;
 
 	const course = jsonObject(data.course);
-	if (!course) {
-		return json({ error: 'The "course" field is required.' }, { status: 400 });
-	}
+	if (!course) throw new ApiFailure(400, 'The "course" field is required.');
 
 	const topic = jsonObject(data.topic);
-	if (!topic) {
-		return json({ error: 'The "topic" field is required.' }, { status: 400 });
-	}
+	if (!topic) throw new ApiFailure(400, 'The "topic" field is required.');
 
 	const topicName = stringField(topic.name, 'topic.name');
-	if (topicName instanceof Response) return topicName;
 
 	// A present `lessons` is the caller's list; anything but an array is a mistake to report, not
 	// an empty Topic to create.
 	if (topic.lessons !== undefined && !Array.isArray(topic.lessons)) {
-		return json({ error: 'The "lessons" field must be an array.' }, { status: 400 });
+		throw new ApiFailure(400, 'The "lessons" field must be an array.');
 	}
 
 	// Types only: every value rule — a title, a Length, a status, a Link's url — runs in the seam,
@@ -45,27 +40,20 @@ export const POST: RequestHandler = async (event) => {
 	const lessonList: unknown[] = Array.isArray(topic.lessons) ? topic.lessons : [];
 	for (const raw of lessonList) {
 		const lesson = jsonObject(raw);
-		if (!lesson) return json({ error: 'Each Lesson must be an object.' }, { status: 400 });
+		if (!lesson) throw new ApiFailure(400, 'Each Lesson must be an object.');
 
 		const fields = lessonFields(lesson);
-		if (fields instanceof Response) return fields;
 		if (lesson.links !== undefined && !Array.isArray(lesson.links)) {
-			return json({ error: 'The "links" field must be an array.' }, { status: 400 });
+			throw new ApiFailure(400, 'The "links" field must be an array.');
 		}
 
 		const links: Array<{ url: string; label: string }> = [];
 		const linkList: unknown[] = Array.isArray(lesson.links) ? lesson.links : [];
 		for (const rawLink of linkList) {
 			const link = jsonObject(rawLink);
-			if (!link) return json({ error: 'Each Link must be an object.' }, { status: 400 });
+			if (!link) throw new ApiFailure(400, 'Each Link must be an object.');
 
-			const url = stringField(link.url, 'url');
-			if (url instanceof Response) return url;
-
-			const label = stringField(link.label, 'label');
-			if (label instanceof Response) return label;
-
-			links.push({ url, label });
+			links.push({ url: stringField(link.url, 'url'), label: stringField(link.label, 'label') });
 		}
 
 		// An absent title is an empty one, which the seam refuses: "A Lesson needs a title."
@@ -81,26 +69,19 @@ export const POST: RequestHandler = async (event) => {
 	if (courseId !== undefined && courseName === undefined) target = { id: courseId };
 	else if (courseName !== undefined && courseId === undefined) target = { name: courseName };
 	else {
-		return json(
-			{ error: 'The "course" field must carry exactly one of "id" or "name".' },
-			{ status: 400 }
-		);
+		throw new ApiFailure(400, 'The "course" field must carry exactly one of "id" or "name".');
 	}
 
-	try {
-		const created = importTopic(db, { course: target, topicName, lessons });
+	const created = importTopic(db, { course: target, topicName, lessons });
 
-		return json(
-			{
-				course: created.course,
-				courseCreated: created.courseCreated,
-				topic: created.topic,
-				lessons: created.lessons,
-				report: { placementsMoved: [] }
-			},
-			{ status: 201 }
-		);
-	} catch (error) {
-		return refusalJson(error);
-	}
-};
+	return json(
+		{
+			course: created.course,
+			courseCreated: created.courseCreated,
+			topic: created.topic,
+			lessons: created.lessons,
+			report: { placementsMoved: [] }
+		},
+		{ status: 201 }
+	);
+});

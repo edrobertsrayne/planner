@@ -11,6 +11,7 @@ import {
 	classSchedule,
 	createClass,
 	deleteClass,
+	Refused,
 	listClasses,
 	setReadiness,
 	writeTeachingNote
@@ -321,11 +322,16 @@ describe('deleting a Class', () => {
 			note: 'went well'
 		});
 
-		const asked = deleteClass(db, { id: classA.id, today: '2026-09-14' });
-		expect(asked).toMatchObject({ needsConfirm: true });
-		const reason = (asked as { reason: string }).reason;
+		let asked: unknown;
+		try {
+			deleteClass(db, { id: classA.id, today: '2026-09-14' });
+		} catch (error) {
+			asked = error;
+		}
+		expect(asked).toBeInstanceOf(Refused);
+		expect((asked as Refused).kind).toBe('unconfirmed');
 		// 9B/Sc1 teaches three Lessons from 3 September, so by 14 September some are taught.
-		expect(reason).toMatch(
+		expect((asked as Error).message).toMatch(
 			/Its timetable, its \d+ Sessions \(\d+ taught\) and its 1 Teaching note go with it\./
 		);
 

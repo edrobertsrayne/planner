@@ -1,6 +1,6 @@
 import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
-import { trimmed } from '$lib/server/form';
+import { formAction, trimmed } from '$lib/server/form';
 import { agenda, agendaLookBack, setReadiness } from '$lib/server/planner';
 import { parseHorizon } from './agenda-horizons';
 import type { Actions, PageServerLoad } from './$types';
@@ -25,11 +25,8 @@ export const load: PageServerLoad = ({ url }) => {
 };
 
 export const actions: Actions = {
-	setReadiness: async ({ request }) => {
-		const data = await request.formData();
-		const lessonId = trimmed(data, 'lessonId');
-		const classId = trimmed(data, 'classId');
-		setReadiness(db, lessonId, classId, data.has('ready'));
+	setReadiness: formAction((data) => {
+		setReadiness(db, trimmed(data, 'lessonId'), trimmed(data, 'classId'), data.has('ready'));
 		return {};
-	}
+	})
 };

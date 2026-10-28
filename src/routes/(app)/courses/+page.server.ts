@@ -1,17 +1,12 @@
 import { db } from '$lib/server/db/client';
-import { refusal } from '$lib/server/form';
+import { formAction } from '$lib/server/form';
 import { courseTiles, createCourse } from '$lib/server/planner';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = () => ({ courses: courseTiles(db) });
 
 export const actions: Actions = {
-	createCourse: async ({ request }) => {
-		const name = String((await request.formData()).get('name') ?? '');
-		try {
-			return { course: createCourse(db, { name }) };
-		} catch (error) {
-			return refusal(error);
-		}
-	}
+	createCourse: formAction((data) => ({
+		course: createCourse(db, { name: String(data.get('name') ?? '') })
+	}))
 };

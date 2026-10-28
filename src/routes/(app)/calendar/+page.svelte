@@ -7,7 +7,7 @@
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import { classTone } from '$lib/class-tone';
 	import { formatDayMonth } from '$lib/date';
-	import { onFail } from '$lib/client/enhance';
+	import { onFail, submitForm } from '$lib/client/enhance';
 	import { sessionHref } from '$lib/client/session-href';
 	import RewindReport from '$lib/components/rewind-report.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -65,19 +65,12 @@
 	afterNavigate(() => (slotNote = null));
 
 	// The day head's menu acts through one hidden form rather than three: a Blocked Day records
-	// no cause, so every act the menu offers is a single click, and the form's action and its
-	// one field are set beside the value the moment a menu item names them.
+	// no cause, so every act the menu offers is a single click. `submitForm` writes the action and
+	// the one field the moment a menu item names them.
 	let dayMenuForm = $state<HTMLFormElement | undefined>();
-	let dayMenuField = $state<HTMLInputElement | undefined>();
 
 	function dayMenuAct(action: string, field: string, value: string) {
-		const form = dayMenuForm;
-		const input = dayMenuField;
-		if (!form || !input) return;
-		form.action = action;
-		input.name = field;
-		input.value = value;
-		form.requestSubmit();
+		submitForm(dayMenuForm, { action, fields: { [field]: value } });
 	}
 </script>
 
@@ -208,9 +201,7 @@
 			method="POST"
 			use:enhance={onFail('Could not change the day.')}
 			class="hidden"
-		>
-			<input bind:this={dayMenuField} type="hidden" />
-		</form>
+		></form>
 
 		<table class="w-full table-fixed border-separate border-spacing-1 md:border-spacing-1.5">
 			<thead>
