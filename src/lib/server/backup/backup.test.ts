@@ -1,6 +1,5 @@
 import { Database } from 'bun:sqlite';
 import {
-	chmodSync,
 	closeSync,
 	cpSync,
 	mkdirSync,
@@ -14,7 +13,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import { openDatabase, runMigrations } from '../db';
 import * as schema from '../db/schema';
 import { attachmentsDir } from '../planner';
@@ -22,8 +21,28 @@ import { ATTACHMENT_PREFIX, DATABASE_ENTRY, createBackup } from './backup';
 import { RestoreRefused, restoreBackup } from './restore';
 import { sizeOfFd, tarChunks } from './tar';
 
+// The one path `rmSync` refuses to remove, as a deployment running under another user can leave
+// live storage. A permission bit cannot stand in for it: the suite may run as root, which no file
+// mode stops.
+const unremovable = vi.hoisted(() => ({ path: null as string | null }));
+vi.mock('node:fs', async (importOriginal) => {
+	const fs = await importOriginal<typeof import('node:fs')>();
+	return {
+		...fs,
+		rmSync: (...args: Parameters<typeof fs.rmSync>) => {
+			if (args[0] === unremovable.path) {
+				throw Object.assign(new Error(`EACCES: permission denied, rm '${args[0]}'`), {
+					code: 'EACCES'
+				});
+			}
+			return fs.rmSync(...args);
+		}
+	};
+});
+
 const dirs: string[] = [];
 afterEach(() => {
+	unremovable.path = null;
 	for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
 
@@ -410,39 +429,34 @@ describe('A Restore that fails while writing the live instance', () => {
 		const archive = await collect(createBackup(source.client, source.databaseUrl).body);
 
 		const target = instance();
-		// Live storage the copy cannot empty: a directory whose contents cannot be removed without
-		// write permission on it, as a deployment running under another user can leave behind.
-		const locked = join(attachmentsDir(target.databaseUrl), 'locked');
-		mkdirSync(locked, { recursive: true });
-		writeFileSync(join(locked, 'keep'), 'x');
-		chmodSync(locked, 0o500);
+		// Live storage the copy cannot empty, holding a file the failed Restore must leave alone.
+		const live = attachmentsDir(target.databaseUrl);
+		mkdirSync(live, { recursive: true });
+		writeFileSync(join(live, 'keep'), 'x');
+		unremovable.path = live;
 
 		const restore = restoreInto(target, archive);
-		try {
-			const failure = await restore.done.catch((cause: unknown) => cause);
-			// The Restore got past every check and died while emptying live storage, after the rows
-			// had been copied.
-			expect(failure).toBeInstanceOf(Error);
-			expect(failure).not.toBeInstanceOf(RestoreRefused);
-			expect(readdirSync(attachmentsDir(target.databaseUrl))).toContain('locked');
-			// The same open connection, on the migrated schema, is empty: the transaction rolled back
-			// and the wizard is still open.
-			expect(restore.target.db.select().from(schema.course).all()).toEqual([]);
-			expect(scratch(target)).toEqual([]);
-			expect(restore.target.client.query('PRAGMA journal_mode').get()).toEqual({
-				journal_mode: 'wal'
-			});
-			expect(restore.target.client.query('PRAGMA foreign_keys').get()).toEqual({
-				foreign_keys: 1
-			});
-			expect(
-				restore.target.client
-					.query<{ name: string }, []>('PRAGMA database_list')
-					.all()
-					.map((row) => row.name)
-			).not.toContain('staged');
-		} finally {
-			chmodSync(locked, 0o700);
-		}
+		const failure = await restore.done.catch((cause: unknown) => cause);
+		// The Restore got past every check and died while emptying live storage, after the rows
+		// had been copied.
+		expect(failure).toBeInstanceOf(Error);
+		expect(failure).not.toBeInstanceOf(RestoreRefused);
+		expect(readdirSync(live)).toEqual(['keep']);
+		// The same open connection, on the migrated schema, is empty: the transaction rolled back
+		// and the wizard is still open.
+		expect(restore.target.db.select().from(schema.course).all()).toEqual([]);
+		expect(scratch(target)).toEqual([]);
+		expect(restore.target.client.query('PRAGMA journal_mode').get()).toEqual({
+			journal_mode: 'wal'
+		});
+		expect(restore.target.client.query('PRAGMA foreign_keys').get()).toEqual({
+			foreign_keys: 1
+		});
+		expect(
+			restore.target.client
+				.query<{ name: string }, []>('PRAGMA database_list')
+				.all()
+				.map((row) => row.name)
+		).not.toContain('staged');
 	});
 });
