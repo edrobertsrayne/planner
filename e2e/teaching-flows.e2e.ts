@@ -76,7 +76,7 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 	test('opening a Session from the Agenda, and going Back to the Agenda', async () => {
 		await page.goto('/');
 		const row = page.locator('li').filter({ hasText: '9B/Sc1' }).first();
-		await row.getByRole('link').first().click();
+		await row.locator('a[href^="/sessions/"]').first().click();
 
 		await openSessionAndExpect(page);
 		await expect(page.locator('main')).toContainText('9B/Sc1');
@@ -178,7 +178,7 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 			.locator('li')
 			.filter({ hasText: '9C/Sc1' })
 			.first()
-			.getByRole('link')
+			.locator('a[href^="/sessions/"]')
 			.first()
 			.click();
 		await openSessionAndExpect(page);
@@ -193,7 +193,7 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 			.locator('li')
 			.filter({ hasText: '9C/Sc1' })
 			.first()
-			.getByRole('link')
+			.locator('a[href^="/sessions/"]')
 			.first()
 			.click();
 		await expect(page.getByLabel('How it went')).toHaveText(note);
@@ -433,7 +433,7 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		const agendaRow = page.locator('li').filter({ hasText: '9B/Sc1' }).first();
 		await expect(agendaRow.getByText('Practical', { exact: true })).toBeVisible();
 
-		await agendaRow.getByRole('link').first().click();
+		await agendaRow.locator('a[href^="/sessions/"]').first().click();
 		await openSessionAndExpect(page);
 		await expect(page.locator('main').getByText('Practical', { exact: true })).toBeVisible();
 		await page.getByRole('button', { name: 'Back' }).click();
@@ -473,7 +473,7 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expect(reloadedCheckbox).toBeChecked();
 
 		// Open the Session and verify that the Session page shows Ready read-only
-		await reloadedRow.getByRole('link').first().click();
+		await reloadedRow.locator('a[href^="/sessions/"]').first().click();
 		await openSessionAndExpect(page);
 		await expect(page.locator('main')).toContainText('Ready');
 		await page.getByRole('button', { name: 'Back' }).click();
@@ -509,7 +509,7 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expect(rows).toHaveCount(held);
 
 		// The filter survives a Back from a Session.
-		await rows.first().getByRole('link').first().click();
+		await rows.first().locator('a[href^="/sessions/"]').first().click();
 		await openSessionAndExpect(page);
 		await page.getByRole('button', { name: 'Back' }).click();
 		await expectSessionClosed(page);
@@ -665,7 +665,7 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 
 		// A past row opens the Session page on that occasion, with its note.
 		await page.goto('/?past=1');
-		await pastRows.nth(0).getByRole('link').first().click();
+		await pastRows.nth(0).locator('a[href^="/sessions/"]').first().click();
 		await openSessionAndExpect(page);
 		await expect(page.locator('main')).toContainText('9B/Sc1');
 		await expect(page.getByLabel('How it went')).toHaveText(note);

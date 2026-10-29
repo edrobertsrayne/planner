@@ -263,7 +263,7 @@ test.describe.serial('Placing and removing a Lesson', () => {
 			.filter({ hasText: '9B/Sc1' })
 			.filter({ hasText: 'Motion' })
 			.first()
-			.getByRole('link')
+			.locator('a[href^="/sessions/"]')
 			.first()
 			.click();
 		await openSessionAndExpect(page);
