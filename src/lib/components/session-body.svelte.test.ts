@@ -52,6 +52,16 @@ function lesson(
 }
 
 describe('the Session panel', () => {
+	test("the Class badge opens the Class's page", async () => {
+		stubSessionFetch(baseDetail);
+
+		const screen = await render(SessionBody, { occasion });
+
+		await expect
+			.element(screen.getByRole('link', { name: '9B/Sc1' }))
+			.toHaveAttribute('href', '/classes/class-1');
+	});
+
 	// The server's day decides, not the browser's clock: the payload carries it.
 	test('a Session ahead of the server\'s day shows its Readiness and no "Needs more time"', async () => {
 		stubSessionFetch({ ...baseDetail, today: '2026-09-02', ready: false, lesson: lesson() });

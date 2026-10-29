@@ -7,6 +7,7 @@
 	import { sessionHref } from '$lib/client/session-href';
 	import { withParam } from '$lib/query';
 	import { touchTarget } from '$lib/components/ui/touch-target';
+	import ClassChip from '$lib/components/class-chip.svelte';
 	import FilterChips from '$lib/components/filter-chips.svelte';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import TagChips from '$lib/components/tag-chips.svelte';
@@ -113,15 +114,10 @@
 				{#if row.room}<span class="block truncate" title={row.room}>{row.room}</span>{/if}
 			</span>
 
-			<!-- The Class chip sits in a fixed-width column, so the titles line up (issue #341). -->
+			<!-- The Class chip sits in a fixed-width column, so the titles line up (issue #341), and opens
+			     the Class's page. -->
 			<span class="w-16 shrink-0">
-				<span
-					class="rounded-2xl px-2 py-0.5 text-xs font-medium whitespace-nowrap"
-					style:background-color={tone.bg}
-					style:color={tone.fg}
-				>
-					{row.classLabel}
-				</span>
+				<ClassChip classId={row.classId} label={row.classLabel} tone={row.tone} />
 			</span>
 
 			<!-- A Blocked Slot is removed: nothing to open, plan or tick, so it takes the Calendar's

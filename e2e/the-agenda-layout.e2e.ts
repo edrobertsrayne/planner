@@ -47,6 +47,27 @@ test.describe('the Agenda on a laptop', () => {
 			.click();
 		await expect(page.getByText(original, { exact: true }).first()).toBeVisible();
 	});
+
+	test("a Class chip opens the Class's page, and Back returns to the Agenda as it was", async ({
+		page
+	}) => {
+		await login(page, '/?horizon=28&past=1');
+		await page.getByRole('link', { name: '9B/Sc1', exact: true }).first().click();
+		await expect(page).toHaveURL(/\/classes\/[^/]+$/);
+		await expect(page.getByRole('tab', { name: 'Overview' })).toBeVisible();
+
+		// Back is the browser's own Back, so the horizon and the look-back stay as they were.
+		await page.getByRole('button', { name: 'Back' }).click();
+		await expect(page).toHaveURL('/?horizon=28&past=1');
+		await expect(page.getByRole('button', { name: 'Hide the previous 7 days' })).toBeVisible();
+
+		// With no previous page in the app, Back goes to the Classes list.
+		await page.goForward();
+		await expect(page).toHaveURL(/\/classes\/[^/]+$/);
+		await page.reload();
+		await page.getByRole('button', { name: 'Back' }).click();
+		await expect(page).toHaveURL('/classes');
+	});
 });
 
 test.describe('the Agenda on a tablet', () => {
@@ -120,5 +141,6 @@ test.describe('the Agenda on a phone', () => {
 		await expect(plan).not.toHaveCSS('opacity', '0');
 		await expectHitArea44(page, 'Plan', 'link');
 		await expectHitArea44(page, /Ready to teach/, 'checkbox');
+		await expectHitArea44(page, '9B/Sc1', 'link');
 	});
 });

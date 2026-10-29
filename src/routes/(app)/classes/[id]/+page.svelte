@@ -3,9 +3,10 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { MediaQuery } from 'svelte/reactivity';
-	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
+	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
 	import { classTone } from '$lib/class-tone';
+	import { useBack } from '$lib/client/back';
 	import { createDeleteAsk } from '$lib/client/confirm-delete.svelte';
 	import { replaceQuery } from '$lib/client/enhance';
 	import { formatDate } from '$lib/date';
@@ -34,6 +35,10 @@
 	const setAsAt = (date: string) => replaceQuery(withParam(page.url, 'from', date));
 
 	const tone = $derived(classTone(data.class.tone));
+
+	// Other screens open this page (the Agenda's Class chip among them), so Back returns to
+	// whichever did; with no in-app previous page, it goes to the Classes list.
+	const back = useBack(() => resolve('/classes'));
 
 	// Deleting a Class always asks first (ADR-0022): the unconfirmed post comes back with
 	// `needsConfirm` and the reason, which names what goes with it. The dialog then posts the same
@@ -70,12 +75,10 @@
 <svelte:head><title>{data.class.label}</title></svelte:head>
 
 <div class="mx-auto max-w-6xl px-6 py-6">
-	<a
-		href={resolve('/classes')}
-		class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-	>
-		<ChevronLeftIcon class="size-3" />Classes
-	</a>
+	<Button variant="ghost" size="sm" class="-ml-3" onclick={back}>
+		<ArrowLeftIcon data-icon="inline-start" />
+		Back
+	</Button>
 
 	{#if form?.error}
 		<p role="alert" class="mt-3 text-xs text-destructive">{form.error}</p>
