@@ -7,6 +7,7 @@
 	import type { SessionDetail, WriteReport } from '$lib/server/planner';
 	import RewindReport from '$lib/components/rewind-report.svelte';
 	import { Badge } from '$lib/components/ui/badge';
+	import { touchTarget } from '$lib/components/ui/touch-target';
 	import LessonChildren from '$lib/components/lesson-children.svelte';
 	import TagChips from '$lib/components/tag-chips.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -174,7 +175,15 @@
 </script>
 
 <div class="flex flex-wrap items-center gap-2">
-	{#if detail}<Badge variant="outline">{detail.classLabel}</Badge>{/if}
+	{#if detail}
+		<!-- Opens the Class's page. The badge clips its content, so the touch hit area needs it to
+		     overflow. -->
+		<Badge
+			variant="outline"
+			href={resolve(`/classes/${detail.classId}`)}
+			class="overflow-visible {touchTarget}">{detail.classLabel}</Badge
+		>
+	{/if}
 	<span class="text-xs text-muted-foreground">
 		{formatWeekday(occasion.date)} · P{occasion.period}
 	</span>

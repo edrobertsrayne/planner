@@ -50,7 +50,7 @@ test.describe.serial('a Teaching note and the Sequence after a Lesson write', ()
 	// The Session page of the nth Session the Class teaches next, from the Agenda.
 	async function openNextSession(index: number) {
 		const rows = await agendaSessions();
-		await rows.nth(index).getByRole('link').first().click();
+		await rows.nth(index).locator('a[href^="/sessions/"]').first().click();
 		await expect(page.getByRole('button', { name: 'Back' })).toBeVisible();
 	}
 

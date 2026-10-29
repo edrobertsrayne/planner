@@ -8,6 +8,9 @@ Add new entries at the top, dated:
 
 - YYYY-MM-DD: idea
 
+- 2026-10-29: Open the Class page at the row's Lesson when the Agenda's Class chip is clicked,
+  scrolled to and marked in the Sequence. The chip opens the Class page at the top for now.
+
 - 2026-10-26: A `kit.csp` with `script-src 'self'`, if Lesson bodies ever allow HTML. Ruled out
   of #431: markdown-it runs with `html: false` and KaTeX with `trust: false`, so `{@html}` is safe.
   The CSP would block mode-watcher's inline head script unless it carries the page nonce, and
