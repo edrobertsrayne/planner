@@ -21,10 +21,10 @@ Add new entries at the top, dated:
   values in Dokploy instead. A hung server is therefore still never restarted by the platform, and a
   code-execution bug still runs as whichever user Railpack's image uses.
 
-- 2026-10-26: Clear the eleven dev-only advisories `bun audit` still reports, all pinned exactly by a
+- 2026-10-26: Clear the eleven dev-only advisories `npm audit` still reports, all pinned exactly by a
   devDependency: `lodash` under `auth`'s chevrotain, `markdown-it` and `smol-toml` under
-  `markdownlint-cli2`, `@sveltejs/kit` and `cookie` (first fixed in kit 3.0.0, blocked by
-  `svelte-adapter-bun`), and `katex` under `markdownlint`. Needs major bumps or a Renovate policy.
+  `markdownlint-cli2`, `@sveltejs/kit` and `cookie` (first fixed in kit 3.0.0, which also needs
+  `@sveltejs/adapter-node` 6), and `katex` under `markdownlint`. Needs major bumps or a Renovate policy.
   Issue #414 fixed every production advisory.
 
 - 2026-10-10: Re-import a changed Topic in place, matching its Lessons by id or position. Ruled

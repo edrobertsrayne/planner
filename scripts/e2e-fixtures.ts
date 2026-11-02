@@ -4,20 +4,20 @@
  * app has no way to create one except letting real time pass. This writes that one row straight
  * into the database instead, against the suite's own scratch database:
  *
- *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts find-lesson-id <title>
- *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts find-class-id <label>
- *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts mark-taught <classId> <date> <period> <lessonId> [note]
- *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts unmark-taught <classId> <date> <period>
- *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts reset <empty|standard> <origin>
- *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts add-attachment <lessonId> <filename> <mimeType> <content>
- *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts assign-topic <classLabel> <topicId>
- *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts create-class <label> <courseId>
- *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts delete-class <label>
- *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts clear-terms
- *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts create-standalone-lesson <title>
- *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts add-lesson <classLabel> <title>
- *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts place-lesson <lessonId> <classLabel> <date>
- *   DATABASE_URL=e2e.db bun scripts/e2e-fixtures.ts unplace-lesson <lessonId>
+ *   DATABASE_URL=e2e.db npx tsx scripts/e2e-fixtures.ts find-lesson-id <title>
+ *   DATABASE_URL=e2e.db npx tsx scripts/e2e-fixtures.ts find-class-id <label>
+ *   DATABASE_URL=e2e.db npx tsx scripts/e2e-fixtures.ts mark-taught <classId> <date> <period> <lessonId> [note]
+ *   DATABASE_URL=e2e.db npx tsx scripts/e2e-fixtures.ts unmark-taught <classId> <date> <period>
+ *   DATABASE_URL=e2e.db npx tsx scripts/e2e-fixtures.ts reset <empty|standard> <origin>
+ *   DATABASE_URL=e2e.db npx tsx scripts/e2e-fixtures.ts add-attachment <lessonId> <filename> <mimeType> <content>
+ *   DATABASE_URL=e2e.db npx tsx scripts/e2e-fixtures.ts assign-topic <classLabel> <topicId>
+ *   DATABASE_URL=e2e.db npx tsx scripts/e2e-fixtures.ts create-class <label> <courseId>
+ *   DATABASE_URL=e2e.db npx tsx scripts/e2e-fixtures.ts delete-class <label>
+ *   DATABASE_URL=e2e.db npx tsx scripts/e2e-fixtures.ts clear-terms
+ *   DATABASE_URL=e2e.db npx tsx scripts/e2e-fixtures.ts create-standalone-lesson <title>
+ *   DATABASE_URL=e2e.db npx tsx scripts/e2e-fixtures.ts add-lesson <classLabel> <title>
+ *   DATABASE_URL=e2e.db npx tsx scripts/e2e-fixtures.ts place-lesson <lessonId> <classLabel> <date>
+ *   DATABASE_URL=e2e.db npx tsx scripts/e2e-fixtures.ts unplace-lesson <lessonId>
  */
 import { rmSync } from 'node:fs';
 import { and, eq } from 'drizzle-orm';
@@ -43,8 +43,8 @@ import { DATABASE_URL, EMAIL, PASSWORD, PLANNER_NOW, isoDate } from '../e2e/help
 // The same day the suite's server runs on, so a fixture's "today" is the app's.
 setClock(PLANNER_NOW);
 
-// Bun loads `.env`, which names the developer's own database. A reset through that would wipe every
-// row of it and its Attachments, so this script writes the suite's scratch file and nothing else.
+// A shell that loads `.env` exports the developer's own database. A reset through that would wipe
+// every row of it and its Attachments, so this script writes the suite's scratch file and nothing else.
 if (process.env.DATABASE_URL !== DATABASE_URL) {
 	throw new Error(
 		`DATABASE_URL must be ${DATABASE_URL}, not ${process.env.DATABASE_URL ?? 'unset'}: this script only ever writes the e2e suite's scratch database`
@@ -310,16 +310,16 @@ switch (command) {
 			throw new Error('Usage: reset <empty|standard> <origin>');
 		}
 		const tables = client
-			.query(
+			.prepare(
 				`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name != '__drizzle_migrations'`
 			)
 			.all() as { name: string }[];
 		// The pragma is ignored inside a transaction, so it brackets one.
-		client.run('PRAGMA foreign_keys = OFF');
+		client.exec('PRAGMA foreign_keys = OFF');
 		inTransaction(client, () => {
-			for (const { name } of tables) client.run(`DELETE FROM "${name}"`);
+			for (const { name } of tables) client.exec(`DELETE FROM "${name}"`);
 		});
-		client.run('PRAGMA foreign_keys = ON');
+		client.exec('PRAGMA foreign_keys = ON');
 		// The server makes the folder again on the next upload.
 		rmSync(attachmentsDir(DATABASE_URL), { recursive: true, force: true });
 		if (state === 'standard') {

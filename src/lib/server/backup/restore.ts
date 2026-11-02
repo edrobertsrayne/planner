@@ -1,7 +1,7 @@
 // Restore (ADR-0024): rebuild an empty instance from a Backup, all-or-nothing. Everything is
 // unpacked and checked in a scratch folder beside the database; the live files are touched only in
 // the final swap, after every check has passed.
-import { Database } from 'bun:sqlite';
+import Database from 'better-sqlite3';
 import {
 	closeSync,
 	mkdirSync,
@@ -15,7 +15,7 @@ import {
 } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { readMigrationFiles } from 'drizzle-orm/migrator';
-import { inTransaction, runMigrations } from '../db';
+import { inTransaction, runMigrations, type Client } from '../db';
 import { attachmentsDir } from '../planner';
 import { ATTACHMENT_PREFIX, DATABASE_ENTRY } from './backup';
 import { BadArchive, untar } from './tar';
@@ -47,7 +47,7 @@ export async function restoreBackup(options: {
 	body: ReadableStream<Uint8Array>;
 	contentLength: number | null;
 	databaseUrl: string;
-	client: Database;
+	client: Client;
 	migrationsFolder?: string;
 }): Promise<void> {
 	const { databaseUrl, client } = options;
@@ -115,7 +115,7 @@ async function unpack(
 /** Opens the unpacked database, refuses anything unreadable, newer or incomplete, and upgrades an
  * older one. Leaves a single self-contained file with no WAL beside it. */
 function checkStaged(databasePath: string, attachmentsPath: string, migrationsFolder: string) {
-	let staged: Database;
+	let staged: Client;
 	try {
 		staged = new Database(databasePath);
 	} catch {
@@ -127,15 +127,15 @@ function checkStaged(databasePath: string, attachmentsPath: string, migrationsFo
 		let attachments: { id: string; size: number }[];
 		try {
 			const [{ quick_check }] = staged
-				.query<{ quick_check: string }, []>('PRAGMA quick_check')
+				.prepare<[], { quick_check: string }>('PRAGMA quick_check')
 				.all();
 			if (quick_check !== 'ok') throw new Error(quick_check);
 			applied = staged
-				.query<{ name: string }, []>('SELECT name FROM __drizzle_migrations')
+				.prepare<[], { name: string }>('SELECT name FROM __drizzle_migrations')
 				.all()
 				.map((row) => row.name);
 			attachments = staged
-				.query<{ id: string; size: number }, []>('SELECT id, size FROM attachment')
+				.prepare<[], { id: string; size: number }>('SELECT id, size FROM attachment')
 				.all();
 		} catch {
 			throw new RestoreRefused(NOT_A_BACKUP);
@@ -165,27 +165,29 @@ function checkStaged(databasePath: string, attachmentsPath: string, migrationsFo
 		// SQLite opens with foreign keys off, while startup migrates with them on, so an upgrade
 		// here has to turn them on too or it cascades differently. A copy whose rows point at
 		// records it does not hold is then refused rather than restored.
-		staged.run('PRAGMA foreign_keys = ON');
+		staged.exec('PRAGMA foreign_keys = ON');
 		runMigrations(staged, migrationsFolder);
-		if (staged.query('PRAGMA foreign_key_check').get() !== null) {
+		if (staged.prepare('PRAGMA foreign_key_check').get() !== undefined) {
 			throw new RestoreRefused(ORPHAN_ROWS);
 		}
-		staged.run('PRAGMA journal_mode = DELETE');
+		staged.exec('PRAGMA journal_mode = DELETE');
 	} finally {
 		staged.close();
 	}
 }
 
-function hasPlannerData(client: Database): boolean {
+function hasPlannerData(client: Client): boolean {
 	const tables = client
-		.query<{ name: string }, []>(
+		.prepare<[], { name: string }>(
 			"SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
 		)
 		.all()
 		.map((row) => row.name)
 		.filter((name) => !NOT_PLANNER_DATA.has(name));
 
-	return tables.some((name) => client.query(`SELECT 1 FROM "${name}" LIMIT 1`).get() !== null);
+	return tables.some(
+		(name) => client.prepare(`SELECT 1 FROM "${name}" LIMIT 1`).get() !== undefined
+	);
 }
 
 // The migrations table describes the schema, not the data, and the live database is already on the
@@ -194,9 +196,9 @@ function hasPlannerData(client: Database): boolean {
 const NOT_COPIED = new Set(['__drizzle_migrations']);
 
 /** The tables a Restore copies, in a stable order, from one attached database. */
-function copiedTables(client: Database, database: 'main' | 'staged'): string[] {
+function copiedTables(client: Client, database: 'main' | 'staged'): string[] {
 	return client
-		.query<{ name: string }, []>(
+		.prepare<[], { name: string }>(
 			`SELECT name FROM ${database}.sqlite_master
 			 WHERE type = 'table' AND name NOT LIKE 'sqlite_%'`
 		)
@@ -214,16 +216,16 @@ function copiedTables(client: Database, database: 'main' | 'staged'): string[] {
  * The caller serialises this with first-run sign-up (`firstRun`), so nothing can create a user
  * between the check and the copy. */
 function apply(
-	client: Database,
+	client: Client,
 	databaseUrl: string,
 	stagedDatabase: string,
 	stagedAttachments: string
 ) {
-	if (client.query('SELECT 1 FROM "user" LIMIT 1').get() !== null) {
+	if (client.prepare('SELECT 1 FROM "user" LIMIT 1').get() !== undefined) {
 		throw new RestoreRefused('This planner already has an account.');
 	}
 
-	client.run('ATTACH DATABASE ? AS staged', [stagedDatabase]);
+	client.prepare('ATTACH DATABASE ? AS staged').run(stagedDatabase);
 	try {
 		const live = copiedTables(client, 'main');
 		const staged = copiedTables(client, 'staged');
@@ -233,7 +235,7 @@ function apply(
 
 		const liveAttachments = attachmentsDir(databaseUrl);
 		let attachmentsMoved = false;
-		const journalMode = client.query<{ journal_mode: string }, []>('PRAGMA journal_mode').get()!
+		const journalMode = client.prepare<[], { journal_mode: string }>('PRAGMA journal_mode').get()!
 			.journal_mode;
 
 		// Foreign keys stay off while every table is emptied and refilled. With them on, a child row
@@ -241,18 +243,18 @@ function apply(
 		// arrives in the same transaction — defer_foreign_keys does not save it under Bun's SQLite —
 		// and one fixed table order cannot put every foreign key first. The staged copy was checked
 		// for orphans, and the copy is checked again before it commits.
-		client.run('PRAGMA foreign_keys = OFF');
+		client.exec('PRAGMA foreign_keys = OFF');
 		try {
 			// Writing the whole database into a WAL would keep a second copy of it on disk until a
 			// checkpoint. The rollback journal holds only the pages being replaced, and the file is
 			// switched back when the copy is done.
-			client.run('PRAGMA journal_mode = DELETE');
+			client.exec('PRAGMA journal_mode = DELETE');
 			inTransaction(client, () => {
-				for (const table of live) client.run(`DELETE FROM main."${table}"`);
+				for (const table of live) client.exec(`DELETE FROM main."${table}"`);
 				for (const table of live) {
-					client.run(`INSERT INTO main."${table}" SELECT * FROM staged."${table}"`);
+					client.exec(`INSERT INTO main."${table}" SELECT * FROM staged."${table}"`);
 				}
-				if (client.query('PRAGMA foreign_key_check').get() !== null) {
+				if (client.prepare('PRAGMA foreign_key_check').get() !== undefined) {
 					throw new RestoreRefused(ORPHAN_ROWS);
 				}
 				rmSync(liveAttachments, { recursive: true, force: true });
@@ -266,12 +268,12 @@ function apply(
 			throw cause;
 		} finally {
 			try {
-				client.run(`PRAGMA journal_mode = ${journalMode}`);
+				client.exec(`PRAGMA journal_mode = ${journalMode}`);
 			} finally {
-				client.run('PRAGMA foreign_keys = ON');
+				client.exec('PRAGMA foreign_keys = ON');
 			}
 		}
 	} finally {
-		client.run('DETACH DATABASE staged');
+		client.exec('DETACH DATABASE staged');
 	}
 }

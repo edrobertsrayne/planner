@@ -202,17 +202,17 @@ Every UI change gets screenshots of each changed screen, before and after, in li
    git worktree add --detach /tmp/<branch>/base main
    ln -s "$PWD/node_modules" /tmp/<branch>/base/node_modules
    cp .env /tmp/<branch>/base/.env
-   (cd /tmp/<branch>/base && DATABASE_URL=/tmp/demo.db bun run dev --port 5173 --strictPort)
+   (cd /tmp/<branch>/base && DATABASE_URL=/tmp/demo.db npm run dev -- --port 5173 --strictPort)
    ```
 
 3. Run the capture script once per screen. It logs in as the demo user when the app redirects to `/login`. Capture `before-<screen>` now, stop the base server, serve the change on 5173, then capture `after-<screen>`:
 
    ```shell
-   bun .agents/skills/pr/screenshot.mjs http://localhost:5173/<path> /tmp/<branch> before-<screen>
-   bun .agents/skills/pr/screenshot.mjs http://localhost:5173/<path> /tmp/<branch> after-<screen>
+   node .agents/skills/pr/screenshot.mjs http://localhost:5173/<path> /tmp/<branch> before-<screen>
+   node .agents/skills/pr/screenshot.mjs http://localhost:5173/<path> /tmp/<branch> after-<screen>
    ```
 
-   Each run writes `<name>-light.png` and `<name>-dark.png`. If launch fails with `Executable doesn't exist`, run `bunx playwright install chromium`, or set `CHROMIUM_PATH` to a Chromium already on the machine. A screen that needs state (an open dialog, a particular Lesson) needs a Playwright script that drives the page there before capturing; reuse `screenshot.mjs` as its starting point. A run that writes data changes what the next run sees, so re-seed between them.
+   Each run writes `<name>-light.png` and `<name>-dark.png`. If launch fails with `Executable doesn't exist`, run `npx playwright install chromium`, or set `CHROMIUM_PATH` to a Chromium already on the machine. A screen that needs state (an open dialog, a particular Lesson) needs a Playwright script that drives the page there before capturing; reuse `screenshot.mjs` as its starting point. A run that writes data changes what the next run sees, so re-seed between them.
 
 4. Open each PNG and confirm it shows the changed screen, not an error page or an empty state.
 5. Lay them out as a table:

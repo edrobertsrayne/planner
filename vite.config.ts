@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
-import adapter from 'svelte-adapter-bun';
+import adapter from '@sveltejs/adapter-node';
 import { sveltekit } from '@sveltejs/kit/vite';
 
 // Unit tests must not depend on a developer's .env or shell exports. These defaults sit above the
@@ -59,7 +59,7 @@ export default defineConfig({
 		})
 	],
 	ssr: {
-		external: ['bun:sqlite'],
+		external: ['better-sqlite3'],
 		noExternal: ['zod']
 	},
 	test: {

@@ -78,7 +78,7 @@ export function resetTo(state: 'empty' | 'standard') {
 }
 
 export function runFixture(...args: string[]): string {
-	return execFileSync('bun', ['scripts/e2e-fixtures.ts', ...args], {
+	return execFileSync('npx', ['tsx', 'scripts/e2e-fixtures.ts', ...args], {
 		cwd: process.cwd(),
 		env: { ...process.env, DATABASE_URL },
 		encoding: 'utf-8'

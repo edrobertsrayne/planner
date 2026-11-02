@@ -1,2 +1,2 @@
 # Type check once per push, for fast feedback. Unit and e2e tests run in CI, which main requires.
-bun run check
+npm run check

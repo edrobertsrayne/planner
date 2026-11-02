@@ -50,7 +50,7 @@ half a Course would otherwise sit permanently below 50%.
 
 A Class's Course is fixed at creation and the screens offer no way to change it, because a Class
 never outlives its academic year. Correcting a mis-picked Course before anything is assigned means
-deleting the Class; `bun db:studio` is the escape hatch otherwise.
+deleting the Class; `npm run db:studio` is the escape hatch otherwise.
 
 Nothing forbids assigning the same Topic to a Class twice. It makes "how far into Forces is this
 Class" ambiguous on the Classes view, and that was judged not worth a constraint for a case that
