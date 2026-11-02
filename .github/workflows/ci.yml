@@ -49,6 +49,7 @@ jobs:
         run: npm run check
 
   test:
+    name: Test Suite
     needs: lint
     runs-on: ubuntu-latest
     # Fifteen minutes was enough while the layout suite was one file. A cold cache — which every
