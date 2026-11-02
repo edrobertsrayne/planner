@@ -1,4 +1,4 @@
-import { Database } from 'bun:sqlite';
+import Database from 'better-sqlite3';
 import {
 	closeSync,
 	cpSync,
@@ -14,7 +14,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { openDatabase, runMigrations } from '../db';
+import { openDatabase, runMigrations, type Client } from '../db';
 import * as schema from '../db/schema';
 import { attachmentsDir } from '../planner';
 import { ATTACHMENT_PREFIX, DATABASE_ENTRY, createBackup } from './backup';
@@ -147,9 +147,9 @@ function restoreInto(
 const scratch = (target: ReturnType<typeof instance>) =>
 	readdirSync(target.dir).filter((name) => name.startsWith('.'));
 
-const schemaOf = (client: Database) =>
+const schemaOf = (client: Client) =>
 	client
-		.query<{ name: string; sql: string }, []>(
+		.prepare<[], { name: string; sql: string }>(
 			"SELECT name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY name"
 		)
 		.all();
@@ -295,7 +295,7 @@ describe('Restore refuses before it writes anything', () => {
 	test('a Backup from a newer version', async () => {
 		const source = instance();
 		populate(source);
-		source.client.run(
+		source.client.exec(
 			"INSERT INTO __drizzle_migrations (hash, created_at, name) VALUES ('x', 1, '99999999999999_from_the_future')"
 		);
 		const archive = await collect(createBackup(source.client, source.databaseUrl).body);
@@ -310,7 +310,7 @@ describe('Restore refuses before it writes anything', () => {
 	test('an Attachment whose file is not the size its row records', async () => {
 		const source = instance();
 		const [first] = populate(source);
-		source.client.run('UPDATE attachment SET size = size + 1 WHERE id = ?', [first.id]);
+		source.client.prepare('UPDATE attachment SET size = size + 1 WHERE id = ?').run(first.id);
 		const archive = await collect(createBackup(source.client, source.databaseUrl).body);
 
 		const target = instance();
@@ -321,7 +321,7 @@ describe('Restore refuses before it writes anything', () => {
 	test('a staged file that no Attachment row names', async () => {
 		const source = instance();
 		const copy = join(source.dir, 'copy.db');
-		source.client.run(`VACUUM INTO '${copy}'`);
+		source.client.exec(`VACUUM INTO '${copy}'`);
 		const stray = join(source.dir, 'stray');
 		writeFileSync(stray, 'no row names this');
 		const archive = await archiveOf([
@@ -340,8 +340,8 @@ describe('Restore refuses before it writes anything', () => {
 		populate(source);
 		// A copy taken while the database held an orphan. Restore has to refuse it, or the broken
 		// reference moves into the fresh instance and every later write on that row fails.
-		source.client.run('PRAGMA foreign_keys = OFF');
-		source.client.run("UPDATE attachment SET lesson_id = 'missing'");
+		source.client.exec('PRAGMA foreign_keys = OFF');
+		source.client.exec("UPDATE attachment SET lesson_id = 'missing'");
 		const archive = await collect(createBackup(source.client, source.databaseUrl).body);
 
 		const target = instance();
@@ -368,16 +368,19 @@ describe('Restore refuses before it writes anything', () => {
 
 		const target = instance();
 		const seen = new Set<string>();
-		const reader = streamOf(archive).getReader();
+		// One tar block per pull, so the restore asks for more of the upload after it has opened the
+		// first entry. A runtime is free to deliver the whole body as one chunk, which would leave
+		// nothing to observe mid-upload.
+		let offset = 0;
 		const body = new ReadableStream<Uint8Array>({
-			async pull(controller) {
+			pull(controller) {
 				// What the scratch folder holds while the restore is still reading the upload.
 				for (const dir of scratch(target)) {
 					for (const name of readdirSync(join(target.dir, dir))) seen.add(name);
 				}
-				const { done, value } = await reader.read();
-				if (done) controller.close();
-				else controller.enqueue(value);
+				if (offset >= archive.length) return controller.close();
+				controller.enqueue(archive.slice(offset, offset + 512));
+				offset += 512;
 			}
 		});
 
@@ -391,9 +394,9 @@ describe('Restore refuses before it writes anything', () => {
 		const source = instance();
 		const attachments = populate(source);
 		const copy = join(source.dir, 'copy.db');
-		source.client.run(`VACUUM INTO '${copy}'`);
+		source.client.exec(`VACUUM INTO '${copy}'`);
 		const altered = new Database(copy);
-		altered.run('CREATE TABLE surprise (id TEXT)');
+		altered.exec('CREATE TABLE surprise (id TEXT)');
 		altered.close();
 		const archive = await archiveOf([
 			{ name: DATABASE_ENTRY, path: copy },
@@ -415,7 +418,7 @@ describe('Restore refuses before it writes anything', () => {
 		const archive = await collect(createBackup(source.client, source.databaseUrl).body);
 
 		const target = instance();
-		target.client.run("INSERT INTO user (id, name, email) VALUES ('u1', 'Ed', 'ed@example.com')");
+		target.client.exec("INSERT INTO user (id, name, email) VALUES ('u1', 'Ed', 'ed@example.com')");
 		await expect(restoreInto(target, archive).done).rejects.toThrow(/already has an account/);
 		expect(target.db.select().from(schema.course).all()).toEqual([]);
 		expect(scratch(target)).toEqual([]);
@@ -446,15 +449,15 @@ describe('A Restore that fails while writing the live instance', () => {
 		// and the wizard is still open.
 		expect(restore.target.db.select().from(schema.course).all()).toEqual([]);
 		expect(scratch(target)).toEqual([]);
-		expect(restore.target.client.query('PRAGMA journal_mode').get()).toEqual({
+		expect(restore.target.client.prepare('PRAGMA journal_mode').get()).toEqual({
 			journal_mode: 'wal'
 		});
-		expect(restore.target.client.query('PRAGMA foreign_keys').get()).toEqual({
+		expect(restore.target.client.prepare('PRAGMA foreign_keys').get()).toEqual({
 			foreign_keys: 1
 		});
 		expect(
 			restore.target.client
-				.query<{ name: string }, []>('PRAGMA database_list')
+				.prepare<[], { name: string }>('PRAGMA database_list')
 				.all()
 				.map((row) => row.name)
 		).not.toContain('staged');

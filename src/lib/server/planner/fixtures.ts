@@ -161,9 +161,9 @@ export function failingCommit(db: Db): Db {
 	const client = db.$client;
 	const failing = {
 		inTransaction: true,
-		run: (sql: string) => {
+		exec: (sql: string) => {
 			if (sql === 'COMMIT') throw new Error('COMMIT failed');
-			client.run(sql);
+			client.exec(sql);
 		}
 	};
 

@@ -8,6 +8,12 @@ Add new entries at the top, dated:
 
 - YYYY-MM-DD: idea
 
+- 2026-11-02: Move to `@sveltejs/kit` 3 and `@sveltejs/adapter-node` 6, `katex` 0.19 and
+  TypeScript 7. Kit 3 is blocked because `bits-ui` pins `runed@0.35`, which peers kit 2; `katex`
+  0.19 is outside `@tiptap/extension-mathematics`'s peer range (`^0.18`); `typescript` 7 is untried
+  against `svelte-check` and `typescript-eslint`. `drizzle-orm` and `drizzle-kit` stay on
+  1.0.0-rc.4, which is newer than the `latest` tag (0.45).
+
 - 2026-10-29: Open the Class page at the row's Lesson when the Agenda's Class chip is clicked,
   scrolled to and marked in the Sequence. The chip opens the Class page at the top for now.
 
@@ -21,10 +27,10 @@ Add new entries at the top, dated:
   values in Dokploy instead. A hung server is therefore still never restarted by the platform, and a
   code-execution bug still runs as whichever user Railpack's image uses.
 
-- 2026-10-26: Clear the eleven dev-only advisories `bun audit` still reports, all pinned exactly by a
+- 2026-10-26: Clear the eleven dev-only advisories `npm audit` still reports, all pinned exactly by a
   devDependency: `lodash` under `auth`'s chevrotain, `markdown-it` and `smol-toml` under
-  `markdownlint-cli2`, `@sveltejs/kit` and `cookie` (first fixed in kit 3.0.0, blocked by
-  `svelte-adapter-bun`), and `katex` under `markdownlint`. Needs major bumps or a Renovate policy.
+  `markdownlint-cli2`, `@sveltejs/kit` and `cookie` (first fixed in kit 3.0.0, which also needs
+  `@sveltejs/adapter-node` 6), and `katex` under `markdownlint`. Needs major bumps or a Renovate policy.
   Issue #414 fixed every production advisory.
 
 - 2026-10-10: Re-import a changed Topic in place, matching its Lessons by id or position. Ruled

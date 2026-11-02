@@ -2,9 +2,9 @@
  * A demo database for prototypes, screenshots and manual smoke tests. Not for the e2e suite: that
  * writes its own data with `reset` in scripts/e2e-fixtures.ts.
  *
- *   bun scripts/demo-db.ts seed /tmp/demo.db
- *   DATABASE_URL=/tmp/demo.db bun run dev --port 5173 --strictPort
- *   bun scripts/demo-db.ts user http://localhost:5173
+ *   npx tsx scripts/demo-db.ts seed /tmp/demo.db
+ *   DATABASE_URL=/tmp/demo.db npm run dev -- --port 5173 --strictPort
+ *   npx tsx scripts/demo-db.ts user http://localhost:5173
  *
  * `seed` writes through the planner seam, as the app does, into a fresh file. The Terms cover the
  * academic year that holds today. Scheduling is derived from two weeks ago, so the record holds
@@ -116,7 +116,9 @@ function seed(path: string | undefined) {
 	}
 
 	client.close();
-	console.log(`Seeded ${path}. Start the server, then run: bun scripts/demo-db.ts user <origin>`);
+	console.log(
+		`Seeded ${path}. Start the server, then run: npx tsx scripts/demo-db.ts user <origin>`
+	);
 }
 
 async function createUser(origin: string | undefined) {

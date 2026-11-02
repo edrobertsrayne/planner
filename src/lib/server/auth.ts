@@ -6,7 +6,7 @@ import { getRequestEvent } from '$app/server';
 import { db } from '$lib/server/db/client';
 import * as authSchema from '$lib/server/db/auth.schema';
 
-// SvelteKit's svelte-adapter-bun needs ORIGIN to build event.url; better-auth needs BETTER_AUTH_URL
+// SvelteKit's adapter-node needs ORIGIN to build event.url; better-auth needs BETTER_AUTH_URL
 // (baseURL) to match event.url.origin or its handler never mounts and auth 404s with no error.
 // The two are separate env vars set independently at deploy time, so a startup check is the only
 // thing standing between a mismatch and a silently dead login.

@@ -22,11 +22,8 @@ const MAX_BYTES = 10 * 1024 * 1024;
 // arrives as octet-stream or as nothing at all. PDF is the exception: every browser maps it, so
 // it takes its one type only. No legacy Office formats, no OpenDocument, no images.
 //
-// The mismatch branch below cannot fire through the form action: Bun's form-data parser rewrites
-// a file part's type from its filename extension before the action reads it, so a browser-declared
-// disagreement never reaches this check. It stays because the check is the spec's grilled rule and
-// a pure function — proven directly in attachments.test.ts — and any future caller of create
-// passes through it.
+// A file part keeps the type the browser declared, so a disagreement with the extension reaches the
+// mismatch branch below and is refused.
 const MIME_BY_EXTENSION: Record<string, readonly string[]> = {
 	pdf: ['application/pdf'],
 	md: ['text/markdown', 'text/plain', 'application/octet-stream'],

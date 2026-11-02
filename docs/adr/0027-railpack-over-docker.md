@@ -26,3 +26,7 @@ definition for the same app.
   `ORIGIN` set, the adapter ignores `PROTOCOL_HEADER` and `HOST_HEADER`, so neither is set. No host
   port is published: the app is reached only through Dokploy's Traefik domain.
 - Migrations still run at startup, so the deployment needs no separate migrate step (ADR-0003).
+
+> **Amended 2026-11-02.** [ADR-0028](0028-node-over-bun.md) moves the planner to Node and npm.
+> Railpack now selects npm from `package-lock.json` and the Node version from `engines.node` in
+> `package.json`, and the start command is `BODY_SIZE_LIMIT=100G node --env-file-if-exists=.env build`.

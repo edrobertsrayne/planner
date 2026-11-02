@@ -1,7 +1,7 @@
 # planner
 
 An electronic teacher planner. Self-hosted, single-user, UK state secondary school.
-Package manager: bun.
+Runtime: Node. Package manager: npm.
 
 ## Tests
 

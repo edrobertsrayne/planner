@@ -58,3 +58,7 @@ aspect module, and whose absence would silently discard the database on the next
 > **Amended 2026-10-26.** [ADR-0027](0027-railpack-over-docker.md) supersedes ADR-0018: Railpack
 > builds the deployable image from the repository, and the repository keeps no Dockerfile. The
 > runtime still brings its own Bun, which Railpack installs from `mise.toml`.
+
+> **Amended 2026-11-02.** [ADR-0028](0028-node-over-bun.md) moves the runtime from Bun to Node.
+> SQLite is now driven through `better-sqlite3`, the native build this ADR avoided; npm installs a
+> prebuilt binary where one exists. Everything else in this ADR stands.

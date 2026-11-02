@@ -65,11 +65,14 @@ async function createOnce(input: {
 	const ctx = await auth.$context;
 	if ((await ctx.internalAdapter.countTotalUsers()) > 0) return null;
 
-	const user = await ctx.internalAdapter.createUser({
-		email: input.email,
-		name: input.name,
-		emailVerified: false
-	});
+	const user = await ctx.internalAdapter.createUser(
+		{
+			email: input.email,
+			name: input.name,
+			emailVerified: false
+		},
+		{ method: 'email-password' }
+	);
 
 	try {
 		await ctx.internalAdapter.createAccount({

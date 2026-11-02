@@ -63,6 +63,8 @@ describe('the write report', () => {
 			.toBeVisible();
 		await expect
 			.element(screen.getByRole('listitem').nth(1))
-			.toHaveTextContent(/Moments — was .* P3, now has nowhere left to go/);
+			.toHaveTextContent(
+				`9C/Sc1 · Moments — was ${formatDate('2026-11-03')} P3, now has nowhere left to go`
+			);
 	});
 });

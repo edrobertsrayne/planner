@@ -663,7 +663,7 @@ Failures:
 - **400** — any field fails validation, or `course` carries both `id` and `name`, or neither.
 
 **Nothing is committed on a failure.** A collision found on the ninth Lesson leaves no Course, no
-Topic, and no Lesson behind. Wrap the whole thing in one `db.transaction`. `bun:sqlite` is
+Topic, and no Lesson behind. Wrap the whole thing in one `db.transaction`. `better-sqlite3` is
 synchronous, so this is a plain synchronous transaction with no partial-await hazard.
 
 There is no `PUT` and no merge. Import is create-only. Re-importing a changed Topic means deleting
@@ -809,7 +809,7 @@ Over real HTTP, one file per area, under `e2e/the-planning-api/`: the key gate a
 endpoints (`10-courses`), Topics (`20-topics`), Lessons (`30-lessons`), Links and Attachments
 (`40-links`, `45-attachments`), Import (`50-import`), the refusals shared across the API
 (`60-refusals`), Blocked Days (`70-blocked-days`), Terms (`80-terms`) and the key itself
-(`90-the-key`). Run them with `bun run test:e2e -- e2e/the-planning-api`.
+(`90-the-key`). Run them with `npm run test:e2e -- e2e/the-planning-api`.
 
 Each file resets the database to the standard state and creates the records it reads, so any file
 runs alone.
