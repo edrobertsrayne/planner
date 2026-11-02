@@ -6,7 +6,8 @@ import { lessonDeleteText } from '$lib/delete-text';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import { combineReports, loadCalendar, rederive, type Db, type WriteReport } from './derive';
-import { nextPosition, swapTargets, type Direction } from './ordering';
+import { movedOrder } from '$lib/sequence-order';
+import { nextPosition } from './ordering';
 import { attachmentsOf, removeAttachmentFiles } from './attachments';
 import { Refused } from './refused';
 import { fixedOn } from './sequence';
@@ -299,19 +300,27 @@ export function deleteLesson(
 	return { lesson: row, ...report };
 }
 
-// Swaps position with the previous or next Lesson in the same Topic. Off either end is a no-op —
-// there is no wraparound and no error, same as moveLink. It sets the Topic's Lesson order only;
-// no Sequence changes, so nothing is re-derived (ADR-0026).
+// Puts a Lesson into the place of another Lesson in the same Topic, as a drop from its grip does:
+// above its old place it goes in front of the target, below it after, and the Lessons between move
+// one place the other way (`movedOrder`, shared with the Sequence tab). Onto itself or a Lesson
+// outside the Topic is a no-op, not an error. It sets the Topic's Lesson order only; no Sequence
+// changes, so nothing is re-derived (ADR-0026).
 export function moveLesson(
 	db: Db,
-	{ topicId, id, direction }: { topicId: string; id: string; direction: Direction }
+	{ topicId, id, targetId }: { topicId: string; id: string; targetId: string }
 ): void {
-	const swap = swapTargets(lessonsOf(db, topicId), id, direction);
-	if (!swap) return;
+	const order = movedOrder(
+		lessonsOf(db, topicId).map((lesson) => lesson.id),
+		[id],
+		targetId
+	);
+	if (!order) return;
 
-	const [a, b] = swap;
-	db.update(schema.lesson).set({ position: b.position }).where(eq(schema.lesson.id, a.id)).run();
-	db.update(schema.lesson).set({ position: a.position }).where(eq(schema.lesson.id, b.id)).run();
+	inTransaction(db.$client, () => {
+		order.forEach((lessonId, position) =>
+			db.update(schema.lesson).set({ position }).where(eq(schema.lesson.id, lessonId)).run()
+		);
+	});
 }
 
 // Which Classes have this Lesson Fixed — a Session for it on or before `today`, the one rule in

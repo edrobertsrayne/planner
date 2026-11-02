@@ -122,7 +122,7 @@ describe('a Lesson write answers with the Rewind report', () => {
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today });
 		const before = classSchedule(db, { classId: classA.id, today });
 
-		moveLesson(db, { topicId: topic.id, id: lessons[1].id, direction: 'up' });
+		moveLesson(db, { topicId: topic.id, id: lessons[1].id, targetId: lessons[0].id });
 
 		expect(classSchedule(db, { classId: classA.id, today })).toEqual(before);
 	});
