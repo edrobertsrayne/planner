@@ -190,10 +190,14 @@
 									)}
 								{:else if cell.kind === 'movable'}
 									<!-- Opens the Session page, where a Lesson is placed, as an Open Slot on the
-									     Agenda does. -->
+									     Agenda does. In select mode a tap is for choosing Lessons, so the link goes. -->
 									<a
-										href={resolve(`/sessions/${classId}/${cell.date}/${cell.period}`)}
-										class="flex min-h-10 flex-1 items-center rounded-md border bg-muted/30 px-2 text-xs text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+										href={board.selectMode
+											? undefined
+											: resolve(`/sessions/${classId}/${cell.date}/${cell.period}`)}
+										class="flex min-h-10 flex-1 items-center rounded-md border bg-muted/30 px-2 text-xs text-muted-foreground {board.selectMode
+											? ''
+											: 'hover:bg-muted/60 hover:text-foreground'}"
 										data-free
 									>
 										Open Slot
