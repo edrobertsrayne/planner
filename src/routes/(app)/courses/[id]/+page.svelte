@@ -8,10 +8,11 @@
 	import { courseHref } from '$lib/client/back';
 	import { STATUS_LABEL } from '$lib/lesson-status';
 	import { createDeleteAsk } from '$lib/client/confirm-delete.svelte';
-	import { createInPlace, createThenSelect, submitForm } from '$lib/client/enhance';
+	import { createInPlace, createThenSelect, onFail, submitForm } from '$lib/client/enhance';
+	import { createListDrag } from '$lib/client/list-drag.svelte';
 	import { plural } from '$lib/plural';
 	import RenameableRow from '$lib/components/renameable-row.svelte';
-	import ReorderButtons from '$lib/components/reorder-buttons.svelte';
+	import DragGrip from '$lib/components/drag-grip.svelte';
 	import TagChips from '$lib/components/tag-chips.svelte';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
@@ -45,6 +46,15 @@
 	// Move to… files the shown Topic in another Course. One hidden form carries the chosen Course.
 	let moveForm = $state<HTMLFormElement>();
 
+	// A drag from a Lesson's grip onto another Lesson of the Topic gives it that Lesson's place, as
+	// in the Sequence tab's List. One hidden form carries the move.
+	let lessonMoveForm = $state<HTMLFormElement>();
+	const lessonDrag = createListDrag({
+		order: () => data.lessons.map((lesson) => lesson.id),
+		onDrop: (id, targetId) => submitForm(lessonMoveForm, { fields: { id, targetId } })
+	});
+	const draggedLesson = $derived(data.lessons.find((l) => l.id === lessonDrag.draggedId));
+
 	function submitDelete(kind: 'course' | 'topic', id: string, name: string): void {
 		submitForm(deleteForm, {
 			action: kind === 'topic' ? '?/deleteTopic' : '?/deleteCourse',
@@ -54,6 +64,13 @@
 </script>
 
 <svelte:head><title>{data.course.name}</title></svelte:head>
+
+<svelte:window
+	onpointermove={lessonDrag.move}
+	onpointerup={() => lessonDrag.end(true)}
+	onpointercancel={() => lessonDrag.end(false)}
+	onkeydown={(event) => event.key === 'Escape' && lessonDrag.end(false)}
+/>
 
 {#snippet menu(label: string, onDelete: () => void, itemLabel: string)}
 	<DropdownMenu.Root>
@@ -249,7 +266,29 @@
 				<ol class="divide-y">
 					{#each data.lessons as lesson, i (lesson.id)}
 						{@const tags = data.tagsByLesson.get(lesson.id) ?? []}
-						<li class="group flex items-start gap-3 py-1 pl-4">
+						{@const dropLine = lessonDrag.dropLine(lesson.id)}
+						<li
+							class="relative flex items-start gap-3 py-1 {wide.current
+								? 'pl-0'
+								: 'pl-4'} {lessonDrag.draggedId === lesson.id ? 'opacity-40' : ''}"
+							data-drop={lesson.id}
+						>
+							{#if dropLine}
+								<span
+									class="pointer-events-none absolute inset-x-0 z-10 h-0.5 bg-primary {dropLine ===
+									'above'
+										? '-top-px'
+										: '-bottom-px'}"
+									data-drop-line
+								></span>
+							{/if}
+							{#if wide.current}
+								<DragGrip
+									label={lesson.title}
+									class="w-7 self-stretch"
+									onstart={(event) => lessonDrag.start(event, lesson.id)}
+								/>
+							{/if}
 							<span class="w-5 shrink-0 pt-2 font-mono text-xs text-muted-foreground/60">
 								{i + 1}
 							</span>
@@ -261,20 +300,12 @@
 								>
 								<TagChips {tags} class="mt-1" />
 							</div>
-							<Badge variant={lesson.status === 'planned' ? 'secondary' : 'outline'} class="mt-2">
+							<Badge
+								variant={lesson.status === 'planned' ? 'secondary' : 'outline'}
+								class="mt-2 mr-4"
+							>
 								{STATUS_LABEL[lesson.status]}
 							</Badge>
-							{#if wide.current}
-								<span class="flex shrink-0 items-center gap-0.5 pr-2 row-control">
-									<ReorderButtons
-										action="?/moveLesson"
-										fields={{ topicId: data.shown.id, id: lesson.id }}
-										label={lesson.title}
-										first={i === 0}
-										last={i === data.lessons.length - 1}
-									/>
-								</span>
-							{/if}
 						</li>
 					{/each}
 					{#if !data.lessons.length}
@@ -283,6 +314,17 @@
 				</ol>
 
 				{#if wide.current}
+					<form
+						method="POST"
+						action="?/moveLesson"
+						bind:this={lessonMoveForm}
+						use:enhance={onFail('Could not move the Lesson.')}
+						hidden
+					>
+						<input type="hidden" name="topicId" value={shown.id} />
+						<input type="hidden" name="id" />
+						<input type="hidden" name="targetId" />
+					</form>
 					<form
 						method="POST"
 						action="?/createLesson"
@@ -307,6 +349,16 @@
 		</section>
 	</div>
 </div>
+
+{#if draggedLesson}
+	<div
+		class="pointer-events-none fixed z-50 rounded-lg border bg-background px-2 py-1 text-xs font-medium shadow-lg"
+		style:left="{lessonDrag.ghost.x + 12}px"
+		style:top="{lessonDrag.ghost.y + 12}px"
+	>
+		{draggedLesson.title}
+	</div>
+{/if}
 
 <ConfirmDeleteDialog bind:target={deleter.pending} />
 
