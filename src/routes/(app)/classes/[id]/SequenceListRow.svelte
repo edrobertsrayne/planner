@@ -1,11 +1,10 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import CheckIcon from '@lucide/svelte/icons/check';
-	import GripVerticalIcon from '@lucide/svelte/icons/grip-vertical';
 	import LockIcon from '@lucide/svelte/icons/lock';
 	import XIcon from '@lucide/svelte/icons/x';
+	import DragGrip from '$lib/components/drag-grip.svelte';
 	import Markdown from '$lib/components/markdown.svelte';
-	import { touchTarget } from '$lib/components/ui/touch-target';
 	import type { SequenceBoard } from '$lib/client/sequence-board.svelte';
 	import { formatDateShort } from '$lib/date';
 	import { wasText } from '$lib/sequence-text';
@@ -56,14 +55,11 @@
 	{#if entry.fixed}
 		<span class="w-7 shrink-0 max-md:hidden"></span>
 	{:else}
-		<button
-			type="button"
-			class="{touchTarget} flex w-7 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground max-md:hidden"
-			aria-label="Drag {entry.title}"
-			onpointerdown={(event) => board.start(event, entry.lessonId)}
-		>
-			<GripVerticalIcon class="size-4" />
-		</button>
+		<DragGrip
+			label={entry.title}
+			class="w-7 max-md:hidden"
+			onstart={(event) => board.start(event, entry.lessonId)}
+		/>
 	{/if}
 	<a
 		href={resolve(`/lessons/${entry.lessonId}?class=${classId}`)}

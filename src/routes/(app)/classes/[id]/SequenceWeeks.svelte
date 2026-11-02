@@ -2,10 +2,10 @@
 	import { resolve } from '$app/paths';
 	import type { Snippet } from 'svelte';
 	import CheckIcon from '@lucide/svelte/icons/check';
-	import GripVerticalIcon from '@lucide/svelte/icons/grip-vertical';
 	import LockIcon from '@lucide/svelte/icons/lock';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import XIcon from '@lucide/svelte/icons/x';
+	import DragGrip from '$lib/components/drag-grip.svelte';
 	import Markdown from '$lib/components/markdown.svelte';
 	import { formatDateShort, formatDayMonth } from '$lib/date';
 	import type { SequenceBoard } from '$lib/client/sequence-board.svelte';
@@ -14,7 +14,6 @@
 	import { wasText } from '$lib/sequence-text';
 	import { topicColour } from '$lib/topic-colour';
 	import TopicTag from './TopicTag.svelte';
-	import { touchTarget } from '$lib/components/ui/touch-target';
 	import type { SequenceEntry, WeekRow } from '$lib/server/planner';
 
 	// The By week layout: each week row holds the Class's Slots in fixed places, and the Lessons go
@@ -63,14 +62,11 @@
 		data-selected={isSelected ? '' : undefined}
 		data-changing={board.changing.has(entry.lessonId) ? '' : undefined}
 	>
-		<button
-			type="button"
-			class="{touchTarget} flex w-6 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground max-md:hidden"
-			aria-label="Drag {entry.title}"
-			onpointerdown={(event) => board.start(event, entry.lessonId)}
-		>
-			<GripVerticalIcon class="size-4" />
-		</button>
+		<DragGrip
+			label={entry.title}
+			class="w-6 max-md:hidden"
+			onstart={(event) => board.start(event, entry.lessonId)}
+		/>
 		<a
 			href={resolve(`/lessons/${entry.lessonId}?class=${classId}`)}
 			class="flex min-w-0 flex-1 flex-col gap-0.5 py-1.5 pr-1 hover:bg-muted/40 max-md:pl-2"

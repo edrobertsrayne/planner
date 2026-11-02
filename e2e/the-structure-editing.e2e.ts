@@ -72,6 +72,92 @@ test.describe('the Course and Topic editors', () => {
 		await expect(page.getByRole('dialog')).toHaveCount(0);
 	});
 
+	test('a drag from a Lesson grip onto another Lesson reorders the Topic', async ({ page }) => {
+		await openCourse(page);
+		const box = page.getByPlaceholder('New Topic name — press Enter');
+		await box.fill('Drag order');
+		await box.press('Enter');
+		await expect(page.getByRole('heading', { level: 2, name: 'Drag order' })).toBeVisible();
+		const lessonBox = page.getByPlaceholder('New Lesson title — press Enter');
+		for (const title of ['Drag A', 'Drag B', 'Drag C']) {
+			await lessonBox.fill(title);
+			await lessonBox.press('Enter');
+			await expect(page.getByRole('link', { name: title, exact: true })).toBeVisible();
+		}
+		const rows = page.getByRole('region', { name: 'Lessons' }).locator('ol > li');
+		const order = () => rows.locator('a').allInnerTexts();
+		await expect(page.getByRole('button', { name: /^Move Drag/ })).toHaveCount(0);
+
+		async function drag(from: string, onto: string) {
+			const grip = await page.getByRole('button', { name: `Drag ${from}` }).boundingBox();
+			const target = await rows.filter({ hasText: onto }).boundingBox();
+			if (!grip || !target) throw new Error('No box');
+			await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+			await page.mouse.down();
+			await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, {
+				steps: 6
+			});
+			await expect(page.locator('[data-drop-line]')).toHaveCount(1);
+			await page.mouse.up();
+		}
+
+		await drag('Drag C', 'Drag A');
+		await expect.poll(order).toEqual(['Drag C', 'Drag A', 'Drag B']);
+		await page.reload();
+		await expect.poll(order).toEqual(['Drag C', 'Drag A', 'Drag B']);
+
+		await drag('Drag C', 'Drag B');
+		await expect.poll(order).toEqual(['Drag A', 'Drag B', 'Drag C']);
+
+		// The keyboard: the arrow keys on a focused grip move the Lesson one place, and the grip
+		// keeps the focus for the next press.
+		await page.getByRole('button', { name: 'Drag Drag A' }).focus();
+		await page.keyboard.press('ArrowDown');
+		await expect.poll(order).toEqual(['Drag B', 'Drag A', 'Drag C']);
+		await page.keyboard.press('ArrowUp');
+		await expect.poll(order).toEqual(['Drag A', 'Drag B', 'Drag C']);
+
+		// A press while the last move is still being written is ignored, so a quick second press
+		// cannot send the same move again and undo the first. The writes are held open to see it.
+		// The answer is held, not the request, so each write reaches the server as on a slow line.
+		await page.route('**/courses/*?/moveLesson', async (route) => {
+			const response = await route.fetch();
+			await new Promise((resolve) => setTimeout(resolve, 500));
+			await route.fulfill({ response });
+		});
+		await page.keyboard.press('ArrowDown');
+		await page.keyboard.press('ArrowDown');
+		await expect.poll(order).toEqual(['Drag B', 'Drag A', 'Drag C']);
+
+		// The same holds for a drop: a second drag during the write moves nothing.
+		await drag('Drag A', 'Drag C');
+		await drag('Drag A', 'Drag C');
+		await expect.poll(order).toEqual(['Drag B', 'Drag C', 'Drag A']);
+
+		// Focus that has gone elsewhere by the time the write lands stays there.
+		await page.getByRole('button', { name: 'Drag Drag A' }).focus();
+		await page.keyboard.press('ArrowUp');
+		await lessonBox.focus();
+		await expect.poll(order).toEqual(['Drag B', 'Drag A', 'Drag C']);
+		await expect(lessonBox).toBeFocused();
+
+		await page.unroute('**/courses/*?/moveLesson');
+		await page.getByRole('button', { name: 'Drag Drag A' }).focus();
+		await page.keyboard.press('ArrowUp');
+		await expect.poll(order).toEqual(['Drag A', 'Drag B', 'Drag C']);
+
+		// Undo: the Topic goes, and its Lessons with it.
+		await page.getByRole('button', { name: 'Topic actions' }).click();
+		await page.getByRole('menuitem', { name: 'Delete Topic' }).click();
+		await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
+		await expect(page.getByRole('link', { name: 'Drag order' })).toHaveCount(0);
+		for (const title of ['Drag A', 'Drag B', 'Drag C']) {
+			await page.goto(`/lessons/${runFixture('find-lesson-id', title)}`);
+			await page.getByRole('button', { name: 'Delete Lesson' }).click();
+			await expectToast(page, 'Lesson deleted.');
+		}
+	});
+
 	test('Move to… files a Topic in another Course and refuses a name clash', async ({ page }) => {
 		await login(page, '/courses');
 		await page.getByRole('button', { name: 'New Course' }).click();

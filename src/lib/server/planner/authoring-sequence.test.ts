@@ -41,30 +41,26 @@ describe('reordering and moving Lessons', () => {
 		return { db, course, topic, otherTopic, dir };
 	}
 
-	test('Lessons are reordered up and down within the Topic', () => {
-		const { db, topic } = setUpTopics();
-		const { lesson: first } = createLesson(db, {
-			topicId: topic.id,
-			title: 'A'
-		});
-		const { lesson: second } = createLesson(db, {
-			topicId: topic.id,
-			title: 'B'
-		});
-		const { lesson: third } = createLesson(db, {
-			topicId: topic.id,
-			title: 'C'
-		});
+	test('a Lesson takes the place of another Lesson in its Topic', () => {
+		const { db, topic, otherTopic } = setUpTopics();
+		const [a, b, c, d] = ['A', 'B', 'C', 'D'].map(
+			(title) => createLesson(db, { topicId: topic.id, title }).lesson
+		);
+		const order = () => lessonsOf(db, topic.id).map((l) => l.id);
 
-		moveLesson(db, { topicId: topic.id, id: third.id, direction: 'up' });
-		expect(lessonsOf(db, topic.id).map((l) => l.id)).toEqual([first.id, third.id, second.id]);
+		// Up: in front of the target; the Lessons between move one place down.
+		moveLesson(db, { topicId: topic.id, id: d.id, targetId: b.id });
+		expect(order()).toEqual([a.id, d.id, b.id, c.id]);
 
-		moveLesson(db, { topicId: topic.id, id: first.id, direction: 'down' });
-		expect(lessonsOf(db, topic.id).map((l) => l.id)).toEqual([third.id, first.id, second.id]);
+		// Down: after the target; the Lessons between move one place up.
+		moveLesson(db, { topicId: topic.id, id: a.id, targetId: b.id });
+		expect(order()).toEqual([d.id, b.id, a.id, c.id]);
 
-		// A move past either end is a no-op, not an error.
-		moveLesson(db, { topicId: topic.id, id: third.id, direction: 'up' });
-		expect(lessonsOf(db, topic.id).map((l) => l.id)).toEqual([third.id, first.id, second.id]);
+		// Onto itself, or onto a Lesson of another Topic, is a no-op, not an error.
+		moveLesson(db, { topicId: topic.id, id: a.id, targetId: a.id });
+		const { lesson: elsewhere } = createLesson(db, { topicId: otherTopic.id, title: 'E' });
+		moveLesson(db, { topicId: topic.id, id: a.id, targetId: elsewhere.id });
+		expect(order()).toEqual([d.id, b.id, a.id, c.id]);
 	});
 
 	test('a Lesson moves to a different Topic, keeping its body, links and Length', () => {
@@ -320,7 +316,7 @@ describe('edits to the shared plan change no Sequence', () => {
 		const sequence = sequenceOf(db, classA.id);
 		const dates = datesOf(db, classA.id);
 
-		moveLesson(db, { topicId: topic.id, id: lessons[2].id, direction: 'up' });
+		moveLesson(db, { topicId: topic.id, id: lessons[2].id, targetId: lessons[1].id });
 
 		expect(lessonsOf(db, topic.id).map((l) => l.id)).toEqual([
 			lessons[0].id,

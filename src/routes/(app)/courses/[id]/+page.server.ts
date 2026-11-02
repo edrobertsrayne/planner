@@ -14,8 +14,7 @@ import {
 	renameCourse,
 	renameTopic,
 	tagsByLesson,
-	topicsOf,
-	Refused
+	topicsOf
 } from '$lib/server/planner';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -106,12 +105,13 @@ export const actions: Actions = {
 		}).lesson
 	})),
 
+	// A drop from a Lesson's grip onto another Lesson of the Topic: it takes that Lesson's place.
 	moveLesson: formAction((data) => {
-		const direction = trimmed(data, 'direction');
-		if (direction !== 'up' && direction !== 'down') {
-			throw new Refused('invalid', 'Bad direction.');
-		}
-		moveLesson(db, { topicId: trimmed(data, 'topicId'), id: trimmed(data, 'id'), direction });
+		moveLesson(db, {
+			topicId: trimmed(data, 'topicId'),
+			id: trimmed(data, 'id'),
+			targetId: trimmed(data, 'targetId')
+		});
 		return {};
 	})
 };
