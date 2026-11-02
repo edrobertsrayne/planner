@@ -368,16 +368,19 @@ describe('Restore refuses before it writes anything', () => {
 
 		const target = instance();
 		const seen = new Set<string>();
-		const reader = streamOf(archive).getReader();
+		// One tar block per pull, so the restore asks for more of the upload after it has opened the
+		// first entry. A runtime is free to deliver the whole body as one chunk, which would leave
+		// nothing to observe mid-upload.
+		let offset = 0;
 		const body = new ReadableStream<Uint8Array>({
-			async pull(controller) {
+			pull(controller) {
 				// What the scratch folder holds while the restore is still reading the upload.
 				for (const dir of scratch(target)) {
 					for (const name of readdirSync(join(target.dir, dir))) seen.add(name);
 				}
-				const { done, value } = await reader.read();
-				if (done) controller.close();
-				else controller.enqueue(value);
+				if (offset >= archive.length) return controller.close();
+				controller.enqueue(archive.slice(offset, offset + 512));
+				offset += 512;
 			}
 		});
 
