@@ -1,0 +1,137 @@
+name: CI
+
+# One workflow so `needs` can order the jobs: lint, then test, then the review agent. A failure
+# skips everything after it, so a broken PR never spends inference on the review.
+
+on:
+  push:
+    branches: ['main']
+  pull_request:
+    branches: ['main']
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+# A new push supersedes the run for the previous one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Run linters
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v7
+
+      - name: Set up the environment
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.0'
+
+      - name: Cache bun dependencies
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Audit production dependencies
+        run: bun audit --prod --audit-level=high
+
+      - name: Run linters
+        run: bun run lint
+
+      - name: Type check
+        run: bun run check
+
+  test:
+    name: Test Suite
+    needs: lint
+    runs-on: ubuntu-latest
+    # Fifteen minutes was enough while the layout suite was one file. A cold cache — which every
+    # bun.lock change forces — spends most of that on `bun install` and the Chromium download, and
+    # the suite itself now resets a database and signs in once per screen file.
+    # Test env defaults live in vite.config.ts so local and CI runs behave identically.
+    timeout-minutes: 30
+
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v7
+
+      - name: Set up the environment
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.0'
+
+      - name: Cache bun dependencies
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('bun.lock') }}
+
+      - name: Install Playwright browsers
+        run: bunx playwright install --with-deps chromium
+
+      - name: Run tests
+        run: bun run test
+
+      # playwright.config.ts keeps a trace of every failed test in test-results/. Without this
+      # upload the only record of a failure is the console log.
+      - name: Upload Playwright traces
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7
+
+  review:
+    name: Review
+    needs: test
+    # Forks get no secrets and a read-only token, so the review could not run or comment.
+    if: ${{ github.event_name == 'pull_request' && !github.event.pull_request.draft && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      # Posting a comment or reaction on a PR needs pull-requests: write; issues: write alone is a 403.
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v7
+
+      - name: Review the pull request
+        # Pinned to the v1.19.4 commit, as in opencode.yml: this step runs with OPENCODE_API_KEY
+        # and a write token, so a new release must not reach it without review.
+        uses: anomalyco/opencode/github@148842ef7cb1bc34192b3fff57d0f9721ab9c801 # v1.19.4
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          model: opencode-go/kimi-k3.1-pro
+          variant: high
+          prompt: |
+            Review this pull request. Review only the diff (`gh pr diff`), not the rest of the codebase. Open other files only when a change can't be judged without them.
+          use_github_token: true
