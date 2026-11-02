@@ -32,6 +32,7 @@ test-results
 __screenshots__
 
 # vitest's own snapshot attachments
+.vitest
 .vitest-attachments
 
 # SQLite
