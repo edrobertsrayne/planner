@@ -4,9 +4,6 @@ Status: **built.** This document describes the API as it runs. It began as the d
 wayfinder map [#126](https://github.com/edrobertsrayne/planner/issues/126); every decision that map
 recorded is now in the code, and the shapes below are read from it.
 
-The companion skill for an agent that calls the API is
-[`.agents/skills/planner-api/SKILL.md`](../../.agents/skills/planner-api/SKILL.md).
-
 ## 1. Purpose and scope
 
 The API gives an outside agent access to the **Planning** half of the domain: Course, Topic,
