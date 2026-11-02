@@ -246,7 +246,9 @@ describe('the Session panel', () => {
 			vi.fn(async () => new Response('', { status: 500 }))
 		);
 		const screen = await render(SessionBody, { occasion });
-		await expect.element(screen.getByText("Couldn't load this Session.")).toBeVisible();
+		await expect
+			.element(screen.getByText("Couldn't load this Session. Check your connection and reload."))
+			.toBeVisible();
 		await expect.element(screen.getByText('No such Session.')).not.toBeInTheDocument();
 	});
 
