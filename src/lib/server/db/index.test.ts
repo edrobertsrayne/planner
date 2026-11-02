@@ -18,7 +18,7 @@ test('booting against a fresh empty file produces the complete schema', () => {
 	runMigrations(client, 'drizzle');
 
 	const tables = client
-		.prepare<{ name: string }, []>(
+		.prepare<[], { name: string }>(
 			"SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name"
 		)
 		.all()
@@ -119,7 +119,7 @@ test('the Sequence migration resets the plan and keeps content and the calendar'
 
 	const names = (sql: string) =>
 		client
-			.prepare<{ name: string }, []>(sql)
+			.prepare<[], { name: string }>(sql)
 			.all()
 			.map((row) => row.name);
 	expect(names("SELECT name FROM sqlite_master WHERE type = 'table'")).not.toContain(
@@ -148,9 +148,9 @@ describe('runMigrations', () => {
 		const { client } = openDatabase(join(dir, 'rebuild.db'));
 		runMigrations(client, 'drizzle');
 
-		client.run("INSERT INTO course (id, name, tone) VALUES ('c1', 'Physics', 0)");
-		client.run("INSERT INTO topic (id, name, course_id) VALUES ('t1', 'Forces', 'c1')");
-		client.run("INSERT INTO class (id, label, course_id) VALUES ('k1', '9A', 'c1')");
+		client.exec("INSERT INTO course (id, name, tone) VALUES ('c1', 'Physics', 0)");
+		client.exec("INSERT INTO topic (id, name, course_id) VALUES ('t1', 'Forces', 'c1')");
+		client.exec("INSERT INTO class (id, label, course_id) VALUES ('k1', '9A', 'c1')");
 
 		const migrationsFolder = join(dir, 'migrations');
 		const migrationName = '20990202000000_rebuild_course';
@@ -211,7 +211,7 @@ describe('inTransaction', () => {
 			inTransaction(client, () => {
 				// What SQLite does on a full disk: the transaction is gone before the work throws,
 				// so a second ROLLBACK would bury the real error under "no transaction is active".
-				client.run('ROLLBACK');
+				client.exec('ROLLBACK');
 				throw new Error('the disk is full');
 			})
 		).toThrow('the disk is full');

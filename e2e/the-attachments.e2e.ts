@@ -58,7 +58,7 @@ test.describe.serial('Attachments on Lessons', () => {
 		// 1 MiB — twice the framework's default form-action body limit (512K), far under the
 		// app's own 10 MiB ceiling. This only proves the upload works past the default; the
 		// raised BODY_SIZE_LIMIT itself is set by the `start` script the built adapter runs under,
-		// which `bun run preview` never exercises, so it stays untested here.
+		// which `npm run preview` never exercises, so it stays untested here.
 		await attach(page, {
 			name: 'field-notes.txt',
 			mimeType: 'text/plain',
@@ -88,8 +88,17 @@ test.describe.serial('Attachments on Lessons', () => {
 		await expect(page.locator('main').getByText('field-notes.txt')).toBeVisible();
 	});
 
-	// No e2e for the extension/MIME mismatch refusal: Bun rewrites a file part's type from its
-	// extension, so a browser-declared mismatch cannot reach the app — see attachments.ts.
+	test('a file whose declared type does not match its extension is refused', async () => {
+		await attach(page, {
+			name: 'notes.pdf',
+			mimeType: 'text/plain',
+			buffer: Buffer.from('not a pdf')
+		});
+
+		await expectToast(page, '"notes.pdf" was reported as "text/plain"');
+		await expect(page.locator('main').getByText('notes.pdf')).toHaveCount(0);
+	});
+
 	test('a file over the ceiling is refused', async () => {
 		await attach(page, {
 			name: 'big.md',

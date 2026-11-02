@@ -33,7 +33,7 @@ export const GET: RequestHandler = ({ params }) => {
 	const utf8 = encodeURIComponent(row.filename);
 
 	// `Buffer` types as `Uint8Array<ArrayBufferLike>`; `Response`'s DOM types want the more
-	// specific `Uint8Array<ArrayBuffer>` `BufferSource` — a real Bun `Buffer` always satisfies it
+	// specific `Uint8Array<ArrayBuffer>` `BufferSource` — a real Node `Buffer` always satisfies it
 	// at runtime, so this is a type-only widening, not a data copy.
 	return new Response(bytes as Uint8Array<ArrayBuffer>, {
 		headers: {

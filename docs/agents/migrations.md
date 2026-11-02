@@ -1,8 +1,8 @@
 # Database migrations
 
 Facts about what this project's SQLite can do, so a migration is not designed around a limit that
-does not apply. Verified against the SQLite that Bun bundles — **3.53.2** at the time of writing.
-Re-check after a Bun upgrade; several of these are recent additions.
+does not apply. Verified against the SQLite that `better-sqlite3` bundles — **3.53.2** at the time of writing.
+Re-check after a `better-sqlite3` upgrade; several of these are recent additions.
 
 The database runs with `PRAGMA foreign_keys = ON` (`src/lib/server/db/index.ts`). This changes what
 some statements are allowed to do, so it is part of every fact below.
@@ -19,9 +19,9 @@ SQLite's `ALTER TABLE` gained abilities in recent versions, and most written gui
 Before you design a migration around "SQLite cannot do X", prove it with a throwaway script:
 
 ```ts
-import { Database } from 'bun:sqlite';
+import Database from 'better-sqlite3';
 const d = new Database(':memory:');
-d.run('PRAGMA foreign_keys = ON');
+d.exec('PRAGMA foreign_keys = ON');
 // build the tables, insert rows, then try the statement
 ```
 
@@ -85,5 +85,5 @@ SQL. `drizzle-kit` compares `schema.ts` with the newest snapshot, so a folder wi
 next `db:generate` try to create tables that already exist. `drizzle/20261026000000_baseline_snapshot/`
 holds only a snapshot, no SQL: it is the baseline that reconnected the chain after the earlier
 folders were generated without one. `runMigrations` ignores a folder with no `migration.sql`. After
-any schema change, `bun run db:generate` must report no changes against a schema that just generated
+any schema change, `npm run db:generate` must report no changes against a schema that just generated
 a migration.

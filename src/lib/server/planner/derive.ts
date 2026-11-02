@@ -5,7 +5,7 @@
 // `scheduleFor` is that call, so a read and a write can never disagree about what a Class's
 // schedule is: the Agenda, the Calendar grid, the Class lane and every write all go through it.
 import { and, asc, eq, gte, inArray } from 'drizzle-orm';
-import type { drizzle } from 'drizzle-orm/bun-sqlite';
+import type { drizzle } from 'drizzle-orm/better-sqlite3';
 import * as schema from '../db/schema';
 import { generateTeachingWeeks, type TermInput } from '$lib/calendar/generate-teaching-weeks';
 import {

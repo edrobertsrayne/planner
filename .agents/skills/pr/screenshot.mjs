@@ -1,5 +1,5 @@
 // Captures a page in light and dark mode for a PR body.
-// Usage: bun .agents/skills/pr/screenshot.mjs <url> <out-dir> <name>
+// Usage: node .agents/skills/pr/screenshot.mjs <url> <out-dir> <name>
 // Writes <out-dir>/<name>-light.png and <out-dir>/<name>-dark.png.
 // Logs in as the demo user (see the demo-db skill) when the app redirects to /login.
 // Set CHROMIUM_PATH to use a Chromium other than Playwright's own download.
@@ -10,7 +10,7 @@ import { EMAIL, PASSWORD } from '../../../e2e/helpers.ts';
 
 const [url, outDir, name] = process.argv.slice(2);
 if (!url || !outDir || !name) {
-	console.error('Usage: bun .agents/skills/pr/screenshot.mjs <url> <out-dir> <name>');
+	console.error('Usage: node .agents/skills/pr/screenshot.mjs <url> <out-dir> <name>');
 	process.exit(1);
 }
 mkdirSync(outDir, { recursive: true });

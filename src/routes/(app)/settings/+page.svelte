@@ -87,7 +87,7 @@
 				<Card.Title>Change password</Card.Title>
 				<Card.Description>
 					There is no reset by email. If you forget it, run <code
-						class="rounded bg-muted px-1 py-0.5 font-mono text-xs">bun run reset:credentials</code
+						class="rounded bg-muted px-1 py-0.5 font-mono text-xs">npm run reset:credentials</code
 					> on the server.
 				</Card.Description>
 			</Card.Header>

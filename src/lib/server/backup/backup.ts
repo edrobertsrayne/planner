@@ -1,6 +1,7 @@
 // Back up (ADR-0024): a consistent copy of the database plus each Attachment file the copy names,
 // streamed as one tar archive. Restore reads it back.
-import { Database } from 'bun:sqlite';
+import Database from 'better-sqlite3';
+import type { Client } from '../db';
 import { closeSync, openSync, unlinkSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { attachmentsDir } from '../planner';
@@ -11,11 +12,11 @@ export const ATTACHMENT_PREFIX = 'attachments/';
 
 /** What the Settings screen shows before the click: the live database plus every Attachment. The
  * copy is never larger than the live file, so this is an upper bound. */
-export function expectedBackupSize(client: Database): number {
-	const pages = client.query<{ bytes: number }, []>(
+export function expectedBackupSize(client: Client): number {
+	const pages = client.prepare<[], { bytes: number }>(
 		'SELECT page_count * page_size AS bytes FROM pragma_page_count(), pragma_page_size()'
 	);
-	const files = client.query<{ bytes: number }, []>(
+	const files = client.prepare<[], { bytes: number }>(
 		// Each tar entry adds a 512-byte header and up to 511 bytes of padding.
 		'SELECT COALESCE(SUM(size) + 1024 * COUNT(*), 0) AS bytes FROM attachment'
 	);
@@ -28,11 +29,11 @@ export function expectedBackupSize(client: Database): number {
  * it is open, so it cannot outlive the download however that ends.
  */
 export function createBackup(
-	client: Database,
+	client: Client,
 	databaseUrl: string
 ): { size: number; body: ReadableStream<Uint8Array> } {
 	const copyPath = join(dirname(databaseUrl), `.backup-${crypto.randomUUID()}.db`);
-	client.run(`VACUUM INTO '${copyPath.replaceAll("'", "''")}'`);
+	client.exec(`VACUUM INTO '${copyPath.replaceAll("'", "''")}'`);
 
 	let copyFd: number;
 	let ids: string[];
@@ -41,7 +42,7 @@ export function createBackup(
 		const copy = new Database(copyPath, { readonly: true });
 		try {
 			ids = copy
-				.query<{ id: string }, []>('SELECT id FROM attachment ORDER BY position')
+				.prepare<[], { id: string }>('SELECT id FROM attachment ORDER BY position')
 				.all()
 				.map((row) => row.id);
 		} finally {

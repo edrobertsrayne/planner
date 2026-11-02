@@ -7,13 +7,13 @@ guard forces every route to when the `user` table is empty. Recovery is the same
 emptying the table again, in the container the app runs in:
 
 ```
-bun run reset:credentials
+npm run reset:credentials
 ```
 
 From a checkout, point the script at the database:
 
 ```
-DATABASE_URL=local.db bun scripts/reset-credentials.ts
+DATABASE_URL=local.db npm run reset:credentials
 ```
 
 That deletes the user row. `account` and `auth_session` cascade; nothing else in the schema

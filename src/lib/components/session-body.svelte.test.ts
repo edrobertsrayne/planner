@@ -70,7 +70,7 @@ describe('the Session panel', () => {
 
 		await expect.element(screen.getByText('Not ready')).toBeVisible();
 		await expect
-			.element(screen.getByRole('button', { name: 'Needs more time' }))
+			.element(screen.getByRole('button', { name: 'Needs more time', exact: false }))
 			.not.toBeInTheDocument();
 	});
 
@@ -214,7 +214,9 @@ describe('the Session panel', () => {
 		await expect
 			.element(screen.getByRole('textbox', { name: 'Lesson title' }))
 			.not.toBeInTheDocument();
-		await expect.element(screen.getByRole('radio', { name: 'Planned' })).not.toBeInTheDocument();
+		await expect
+			.element(screen.getByRole('radio', { name: 'Planned', exact: false }))
+			.not.toBeInTheDocument();
 	});
 
 	test('the Place button stays disabled for a blank or whitespace-only title', async () => {
@@ -246,7 +248,9 @@ describe('the Session panel', () => {
 			vi.fn(async () => new Response('', { status: 500 }))
 		);
 		const screen = await render(SessionBody, { occasion });
-		await expect.element(screen.getByText("Couldn't load this Session.")).toBeVisible();
+		await expect
+			.element(screen.getByText("Couldn't load this Session. Check your connection and reload."))
+			.toBeVisible();
 		await expect.element(screen.getByText('No such Session.')).not.toBeInTheDocument();
 	});
 

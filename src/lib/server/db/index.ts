@@ -1,36 +1,38 @@
-import { Database } from 'bun:sqlite';
-import { drizzle } from 'drizzle-orm/bun-sqlite';
+import Database, { type Database as Client } from 'better-sqlite3';
+import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { readMigrationFiles } from 'drizzle-orm/migrator';
 
 const MIGRATIONS_TABLE = '__drizzle_migrations';
 
+export type { Client };
+
 export function openDatabase(path: string) {
 	const client = new Database(path);
-	client.run('PRAGMA busy_timeout = 5000');
-	client.run('PRAGMA foreign_keys = ON');
-	client.run('PRAGMA journal_mode = WAL');
+	client.exec('PRAGMA busy_timeout = 5000');
+	client.exec('PRAGMA foreign_keys = ON');
+	client.exec('PRAGMA journal_mode = WAL');
 
 	return { client, db: drizzle({ client }) };
 }
 
 // The one transaction ritual: begin, run the work, commit. If the work throws, roll back on the
 // way out and re-raise with the cause intact, so a failure in use leaves something to read.
-export function inTransaction<T>(client: Database, work: () => T): T {
-	client.run('BEGIN');
+export function inTransaction<T>(client: Client, work: () => T): T {
+	client.exec('BEGIN');
 	try {
 		const result = work();
-		client.run('COMMIT');
+		client.exec('COMMIT');
 		return result;
 	} catch (cause) {
 		// SQLite ends the transaction itself on a full disk or an I/O error, and a second ROLLBACK
 		// then throws "no transaction is active", hiding what actually went wrong.
-		if (client.inTransaction) client.run('ROLLBACK');
+		if (client.inTransaction) client.exec('ROLLBACK');
 		throw cause;
 	}
 }
 
-export function runMigrations(client: Database, migrationsFolder = 'drizzle') {
-	client.run(`CREATE TABLE IF NOT EXISTS ${MIGRATIONS_TABLE} (
+export function runMigrations(client: Client, migrationsFolder = 'drizzle') {
+	client.exec(`CREATE TABLE IF NOT EXISTS ${MIGRATIONS_TABLE} (
 		id INTEGER PRIMARY KEY,
 		hash TEXT NOT NULL,
 		created_at NUMERIC,
@@ -40,7 +42,7 @@ export function runMigrations(client: Database, migrationsFolder = 'drizzle') {
 
 	const applied = new Set(
 		client
-			.prepare<{ name: string }, []>(`SELECT name FROM ${MIGRATIONS_TABLE}`)
+			.prepare<[], { name: string }>(`SELECT name FROM ${MIGRATIONS_TABLE}`)
 			.all()
 			.map((row) => row.name)
 	);
@@ -57,10 +59,10 @@ export function runMigrations(client: Database, migrationsFolder = 'drizzle') {
 		try {
 			// Foreign keys cannot be turned off inside a transaction, and a table rebuild (create,
 			// copy, drop, rename) would otherwise cascade the drop into every child row.
-			client.run('PRAGMA foreign_keys = OFF');
+			client.exec('PRAGMA foreign_keys = OFF');
 			try {
 				inTransaction(client, () => {
-					for (const statement of migration.sql) client.run(statement);
+					for (const statement of migration.sql) client.exec(statement);
 					const orphans = client.prepare('PRAGMA foreign_key_check').all();
 					if (orphans.length > 0)
 						throw new Error(`it left ${orphans.length} row(s) naming a missing parent`);
@@ -72,7 +74,7 @@ export function runMigrations(client: Database, migrationsFolder = 'drizzle') {
 					);
 				});
 			} finally {
-				client.run('PRAGMA foreign_keys = ON');
+				client.exec('PRAGMA foreign_keys = ON');
 			}
 		} catch (cause) {
 			throw new Error(`Migration "${migration.name}" failed: ${(cause as Error).message}`, {
