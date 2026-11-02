@@ -109,6 +109,14 @@ test.describe('the Course and Topic editors', () => {
 		await drag('Drag C', 'Drag B');
 		await expect.poll(order).toEqual(['Drag A', 'Drag B', 'Drag C']);
 
+		// The keyboard: the arrow keys on a focused grip move the Lesson one place, and the grip
+		// keeps the focus for the next press.
+		await page.getByRole('button', { name: 'Drag Drag A' }).focus();
+		await page.keyboard.press('ArrowDown');
+		await expect.poll(order).toEqual(['Drag B', 'Drag A', 'Drag C']);
+		await page.keyboard.press('ArrowUp');
+		await expect.poll(order).toEqual(['Drag A', 'Drag B', 'Drag C']);
+
 		// Undo: the Topic goes, and its Lessons with it.
 		await page.getByRole('button', { name: 'Topic actions' }).click();
 		await page.getByRole('menuitem', { name: 'Delete Topic' }).click();

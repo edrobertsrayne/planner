@@ -12,4 +12,18 @@ describe('the drag grip', () => {
 		grip.element().dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
 		expect(onstart).toHaveBeenCalledOnce();
 	});
+
+	test('with onmove, the up and down arrow keys move the row one place', async () => {
+		const onmove = vi.fn();
+		const screen = await render(DragGrip, { label: 'Speed', onstart: vi.fn(), onmove });
+		const grip = screen.getByRole('button', { name: 'Drag Speed' });
+		await expect.element(grip).toHaveAttribute('aria-keyshortcuts', 'ArrowUp ArrowDown');
+
+		const key = (key: string) =>
+			grip.element().dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+		key('ArrowUp');
+		key('ArrowDown');
+		key('Enter');
+		expect(onmove.mock.calls).toEqual([['up'], ['down']]);
+	});
 });

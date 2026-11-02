@@ -20,6 +20,7 @@
 	import { touchTarget } from '$lib/components/ui/touch-target.js';
 	import { MediaQuery } from 'svelte/reactivity';
 	import ConfirmDeleteDialog from '$lib/components/confirm-delete-dialog.svelte';
+	import type { SubmitFunction } from '@sveltejs/kit';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -54,6 +55,26 @@
 		onDrop: (id, targetId) => submitForm(lessonMoveForm, { fields: { id, targetId } })
 	});
 	const draggedLesson = $derived(data.lessons.find((l) => l.id === lessonDrag.draggedId));
+
+	// The arrow keys on a focused grip: the Lesson takes the place of its neighbour. Off either end
+	// does nothing. Moving the row in the list drops the focus, so the grip takes it back once the
+	// write's update has drawn the new order, ready for the next press.
+	let refocus: string | null = null;
+	function stepLesson(index: number, direction: 'up' | 'down') {
+		const target = data.lessons[direction === 'up' ? index - 1 : index + 1];
+		if (!target) return;
+		refocus = data.lessons[index].id;
+		submitForm(lessonMoveForm, { fields: { id: refocus, targetId: target.id } });
+	}
+	const afterMove: SubmitFunction = async (input) => {
+		const after = await onFail('Could not move the Lesson.')(input);
+		return async (opts) => {
+			await after?.(opts);
+			const id = refocus;
+			refocus = null;
+			if (id) document.querySelector<HTMLElement>(`[data-drop="${id}"] button`)?.focus();
+		};
+	};
 
 	function submitDelete(kind: 'course' | 'topic', id: string, name: string): void {
 		submitForm(deleteForm, {
@@ -287,6 +308,7 @@
 									label={lesson.title}
 									class="w-7 self-stretch"
 									onstart={(event) => lessonDrag.start(event, lesson.id)}
+									onmove={(direction) => stepLesson(i, direction)}
 								/>
 							{/if}
 							<span class="w-5 shrink-0 pt-2 font-mono text-xs text-muted-foreground/60">
@@ -318,7 +340,7 @@
 						method="POST"
 						action="?/moveLesson"
 						bind:this={lessonMoveForm}
-						use:enhance={onFail('Could not move the Lesson.')}
+						use:enhance={afterMove}
 						hidden
 					>
 						<input type="hidden" name="topicId" value={shown.id} />
