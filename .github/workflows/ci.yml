@@ -123,9 +123,9 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Review the pull request
-        # Pinned to the v1.19.4 commit, as in opencode.yml: this step runs with OPENCODE_API_KEY
-        # and a write token, so a new release must not reach it without review.
-        uses: anomalyco/opencode/github@148842ef7cb1bc34192b3fff57d0f9721ab9c801 # v1.19.4
+        # Tracks the `latest` tag, so a new release reaches this step unreviewed. It runs with
+        # OPENCODE_API_KEY and a write token.
+        uses: anomalyco/opencode/github@latest
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
