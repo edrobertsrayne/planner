@@ -189,12 +189,15 @@
 										board.resting.fills.get(cell.key)?.lessonId ?? null
 									)}
 								{:else if cell.kind === 'movable'}
-									<div
-										class="flex min-h-10 flex-1 items-center rounded-md border bg-muted/30 px-2 text-xs text-muted-foreground"
+									<!-- Opens the Session page, where a Lesson is placed, as an Open Slot on the
+									     Agenda does. -->
+									<a
+										href={resolve(`/sessions/${classId}/${cell.date}/${cell.period}`)}
+										class="flex min-h-10 flex-1 items-center rounded-md border bg-muted/30 px-2 text-xs text-muted-foreground hover:bg-muted/60 hover:text-foreground"
 										data-free
 									>
 										Open Slot
-									</div>
+									</a>
 								{:else if cell.kind === 'taught' && entry}
 									<a
 										href={resolve(`/lessons/${entry.lessonId}?class=${classId}`)}

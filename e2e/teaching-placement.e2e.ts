@@ -1,9 +1,19 @@
 import { test, expect, type Page } from '@playwright/test';
 import { formatDate } from '../src/lib/date.ts';
-import { EMAIL, PASSWORD, isoDate, mondayOf, plusDays, resetTo, weekdayOf } from './helpers.ts';
+import {
+	EMAIL,
+	PASSWORD,
+	isoDate,
+	mondayOf,
+	plusDays,
+	resetTo,
+	runFixture,
+	weekdayOf
+} from './helpers.ts';
 
-// Covers the two doors a teacher places and removes a Lesson from (issue #254): an Open Slot's
-// Session page and the Calendar day menu, plus the Calendar tile's dashed-ring mark.
+// Covers the doors a teacher places and removes a Lesson from (issue #254): an Open Slot's
+// Session page, reached from a Calendar tile or the Class page's Sequence, and the Calendar day
+// menu, plus the Calendar tile's dashed-ring mark.
 // Reads 9C/Sc1 from the standard state: it has no Topic, so its Tuesday P3 Slot in every week is an Open Slot.
 // The last test reads 9B/Sc1's next Session instead — a Topic Lesson — and leaves the Teaching
 // note it types there.
@@ -168,6 +178,24 @@ test.describe.serial('Placing and removing a Lesson', () => {
 		// No Lesson was placed here — landing on the card is the whole of this door's contract.
 		await page.getByRole('button', { name: 'Back' }).click();
 		await expectSessionClosed(page);
+	});
+
+	test("an Open Slot in the Class page's By week Sequence opens its Session page's Place-a-Lesson card", async () => {
+		const classId = runFixture('find-class-id', '9C/Sc1');
+		await page.goto(`/classes/${classId}`);
+		const slot = page.locator('[data-free]').first();
+		await expect(slot).toHaveAttribute(
+			'href',
+			new RegExp(`^/sessions/${classId}/\\d{4}-\\d{2}-\\d{2}/3$`)
+		);
+		await slot.click();
+
+		await openOpenSlotAndExpect(page);
+		await expect(page.getByRole('heading', { name: 'Place a Lesson' })).toBeVisible();
+
+		// Back returns to the Class page.
+		await page.getByRole('button', { name: 'Back' }).click();
+		await expect(page).toHaveURL(`/classes/${classId}`);
 	});
 
 	test('a Blocked Day forces a placed Lesson off its anchor, reported by the Placements-moved alert', async () => {
