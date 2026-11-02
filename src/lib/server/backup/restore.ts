@@ -238,11 +238,9 @@ function apply(
 		const journalMode = client.prepare<[], { journal_mode: string }>('PRAGMA journal_mode').get()!
 			.journal_mode;
 
-		// Foreign keys stay off while every table is emptied and refilled. With them on, a child row
-		// inserted from another database before its parent is refused at COMMIT even when the parent
-		// arrives in the same transaction — defer_foreign_keys does not save it under Bun's SQLite —
-		// and one fixed table order cannot put every foreign key first. The staged copy was checked
-		// for orphans, and the copy is checked again before it commits.
+		// Foreign keys stay off while every table is emptied and refilled, because one fixed table
+		// order cannot put every foreign key first. The staged copy was checked for orphans, and the
+		// copy is checked again before it commits.
 		client.exec('PRAGMA foreign_keys = OFF');
 		try {
 			// Writing the whole database into a WAL would keep a second copy of it on disk until a

@@ -19,8 +19,9 @@ a mature driver for it, and `node:sqlite` is still experimental on Node 22.
 - `better-sqlite3` is a native module. ADR-0008 preferred `bun:sqlite` for needing no native build.
   npm downloads a prebuilt binary for the common platforms; a platform without one compiles it,
   which needs Python and a C++ toolchain in the build image.
-- `mise.toml` pins Node, and Railpack reads `package-lock.json` and `mise.toml` to select npm and
-  the Node version (ADR-0027). CI uses the same major version.
+- `engines.node` in `package.json` pins Node, and Railpack reads `package-lock.json` and
+  `engines.node` to select npm and the Node version (ADR-0027). `mise.toml` and CI use the same
+  major version.
 - The `start` script is `BODY_SIZE_LIMIT=100G node --env-file-if-exists=.env build`. adapter-node
   reads `BODY_SIZE_LIMIT`, `ORIGIN`, `PORT` and `HOST` as the Bun adapter did, and the default port
   stays `3000`. Bun loaded `.env` by itself; the flag keeps that, and an exported variable still

@@ -20,9 +20,10 @@ export default defineConfig({
 	webServer: {
 		// The scratch database and its attachment files are deleted before every run, so two
 		// consecutive suites see the same fresh state. The suite runs the app the way the teacher's
-		// deployment does — the built adapter-node server — rather than Vite's preview server, whose
-		// Node request pipeline answered a large download that the browser had abandoned by
-		// ending the process, taking every later file with it.
+		// deployment does — the built adapter-node server — rather than Vite's preview server. The
+		// preview server once answered a large download that the browser had abandoned by ending the
+		// process, taking every later file with it; the built server's backup stream stops pulling
+		// once the download is cancelled, so it survives that.
 		command: `rm -f ${DATABASE_URL} ${DATABASE_URL}-shm ${DATABASE_URL}-wal && rm -rf attachments && npm run build && npm run start`,
 		port: 4173,
 		// Never reuse a server already on this port — that could be the developer's own `npm run

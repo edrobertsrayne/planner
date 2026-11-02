@@ -28,5 +28,5 @@ definition for the same app.
 - Migrations still run at startup, so the deployment needs no separate migrate step (ADR-0003).
 
 > **Amended 2026-11-02.** [ADR-0028](0028-node-over-bun.md) moves the planner to Node and npm.
-> Railpack now selects npm from `package-lock.json` and the Node version from `mise.toml`, and the
-> start command is `BODY_SIZE_LIMIT=100G node --env-file-if-exists=.env build`.
+> Railpack now selects npm from `package-lock.json` and the Node version from `engines.node` in
+> `package.json`, and the start command is `BODY_SIZE_LIMIT=100G node --env-file-if-exists=.env build`.
