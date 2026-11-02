@@ -26,5 +26,4 @@ teacher's browser (`xdg-open <url>`) before asking about it.
 
 ## Pull requests
 
-Write every PR body with the `pr` skill (`.agents/skills/pr/SKILL.md`): a diagram of the change, and
-before/after screenshots of any UI change.
+Write every PR body with a diagram of the change, and before/after screenshots of any UI change.
