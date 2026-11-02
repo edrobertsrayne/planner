@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import BanIcon from '@lucide/svelte/icons/ban';
 	import HistoryIcon from '@lucide/svelte/icons/history';
 	import { classTone } from '$lib/class-tone';
 	import { formatWeekday } from '$lib/date';
@@ -15,6 +16,7 @@
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import { AGENDA_HORIZONS } from './agenda-horizons';
 	import { agendaStream, filterByTag, groupByDay, tagsIn } from './agenda-days';
+	import BlockDialog, { type Pick } from './block-dialog.svelte';
 	import ReadyTick from './ready-tick.svelte';
 	import type { PageProps } from './$types';
 
@@ -33,6 +35,21 @@
 	function hrefOf(row: (typeof data.rows)[number]) {
 		return sessionHref({ classId: row.classId, date: row.date, period: row.periodFrom });
 	}
+
+	// PROTOTYPE: blocks made in this browser session only; nothing is saved.
+	type Row = (typeof data.rows)[number];
+	const rowKey = (row: Row) => `${row.classId}|${row.date}|${row.periodFrom}`;
+	let mocked = $state<Record<string, { note: string | null }>>({});
+	let pick = $state<Pick | null>(null);
+	const blockedOf = (row: Row) => row.blocked ?? mocked[rowKey(row)] ?? null;
+	const askToBlock = (row: Row) =>
+		(pick = {
+			key: rowKey(row),
+			classLabel: row.classLabel,
+			date: row.date,
+			period: row.periodFrom,
+			lessonTitle: row.lesson?.title ?? null
+		});
 
 	const days = $derived(groupByDay(filterByTag(data.rows, data.tag)));
 	const stream = $derived(agendaStream(days, data.blockedDays, data.holidays));
@@ -98,8 +115,9 @@
 
 	{#snippet agendaRow(row: (typeof data.rows)[number], past: boolean)}
 		{@const tone = classTone(row.tone)}
+		{@const blocked = blockedOf(row)}
 		<li
-			class="group/row relative flex items-center gap-3 pr-2 pl-4 {row.blocked
+			class="group/row relative flex items-center gap-3 pr-2 pl-4 {blocked
 				? 'hatched'
 				: 'hover:bg-muted/40'}"
 		>
@@ -122,11 +140,11 @@
 
 			<!-- A Blocked Slot is removed: nothing to open, plan or tick, so it takes the Calendar's
 			     hatch, never a hue, with its note. -->
-			{#if row.blocked}
+			{#if blocked}
 				<span class="min-w-0 flex-1 py-3">
 					<span class="block text-sm text-muted-foreground italic">Blocked Slot</span>
-					{#if row.blocked.note}
-						<span class="block text-xs text-muted-foreground">{row.blocked.note}</span>
+					{#if blocked.note}
+						<span class="block text-xs text-muted-foreground">{blocked.note}</span>
 					{/if}
 				</span>
 			{:else}
@@ -150,9 +168,31 @@
 			{/if}
 
 			<!-- A past row carries no Ready tick: Readiness is written ahead only. -->
-			{#if !row.blocked && !row.lesson}
+			{#if blocked}
+				{#if !past}
+					<Button
+						variant="ghost"
+						size="sm"
+						class="h-7 row-control {touchTarget}"
+						onclick={() => delete mocked[rowKey(row)]}
+						aria-label="Unblock {row.classLabel}, P{row.periodFrom}">Unblock</Button
+					>
+				{/if}
+			{:else if !row.lesson}
 				<Button variant="ghost" size="sm" class="h-7 row-control" href={hrefOf(row)}>Plan</Button>
-			{:else if row.lesson && !past}
+			{/if}
+			{#if !blocked && !past}
+				<Button
+					variant="ghost"
+					size="icon-sm"
+					class="row-control {touchTarget}"
+					onclick={() => askToBlock(row)}
+					aria-label="Block {row.classLabel}, P{row.periodFrom}"
+				>
+					<BanIcon class="size-4" />
+				</Button>
+			{/if}
+			{#if !blocked && row.lesson && !past}
 				<ReadyTick
 					lessonId={row.lesson.id}
 					classId={row.classId}
@@ -205,6 +245,8 @@
 	<!-- The days ahead, with what the window removes in place: a Blocked Day keeps its heading and
 	     reads as one panel, and a School Holiday is one card spanning it, so a holiday never leaves
 	     the page blank. Both are told apart from teaching by a step in shade, never a hue. -->
+	<BlockDialog bind:pick onblock={(p, note) => (mocked[p.key] = { note })} />
+
 	{#each stream as item (item.kind + item.date)}
 		{#if item.kind === 'day'}
 			<section class="mt-6">
