@@ -58,11 +58,13 @@
 
 	// The arrow keys on a focused grip: the Lesson takes the place of its neighbour. Off either end
 	// does nothing. Moving the row in the list drops the focus, so the grip takes it back once the
-	// write's update has drawn the new order, ready for the next press.
+	// write's update has drawn the new order, ready for the next press. `refocus` is set while a
+	// move is being written: a press then is ignored, since its neighbour is read from the order
+	// before that move and would send the same move again, undoing it.
 	let refocus: string | null = null;
 	function stepLesson(index: number, direction: 'up' | 'down') {
 		const target = data.lessons[direction === 'up' ? index - 1 : index + 1];
-		if (!target) return;
+		if (!target || refocus) return;
 		refocus = data.lessons[index].id;
 		submitForm(lessonMoveForm, { fields: { id: refocus, targetId: target.id } });
 	}

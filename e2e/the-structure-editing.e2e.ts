@@ -117,6 +117,19 @@ test.describe('the Course and Topic editors', () => {
 		await page.keyboard.press('ArrowUp');
 		await expect.poll(order).toEqual(['Drag A', 'Drag B', 'Drag C']);
 
+		// A press while the last move is still being written is ignored, so a quick second press
+		// cannot send the same move again and undo the first. The write is held open to see it.
+		await page.route('**/courses/*?/moveLesson', async (route) => {
+			await new Promise((resolve) => setTimeout(resolve, 500));
+			await route.continue();
+		});
+		await page.keyboard.press('ArrowDown');
+		await page.keyboard.press('ArrowDown');
+		await expect.poll(order).toEqual(['Drag B', 'Drag A', 'Drag C']);
+		await page.unroute('**/courses/*?/moveLesson');
+		await page.keyboard.press('ArrowUp');
+		await expect.poll(order).toEqual(['Drag A', 'Drag B', 'Drag C']);
+
 		// Undo: the Topic goes, and its Lessons with it.
 		await page.getByRole('button', { name: 'Topic actions' }).click();
 		await page.getByRole('menuitem', { name: 'Delete Topic' }).click();
