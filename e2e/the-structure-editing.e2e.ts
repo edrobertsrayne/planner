@@ -118,15 +118,31 @@ test.describe('the Course and Topic editors', () => {
 		await expect.poll(order).toEqual(['Drag A', 'Drag B', 'Drag C']);
 
 		// A press while the last move is still being written is ignored, so a quick second press
-		// cannot send the same move again and undo the first. The write is held open to see it.
+		// cannot send the same move again and undo the first. The writes are held open to see it.
+		// The answer is held, not the request, so each write reaches the server as on a slow line.
 		await page.route('**/courses/*?/moveLesson', async (route) => {
+			const response = await route.fetch();
 			await new Promise((resolve) => setTimeout(resolve, 500));
-			await route.continue();
+			await route.fulfill({ response });
 		});
 		await page.keyboard.press('ArrowDown');
 		await page.keyboard.press('ArrowDown');
 		await expect.poll(order).toEqual(['Drag B', 'Drag A', 'Drag C']);
+
+		// The same holds for a drop: a second drag during the write moves nothing.
+		await drag('Drag A', 'Drag C');
+		await drag('Drag A', 'Drag C');
+		await expect.poll(order).toEqual(['Drag B', 'Drag C', 'Drag A']);
+
+		// Focus that has gone elsewhere by the time the write lands stays there.
+		await page.getByRole('button', { name: 'Drag Drag A' }).focus();
+		await page.keyboard.press('ArrowUp');
+		await lessonBox.focus();
+		await expect.poll(order).toEqual(['Drag B', 'Drag A', 'Drag C']);
+		await expect(lessonBox).toBeFocused();
+
 		await page.unroute('**/courses/*?/moveLesson');
+		await page.getByRole('button', { name: 'Drag Drag A' }).focus();
 		await page.keyboard.press('ArrowUp');
 		await expect.poll(order).toEqual(['Drag A', 'Drag B', 'Drag C']);
 

@@ -48,33 +48,46 @@
 	let moveForm = $state<HTMLFormElement>();
 
 	// A drag from a Lesson's grip onto another Lesson of the Topic gives it that Lesson's place, as
-	// in the Sequence tab's List. One hidden form carries the move.
+	// in the Sequence tab's List; the arrow keys on a focused grip give it its neighbour's place.
+	// One hidden form carries the move. While a move is being written, another drop or press is
+	// ignored: it reads its target from the order before that move, so it would send the same move
+	// again and undo it.
 	let lessonMoveForm = $state<HTMLFormElement>();
+	let moving = false;
+	// The Lesson whose grip a keyboard move came from, so its grip keeps the focus for the next
+	// press.
+	let refocus: string | null = null;
+	function moveLesson(id: string, targetId: string, from: 'pointer' | 'keyboard') {
+		if (moving) return;
+		moving = true;
+		refocus = from === 'keyboard' ? id : null;
+		submitForm(lessonMoveForm, { fields: { id, targetId } });
+	}
 	const lessonDrag = createListDrag({
 		order: () => data.lessons.map((lesson) => lesson.id),
-		onDrop: (id, targetId) => submitForm(lessonMoveForm, { fields: { id, targetId } })
+		onDrop: (id, targetId) => moveLesson(id, targetId, 'pointer')
 	});
 	const draggedLesson = $derived(data.lessons.find((l) => l.id === lessonDrag.draggedId));
 
-	// The arrow keys on a focused grip: the Lesson takes the place of its neighbour. Off either end
-	// does nothing. Moving the row in the list drops the focus, so the grip takes it back once the
-	// write's update has drawn the new order, ready for the next press. `refocus` is set while a
-	// move is being written: a press then is ignored, since its neighbour is read from the order
-	// before that move and would send the same move again, undoing it.
-	let refocus: string | null = null;
+	// Off either end does nothing.
 	function stepLesson(index: number, direction: 'up' | 'down') {
 		const target = data.lessons[direction === 'up' ? index - 1 : index + 1];
-		if (!target || refocus) return;
-		refocus = data.lessons[index].id;
-		submitForm(lessonMoveForm, { fields: { id: refocus, targetId: target.id } });
+		if (target) moveLesson(data.lessons[index].id, target.id, 'keyboard');
 	}
+	// SvelteKit resets the focus after a successful action, so the focus goes back where it was
+	// when the answer came: on another control Ed moved to, or on the moved Lesson's grip when it
+	// was there or had already been lost.
 	const afterMove: SubmitFunction = async (input) => {
 		const after = await onFail('Could not move the Lesson.')(input);
 		return async (opts) => {
+			const held = document.activeElement;
 			await after?.(opts);
+			moving = false;
 			const id = refocus;
 			refocus = null;
-			if (id) document.querySelector<HTMLElement>(`[data-drop="${id}"] button`)?.focus();
+			const lost = !held || held === document.body || !held.isConnected;
+			const focus = lost && id ? document.querySelector(`[data-drop="${id}"] button`) : held;
+			if (focus instanceof HTMLElement && focus !== document.activeElement) focus.focus();
 		};
 	};
 
