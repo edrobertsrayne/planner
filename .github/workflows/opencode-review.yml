@@ -33,4 +33,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           model: opencode-go/kimi-k3.1-pro
+          prompt: |
+            Review this pull request. Review only the diff (`gh pr diff`), not the rest of the codebase. Open other files only when a change can't be judged without them.
           use_github_token: true
