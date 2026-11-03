@@ -1,7 +1,7 @@
 import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
 import { formAction, trimmed } from '$lib/server/form';
-import { agenda, agendaLookBack, setReadiness } from '$lib/server/planner';
+import { agenda, agendaLookBack, agendaLookBackEvents, setReadiness } from '$lib/server/planner';
 import { parseHorizon } from './agenda-horizons';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -20,7 +20,8 @@ export const load: PageServerLoad = ({ url }) => {
 		tag: url.searchParams.get('tag') || null,
 		lookBackOn,
 		...ahead,
-		lookBack: lookBackOn ? agendaLookBack(db, { today: today() }) : []
+		lookBack: lookBackOn ? agendaLookBack(db, { today: today() }) : [],
+		lookBackEvents: lookBackOn ? agendaLookBackEvents(db, { today: today() }) : []
 	};
 };
 

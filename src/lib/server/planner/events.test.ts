@@ -8,6 +8,11 @@ import {
 	clearEventSlot,
 	createClass,
 	createEvent,
+	deleteEvent,
+	eventSlotsOf,
+	findEvent,
+	listEvents,
+	renameEvent,
 	setEventNote,
 	setEventSlotRoom,
 	takeEventSlot,
@@ -265,5 +270,113 @@ describe('the Event note belongs to one Event and one date (ADR-0029)', () => {
 		takeEventSlot(db, { eventId: event.id, week: 'A', day: 2, position: 2, from: '2026-11-10' });
 
 		expect(noteOn(db, event.id, '2026-11-02')).toBe('Logged');
+	});
+});
+
+describe('the Events screen lists each Event with the next date it occurs', () => {
+	test('an Event lists with its kind, its Slot count and its next date from today', () => {
+		const { db } = setUp();
+		const event = createEvent(db, { name: 'Y11 intervention', kind: 'intervention' });
+		takeEventSlot(db, { eventId: event.id, week: 'A', day: 1, position: 2, from: null });
+		takeEventSlot(db, { eventId: event.id, week: 'B', day: 3, position: 7, from: null });
+
+		// 2 Nov 2026 is a Week A Monday, so the next date from the 3rd is Wed 11 Nov (Week B).
+		expect(listEvents(db, { today: '2026-11-03' })).toEqual([
+			{
+				id: event.id,
+				name: 'Y11 intervention',
+				kind: 'intervention',
+				slotCount: 2,
+				next: expect.objectContaining({ date: '2026-11-11', position: 7 })
+			}
+		]);
+	});
+
+	test('an Event with no Slot, or whose series has ended, has no next date', () => {
+		const { db } = setUp();
+		const bare = createEvent(db, { name: 'Duty: gate', kind: 'other' });
+		const ended = createEvent(db, { name: 'Briefing', kind: 'meeting' });
+		takeEventSlot(db, { eventId: ended.id, week: 'A', day: 1, position: 0, from: null });
+		clearEventSlot(db, { eventId: ended.id, week: 'A', day: 1, position: 0, from: '2026-11-04' });
+
+		const listed = listEvents(db, { today: '2026-11-03' });
+		expect(listed.map((e) => [e.name, e.next])).toEqual([
+			['Briefing', null],
+			['Duty: gate', null]
+		]);
+		expect(bare.id).toBeTruthy();
+	});
+});
+
+describe('an Event is renamed and deleted', () => {
+	test('a rename trims, refuses blank, and an unknown id returns null', () => {
+		const { db } = setUp();
+		const event = createEvent(db, { name: 'Briefing', kind: 'meeting' });
+
+		expect(renameEvent(db, { id: event.id, name: ' Staff briefing ' })?.name).toBe(
+			'Staff briefing'
+		);
+		refused(
+			() => renameEvent(db, { id: event.id, name: ' ' }),
+			'invalid',
+			'An Event needs a name.'
+		);
+		expect(renameEvent(db, { id: 'nope', name: 'x' })).toBeNull();
+	});
+
+	test('a delete asks first, naming the notes that go with it', () => {
+		const { db } = setUp();
+		const event = createEvent(db, { name: 'Y11 intervention', kind: 'intervention' });
+		takeEventSlot(db, { eventId: event.id, week: 'A', day: 1, position: 2, from: null });
+		setEventNote(db, { eventId: event.id, date: '2026-11-02', note: 'Q4 to Q6' });
+
+		refused(
+			() => deleteEvent(db, { id: event.id }),
+			'unconfirmed',
+			'Delete Y11 intervention? Its Timetable positions and 1 note go with it.'
+		);
+		expect(listEvents(db, { today: '2026-11-03' })).toHaveLength(1);
+	});
+
+	test('a confirmed delete frees its positions and removes its notes', () => {
+		const { db, course } = setUp();
+		const event = createEvent(db, { name: 'Y11 intervention', kind: 'intervention' });
+		takeEventSlot(db, { eventId: event.id, week: 'A', day: 1, position: 2, from: null });
+		setEventNote(db, { eventId: event.id, date: '2026-11-02', note: 'Q4 to Q6' });
+
+		expect(deleteEvent(db, { id: event.id, confirmed: true })?.name).toBe('Y11 intervention');
+		expect(listEvents(db, { today: '2026-11-03' })).toEqual([]);
+		expect(activeEventSlots(db, '2026-11-03')).toEqual([]);
+
+		const classC = createClass(db, { label: '9C/Sc2', courseId: course.id })!;
+		expect(addSlot(db, { classId: classC.id, week: 'A', day: 1, period: 2 })).toBeTruthy();
+		expect(deleteEvent(db, { id: event.id, confirmed: true })).toBeUndefined();
+	});
+
+	test('a delete with no notes still asks', () => {
+		const { db } = setUp();
+		const event = createEvent(db, { name: 'Briefing', kind: 'meeting' });
+		refused(
+			() => deleteEvent(db, { id: event.id }),
+			'unconfirmed',
+			'Delete Briefing? Its Timetable positions and 0 notes go with it.'
+		);
+	});
+});
+
+describe('an Event is read by id, with every Event Slot it has held', () => {
+	test('findEvent returns the Event or undefined, and eventSlotsOf its ended and future Slots', () => {
+		const { db } = setUp();
+		const event = createEvent(db, { name: 'Briefing', kind: 'meeting' });
+		takeEventSlot(db, { eventId: event.id, week: 'A', day: 1, position: 0, from: null });
+		clearEventSlot(db, { eventId: event.id, week: 'A', day: 1, position: 0, from: '2026-11-10' });
+		takeEventSlot(db, { eventId: event.id, week: 'A', day: 2, position: 0, from: '2026-11-10' });
+
+		expect(findEvent(db, event.id)?.name).toBe('Briefing');
+		expect(findEvent(db, 'nope')).toBeUndefined();
+		expect(eventSlotsOf(db, event.id).map((s) => [s.day, s.holdsFrom, s.holdsTo])).toEqual([
+			[1, null, '2026-11-09'],
+			[2, '2026-11-10', null]
+		]);
 	});
 });

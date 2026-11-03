@@ -1,7 +1,7 @@
 // Events: recurring commitments of the teacher's own that are not Classes (ADR-0029). An Event
 // holds Event Slots, and an Event Slot never shares a position with a Class's Slot, so an Event
 // is never an input to the schedule and nothing here re-derives a Class.
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { addDays } from '$lib/date';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
@@ -21,6 +21,80 @@ import { Refused } from './refused';
 import { overlaps, positionName } from './timetable';
 
 const MIN_DATE = '0000-01-01';
+
+export function renameEvent(db: Db, { id, name }: { id: string; name: string }) {
+	const clean = required(name, 'An Event needs a name.');
+	const [row] = db
+		.update(schema.event)
+		.set({ name: clean })
+		.where(eq(schema.event.id, id))
+		.returning()
+		.all();
+	return row ?? null;
+}
+
+// Deleting an Event always asks first, as deleting a Class does (ADR-0022): the unconfirmed
+// refusal names what goes with it. Its Event Slots and notes go by cascade, which frees its
+// positions. An unknown id returns undefined, the door's 404.
+export function deleteEvent(
+	db: Db,
+	{ id, confirmed = false }: { id: string; confirmed?: boolean }
+) {
+	const [row] = db.select().from(schema.event).where(eq(schema.event.id, id)).all();
+	if (!row) return undefined;
+	if (!confirmed) {
+		const notes = db
+			.select()
+			.from(schema.eventNote)
+			.where(eq(schema.eventNote.eventId, id))
+			.all().length;
+		throw new Refused(
+			'unconfirmed',
+			`Delete ${row.name}? Its Timetable positions and ${notes} ${notes === 1 ? 'note' : 'notes'} go with it.`
+		);
+	}
+	db.delete(schema.event).where(eq(schema.event.id, id)).run();
+	return row;
+}
+
+// The Events screen: every Event with its kind, how many Event Slots it holds, and the next date
+// it occurs on from today, or null when it has none left. Ordered by name.
+export function listEvents(db: Db, { today }: { today: string }) {
+	const horizon = addDays(today, 400);
+	const slotCounts = new Map<string, number>();
+	for (const s of db.select().from(schema.eventSlot).all()) {
+		if (s.holdsTo !== null && s.holdsTo < today) continue;
+		slotCounts.set(s.eventId, (slotCounts.get(s.eventId) ?? 0) + 1);
+	}
+	const upcoming = eventOccurrences(db, { from: today, to: horizon });
+	return db
+		.select()
+		.from(schema.event)
+		.orderBy(asc(schema.event.name))
+		.all()
+		.map((e) => ({
+			id: e.id,
+			name: e.name,
+			kind: e.kind,
+			slotCount: slotCounts.get(e.id) ?? 0,
+			next: upcoming.find((o) => o.eventId === e.id) ?? null
+		}));
+}
+
+// One Event by id, or undefined: the Event page's 404.
+export function findEvent(db: Db, id: string) {
+	return db.select().from(schema.event).where(eq(schema.event.id, id)).all()[0];
+}
+
+// Every Event Slot an Event has ever held, for the dated ones its page lists.
+export function eventSlotsOf(db: Db, eventId: string) {
+	return db
+		.select()
+		.from(schema.eventSlot)
+		.where(eq(schema.eventSlot.eventId, eventId))
+		.orderBy(asc(schema.eventSlot.holdsFrom))
+		.all();
+}
 
 export function createEvent(db: Db, { name, kind }: { name: string; kind: string }) {
 	const [row] = db
