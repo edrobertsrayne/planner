@@ -386,7 +386,8 @@ Present-but-empty and removed must never read alike. A position dated before tod
 recorded Session, or an Open Slot when no Lesson was recorded. It keeps its Class's Tone and lays
 a hatch over it, so past and upcoming tiles never read alike. A past tile is never a removal: it
 opens the Session page on its occasion. An Event holds a tile in its position, in a neutral shade
-with the Event's name and kind, in the same neutral shade as the panel of a day with no teaching.
+with the Event's name and kind, in the same neutral shade as the panel of a day with no teaching. One
+Event across adjacent Periods is a single tile spanning them, as a Lesson of Length two is.
 Two thin bands, Before school above P1 and After school below P6, are always drawn so the grid keeps
 one shape, and only an Event fills them. A past Event tile is hatched as a past Session tile is. A
 tile opens the Event page on that date, and a position held by neither a Class nor an Event stays

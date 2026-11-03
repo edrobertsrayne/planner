@@ -103,3 +103,22 @@ export function toEventGrid<Event extends { date: string; position: number }>(
 	}
 	return matrix;
 }
+
+// How many Periods the Event at each position of one day's column fills, so one Event across
+// adjacent Periods draws as a single block like a double Lesson: the count at the position it
+// starts, 0 at a position an earlier block covers, 1 for anything else. Only the six Periods
+// merge; Before school (0) and After school (7) are bands of their own and stay single.
+export function eventSpans(column: readonly ({ eventId: string; position: number } | null)[]) {
+	const spans = column.map(() => 1);
+	for (let p = 1; p <= 6; p++) {
+		const here = column[p];
+		if (!here || spans[p] === 0) continue;
+		let q = p + 1;
+		while (q <= 6 && column[q]?.eventId === here.eventId) {
+			spans[p]++;
+			spans[q] = 0;
+			q++;
+		}
+	}
+	return spans;
+}

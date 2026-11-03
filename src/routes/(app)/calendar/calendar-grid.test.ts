@@ -4,6 +4,7 @@ import {
 	availableSlotLines,
 	blockedSlotLines,
 	PERIODS,
+	eventSpans,
 	toEventGrid,
 	toGrid
 } from './calendar-grid';
@@ -243,5 +244,29 @@ describe('toEventGrid (ADR-0029)', () => {
 	test('an Event on a date outside the week is ignored', () => {
 		const grid = toEventGrid(days, [ev('2026-12-01', 2)]);
 		expect(grid.flat().every((e) => e === null)).toBe(true);
+	});
+});
+
+describe('eventSpans', () => {
+	const e = (eventId: string, position: number) => ({ eventId, position });
+
+	test('adjacent Periods of one Event are one block starting at the first', () => {
+		const column = [null, null, e('a', 1), e('a', 2), null, null, null, null];
+		expect(eventSpans(column)).toEqual([1, 1, 2, 0, 1, 1, 1, 1]);
+	});
+
+	test('three adjacent Periods span three', () => {
+		const column = [null, e('a', 1), e('a', 2), e('a', 3), null, null, null, null];
+		expect(eventSpans(column).slice(1, 4)).toEqual([3, 0, 0]);
+	});
+
+	test('different Events in adjacent Periods stay separate', () => {
+		const column = [null, e('a', 1), e('b', 2), null, null, null, null, null];
+		expect(eventSpans(column).slice(1, 3)).toEqual([1, 1]);
+	});
+
+	test('Before school and After school never merge with a Period', () => {
+		const column = [e('a', 0), e('a', 1), null, null, null, null, e('a', 6), e('a', 7)];
+		expect(eventSpans(column)).toEqual([1, 1, 1, 1, 1, 1, 1, 1]);
 	});
 });
