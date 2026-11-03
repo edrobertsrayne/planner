@@ -20,6 +20,7 @@ You MUST NOT edit, create or delete files, commit, push, open PRs, or post comme
 ## Reply format
 
 ### Lesson 1: <short title>
+
 - Target: <path> (existing | new), under <section>
 - Proposed edit:
   > <exact text to add>
@@ -30,6 +31,7 @@ If no lesson survives step 3, reply only: "No changes proposed."
 ## Example
 
 ### Lesson 1: Use pnpm, not npm
+
 - Target: AGENTS.md (existing), under "Commands"
 - Proposed edit:
   > Use `pnpm` for all installs and scripts; the lockfile is pnpm-lock.yaml and npm creates a conflicting package-lock.json.
