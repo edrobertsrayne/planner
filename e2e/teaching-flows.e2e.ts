@@ -653,6 +653,14 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expect(page.getByRole('alert')).toContainText('is already a Blocked Day');
 		await expect(page.getByRole('dialog')).toBeVisible();
 
+		// The refusal answers that one attempt: closing the dialog and opening it again for the
+		// same day starts clean.
+		await page.keyboard.press('Escape');
+		await first.getByRole('button', { name: /^Block \w+day/ }).click();
+		await expect(page.getByRole('dialog')).toBeVisible();
+		await expect(page.getByRole('alert')).toHaveCount(0);
+		await page.keyboard.press('Escape');
+
 		// Leave no Blocked Day behind for the tests that follow.
 		await other.getByRole('button', { name: /^Unblock \w+day/ }).click();
 		await expect(other.getByText('Blocked Day')).toHaveCount(0);

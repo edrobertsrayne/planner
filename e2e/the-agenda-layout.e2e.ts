@@ -70,6 +70,37 @@ test.describe('the Agenda on a laptop', () => {
 	});
 });
 
+test.describe('the Agenda day control on a laptop', () => {
+	test.use({ viewport: { width: 1280, height: 720 } });
+
+	test("hovering a row reveals that row's controls, not the day heading's", async ({ page }) => {
+		await login(page);
+		const day = page
+			.locator('section')
+			.filter({ has: page.locator('li') })
+			.first();
+		const dayControl = day.getByRole('button', { name: /^Block \w+day/ });
+		const rowControl = day
+			.locator('li')
+			.first()
+			.getByRole('button', { name: /^Block \d/ });
+
+		await page.mouse.move(0, 0);
+		await expect(dayControl).toHaveCSS('opacity', '0');
+		await expect(rowControl).toHaveCSS('opacity', '0');
+
+		// The row's own control shows, and the day's stays out of the way; the day's shows on its
+		// own heading.
+		await day.locator('li').first().hover();
+		await expect(rowControl).toHaveCSS('opacity', '1');
+		await expect(dayControl).toHaveCSS('opacity', '0');
+
+		await day.getByRole('heading').hover();
+		await expect(dayControl).toHaveCSS('opacity', '1');
+		await expect(rowControl).toHaveCSS('opacity', '0');
+	});
+});
+
 test.describe('the Agenda on a tablet', () => {
 	test.use({ viewport: { width: 800, height: 1180 }, hasTouch: true });
 

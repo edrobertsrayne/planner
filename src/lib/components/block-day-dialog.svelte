@@ -28,7 +28,11 @@
 <Dialog.Root
 	open={date !== null}
 	onOpenChange={(open) => {
-		if (!open) date = null;
+		if (!open) {
+			date = null;
+			// A refusal answers one attempt, so it does not outlive the dialog it was shown in.
+			refusal = null;
+		}
 	}}
 >
 	<Dialog.Content class="sm:max-w-sm">
@@ -45,8 +49,10 @@
 				async ({ result, update }) => {
 					// reset stays manual: a refused block must leave the dialog open with the note intact.
 					await update({ invalidateAll: true, reset: false });
-					if (result.type === 'success') date = null;
-					else if (result.type === 'failure' && date)
+					if (result.type === 'success') {
+						date = null;
+						refusal = null;
+					} else if (result.type === 'failure' && date)
 						refusal = { date, message: failureReason(result, 'The block was refused.') };
 				}}
 		>

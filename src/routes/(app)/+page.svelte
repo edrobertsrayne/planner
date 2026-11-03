@@ -286,8 +286,10 @@
 
 	{#each stream as item (item.kind + item.date)}
 		{#if item.kind === 'day'}
-			<section class="group/row mt-6">
-				<h2 class="mb-2 flex items-center gap-2 text-sm font-semibold">
+			<section class="mt-6">
+				<!-- The hover group is the heading alone: on the whole section, hovering any row would
+				     reveal every row's controls in the day. -->
+				<h2 class="group/row mb-2 flex items-center gap-2 text-sm font-semibold">
 					{@render dayHeading(item.date)}
 					<Button
 						variant="ghost"
