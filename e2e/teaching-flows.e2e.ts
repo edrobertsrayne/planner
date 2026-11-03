@@ -581,8 +581,14 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 			.getByRole('button', { name: /^Block \w+day/ })
 			.first()
 			.click();
+		// The earlier note does not ride along into this dialog.
+		await expect(page.getByRole('textbox', { name: /^Block \w+day.*note/ })).toHaveValue('');
 		await page.getByRole('button', { name: 'Block day', exact: true }).click();
 		await expect(page.getByText('Blocked Day')).toHaveCount(1);
+		// The new Blocked Day carries no note: nothing but its label in the panel.
+		await expect(page.locator('section').filter({ hasText: 'Blocked Day' })).not.toContainText(
+			'INSET day'
+		);
 		await page.getByRole('button', { name: /^Unblock \w+day/ }).click();
 		await expect(page.getByText('Blocked Day')).toHaveCount(0);
 	});
