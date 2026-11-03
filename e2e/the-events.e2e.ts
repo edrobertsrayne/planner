@@ -85,6 +85,16 @@ test.describe.serial('an Event on a laptop', () => {
 		await expect(rows.first()).toBeVisible();
 		await expect(rows.filter({ hasText: 'P5–P6' })).toHaveCount(await rows.count());
 		await expect(page.getByRole('link', { name: 'Add plan' }).first()).toBeVisible();
+
+		// Leave no Event behind: the next test deletes its own and expects the list empty.
+		await page.goto('/events');
+		await page.getByRole('link', { name: /Staff briefing/ }).click();
+		await page.getByRole('button', { name: 'Delete Event' }).click();
+		await page
+			.getByRole('button', { name: /^Delete/ })
+			.last()
+			.click();
+		await expect(page).toHaveURL(/\/events$/);
 	});
 
 	test('a position an Event holds is locked on a Class page', async ({ page }) => {
