@@ -10,6 +10,10 @@ Test each behaviour at the lowest level that can see it: unit, then component
 (`*.svelte.test.ts`), then e2e only for what needs the running app (routing, reload, auth, writes,
 files, touch, app-shell layout).
 
+When changing a default or visible behaviour, search `e2e/` as well as unit tests for the old
+behaviour, without truncating the output. Run the affected spec locally
+(`npx playwright test e2e/<file> -g "<name>"`) before pushing: CI's e2e job takes about 9 minutes.
+
 In a cloud container (Node 22, mismatched Chromium) `npm ci` needs `--engine-strict=false`, `/usr/bin/chromium`
 must link to `/opt/pw-browsers/chromium` for e2e, and component tests need a throwaway vitest config
 passing that path as `launchOptions.executablePath`. Delete those afterwards; none belongs in the repo.
