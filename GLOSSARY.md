@@ -351,7 +351,9 @@ an Unblock control; every day heading has a Block day control whose note is opti
 Day panel has an Unblock day control. A past row and a past day have none. All three are told apart
 from teaching by a step in shade, never a hue, and the Tag filter hides the Blocked Slot rows as it
 hides Open Slots. An Event shows as a row in its position, Before school at the head of its day and
-After school at the foot, carrying its Event note, or an Add plan button when that date has none.
+After school at the foot. One Event across adjacent Periods is one row over them ("P1–P2"), not
+one per Period, since its note belongs to the Event and the date. It carries its Event note, or an
+Add plan button when that date has none.
 It carries no Ready tick, because Readiness belongs to a Lesson, and it opens the Event page on that
 date. It is told apart from teaching by the same step in shade, a Blocked Day or a School Holiday
 shows none, and the Tag filter hides Event rows as it hides Open Slots. Where the
@@ -386,7 +388,8 @@ Present-but-empty and removed must never read alike. A position dated before tod
 recorded Session, or an Open Slot when no Lesson was recorded. It keeps its Class's Tone and lays
 a hatch over it, so past and upcoming tiles never read alike. A past tile is never a removal: it
 opens the Session page on its occasion. An Event holds a tile in its position, in a neutral shade
-with the Event's name and kind, in the same neutral shade as the panel of a day with no teaching.
+with the Event's name and kind, in the same neutral shade as the panel of a day with no teaching. One
+Event across adjacent Periods is a single tile spanning them, as a Lesson of Length two is.
 Two thin bands, Before school above P1 and After school below P6, are always drawn so the grid keeps
 one shape, and only an Event fills them. A past Event tile is hatched as a past Session tile is. A
 tile opens the Event page on that date, and a position held by neither a Class nor an Event stays

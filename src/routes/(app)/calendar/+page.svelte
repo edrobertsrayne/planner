@@ -21,6 +21,7 @@
 	import {
 		availableSlotLines,
 		blockedSlotLines,
+		eventSpans,
 		PERIODS,
 		toEventGrid,
 		toGrid
@@ -55,6 +56,7 @@
 	const grid = $derived.by(() => toGrid(data.week?.days ?? [], data.week?.cells ?? []));
 	// The Events of the week by day and position: 0 Before school, 1 to 6 the Periods, 7 After school.
 	const eventGrid = $derived.by(() => toEventGrid(data.week?.days ?? [], data.week?.events ?? []));
+	const eventSpanGrid = $derived(eventGrid.map((column) => eventSpans(column)));
 	const blockedByDate = $derived(new Map((data.week?.blockedDays ?? []).map((b) => [b.date, b])));
 
 	// The Slot the day menu picked to block, whose note is asked for in a dialog. The dialog
@@ -399,8 +401,14 @@
 								{:else if entry.type === 'free'}
 									<!-- No Class holds this Period, and an Event may: it never shares one. -->
 									{@const event = eventGrid[di][period]}
-									{#if event}
-										<td class="h-16 align-top">{@render eventTile(event, 'h-full')}</td>
+									{@const span = eventSpanGrid[di][period]}
+									{#if span === 0}
+										<!-- covered by an earlier Period's rowspan: one Event over adjacent
+										     Periods is a single block, as a double Lesson is -->
+									{:else if event}
+										<td rowspan={span} class="h-16 align-top">
+											{@render eventTile(event, 'h-full')}
+										</td>
 									{:else}
 										<td class="h-16 rounded-lg bg-muted/40"></td>
 									{/if}

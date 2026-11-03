@@ -57,6 +57,46 @@ test.describe.serial('an Event on a laptop', () => {
 		await expect(page.getByRole('link', { name: /Maths clinic/ }).first()).toBeVisible();
 	});
 
+	test('an Event over adjacent Periods is one tile and one Agenda row', async ({ page }) => {
+		await login(page, '/events');
+		await page.getByRole('button', { name: 'New Event' }).first().click();
+		await page.getByLabel('Name').fill('Staff briefing');
+		await page.getByRole('button', { name: 'Create Event' }).click();
+		await expect(page.getByRole('heading', { name: 'Staff briefing' })).toBeVisible();
+		// The fixture Classes hold P1 and Tuesday P3, so Wednesday P5 and P6 are free in both weeks.
+		for (const week of ['A', 'B']) {
+			for (const period of ['P5', 'P6']) {
+				await page.getByRole('button', { name: new RegExp(`^Week ${week} Wed ${period}`) }).click();
+				await expect(
+					page.getByRole('button', {
+						name: new RegExp(`^Week ${week} Wed ${period} — Staff briefing, click to clear`)
+					})
+				).toBeVisible();
+			}
+		}
+
+		// The Calendar draws one tile over both Periods, not one in each.
+		await page.goto('/calendar');
+		await expect(page.getByRole('link', { name: /Staff briefing/ })).toHaveCount(1);
+
+		// The Agenda gives each date one row, over both Periods, with one place to write the note.
+		await page.goto('/');
+		const rows = page.locator('li').filter({ hasText: 'Staff briefing' });
+		await expect(rows.first()).toBeVisible();
+		await expect(rows.filter({ hasText: 'P5–P6' })).toHaveCount(await rows.count());
+		await expect(page.getByRole('link', { name: 'Add plan' }).first()).toBeVisible();
+
+		// Leave no Event behind: the next test deletes its own and expects the list empty.
+		await page.goto('/events');
+		await page.getByRole('link', { name: /Staff briefing/ }).click();
+		await page.getByRole('button', { name: 'Delete Event' }).click();
+		await page
+			.getByRole('button', { name: /^Delete/ })
+			.last()
+			.click();
+		await expect(page).toHaveURL(/\/events$/);
+	});
+
 	test('a position an Event holds is locked on a Class page', async ({ page }) => {
 		await login(page, '/classes');
 		await page

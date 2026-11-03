@@ -6,7 +6,7 @@
 	import HistoryIcon from '@lucide/svelte/icons/history';
 	import { classTone } from '$lib/class-tone';
 	import { formatWeekday } from '$lib/date';
-	import { kindLabel, positionLabel } from '$lib/events';
+	import { joinAdjacentPeriods, kindLabel, positionRangeLabel } from '$lib/events';
 	import { onFail, replaceQuery, submitForm } from '$lib/client/enhance';
 	import { sessionHref } from '$lib/client/session-href';
 	import { withParam } from '$lib/query';
@@ -65,7 +65,9 @@
 		});
 
 	// An Event has no Tag, so a Tag filter leaves it out, as it leaves out an Open Slot.
-	const eventsIn = (events: typeof data.events) => (data.tag === null ? events : []);
+	// One Event over adjacent Periods is one row: its note belongs to the Event and the date.
+	const eventsIn = (events: typeof data.events) =>
+		data.tag === null ? joinAdjacentPeriods(events) : [];
 	const days = $derived(
 		withEvents(groupByDay(filterByTag(data.rows, data.tag)), eventsIn(data.events))
 	);
@@ -90,7 +92,9 @@
 			? `${line.row.classId}${line.row.periodFrom}`
 			: `${line.event.eventId}${line.event.position}`;
 
-	const eventHref = (event: (typeof data.events)[number]) =>
+	type AgendaEvent = ReturnType<typeof joinAdjacentPeriods<(typeof data.events)[number]>>[number];
+
+	const eventHref = (event: AgendaEvent) =>
 		`${resolve(`/events/${event.eventId}`)}?date=${event.date}#date-${event.date}`;
 
 	// One chip per Tag in the window with its count (issue #340). A Tag with no Lesson in the
@@ -264,11 +268,11 @@
 
 	<!-- An Event: a neutral bar, never a Class's hue, and no Ready tick (ADR-0029). The note is the
 	     plan or the log; with none, the row offers to add one. -->
-	{#snippet eventRow(event: (typeof data.events)[number], past: boolean)}
+	{#snippet eventRow(event: AgendaEvent, past: boolean)}
 		<li class="relative flex items-center gap-3 pr-2 pl-4 hover:bg-muted/40">
 			<span class="absolute inset-y-0 left-0 w-1 bg-border" aria-hidden="true"></span>
 			<span class="w-14 shrink-0 text-xs text-muted-foreground tabular-nums">
-				{positionLabel(event.position)}
+				{positionRangeLabel(event.position, event.positionTo)}
 				{#if event.room}<span class="block truncate" title={event.room}>{event.room}</span>{/if}
 			</span>
 			<span class="w-16 shrink-0 text-xs text-muted-foreground">{kindLabel(event.kind)}</span>
