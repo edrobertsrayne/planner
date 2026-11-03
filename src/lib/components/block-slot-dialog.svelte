@@ -1,3 +1,16 @@
+<script lang="ts" module>
+	// `lessonTitle` is the Agenda's to give: it knows the Lesson in the Slot, so the dialog can say
+	// that it moves on. The Calendar names none and gets no line about one.
+	export interface Pick {
+		classId: string;
+		classLabel: string;
+		slotId: string;
+		period: number;
+		date: string;
+		lessonTitle?: string | null;
+	}
+</script>
+
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { failureReason } from '$lib/client/enhance';
@@ -5,9 +18,8 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import type { AvailableSlotLine } from './calendar-grid';
 
-	// The note form for blocking one Slot, opened from its day menu. A dialog, not a popover
+	// The note form for blocking one Slot, opened from the Calendar's day menu or from an Agenda row. A dialog, not a popover
 	// over the tile, so it works by touch as by mouse (issue #345) and cannot be clipped by the
 	// grid's edges. Its only caller is the block-Slot case, so the case is what it takes — the
 	// picked Slot — and the action, the fields and the wording are the component's own. The
@@ -18,8 +30,6 @@
 	// `pick` null is closed, a picked Slot is open. The page owns the pick; writing it null
 	// here closes the dialog through its binding, and bits-ui hands focus back to where the
 	// dialog found it — the day's menu trigger.
-	type Pick = AvailableSlotLine & { date: string };
-
 	let { pick = $bindable(null) }: { pick: Pick | null } = $props();
 
 	// The pick the panel last opened on, kept only for the close animation: bits-ui leaves the
@@ -67,6 +77,16 @@
 				<input type="hidden" name="slotId" value={viewed.slotId} />
 			{/if}
 			<Input name="note" aria-label={label} required placeholder="Why (required)" />
+			{#if viewed && viewed.lessonTitle !== undefined}
+				<p class="mt-2 text-xs text-muted-foreground">
+					{#if viewed.lessonTitle}
+						“{viewed.lessonTitle}” moves to this Class's next Available Slot, and every Lesson after
+						it moves along.
+					{:else}
+						This Period has no Lesson, so nothing moves.
+					{/if}
+				</p>
+			{/if}
 			{#if error}
 				<p role="alert" class="mt-1.5 text-xs text-destructive">{error}</p>
 			{/if}

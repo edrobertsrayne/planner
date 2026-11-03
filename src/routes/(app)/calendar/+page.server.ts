@@ -2,18 +2,17 @@ import { TERM_NAMES } from '$lib/calendar/generate-teaching-weeks';
 import { defaultWeek } from '$lib/calendar/default-week';
 import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
-import { formAction, found, trimmed } from '$lib/server/form';
+import { formAction, found } from '$lib/server/form';
 import { Refused } from '$lib/server/planner';
+import { blockSlotAction, unblockSlotAction } from '$lib/server/slot-block-actions';
 import { asc } from 'drizzle-orm';
 import * as schema from '$lib/server/db/schema';
 import {
 	blockDay,
-	blockSlot,
 	calendarWeek,
 	replaceTerms,
 	teachingWeeks,
-	unblockDay,
-	unblockSlot
+	unblockDay
 } from '$lib/server/planner';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -68,19 +67,9 @@ export const actions: Actions = {
 		)
 	})),
 
-	blockSlot: formAction((data) => {
-		const classId = String(data.get('classId') ?? '');
-		const date = String(data.get('date') ?? '');
-		const slotId = String(data.get('slotId') ?? '');
-		const note = String(data.get('note') ?? '');
-		if (!classId || !date || !slotId) throw new Refused('invalid', 'Missing Slot to block.');
+	blockSlot: blockSlotAction,
 
-		return { report: blockSlot(db, { classId, date, slotId, note, today: today() }) };
-	}),
-
-	unblockSlot: formAction((data) => ({
-		report: found(unblockSlot(db, { id: trimmed(data, 'id'), today: today() }), 'Blocked Slot')
-	})),
+	unblockSlot: unblockSlotAction,
 
 	// The whole year, replaced as one document through the Terms seam — the seam owns every
 	// rule, so the action validates nothing of its own. The six rows are read in year position,

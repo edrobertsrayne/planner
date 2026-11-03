@@ -1,26 +1,28 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
 	import BanIcon from '@lucide/svelte/icons/ban';
 	import HistoryIcon from '@lucide/svelte/icons/history';
 	import { classTone } from '$lib/class-tone';
 	import { formatWeekday } from '$lib/date';
-	import { replaceQuery } from '$lib/client/enhance';
+	import { onFail, replaceQuery, submitForm } from '$lib/client/enhance';
 	import { sessionHref } from '$lib/client/session-href';
 	import { withParam } from '$lib/query';
 	import { touchTarget } from '$lib/components/ui/touch-target';
+	import BlockSlotDialog, { type Pick } from '$lib/components/block-slot-dialog.svelte';
 	import ClassChip from '$lib/components/class-chip.svelte';
 	import FilterChips from '$lib/components/filter-chips.svelte';
 	import PageHeader from '$lib/components/page-header.svelte';
+	import RewindReport from '$lib/components/rewind-report.svelte';
 	import TagChips from '$lib/components/tag-chips.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import { AGENDA_HORIZONS } from './agenda-horizons';
 	import { agendaStream, filterByTag, groupByDay, tagsIn } from './agenda-days';
-	import BlockDialog, { type Pick } from './block-dialog.svelte';
 	import ReadyTick from './ready-tick.svelte';
 	import type { PageProps } from './$types';
 
-	let { data }: PageProps = $props();
+	let { data, form }: PageProps = $props();
 
 	// Each filter sets one parameter and keeps the rest, so a change to the horizon or the
 	// look-back keeps the Tag in the address (withParam, issue #338).
@@ -36,18 +38,18 @@
 		return sessionHref({ classId: row.classId, date: row.date, period: row.periodFrom });
 	}
 
-	// PROTOTYPE: blocks made in this browser session only; nothing is saved.
+	// A row's Blocked Slot is asked for through the note dialog, and taken back through one hidden
+	// form that every row's Unblock shares: its one field is set beside the value (submitForm).
 	type Row = (typeof data.rows)[number];
-	const rowKey = (row: Row) => `${row.classId}|${row.date}|${row.periodFrom}`;
-	let mocked = $state<Record<string, { note: string | null }>>({});
 	let pick = $state<Pick | null>(null);
-	const blockedOf = (row: Row) => row.blocked ?? mocked[rowKey(row)] ?? null;
+	let unblockForm = $state<HTMLFormElement | undefined>();
 	const askToBlock = (row: Row) =>
 		(pick = {
-			key: rowKey(row),
+			classId: row.classId,
 			classLabel: row.classLabel,
-			date: row.date,
+			slotId: row.slotId,
 			period: row.periodFrom,
+			date: row.date,
 			lessonTitle: row.lesson?.title ?? null
 		});
 
@@ -102,6 +104,17 @@
 		class="-mx-6 mt-4 px-6 md:mx-0 md:px-0"
 	/>
 
+	<!-- A write that pushed a Placement off its anchor says so, as on the Calendar. -->
+	<RewindReport report={form?.report} class="mt-4 text-sm text-muted-foreground" />
+
+	<form
+		bind:this={unblockForm}
+		method="POST"
+		action="?/unblockSlot"
+		use:enhance={onFail('Could not unblock the Slot.')}
+		class="hidden"
+	></form>
+
 	<!-- The look-back sits where it appears (issue #341): this full-width button above the first
 	     day replaces the "Previous 7 days" toggle in the header. -->
 	<button
@@ -115,7 +128,7 @@
 
 	{#snippet agendaRow(row: (typeof data.rows)[number], past: boolean)}
 		{@const tone = classTone(row.tone)}
-		{@const blocked = blockedOf(row)}
+		{@const blocked = row.blocked}
 		<li
 			class="group/row relative flex items-center gap-3 pr-2 pl-4 {blocked
 				? 'hatched'
@@ -174,7 +187,7 @@
 						variant="ghost"
 						size="sm"
 						class="h-7 row-control {touchTarget}"
-						onclick={() => delete mocked[rowKey(row)]}
+						onclick={() => submitForm(unblockForm, { fields: { id: blocked.id } })}
 						aria-label="Unblock {row.classLabel}, P{row.periodFrom}">Unblock</Button
 					>
 				{/if}
@@ -245,7 +258,7 @@
 	<!-- The days ahead, with what the window removes in place: a Blocked Day keeps its heading and
 	     reads as one panel, and a School Holiday is one card spanning it, so a holiday never leaves
 	     the page blank. Both are told apart from teaching by a step in shade, never a hue. -->
-	<BlockDialog bind:pick onblock={(p, note) => (mocked[p.key] = { note })} />
+	<BlockSlotDialog bind:pick />
 
 	{#each stream as item (item.kind + item.date)}
 		{#if item.kind === 'day'}

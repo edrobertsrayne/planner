@@ -15,7 +15,7 @@
 	import { cn } from '$lib/utils.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import PageHeader from '$lib/components/page-header.svelte';
-	import BlockNoteDialog from './BlockNoteDialog.svelte';
+	import BlockSlotDialog from '$lib/components/block-slot-dialog.svelte';
 	import CalendarSetup from './CalendarSetup.svelte';
 	import {
 		availableSlotLines,
@@ -457,7 +457,7 @@
 		<!-- Mounted once for the whole grid: the menu sets the picked Slot, the dialog asks for
 		     its note, and the binding carries the close back — Escape, the X, a click on the
 		     overlay and a saved note all clear the pick. -->
-		<BlockNoteDialog bind:pick={slotNote} />
+		<BlockSlotDialog bind:pick={slotNote} />
 	{:else}
 		<p class="text-sm text-muted-foreground">This is not a Teaching Week.</p>
 	{/if}

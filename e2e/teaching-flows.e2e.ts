@@ -489,6 +489,51 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expect(finalCheckbox).not.toBeChecked();
 	});
 
+	test('a Lesson is blocked from its Agenda row with a note, and unblocked from the same row', async () => {
+		await page.goto('/');
+		const first = page.locator('li').filter({ hasText: '9B/Sc1' }).first();
+		// The title is the link's first `.font-medium`: a Tag chip after it may carry the class too.
+		const title = (
+			await first.locator('a[href^="/sessions/"] .font-medium').first().innerText()
+		).trim();
+		const block = first.getByRole('button', { name: /^Block 9B\/Sc1, P\d/ });
+		await block.click();
+
+		// The note is asked for: a hole in the week must stay explainable. Submitting without
+		// one keeps the dialog open and blocks nothing.
+		const note = page.getByRole('textbox', { name: /^Block 9B\/Sc1, P\d/ });
+		await expect(
+			page.getByText(`“${title}” moves to this Class's next Available Slot`)
+		).toBeVisible();
+		await page.getByRole('button', { name: 'Block', exact: true }).click();
+		await expect(note).toBeVisible();
+		await expect(page.locator('li.hatched')).toHaveCount(0);
+
+		await note.fill('Assembly');
+		await page.getByRole('button', { name: 'Block', exact: true }).click();
+
+		// The row drains to a Blocked Slot with its note, and the Lesson it held is gone from
+		// that position; it opens nothing and carries no Ready tick. It survives a reload.
+		const blocked = page.locator('li.hatched');
+		await expect(blocked).toHaveCount(1);
+		await expect(blocked).toContainText('Blocked Slot');
+		await expect(blocked).toContainText('Assembly');
+		await expect(blocked.locator('a[href^="/sessions/"]')).toHaveCount(0);
+		await expect(blocked.getByRole('checkbox')).toHaveCount(0);
+		await page.reload();
+		await expect(page.locator('li.hatched')).toContainText('Assembly');
+
+		// Unblocking from the same row puts the Lesson back where it was.
+		await page
+			.locator('li.hatched')
+			.getByRole('button', { name: /^Unblock 9B\/Sc1, P\d/ })
+			.click();
+		await expect(page.locator('li.hatched')).toHaveCount(0);
+		await expect(
+			page.locator('li').filter({ hasText: '9B/Sc1' }).first().getByText(title, { exact: true })
+		).toBeVisible();
+	});
+
 	test('the Agenda filters to one Tag, kept in the URL with the horizon (issue #280)', async () => {
 		const rows = page.locator('main li');
 		const openSlots = rows.filter({ hasText: 'Open Slot' });

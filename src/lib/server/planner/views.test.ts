@@ -191,6 +191,35 @@ describe('the Agenda', () => {
 		expect(at(5)).toMatchObject({ periodTo: 5, lesson: null, blocked: { note: 'Field trip' } });
 		expect(at(6)).toMatchObject({ lesson: { id: first.id }, blocked: null });
 	});
+
+	test('a row carries its Slot, and a Blocked Slot row the id to unblock it by', () => {
+		const { db, course, classA } = setUp();
+		const forces = makeTopic(db, course.id, 'Forces');
+		makeLessons(db, forces.id, 3);
+		assignTopic(db, { classId: classA.id, topicId: forces.id, today: '2026-09-03' });
+		const slots = db.select().from(schema.slot).all();
+		const thu = (period: number) =>
+			slots.find(
+				(s) => s.classId === classA.id && s.week === 'A' && s.day === 4 && s.period === period
+			)!;
+		blockSlot(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			slotId: thu(5).id,
+			note: 'Field trip',
+			today: '2026-09-03'
+		});
+
+		const rows = agenda(db, { today: '2026-09-03', horizonDays: 7 }).rows;
+		const at = (period: number) =>
+			rows.find(
+				(r) => r.classId === classA.id && r.date === '2026-09-03' && r.periodFrom === period
+			)!;
+		const [stored] = db.select().from(schema.blockedSlot).all();
+
+		expect(at(5)).toMatchObject({ slotId: thu(5).id, blocked: { id: stored.id } });
+		expect(at(6)).toMatchObject({ slotId: thu(6).id, blocked: null });
+	});
 });
 
 describe('the Agenda look-back', () => {
