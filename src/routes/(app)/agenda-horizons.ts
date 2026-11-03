@@ -10,7 +10,7 @@ export const AGENDA_HORIZONS = [
 
 export type AgendaHorizon = (typeof AGENDA_HORIZONS)[number][0];
 
-// The `?horizon=` value as a horizon; a missing or unknown value gives One Week.
+// The `?horizon=` value as a horizon; a missing or unknown value gives Two Weeks.
 export function parseHorizon(param: string | null): AgendaHorizon {
-	return AGENDA_HORIZONS.find(([value]) => String(value) === param)?.[0] ?? 7;
+	return AGENDA_HORIZONS.find(([value]) => String(value) === param)?.[0] ?? 14;
 }
