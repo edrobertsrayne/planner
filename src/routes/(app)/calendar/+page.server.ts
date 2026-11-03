@@ -2,18 +2,16 @@ import { TERM_NAMES } from '$lib/calendar/generate-teaching-weeks';
 import { defaultWeek } from '$lib/calendar/default-week';
 import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
-import { formAction, found } from '$lib/server/form';
-import { Refused } from '$lib/server/planner';
-import { blockSlotAction, unblockSlotAction } from '$lib/server/slot-block-actions';
+import { formAction } from '$lib/server/form';
+import {
+	blockDayAction,
+	blockSlotAction,
+	unblockDayAction,
+	unblockSlotAction
+} from '$lib/server/block-actions';
 import { asc } from 'drizzle-orm';
 import * as schema from '$lib/server/db/schema';
-import {
-	blockDay,
-	calendarWeek,
-	replaceTerms,
-	teachingWeeks,
-	unblockDay
-} from '$lib/server/planner';
+import { calendarWeek, replaceTerms, teachingWeeks } from '$lib/server/planner';
 import type { Actions, PageServerLoad } from './$types';
 
 // The ribbon shows the selected week and two Teaching Weeks either side (issue #293).
@@ -52,20 +50,9 @@ export const load: PageServerLoad = ({ url }) => {
 };
 
 export const actions: Actions = {
-	blockDay: formAction((data) => {
-		const date = String(data.get('date') ?? '');
-		const note = String(data.get('note') ?? '');
-		if (!date) throw new Refused('invalid', 'No date given.');
+	blockDay: blockDayAction,
 
-		return { report: blockDay(db, { date, note, today: today() }) };
-	}),
-
-	unblockDay: formAction((data) => ({
-		report: found(
-			unblockDay(db, { date: String(data.get('date') ?? ''), today: today() }),
-			'Blocked Day'
-		)
-	})),
+	unblockDay: unblockDayAction,
 
 	blockSlot: blockSlotAction,
 

@@ -534,6 +534,59 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		).toBeVisible();
 	});
 
+	test('a whole day is blocked from its Agenda heading, with or without a note, and unblocked from its panel', async () => {
+		await page.goto('/');
+		const day = page
+			.locator('section')
+			.filter({ has: page.locator('li') })
+			.first();
+		const heading = (await day.locator('h2 span').first().innerText()).trim();
+		const lessons = await day.locator('li').count();
+		await day.getByRole('button', { name: /^Block \w+day/ }).click();
+
+		// A Blocked Day records no cause, so the note is optional.
+		const note = page.getByRole('textbox', { name: /^Block \w+day.*note/ });
+		await expect(page.getByText(new RegExp(`${lessons} Lessons? on this day move`))).toBeVisible();
+		await note.fill('INSET day');
+		await page.getByRole('button', { name: 'Block day', exact: true }).click();
+
+		// The day's rows collapse into one Blocked Day panel with its note, and it survives a reload.
+		const panel = page.locator('section').filter({ hasText: 'Blocked Day' }).first();
+		await expect(panel).toContainText('INSET day');
+		await expect(panel.locator('li')).toHaveCount(0);
+		await page.reload();
+		await expect(page.locator('section').filter({ hasText: 'Blocked Day' }).first()).toContainText(
+			'INSET day'
+		);
+
+		// Unblocking from the panel puts the day's rows back where they were.
+		await page.getByRole('button', { name: /^Unblock \w+day/ }).click();
+		await expect(page.getByText('Blocked Day')).toHaveCount(0);
+		await expect(
+			page
+				.locator('section')
+				.filter({ has: page.locator('li') })
+				.first()
+		).toContainText(heading);
+		await expect(
+			page
+				.locator('section')
+				.filter({ has: page.locator('li') })
+				.first()
+				.locator('li')
+		).toHaveCount(lessons);
+
+		// And a day blocked with no note at all.
+		await page
+			.getByRole('button', { name: /^Block \w+day/ })
+			.first()
+			.click();
+		await page.getByRole('button', { name: 'Block day', exact: true }).click();
+		await expect(page.getByText('Blocked Day')).toHaveCount(1);
+		await page.getByRole('button', { name: /^Unblock \w+day/ }).click();
+		await expect(page.getByText('Blocked Day')).toHaveCount(0);
+	});
+
 	test('the Agenda filters to one Tag, kept in the URL with the horizon (issue #280)', async () => {
 		const rows = page.locator('main li');
 		const openSlots = rows.filter({ hasText: 'Open Slot' });

@@ -9,7 +9,7 @@
 	import { sessionHref } from '$lib/client/session-href';
 	import { withParam } from '$lib/query';
 	import { touchTarget } from '$lib/components/ui/touch-target';
-	import BlockDayDialog from './block-day-dialog.svelte';
+	import BlockDayDialog from '$lib/components/block-day-dialog.svelte';
 	import BlockSlotDialog, { type Pick } from '$lib/components/block-slot-dialog.svelte';
 	import ClassChip from '$lib/components/class-chip.svelte';
 	import FilterChips from '$lib/components/filter-chips.svelte';
@@ -55,17 +55,13 @@
 		});
 
 	const days = $derived(groupByDay(filterByTag(data.rows, data.tag)));
-	// PROTOTYPE: days blocked in this browser session only; nothing is saved.
-	let mockedDays = $state<Record<string, string | null>>({});
+	// A whole day is asked for through its own dialog and taken back through one hidden form that
+	// every Blocked Day panel shares, as a Blocked Slot is.
 	let dayPick = $state<string | null>(null);
-	const stream = $derived(
-		agendaStream(
-			days.filter((day) => !(day.date in mockedDays)),
-			[...data.blockedDays, ...Object.entries(mockedDays).map(([date, note]) => ({ date, note }))],
-			data.holidays
-		)
-	);
-	const lessonsOn = (date: string) => days.find((d) => d.date === date)?.rows.length ?? 0;
+	let unblockDayForm = $state<HTMLFormElement | undefined>();
+	const stream = $derived(agendaStream(days, data.blockedDays, data.holidays));
+	const lessonsOn = (date: string) =>
+		days.find((d) => d.date === date)?.rows.filter((row) => row.lesson).length ?? 0;
 	const pastDays = $derived(groupByDay(filterByTag(data.lookBack, data.tag)));
 
 	// One chip per Tag in the window with its count (issue #340). A Tag with no Lesson in the
@@ -123,6 +119,14 @@
 		method="POST"
 		action="?/unblockSlot"
 		use:enhance={onFail('Could not unblock the Slot.')}
+		class="hidden"
+	></form>
+
+	<form
+		bind:this={unblockDayForm}
+		method="POST"
+		action="?/unblockDay"
+		use:enhance={onFail('Could not unblock the day.')}
 		class="hidden"
 	></form>
 
@@ -217,12 +221,14 @@
 				</Button>
 			{/if}
 			{#if !blocked && row.lesson && !past}
-				<ReadyTick
-					lessonId={row.lesson.id}
-					classId={row.classId}
-					ready={row.lesson.ready}
-					label="Ready to teach {row.lesson.title} to {row.classLabel}"
-				/>
+				<div class="hidden md:contents">
+					<ReadyTick
+						lessonId={row.lesson.id}
+						classId={row.classId}
+						ready={row.lesson.ready}
+						label="Ready to teach {row.lesson.title} to {row.classLabel}"
+					/>
+				</div>
 			{/if}
 		</li>
 	{/snippet}
@@ -270,11 +276,7 @@
 	     reads as one panel, and a School Holiday is one card spanning it, so a holiday never leaves
 	     the page blank. Both are told apart from teaching by a step in shade, never a hue. -->
 	<BlockSlotDialog bind:pick />
-	<BlockDayDialog
-		bind:date={dayPick}
-		lessons={dayPick ? lessonsOn(dayPick) : 0}
-		onblock={(date, note) => (mockedDays[date] = note)}
-	/>
+	<BlockDayDialog bind:date={dayPick} lessons={dayPick ? lessonsOn(dayPick) : 0} />
 
 	{#each stream as item (item.kind + item.date)}
 		{#if item.kind === 'day'}
@@ -288,9 +290,13 @@
 						onclick={() => (dayPick = item.date)}
 						aria-label="Block {formatWeekday(item.date)}"
 					>
-						<BanIcon class="size-3.5" /><span class="sr-only md:not-sr-only">Block day</span>
+						<BanIcon class="size-3.5" /> Block day
 					</Button>
-					<span class="text-xs font-normal text-muted-foreground">Ready to teach?</span>
+					<!-- Readiness is written from a tablet up, so a phone carries neither the label nor the
+					     tick, and the day control has room to name itself. -->
+					<span class="hidden text-xs font-normal text-muted-foreground md:inline"
+						>Ready to teach?</span
+					>
 				</h2>
 
 				<ul class="divide-y divide-border overflow-hidden rounded-xl border bg-card">
@@ -315,7 +321,7 @@
 						variant="ghost"
 						size="sm"
 						class="h-7 {touchTarget}"
-						onclick={() => delete mockedDays[item.date]}
+						onclick={() => submitForm(unblockDayForm, { fields: { date: item.date } })}
 						aria-label="Unblock {formatWeekday(item.date)}">Unblock day</Button
 					>
 				</div>

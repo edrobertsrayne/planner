@@ -309,10 +309,12 @@ School Holiday is skipped, not counted, so One Week on a School Holiday shows th
 week. Every School Holiday the window touches shows as one card at its place in the stream, naming
 its first and last day. A Blocked Day shows as a panel under its day heading, with its note. A
 Blocked Slot shows as a row of its own in its position, with its note; it opens nothing and carries
-neither Plan nor Ready tick. The Agenda is where a Slot is blocked and unblocked from a row: every
+neither Plan nor Ready tick. The Agenda is where a Slot or a day is blocked and unblocked: every
 upcoming row has a Block control that asks for the note, and a Blocked Slot row has an Unblock
-control. A past row has neither. All three are told apart from teaching by a step in shade, never a
-hue, and the Tag filter hides the Blocked Slot rows as it hides Open Slots. Where the
+control; every day heading has a Block day control whose note is optional, and a Blocked Day panel
+has an Unblock day control. A past row and a past day have none. All three are told apart from
+teaching by a step in shade, never a hue, and the Tag filter hides the Blocked Slot rows as it hides
+Open Slots. Where the
 planner opens. The teacher can also turn on the look-back: the Sessions of the past seven days,
 shown above today, grouped by day, oldest first. The look-back is off by default and read-only. Its
 span is fixed: the horizon changes only the days ahead. The look-back obeys the Tag filter the same
@@ -322,15 +324,16 @@ reads the note. The past days are told apart from the days ahead by a step in sh
 An Open Slot appears as an ordinary row in its own position, marked as carrying no Lesson, because
 the teacher is teaching that Period and an Agenda that omitted it would report a free one — it
 carries no Ready tick, since there is no (Lesson, Class) pairing to key one on. Every other
-upcoming row carries the Ready tick for its Class, and this is the only screen on which Readiness
-is written; a row can be ticked only while it is on screen, so the ticks reach only as far as the
-chosen horizon, and no past day can be ticked. A Continuation's two rows share one Readiness
+upcoming row carries the Ready tick for its Class from a tablet up, and this is the only screen on
+which Readiness is written; a row can be ticked only while it is on screen, so the ticks reach only
+as far as the chosen horizon, and no past day can be ticked. A Continuation's two rows share one Readiness
 record, so ticking either moves both. The Agenda can be narrowed to one Tag with a row of Tag chips
 under the heading, the same control as the Class chips on Planning: while a Tag filter is on, it
 shows only the Lessons with that Tag and hides Open Slots, in the look-back and in the days ahead.
-The Agenda is one column at every size. On a phone it is the main screen, so the Ready tick and an
-Open Slot's Plan button show without a hover. On a phone the page heading is out of sight, because
-the top bar names the screen; a screen reader still reads it.
+The Agenda is one column at every size. On a phone it is the main screen, so an Open Slot's Plan
+button and the Block controls show without a hover; a phone carries no Ready tick and no "Ready to
+teach?" heading, and a day's Block control names itself. On a phone the page heading is out of
+sight, because the top bar names the screen; a screen reader still reads it.
 
 **Calendar**:
 One Teaching Week as a grid of Periods against days, showing which Class is taught when and what

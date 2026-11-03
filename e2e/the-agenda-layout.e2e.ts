@@ -86,44 +86,35 @@ test.describe('the Agenda on a phone', () => {
 	const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];
 	test.use({ viewport, userAgent, deviceScaleFactor, isMobile, hasTouch });
 
-	test('the teacher reads the Agenda and ticks Ready on a row (phone flow 2)', async ({ page }) => {
+	test('the teacher reads the Agenda, with no Ready tick, and blocks a day by name (phone flow 2)', async ({
+		page
+	}) => {
 		await login(page);
 		await expectNoHorizontalScroll(page);
 
 		// The top bar names the screen, so the page heading is out of sight below `md` (story 81)
 		// — but it stays in the accessibility tree, so a screen reader still has one heading.
 		await expect(page.getByRole('heading', { level: 1 })).toHaveText('Agenda');
-
-		// Reading and ticking Ready is all the Agenda takes on a phone: nothing else writes.
 		await expect(page.getByRole('textbox')).toHaveCount(0);
 
-		// The teacher ticks Ready on a row (story 82). On touch the tick's padded label is its 44 px
-		// target and covers the 16 px input, so the tap goes to the label. Each step waits for the
-		// write and a reload, because the write ends by reloading the page data
-		// (teaching-flows.e2e.ts).
-		const tickOf = () =>
-			page
-				.locator('li')
-				.filter({ hasText: '9B/Sc1' })
-				.first()
-				.getByRole('checkbox', { name: /Ready to teach/ });
-		const tick = () =>
-			Promise.all([
-				page.waitForResponse((r) => r.url().includes('setReadiness')),
-				tickOf().locator('xpath=..').click()
-			]);
-		await expect(tickOf()).not.toBeChecked();
-		await tick();
-		await page.reload();
-		await expect(tickOf()).toBeChecked();
+		// Readiness is written from a tablet up: a phone carries neither the tick nor the heading
+		// that names it.
+		await expect(page.getByRole('checkbox')).toHaveCount(0);
+		const headings = page.getByText('Ready to teach?');
+		expect(await headings.count()).toBeGreaterThan(0);
+		expect(
+			await headings.evaluateAll((els) => els.every((el) => el.checkVisibility() === false))
+		).toBe(true);
 
-		// Put the tick back for the tests that follow.
-		await tick();
-		await page.reload();
-		await expect(tickOf()).not.toBeChecked();
+		// With the Ready column gone there is room to name the day control, so the icon carries its
+		// words and is not mistaken for a row's own Block (story 83).
+		const blockDay = page.getByRole('button', { name: /^Block \w+day/ }).first();
+		await expect(blockDay).toContainText('Block day');
+		await expect(blockDay).toBeVisible();
+		await expect(blockDay).not.toHaveCSS('opacity', '0');
 	});
 
-	test('Ready and Plan keep a 44 px target on touch, and Plan shows without a hover', async ({
+	test('Plan and the day control keep a 44 px target on touch, and Plan shows without a hover', async ({
 		page
 	}) => {
 		// 9C/Sc1 gets no Topic assigned, so its Tuesday P3 Slot carries no Lesson and its row
@@ -140,7 +131,7 @@ test.describe('the Agenda on a phone', () => {
 		// On touch there is no hover to wait for (story 83): the control shows, muted.
 		await expect(plan).not.toHaveCSS('opacity', '0');
 		await expectHitArea44(page, 'Plan', 'link');
-		await expectHitArea44(page, /Ready to teach/, 'checkbox');
+		await expectHitArea44(page, /^Block \w+day/, 'button');
 		await expectHitArea44(page, '9B/Sc1', 'link');
 	});
 });
