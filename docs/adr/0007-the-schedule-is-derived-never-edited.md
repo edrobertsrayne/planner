@@ -105,3 +105,6 @@ Nothing may write a Session dated before today except a Rewind.
 > route into a Class's Lesson stream ADR-0015 left open. The function itself is unchanged: still
 > one pure zip, still re-run in full from any state, still bound by the same boundary rule. Only
 > the list of what counts as an input to it grows.
+
+> **Amended 2026-11-03 (ADR-0029).** An **Event** is not a fifth input. It may hold only a position
+> that no Class holds, so it removes no Available Slot and the function is unchanged.

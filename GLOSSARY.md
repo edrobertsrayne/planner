@@ -30,7 +30,7 @@ Courses may each hold a "Forces", but one Course may not hold two "Forces" Topic
 _Avoid_: Unit, module, block, chapter
 
 **Lesson**:
-One teaching episode — the plan, not the event. Usually filed in a Topic; a Standalone Lesson has
+One teaching episode — the plan, not the occasion. Usually filed in a Topic; a Standalone Lesson has
 none. Exists whether or not it has ever been taught, and is shared by every Class whose Sequence
 holds it. A title alone constitutes a Lesson; the notes and the links to resources held elsewhere
 arrive as planning catches up. Lesson titles are not unique: one Topic may hold two Lessons called
@@ -128,14 +128,22 @@ _Avoid_: Queue, list, Assigned Topic
 
 **Period**:
 One of the six numbered teaching positions in a school day, P1 to P6. Every day has the same six.
-A Period is a position in the day, not a time of day — the planner never needs the clock.
+A Period is a position in the day, not a time of day — the planner never needs the clock. A day
+also has two positions outside the Periods, Before school and After school, which are not Periods.
 _Avoid_: Lesson, session, hour
+
+**Before school / After school**:
+The two positions in a day outside its six Periods: Before school precedes P1 and After school
+follows P6. Only an Event holds one; a Class never does. Like a Period, each is a position and not
+a time, so a briefing at 8:15 and a club at 3:30 are simply Before school and After school.
+_Avoid_: Period 0, P7, registration, break, lunch
 
 **Slot**:
 A recurring position in the Timetable when a given Class is taught, such as "Week A, Monday,
 Period 3". A Slot describes when teaching _can_ happen, not what is taught. A Slot _holds_ over a
 range of dates, and no two Slots may share a position over dates where both hold. A Class taught
-two consecutive Periods occupies two Slots, never one longer one.
+two consecutive Periods occupies two Slots, never one longer one. A Slot is always a Class's; an
+Event holds Event Slots instead, and no Slot may share a position with an Event Slot.
 _Avoid_: Lesson, session, booking, double
 
 **Room**:
@@ -149,7 +157,9 @@ A single dated occasion on which a Lesson is taught to a Class, occupying one Sl
 A Session is identified by its occasion — Class, date and Period — not by its Lesson, so a Rewind
 can change which Lesson an occasion carried. It carries no note: how the teaching went is the
 Teaching note, which follows the Lesson.
-_Avoid_: Teaching period, occurrence, instance, event
+_Avoid_: Teaching period, occurrence, instance
+
+A Session is always a taught Lesson. The dated occasions of an Event are not Sessions.
 
 **Teaching note**:
 The teacher's note on how one Lesson went with one Class. There is one per Class and Lesson,
@@ -171,8 +181,32 @@ Sequence move on past it. Made for today or a later date, never a past one.
 _Avoid_: Insertion, injection, ad-hoc Lesson, one-off Lesson, pinned Session, placed Slot,
 reservation, pin, lock, unplace, cancel
 
+**Event**:
+A recurring commitment of the teacher's own that is not a Class: a department meeting, a club, an
+intervention group, a duty. It has a name, a kind and its Event Slots. The kind is Meeting, Club,
+Intervention or Other, a label that changes nothing. It may carry a Room on each Event Slot, as a
+Class does. It holds no Lessons, no Sequence and no Tone, and it never displaces a Lesson: it can
+hold only a position that no Class holds. It recurs and is never a one-off. It does not occur on a
+School Holiday or a Blocked Day. Like a Class it holds no information about individual pupils.
+_Avoid_: Meeting, club, activity, appointment, duty (each is a kind of Event, not the general term)
+
+**Event Slot**:
+A recurring position in the Timetable held by an Event, such as "Week A, Monday, After school". It
+is a Slot's counterpart for an Event: it _holds_ over a range of dates, and no two may share a
+position over dates where both hold. Unlike a Slot it may be Before school or After school as well
+as a Period. A position is held by a Class's Slot, by an Event Slot or by neither, never by both.
+_Avoid_: Booking, reservation
+
+**Event note**:
+The teacher's one note on one Event for one date, written beforehand to plan the date or
+afterwards to log it. It belongs to the Event and the date, so it stays with them when the
+Event's position changes, and it is not a Teaching note: a Teaching note follows a Lesson. It
+describes the group, never a named pupil. A date on which the Event does not occur shows no note,
+and the note returns if the Blocked Day is unblocked.
+_Avoid_: Session note, meeting minutes, log
+
 **Timetable**:
-The full recurring pattern of Slots across the two-week cycle.
+The full recurring pattern of Slots and Event Slots across the two-week cycle.
 
 **Teaching Week**:
 A calendar week, Monday to Sunday, with at least one day inside a Term. A Blocked Day only reduces
@@ -203,7 +237,7 @@ _Avoid_: Break, vacation, closure
 **Blocked Day**:
 A date on which none of this teacher's Classes are taught, whatever the cause — an INSET day, a
 bank holiday, illness, snow. The cause is not recorded, because nothing in the planner behaves
-differently according to it. Blocking a day blocks every Slot on it.
+differently according to it. Blocking a day blocks every Slot on it and skips every Event on it.
 _Avoid_: Closure, absence, holiday, cancellation, non-pupil day, leave
 
 **Blocked Slot**:
@@ -294,8 +328,8 @@ agree on what to call them.
 
 **App shell**:
 The frame around every screen except Login and Setup. On a laptop it is a sidebar on the left: the
-wordmark, the five screens (Agenda, Calendar, Classes, Courses, Planning) with an icon and a name
-each, and at its foot Settings, the theme toggle, Log out and the build line. On a tablet the
+wordmark, the six screens (Agenda, Calendar, Classes, Events, Courses, Planning) with an icon and a
+name each, and at its foot Settings, the theme toggle, Log out and the build line. On a tablet the
 sidebar shows icons only. On a phone it is a top bar with a menu button and the current screen's
 name; the menu button opens the same list as a drawer.
 There is no top header on a laptop or a tablet, so a screen starts at the top of the window. The
@@ -310,7 +344,12 @@ week. Every School Holiday the window touches shows as one card at its place in 
 its first and last day. A Blocked Day shows as a panel under its day heading, with its note. A
 Blocked Slot shows as a row of its own in its position, with its note; it opens nothing and carries
 neither Plan nor Ready tick. All three are told apart from teaching by a step in shade, never a hue,
-and the Tag filter hides the Blocked Slot rows as it hides Open Slots. Where the
+and the Tag filter hides the Blocked Slot rows as it hides Open Slots. An Event shows as a row in
+its position, Before school at the head of its day and After school at the foot, carrying its Event
+note, or an Add plan button when that date has none. It carries no Ready tick, because Readiness
+belongs to a Lesson, and it opens the Event page on that date. It is told apart from teaching by the
+same step in shade, a Blocked Day or a School Holiday shows none, and the Tag filter hides Event
+rows as it hides Open Slots. Where the
 planner opens. The teacher can also turn on the look-back: the Sessions of the past seven days,
 shown above today, grouped by day, oldest first. The look-back is off by default and read-only. Its
 span is fixed: the horizon changes only the days ahead. The look-back obeys the Tag filter the same
@@ -320,7 +359,7 @@ reads the note. The past days are told apart from the days ahead by a step in sh
 An Open Slot appears as an ordinary row in its own position, marked as carrying no Lesson, because
 the teacher is teaching that Period and an Agenda that omitted it would report a free one — it
 carries no Ready tick, since there is no (Lesson, Class) pairing to key one on. Every other
-upcoming row carries the Ready tick for its Class, and this is the only screen on which Readiness
+upcoming Session row carries the Ready tick for its Class, and this is the only screen on which Readiness
 is written; a row can be ticked only while it is on screen, so the ticks reach only as far as the
 chosen horizon, and no past day can be ticked. A Continuation's two rows share one Readiness
 record, so ticking either moves both. The Agenda can be narrowed to one Tag with a row of Tag chips
@@ -338,8 +377,14 @@ its Class's colour and shows no Lesson. A Blocked Day and a Blocked Slot drain t
 Present-but-empty and removed must never read alike. A position dated before today shows its
 recorded Session, or an Open Slot when no Lesson was recorded. It keeps its Class's Tone and lays
 a hatch over it, so past and upcoming tiles never read alike. A past tile is never a removal: it
-opens the Session page on its occasion. A day with no teaching — a Blocked Day or a
-School Holiday — drops its six Periods. The day reads as one panel spanning the column. The panel is
+opens the Session page on its occasion. An Event holds a tile in its position, in a neutral shade
+with the Event's name and kind, in the same neutral shade as the panel of a day with no teaching.
+Two thin bands, Before school above P1 and After school below P6, are always drawn so the grid keeps
+one shape, and only an Event fills them. A past Event tile is hatched as a past Session tile is. A
+tile opens the Event page on that date, and a position held by neither a Class nor an Event stays
+empty. A day with no teaching — a Blocked Day or a
+School Holiday — drops its six Periods, its two bands and its Events. The day reads as one panel
+spanning the column. The panel is
 told apart from an empty Period by a step in shade, never a hue. No block or unblock sits on a tile.
 Every block and unblock on a day starts in that day's menu. The menu offers Block day or Unblock
 day. It offers a Block one Slot line for each Slot the day's tiles cover. It offers an Unblock line
@@ -380,11 +425,33 @@ the Sequence only, read-only, with no tabs. The only place a Class is timetabled
 Creating a Class happens on the Classes screen. There is no screen showing every Class's Timetable
 at once, because the Timetable is only ever read or written one Class at a time. Periods held by
 another Class carry that Class's label rather than being hatched or hidden, since a position can
-hold only one Class on any given date; that is where the Slot uniqueness rule is enforced. An edit
+hold only one Class on any given date; that is where the Slot uniqueness rule is enforced. A
+position held by an Event carries the Event's name in the same way and cannot be taken. An edit
 takes effect from a position in the year the teacher picks — the start of the year, today, a date
 on which this Class's Slots change, or any date — chosen through the same "Timetable as at" control
 that reads history, so ending one Slot and starting another is ordinary editing rather than a
 special operation.
+
+**Events**:
+One neutral tile per Event, keyed by Event rather than by time, with a New Event tile after them.
+Each tile carries the Event's name, its kind, where it sits ("Mondays, After school") and its next
+date. The whole tile is one link to the Event page. An Event is created here, in a dialog that asks
+only for a name and a kind and then opens the new Event's Timetable tab. Note that this names a
+_screen_; "events" unqualified means the Events themselves. On a phone there is no New Event tile,
+because nothing is written there.
+
+**Event page**:
+The single surface for one Event, in two tabs under its name and kind. Notes, the default, holds
+the Event note for one date and a list of the Event's dates, each with its note: past dates are
+hatched and still written, so a date can be logged afterwards, and a date on a School Holiday or a
+Blocked Day is shown as skipped. Timetable holds the "Timetable as at" control and the Event Slot
+grid, both weeks stacked, with Before school and After school as a row above P1 and a row below P6.
+Positions held by a Class carry that Class's label and cannot be taken; an Event Slot is given or
+cleared by a click, and a change applies from the date the teacher picks, as on the Class page. A
+Room is typed per Event Slot. Opened from the Events screen, an Agenda row or a Calendar tile; from
+a row or a tile it opens on that date. The Event note's field says that it describes the group, not
+a named pupil. Both tabs are written from a tablet up; a phone shows the Event note for one date,
+written, with no tabs and no Timetable.
 
 **Courses**:
 Where Course content is written. One tile per Course, marked by the Course's Tone as a dot and as
