@@ -54,3 +54,9 @@ export function agendaStream<Row>(
 		...holidays.map(({ starts, ends }) => ({ kind: 'holiday' as const, date: starts, ends }))
 	].sort((a, b) => a.date.localeCompare(b.date));
 }
+
+// How many Lessons a day holds, for the Block day dialog's "N Lessons move". Counted from every row
+// of the window, never the Tag-filtered ones: the filter hides Lessons, it does not unschedule them.
+export function lessonCount(rows: readonly { date: string; lesson: unknown }[], date: string) {
+	return rows.filter((row) => row.date === date && row.lesson).length;
+}

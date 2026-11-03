@@ -587,6 +587,78 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expect(page.getByText('Blocked Day')).toHaveCount(0);
 	});
 
+	test('a refused Blocked Slot keeps its dialog open and names the reason, and blocks nothing', async () => {
+		await page.goto('/');
+		await page
+			.locator('li')
+			.filter({ hasText: '9B/Sc1' })
+			.first()
+			.getByRole('button', { name: /^Block 9B\/Sc1, P\d/ })
+			.click();
+
+		// Spaces pass the browser's required check but not the seam's: the reason shows under the
+		// note, the dialog stays, and no row drains.
+		await page.getByRole('textbox', { name: /^Block 9B\/Sc1, P\d/ }).fill('   ');
+		await page.getByRole('button', { name: 'Block', exact: true }).click();
+		await expect(page.getByRole('alert')).toContainText('A Blocked Slot needs a note.');
+		await expect(page.getByRole('dialog')).toBeVisible();
+		await page.keyboard.press('Escape');
+		await expect(page.locator('li.hatched')).toHaveCount(0);
+	});
+
+	test('an Open Slot is blocked and unblocked from its row, and the dialog says nothing moves', async () => {
+		// 9C/Sc1's Tuesday P3 carries no Lesson in any week (see the-agenda-layout.e2e.ts).
+		await page.goto('/?horizon=28');
+		const open = page.locator('li').filter({ hasText: 'Open Slot' }).first();
+		await open.getByRole('button', { name: /^Block .*, P\d/ }).click();
+		await expect(page.getByText('This Period has no Lesson, so nothing moves.')).toBeVisible();
+		await page.getByRole('textbox', { name: /^Block .*, P\d/ }).fill('Assembly');
+		await page.getByRole('button', { name: 'Block', exact: true }).click();
+
+		const blocked = page.locator('li.hatched');
+		await expect(blocked).toHaveCount(1);
+		await expect(blocked).toContainText('Assembly');
+		await blocked.getByRole('button', { name: /^Unblock / }).click();
+		await expect(page.locator('li.hatched')).toHaveCount(0);
+		await expect(page.locator('li').filter({ hasText: 'Open Slot' }).first()).toBeVisible();
+	});
+
+	test('a day another tab already blocked is refused with its reason, not blocked twice', async () => {
+		await page.goto('/');
+		const first = page
+			.locator('section')
+			.filter({ has: page.locator('li') })
+			.first();
+
+		// A second tab blocks the day first; this tab still shows it as teaching.
+		const context = await page
+			.context()
+			.browser()!
+			.newContext({
+				storageState: await page.context().storageState()
+			});
+		const other = await context.newPage();
+		await other.goto('/');
+		await other
+			.locator('section')
+			.filter({ has: other.locator('li') })
+			.first()
+			.getByRole('button', { name: /^Block \w+day/ })
+			.click();
+		await other.getByRole('button', { name: 'Block day', exact: true }).click();
+		await expect(other.getByText('Blocked Day')).toHaveCount(1);
+
+		await first.getByRole('button', { name: /^Block \w+day/ }).click();
+		await page.getByRole('button', { name: 'Block day', exact: true }).click();
+		await expect(page.getByRole('alert')).toContainText('is already a Blocked Day');
+		await expect(page.getByRole('dialog')).toBeVisible();
+
+		// Leave no Blocked Day behind for the tests that follow.
+		await other.getByRole('button', { name: /^Unblock \w+day/ }).click();
+		await expect(other.getByText('Blocked Day')).toHaveCount(0);
+		await context.close();
+	});
+
 	test('the Agenda filters to one Tag, kept in the URL with the horizon (issue #280)', async () => {
 		const rows = page.locator('main li');
 		const openSlots = rows.filter({ hasText: 'Open Slot' });

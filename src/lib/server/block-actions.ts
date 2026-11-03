@@ -3,17 +3,19 @@
 import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
 import { formAction, found, trimmed } from '$lib/server/form';
-import { Refused, blockDay, blockSlot, unblockDay, unblockSlot } from '$lib/server/planner';
+import { Refused, blockDay, blockSlots, unblockDay, unblockSlot } from '$lib/server/planner';
 
 export const blockSlotAction = formAction((data) => {
 	const classId = trimmed(data, 'classId');
 	const date = trimmed(data, 'date');
-	const slotId = trimmed(data, 'slotId');
+	// One field per Slot: a double Lesson posts both its Periods.
+	const slotIds = data.getAll('slotId').map((id) => String(id).trim());
 	// Not trimmed: the seam owns the note's rule and trims it itself.
 	const note = String(data.get('note') ?? '');
-	if (!classId || !date || !slotId) throw new Refused('invalid', 'Missing Slot to block.');
+	if (!classId || !date || slotIds.length === 0 || slotIds.includes(''))
+		throw new Refused('invalid', 'Missing Slot to block.');
 
-	return { report: blockSlot(db, { classId, date, slotId, note, today: today() }) };
+	return { report: blockSlots(db, { classId, date, slotIds, note, today: today() }) };
 });
 
 export const unblockSlotAction = formAction((data) => ({

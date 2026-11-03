@@ -19,7 +19,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import { AGENDA_HORIZONS } from './agenda-horizons';
-	import { agendaStream, filterByTag, groupByDay, tagsIn } from './agenda-days';
+	import { agendaStream, filterByTag, groupByDay, lessonCount, tagsIn } from './agenda-days';
 	import ReadyTick from './ready-tick.svelte';
 	import type { PageProps } from './$types';
 
@@ -48,8 +48,9 @@
 		(pick = {
 			classId: row.classId,
 			classLabel: row.classLabel,
-			slotId: row.slotId,
+			slotIds: row.slotIds,
 			period: row.periodFrom,
+			periodTo: row.periodTo,
 			date: row.date,
 			lessonTitle: row.lesson?.title ?? null
 		});
@@ -58,10 +59,15 @@
 	// A whole day is asked for through its own dialog and taken back through one hidden form that
 	// every Blocked Day panel shares, as a Blocked Slot is.
 	let dayPick = $state<string | null>(null);
+	// Counted when the dialog opens and kept while it fades out, so the line about how much moves
+	// does not flip to "nothing" as it closes. Counted from every row, not the Tag-filtered ones.
+	let dayLessons = $state(0);
+	const askToBlockDay = (date: string) => {
+		dayLessons = lessonCount(data.rows, date);
+		dayPick = date;
+	};
 	let unblockDayForm = $state<HTMLFormElement | undefined>();
 	const stream = $derived(agendaStream(days, data.blockedDays, data.holidays));
-	const lessonsOn = (date: string) =>
-		days.find((d) => d.date === date)?.rows.filter((row) => row.lesson).length ?? 0;
 	const pastDays = $derived(groupByDay(filterByTag(data.lookBack, data.tag)));
 
 	// One chip per Tag in the window with its count (issue #340). A Tag with no Lesson in the
@@ -276,7 +282,7 @@
 	     reads as one panel, and a School Holiday is one card spanning it, so a holiday never leaves
 	     the page blank. Both are told apart from teaching by a step in shade, never a hue. -->
 	<BlockSlotDialog bind:pick />
-	<BlockDayDialog bind:date={dayPick} lessons={dayPick ? lessonsOn(dayPick) : 0} />
+	<BlockDayDialog bind:date={dayPick} lessons={dayLessons} />
 
 	{#each stream as item (item.kind + item.date)}
 		{#if item.kind === 'day'}
@@ -287,7 +293,7 @@
 						variant="ghost"
 						size="sm"
 						class="ml-auto h-7 gap-1 text-xs font-normal text-muted-foreground row-control {touchTarget}"
-						onclick={() => (dayPick = item.date)}
+						onclick={() => askToBlockDay(item.date)}
 						aria-label="Block {formatWeekday(item.date)}"
 					>
 						<BanIcon class="size-3.5" /> Block day

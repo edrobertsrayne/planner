@@ -15,15 +15,9 @@
 	import { cn } from '$lib/utils.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import PageHeader from '$lib/components/page-header.svelte';
-	import BlockSlotDialog from '$lib/components/block-slot-dialog.svelte';
+	import BlockSlotDialog, { type Pick } from '$lib/components/block-slot-dialog.svelte';
 	import CalendarSetup from './CalendarSetup.svelte';
-	import {
-		availableSlotLines,
-		blockedSlotLines,
-		PERIODS,
-		toGrid,
-		type AvailableSlotLine
-	} from './calendar-grid';
+	import { availableSlotLines, blockedSlotLines, PERIODS, toGrid } from './calendar-grid';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -56,7 +50,7 @@
 
 	// The Slot the day menu picked to block, whose note is asked for in a dialog. The dialog
 	// is mounted once and opens through the bound pick, the way ConfirmDeleteDialog is.
-	let slotNote = $state<(AvailableSlotLine & { date: string }) | null>(null);
+	let slotNote = $state<Pick | null>(null);
 
 	// A pick names a Slot in the week's data, so it dies when the week it names is no longer
 	// the one shown — a week navigated away from and back to must not reopen the note form by
@@ -262,7 +256,9 @@
 													<!-- One line per real Slot, so a Lesson over two Periods appears
 													     twice. Picking one opens the note dialog. -->
 													{#each availableSlots as slot (slot.slotId)}
-														<DropdownMenu.Item onSelect={() => (slotNote = { ...slot, date })}
+														<DropdownMenu.Item
+															onSelect={() =>
+																(slotNote = { ...slot, slotIds: [slot.slotId], date })}
 															>{slot.classLabel}, P{slot.period}…</DropdownMenu.Item
 														>
 													{/each}

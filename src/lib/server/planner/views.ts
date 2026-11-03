@@ -69,9 +69,10 @@ export interface AgendaEntry {
 	periodFrom: number;
 	periodTo: number;
 	room: string | null;
-	// The Slot the row sits in (its first, for a run over several Periods): what a Blocked Slot
-	// is made from.
+	// The Slots the row sits in, one per Period it spans: what a Blocked Slot is made from, so a
+	// double is blocked whole. `slotId` is the first.
 	slotId: string;
+	slotIds: string[];
 	lesson: {
 		id: string;
 		title: string;
@@ -116,6 +117,7 @@ function toEntries(
 				periodTo: o.periodTo,
 				room: roomOf(rooms, o.slotIds),
 				slotId: o.slotIds[0],
+				slotIds: o.slotIds,
 				blocked: o.blocked,
 				lesson:
 					lessonId && lessonInfo

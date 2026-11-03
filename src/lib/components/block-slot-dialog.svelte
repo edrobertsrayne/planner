@@ -4,8 +4,10 @@
 	export interface Pick {
 		classId: string;
 		classLabel: string;
-		slotId: string;
+		slotIds: string[];
 		period: number;
+		// The last Period of a double: the Slots are one per Period and block together.
+		periodTo?: number;
 		date: string;
 		lessonTitle?: string | null;
 	}
@@ -36,7 +38,13 @@
 	// content mounted while it fades out, and `pick` is null by then.
 	const shown = latched(() => pick);
 	const viewed = $derived(shown());
-	const label = $derived(viewed ? `Block ${viewed.classLabel}, P${viewed.period}` : '');
+	const label = $derived(
+		viewed
+			? `Block ${viewed.classLabel}, P${viewed.period}${
+					viewed.periodTo && viewed.periodTo !== viewed.period ? `–P${viewed.periodTo}` : ''
+				}`
+			: ''
+	);
 
 	// The server's refusal — a note of spaces only passes the browser's required check but not
 	// the seam's — is named under the field, kept with the pick it answers: a new pick is a new
@@ -74,7 +82,9 @@
 			{#if viewed}
 				<input type="hidden" name="classId" value={viewed.classId} />
 				<input type="hidden" name="date" value={viewed.date} />
-				<input type="hidden" name="slotId" value={viewed.slotId} />
+				{#each viewed.slotIds as slotId (slotId)}
+					<input type="hidden" name="slotId" value={slotId} />
+				{/each}
 			{/if}
 			<Input name="note" aria-label={label} required placeholder="Why (required)" />
 			{#if viewed && viewed.lessonTitle !== undefined}

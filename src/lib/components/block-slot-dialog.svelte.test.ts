@@ -6,7 +6,7 @@ import BlockSlotDialog from './block-slot-dialog.svelte';
 const pick = {
 	classId: 'c1',
 	classLabel: '9B/Sc1',
-	slotId: 's1',
+	slotIds: ['s1'],
 	period: 3,
 	date: '2026-11-03'
 };
@@ -30,14 +30,14 @@ describe('the block-Slot dialog', () => {
 		const screen = await render(BlockSlotDialog, { pick });
 		await expect.element(screen.getByRole('dialog', { name: 'Block 9B/Sc1, P3' })).toBeVisible();
 
-		const fields = Object.fromEntries(
-			[
-				...document.querySelectorAll<HTMLInputElement>(
-					'dialog form input[type=hidden], [role=dialog] form input[type=hidden]'
-				)
-			].map((i) => [i.name, i.value])
-		);
-		expect(fields).toEqual({ classId: 'c1', date: '2026-11-03', slotId: 's1' });
+		const hidden = [
+			...document.querySelectorAll<HTMLInputElement>('[role=dialog] form input[type=hidden]')
+		].map((i) => [i.name, i.value]);
+		expect(hidden).toEqual([
+			['classId', 'c1'],
+			['date', '2026-11-03'],
+			['slotId', 's1']
+		]);
 		expect(document.querySelector('[role=dialog] form')?.getAttribute('action')).toBe(
 			'?/blockSlot'
 		);
@@ -72,5 +72,17 @@ describe('the block-Slot dialog', () => {
 		const screen = await render(BlockSlotDialog, { pick });
 		await expect.element(screen.getByRole('dialog')).toBeVisible();
 		expect(document.body.textContent).not.toMatch(/moves to this Class|nothing moves/);
+	});
+
+	test('a double posts both its Slots and is named for both Periods', async () => {
+		const screen = await render(BlockSlotDialog, {
+			pick: { ...pick, slotIds: ['s1', 's2'], period: 5, periodTo: 6 }
+		});
+		await expect.element(screen.getByRole('dialog', { name: 'Block 9B/Sc1, P5–P6' })).toBeVisible();
+
+		const slots = [...document.querySelectorAll<HTMLInputElement>('input[name=slotId]')].map(
+			(i) => i.value
+		);
+		expect(slots).toEqual(['s1', 's2']);
 	});
 });
