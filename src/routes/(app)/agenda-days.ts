@@ -79,3 +79,9 @@ export function withEvents<
 			rows: lines.sort((a, b) => a.at - b.at).map((l) => l.line)
 		}));
 }
+
+// How many Lessons a day holds, for the Block day dialog's "N Lessons move". Counted from every row
+// of the window, never the Tag-filtered ones: the filter hides Lessons, it does not unschedule them.
+export function lessonCount(rows: readonly { date: string; lesson: unknown }[], date: string) {
+	return rows.filter((row) => row.date === date && row.lesson).length;
+}

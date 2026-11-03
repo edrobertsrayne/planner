@@ -489,6 +489,215 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expect(finalCheckbox).not.toBeChecked();
 	});
 
+	test('a Lesson is blocked from its Agenda row with a note, and unblocked from the same row', async () => {
+		await page.goto('/');
+		const first = page.locator('li').filter({ hasText: '9B/Sc1' }).first();
+		// The title is the link's first `.font-medium`: a Tag chip after it may carry the class too.
+		const title = (
+			await first.locator('a[href^="/sessions/"] .font-medium').first().innerText()
+		).trim();
+		const block = first.getByRole('button', { name: /^Block 9B\/Sc1, P\d/ });
+		await block.click();
+
+		// The note is asked for: a hole in the week must stay explainable. Submitting without
+		// one keeps the dialog open and blocks nothing.
+		const note = page.getByRole('textbox', { name: /^Block 9B\/Sc1, P\d/ });
+		await expect(
+			page.getByText(`“${title}” moves to this Class's next Available Slot`)
+		).toBeVisible();
+		await page.getByRole('button', { name: 'Block', exact: true }).click();
+		await expect(note).toBeVisible();
+		await expect(page.locator('li.hatched')).toHaveCount(0);
+
+		await note.fill('Assembly');
+		await page.getByRole('button', { name: 'Block', exact: true }).click();
+
+		// The row drains to a Blocked Slot with its note, and the Lesson it held is gone from
+		// that position; it opens nothing and carries no Ready tick. It survives a reload.
+		const blocked = page.locator('li.hatched');
+		await expect(blocked).toHaveCount(1);
+		await expect(blocked).toContainText('Blocked Slot');
+		await expect(blocked).toContainText('Assembly');
+		await expect(blocked.locator('a[href^="/sessions/"]')).toHaveCount(0);
+		await expect(blocked.getByRole('checkbox')).toHaveCount(0);
+		await page.reload();
+		await expect(page.locator('li.hatched')).toContainText('Assembly');
+
+		// Unblocking from the same row puts the Lesson back where it was.
+		await page
+			.locator('li.hatched')
+			.getByRole('button', { name: /^Unblock 9B\/Sc1, P\d/ })
+			.click();
+		await expect(page.locator('li.hatched')).toHaveCount(0);
+		await expect(
+			page.locator('li').filter({ hasText: '9B/Sc1' }).first().getByText(title, { exact: true })
+		).toBeVisible();
+	});
+
+	test('a whole day is blocked from its Agenda heading, with or without a note, and unblocked from its panel', async () => {
+		await page.goto('/');
+		const day = page
+			.locator('section')
+			.filter({ has: page.locator('li') })
+			.first();
+		const heading = (await day.locator('h2 span').first().innerText()).trim();
+		const lessons = await day.locator('li').count();
+		await day.getByRole('button', { name: /^Block \w+day/ }).click();
+
+		// A Blocked Day records no cause, so the note is optional.
+		const note = page.getByRole('textbox', { name: /^Block \w+day.*note/ });
+		await expect(page.getByText(new RegExp(`${lessons} Lessons? on this day move`))).toBeVisible();
+		await note.fill('INSET day');
+		await page.getByRole('button', { name: 'Block day', exact: true }).click();
+
+		// The day's rows collapse into one Blocked Day panel with its note, and it survives a reload.
+		const panel = page.locator('section').filter({ hasText: 'Blocked Day' }).first();
+		await expect(panel).toContainText('INSET day');
+		await expect(panel.locator('li')).toHaveCount(0);
+		await page.reload();
+		await expect(page.locator('section').filter({ hasText: 'Blocked Day' }).first()).toContainText(
+			'INSET day'
+		);
+
+		// Unblocking from the panel puts the day's rows back where they were.
+		await page.getByRole('button', { name: /^Unblock \w+day/ }).click();
+		await expect(page.getByText('Blocked Day')).toHaveCount(0);
+		await expect(
+			page
+				.locator('section')
+				.filter({ has: page.locator('li') })
+				.first()
+		).toContainText(heading);
+		await expect(
+			page
+				.locator('section')
+				.filter({ has: page.locator('li') })
+				.first()
+				.locator('li')
+		).toHaveCount(lessons);
+
+		// And a day blocked with no note at all.
+		await page
+			.getByRole('button', { name: /^Block \w+day/ })
+			.first()
+			.click();
+		// The earlier note does not ride along into this dialog.
+		await expect(page.getByRole('textbox', { name: /^Block \w+day.*note/ })).toHaveValue('');
+		await page.getByRole('button', { name: 'Block day', exact: true }).click();
+		await expect(page.getByText('Blocked Day')).toHaveCount(1);
+		// The new Blocked Day carries no note: nothing but its label in the panel.
+		await expect(page.locator('section').filter({ hasText: 'Blocked Day' })).not.toContainText(
+			'INSET day'
+		);
+		await page.getByRole('button', { name: /^Unblock \w+day/ }).click();
+		await expect(page.getByText('Blocked Day')).toHaveCount(0);
+	});
+
+	test('a phone shows a Blocked Slot but offers no way to block or unblock a Slot', async () => {
+		await page.goto('/');
+		const first = page.locator('li').filter({ hasText: '9B/Sc1' }).first();
+		await first.getByRole('button', { name: /^Block 9B\/Sc1, P\d/ }).click();
+		await page.getByRole('textbox', { name: /^Block 9B\/Sc1, P\d/ }).fill('Assembly');
+		await page.getByRole('button', { name: 'Block', exact: true }).click();
+		await expect(page.locator('li.hatched')).toHaveCount(1);
+
+		// Narrowed to a phone, the Blocked Slot still reads with its note, but neither Unblock nor
+		// any row's Block shows; the day's own control does.
+		await page.setViewportSize({ width: 390, height: 800 });
+		await expect(page.locator('li.hatched')).toContainText('Assembly');
+		await expect(page.getByRole('button', { name: /^Unblock \d?[\w/]+, P\d/ })).toBeHidden();
+		await expect(page.getByRole('button', { name: /^Block \d/ }).first()).toBeHidden();
+		await expect(page.getByRole('button', { name: /^Block \w+day/ }).first()).toBeVisible();
+
+		// Back on a laptop, take it back, leaving nothing behind.
+		await page.setViewportSize({ width: 1280, height: 720 });
+		await page
+			.locator('li.hatched')
+			.getByRole('button', { name: /^Unblock / })
+			.click();
+		await expect(page.locator('li.hatched')).toHaveCount(0);
+	});
+
+	test('a refused Blocked Slot keeps its dialog open and names the reason, and blocks nothing', async () => {
+		await page.goto('/');
+		await page
+			.locator('li')
+			.filter({ hasText: '9B/Sc1' })
+			.first()
+			.getByRole('button', { name: /^Block 9B\/Sc1, P\d/ })
+			.click();
+
+		// Spaces pass the browser's required check but not the seam's: the reason shows under the
+		// note, the dialog stays, and no row drains.
+		await page.getByRole('textbox', { name: /^Block 9B\/Sc1, P\d/ }).fill('   ');
+		await page.getByRole('button', { name: 'Block', exact: true }).click();
+		await expect(page.getByRole('alert')).toContainText('A Blocked Slot needs a note.');
+		await expect(page.getByRole('dialog')).toBeVisible();
+		await page.keyboard.press('Escape');
+		await expect(page.locator('li.hatched')).toHaveCount(0);
+	});
+
+	test('an Open Slot is blocked and unblocked from its row, and the dialog says nothing moves', async () => {
+		// 9C/Sc1's Tuesday P3 carries no Lesson in any week (see the-agenda-layout.e2e.ts).
+		await page.goto('/?horizon=28');
+		const open = page.locator('li').filter({ hasText: 'Open Slot' }).first();
+		await open.getByRole('button', { name: /^Block .*, P\d/ }).click();
+		await expect(page.getByText('This Period has no Lesson, so nothing moves.')).toBeVisible();
+		await page.getByRole('textbox', { name: /^Block .*, P\d/ }).fill('Assembly');
+		await page.getByRole('button', { name: 'Block', exact: true }).click();
+
+		const blocked = page.locator('li.hatched');
+		await expect(blocked).toHaveCount(1);
+		await expect(blocked).toContainText('Assembly');
+		await blocked.getByRole('button', { name: /^Unblock / }).click();
+		await expect(page.locator('li.hatched')).toHaveCount(0);
+		await expect(page.locator('li').filter({ hasText: 'Open Slot' }).first()).toBeVisible();
+	});
+
+	test('a day another tab already blocked is refused with its reason, not blocked twice', async () => {
+		await page.goto('/');
+		const first = page
+			.locator('section')
+			.filter({ has: page.locator('li') })
+			.first();
+
+		// A second tab blocks the day first; this tab still shows it as teaching.
+		const context = await page
+			.context()
+			.browser()!
+			.newContext({
+				storageState: await page.context().storageState()
+			});
+		const other = await context.newPage();
+		await other.goto('/');
+		await other
+			.locator('section')
+			.filter({ has: other.locator('li') })
+			.first()
+			.getByRole('button', { name: /^Block \w+day/ })
+			.click();
+		await other.getByRole('button', { name: 'Block day', exact: true }).click();
+		await expect(other.getByText('Blocked Day')).toHaveCount(1);
+
+		await first.getByRole('button', { name: /^Block \w+day/ }).click();
+		await page.getByRole('button', { name: 'Block day', exact: true }).click();
+		await expect(page.getByRole('alert')).toContainText('is already a Blocked Day');
+		await expect(page.getByRole('dialog')).toBeVisible();
+
+		// The refusal answers that one attempt: closing the dialog and opening it again for the
+		// same day starts clean.
+		await page.keyboard.press('Escape');
+		await first.getByRole('button', { name: /^Block \w+day/ }).click();
+		await expect(page.getByRole('dialog')).toBeVisible();
+		await expect(page.getByRole('alert')).toHaveCount(0);
+		await page.keyboard.press('Escape');
+
+		// Leave no Blocked Day behind for the tests that follow.
+		await other.getByRole('button', { name: /^Unblock \w+day/ }).click();
+		await expect(other.getByText('Blocked Day')).toHaveCount(0);
+		await context.close();
+	});
+
 	test('the Agenda filters to one Tag, kept in the URL with the horizon (issue #280)', async () => {
 		const rows = page.locator('main li');
 		const openSlots = rows.filter({ hasText: 'Open Slot' });

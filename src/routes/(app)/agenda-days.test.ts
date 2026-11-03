@@ -1,5 +1,12 @@
 import { describe, expect, test } from 'vitest';
-import { agendaStream, filterByTag, groupByDay, tagsIn, withEvents } from './agenda-days';
+import {
+	agendaStream,
+	filterByTag,
+	groupByDay,
+	lessonCount,
+	tagsIn,
+	withEvents
+} from './agenda-days';
 
 describe('groupByDay', () => {
 	test('groups a sorted stream into one day per date, in order (issue #87)', () => {
@@ -140,5 +147,25 @@ describe('withEvents (ADR-0029)', () => {
 
 	test('with no Events the days are as grouped', () => {
 		expect(merge([row('2026-11-02', 1)], [])).toEqual([['2026-11-02', ['P1']]]);
+	});
+});
+
+describe('lessonCount', () => {
+	const row = (date: string, lesson: { tags: string[] } | null, blocked = false) => ({
+		date,
+		lesson,
+		blocked: blocked ? { note: null } : null
+	});
+
+	test('counts the Lessons a day holds, not its Open Slots or Blocked Slots', () => {
+		const rows = [
+			row('2026-11-06', { tags: [] }),
+			row('2026-11-06', { tags: [] }),
+			row('2026-11-06', null),
+			row('2026-11-06', null, true),
+			row('2026-11-09', { tags: [] })
+		];
+		expect(lessonCount(rows, '2026-11-06')).toBe(2);
+		expect(lessonCount(rows, '2026-11-10')).toBe(0);
 	});
 });

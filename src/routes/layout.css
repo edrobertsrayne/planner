@@ -278,7 +278,9 @@
 }
 
 /* A control that belongs to a row: hidden until the row is hovered or holds focus with a mouse,
-   always shown (muted) on touch, where there is no hover. */
+   always shown (muted) on touch, where there is no hover. It reveals on any ancestor `.group` or
+   `.group/row`, so put the group on the smallest element that owns the control: on a section it
+   revealed every row's controls at once. */
 @utility row-control {
 	opacity: 0;
 

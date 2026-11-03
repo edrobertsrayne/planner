@@ -12,6 +12,7 @@ import {
 	attachTag,
 	blockDay,
 	blockSlot,
+	blockSlots,
 	calendarWeek,
 	classSchedule,
 	deleteLesson,
@@ -190,6 +191,126 @@ describe('the Agenda', () => {
 
 		expect(at(5)).toMatchObject({ periodTo: 5, lesson: null, blocked: { note: 'Field trip' } });
 		expect(at(6)).toMatchObject({ lesson: { id: first.id }, blocked: null });
+	});
+
+	test('a row carries its Slot, and a Blocked Slot row the id to unblock it by', () => {
+		const { db, course, classA } = setUp();
+		const forces = makeTopic(db, course.id, 'Forces');
+		makeLessons(db, forces.id, 3);
+		assignTopic(db, { classId: classA.id, topicId: forces.id, today: '2026-09-03' });
+		const slots = db.select().from(schema.slot).all();
+		const thu = (period: number) =>
+			slots.find(
+				(s) => s.classId === classA.id && s.week === 'A' && s.day === 4 && s.period === period
+			)!;
+		blockSlot(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			slotId: thu(5).id,
+			note: 'Field trip',
+			today: '2026-09-03'
+		});
+
+		const rows = agenda(db, { today: '2026-09-03', horizonDays: 7 }).rows;
+		const at = (period: number) =>
+			rows.find(
+				(r) => r.classId === classA.id && r.date === '2026-09-03' && r.periodFrom === period
+			)!;
+		const [stored] = db.select().from(schema.blockedSlot).all();
+
+		expect(at(5)).toMatchObject({ slotId: thu(5).id, blocked: { id: stored.id } });
+		expect(at(6)).toMatchObject({ slotId: thu(6).id, blocked: null });
+	});
+
+	test('a row over a double carries both its Slots, and blocking them blocks the whole row', () => {
+		const { db, course, classA } = setUp();
+		const forces = makeTopic(db, course.id, 'Forces');
+		const [wide] = makeLessons(db, forces.id, 1, 2);
+		assignTopic(db, { classId: classA.id, topicId: forces.id, today: '2026-09-03' });
+		const slots = db.select().from(schema.slot).all();
+		const thu = (period: number) =>
+			slots.find(
+				(s) => s.classId === classA.id && s.week === 'A' && s.day === 4 && s.period === period
+			)!;
+		const rowOf = () =>
+			agenda(db, { today: '2026-09-03', horizonDays: 1 }).rows.find(
+				(r) => r.classId === classA.id && r.date === '2026-09-03' && r.periodFrom === 5
+			)!;
+
+		expect(rowOf()).toMatchObject({
+			periodTo: 6,
+			slotId: thu(5).id,
+			slotIds: [thu(5).id, thu(6).id],
+			lesson: { id: wide.id }
+		});
+
+		blockSlots(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			slotIds: rowOf().slotIds,
+			note: 'Trip',
+			today: '2026-09-03'
+		});
+		const rows = agenda(db, { today: '2026-09-03', horizonDays: 1 }).rows.filter(
+			(r) => r.classId === classA.id && r.date === '2026-09-03'
+		);
+		expect(rows.map((r) => [r.periodFrom, r.blocked?.note])).toEqual([
+			[5, 'Trip'],
+			[6, 'Trip']
+		]);
+	});
+
+	test('an Open Slot can be blocked from its row, and blocking it moves nothing', () => {
+		const { db, classA } = setUp();
+		// No Topic assigned: every Available Slot is open.
+		const open = agenda(db, { today: '2026-09-03', horizonDays: 1 }).rows.find(
+			(r) => r.classId === classA.id && r.lesson === null
+		)!;
+
+		blockSlot(db, {
+			classId: classA.id,
+			date: open.date,
+			slotId: open.slotId,
+			note: 'Assembly',
+			today: '2026-09-03'
+		});
+
+		const after = agenda(db, { today: '2026-09-03', horizonDays: 1 }).rows.find(
+			(r) => r.classId === classA.id && r.date === open.date && r.periodFrom === open.periodFrom
+		);
+		expect(after).toMatchObject({ lesson: null, blocked: { note: 'Assembly' } });
+	});
+
+	test('a day holding a Blocked Slot can be blocked too, and the day then shows as one panel', () => {
+		const { db, course, classA } = setUp();
+		const forces = makeTopic(db, course.id, 'Forces');
+		makeLessons(db, forces.id, 3);
+		assignTopic(db, { classId: classA.id, topicId: forces.id, today: '2026-09-03' });
+		const p5 = db
+			.select()
+			.from(schema.slot)
+			.all()
+			.find((s) => s.classId === classA.id && s.week === 'A' && s.day === 4 && s.period === 5)!;
+		blockSlot(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			slotId: p5.id,
+			note: 'Trip',
+			today: '2026-09-03'
+		});
+
+		blockDay(db, { date: '2026-09-03', note: 'Snow', today: '2026-09-03' });
+
+		const { rows, blockedDays } = agenda(db, { today: '2026-09-03', horizonDays: 1 });
+		expect(blockedDays).toEqual([{ date: '2026-09-03', note: 'Snow' }]);
+		expect(rows.filter((r) => r.date === '2026-09-03')).toEqual([]);
+
+		// Taking the day back leaves the earlier Blocked Slot where it was.
+		unblockDay(db, { date: '2026-09-03', today: '2026-09-03' });
+		const back = agenda(db, { today: '2026-09-03', horizonDays: 1 }).rows.find(
+			(r) => r.classId === classA.id && r.date === '2026-09-03' && r.periodFrom === 5
+		);
+		expect(back?.blocked?.note).toBe('Trip');
 	});
 });
 

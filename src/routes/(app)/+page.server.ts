@@ -1,6 +1,12 @@
 import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
 import { formAction, trimmed } from '$lib/server/form';
+import {
+	blockDayAction,
+	blockSlotAction,
+	unblockDayAction,
+	unblockSlotAction
+} from '$lib/server/block-actions';
 import { agenda, agendaLookBack, agendaLookBackEvents, setReadiness } from '$lib/server/planner';
 import { parseHorizon } from './agenda-horizons';
 import type { Actions, PageServerLoad } from './$types';
@@ -29,5 +35,13 @@ export const actions: Actions = {
 	setReadiness: formAction((data) => {
 		setReadiness(db, trimmed(data, 'lessonId'), trimmed(data, 'classId'), data.has('ready'));
 		return {};
-	})
+	}),
+
+	blockDay: blockDayAction,
+
+	unblockDay: unblockDayAction,
+
+	blockSlot: blockSlotAction,
+
+	unblockSlot: unblockSlotAction
 };
