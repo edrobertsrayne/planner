@@ -9,6 +9,7 @@
 	import { sessionHref } from '$lib/client/session-href';
 	import { withParam } from '$lib/query';
 	import { touchTarget } from '$lib/components/ui/touch-target';
+	import BlockDayDialog from './block-day-dialog.svelte';
 	import BlockSlotDialog, { type Pick } from '$lib/components/block-slot-dialog.svelte';
 	import ClassChip from '$lib/components/class-chip.svelte';
 	import FilterChips from '$lib/components/filter-chips.svelte';
@@ -54,7 +55,17 @@
 		});
 
 	const days = $derived(groupByDay(filterByTag(data.rows, data.tag)));
-	const stream = $derived(agendaStream(days, data.blockedDays, data.holidays));
+	// PROTOTYPE: days blocked in this browser session only; nothing is saved.
+	let mockedDays = $state<Record<string, string | null>>({});
+	let dayPick = $state<string | null>(null);
+	const stream = $derived(
+		agendaStream(
+			days.filter((day) => !(day.date in mockedDays)),
+			[...data.blockedDays, ...Object.entries(mockedDays).map(([date, note]) => ({ date, note }))],
+			data.holidays
+		)
+	);
+	const lessonsOn = (date: string) => days.find((d) => d.date === date)?.rows.length ?? 0;
 	const pastDays = $derived(groupByDay(filterByTag(data.lookBack, data.tag)));
 
 	// One chip per Tag in the window with its count (issue #340). A Tag with no Lesson in the
@@ -259,13 +270,27 @@
 	     reads as one panel, and a School Holiday is one card spanning it, so a holiday never leaves
 	     the page blank. Both are told apart from teaching by a step in shade, never a hue. -->
 	<BlockSlotDialog bind:pick />
+	<BlockDayDialog
+		bind:date={dayPick}
+		lessons={dayPick ? lessonsOn(dayPick) : 0}
+		onblock={(date, note) => (mockedDays[date] = note)}
+	/>
 
 	{#each stream as item (item.kind + item.date)}
 		{#if item.kind === 'day'}
-			<section class="mt-6">
-				<h2 class="mb-2 flex items-baseline gap-2 text-sm font-semibold">
+			<section class="group/row mt-6">
+				<h2 class="mb-2 flex items-center gap-2 text-sm font-semibold">
 					{@render dayHeading(item.date)}
-					<span class="ml-auto text-xs font-normal text-muted-foreground">Ready to teach?</span>
+					<Button
+						variant="ghost"
+						size="sm"
+						class="ml-auto h-7 gap-1 text-xs font-normal text-muted-foreground row-control {touchTarget}"
+						onclick={() => (dayPick = item.date)}
+						aria-label="Block {formatWeekday(item.date)}"
+					>
+						<BanIcon class="size-3.5" /><span class="sr-only md:not-sr-only">Block day</span>
+					</Button>
+					<span class="text-xs font-normal text-muted-foreground">Ready to teach?</span>
 				</h2>
 
 				<ul class="divide-y divide-border overflow-hidden rounded-xl border bg-card">
@@ -279,11 +304,20 @@
 				<h2 class="mb-2 flex items-baseline gap-2 text-sm font-semibold">
 					{@render dayHeading(item.date)}
 				</h2>
-				<div class="rounded-xl border bg-muted px-4 py-3">
-					<p class="text-sm font-medium text-muted-foreground">Blocked Day</p>
-					{#if item.note}
-						<p class="text-xs text-muted-foreground">{item.note}</p>
-					{/if}
+				<div class="flex items-center gap-3 rounded-xl border bg-muted py-3 pr-2 pl-4">
+					<div class="min-w-0 flex-1">
+						<p class="text-sm font-medium text-muted-foreground">Blocked Day</p>
+						{#if item.note}
+							<p class="text-xs text-muted-foreground">{item.note}</p>
+						{/if}
+					</div>
+					<Button
+						variant="ghost"
+						size="sm"
+						class="h-7 {touchTarget}"
+						onclick={() => delete mockedDays[item.date]}
+						aria-label="Unblock {formatWeekday(item.date)}">Unblock day</Button
+					>
 				</div>
 			</section>
 		{:else}
