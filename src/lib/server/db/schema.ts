@@ -218,6 +218,20 @@ export const eventSlot = sqliteTable(
 	]
 );
 
+// The Event note: one per Event and date, to plan the date or log it (ADR-0029). It belongs to
+// the Event and the date, not to an Event Slot, so it survives a move of the series.
+export const eventNote = sqliteTable(
+	'event_note',
+	{
+		eventId: text('event_id')
+			.notNull()
+			.references(() => event.id, { onDelete: 'cascade' }),
+		date: text('date').notNull(),
+		body: text('body').notNull()
+	},
+	(table) => [unique('event_note_date').on(table.eventId, table.date)]
+);
+
 export const session = sqliteTable(
 	'session',
 	{

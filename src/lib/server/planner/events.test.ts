@@ -3,12 +3,16 @@ import { refused, setUp } from './fixtures';
 import {
 	activeEventSlots,
 	addSlot,
+	blockDay,
+	eventOccurrences,
 	clearEventSlot,
 	createClass,
 	createEvent,
+	setEventNote,
 	setEventSlotRoom,
 	takeEventSlot,
-	toggleEventSlot
+	toggleEventSlot,
+	unblockDay
 } from './index';
 
 // ADR-0029: an Event holds a position no Class holds, and a Class cannot take one an Event holds.
@@ -148,5 +152,118 @@ describe('Event Slots hold between dates, as Slots do (ADR-0006)', () => {
 
 		expect(setEventSlotRoom(db, { id: slot.id, room: ' S4 ' })?.room).toBe('S4');
 		expect(setEventSlotRoom(db, { id: slot.id, room: '  ' })?.room).toBeNull();
+	});
+});
+
+// The calendar's fixed points (fixtures.ts): w/c 2 Nov 2026 is Week A, then B, A, B. Half-term is
+// 26 to 30 Oct, and INSET falls on Thu 26 and Fri 27 Nov.
+describe('an Event occurs on the dates its Event Slots hold, and is skipped otherwise', () => {
+	const dates = (db: ReturnType<typeof setUp>['db'], eventId: string, from: string, to: string) =>
+		eventOccurrences(db, { eventId, from, to }).map((o) => o.date);
+
+	test('a Week A Monday Event occurs on alternate Mondays', () => {
+		const { db } = setUp();
+		const event = createEvent(db, { name: 'Y11 intervention', kind: 'intervention' });
+		takeEventSlot(db, { eventId: event.id, week: 'A', day: 1, position: 2, from: null });
+
+		expect(dates(db, event.id, '2026-11-02', '2026-11-23')).toEqual(['2026-11-02', '2026-11-16']);
+	});
+
+	test('it does not occur in a School Holiday', () => {
+		const { db } = setUp();
+		const event = createEvent(db, { name: 'Briefing', kind: 'meeting' });
+		takeEventSlot(db, { eventId: event.id, week: 'A', day: 1, position: 0, from: null });
+
+		const mondays = dates(db, event.id, '2026-10-19', '2026-11-03');
+		expect(mondays).not.toContain('2026-10-26');
+		expect(mondays).toContain('2026-11-02');
+	});
+
+	test('it does not occur on a Blocked Day, and occurs again when the day is unblocked', () => {
+		const { db } = setUp();
+		const event = createEvent(db, { name: 'Dept meeting', kind: 'meeting' });
+		takeEventSlot(db, { eventId: event.id, week: 'B', day: 5, position: 5, from: null });
+		blockDay(db, { date: '2026-11-13', note: 'Snow', today: '2026-11-01' });
+
+		expect(dates(db, event.id, '2026-11-09', '2026-11-30')).toEqual([]);
+		unblockDay(db, { date: '2026-11-13', today: '2026-11-01' });
+		expect(dates(db, event.id, '2026-11-09', '2026-11-30')).toEqual(['2026-11-13']);
+	});
+
+	test('it stops occurring from the date its Event Slot is cleared', () => {
+		const { db } = setUp();
+		const event = createEvent(db, { name: 'Y11 intervention', kind: 'intervention' });
+		takeEventSlot(db, { eventId: event.id, week: 'A', day: 1, position: 2, from: null });
+		clearEventSlot(db, {
+			eventId: event.id,
+			week: 'A',
+			day: 1,
+			position: 2,
+			from: '2026-11-10'
+		});
+
+		expect(dates(db, event.id, '2026-11-02', '2026-11-30')).toEqual(['2026-11-02']);
+	});
+});
+
+describe('the Event note belongs to one Event and one date (ADR-0029)', () => {
+	const setup = () => {
+		const ctx = setUp();
+		const event = createEvent(ctx.db, { name: 'Y11 intervention', kind: 'intervention' });
+		takeEventSlot(ctx.db, { eventId: event.id, week: 'A', day: 1, position: 2, from: null });
+		return { ...ctx, event };
+	};
+	const noteOn = (db: ReturnType<typeof setUp>['db'], eventId: string, date: string) =>
+		eventOccurrences(db, { eventId, from: date, to: date })[0]?.note ?? null;
+
+	test('a note is written for a date and read back with that date alone', () => {
+		const { db, event } = setup();
+		setEventNote(db, { eventId: event.id, date: '2026-11-02', note: 'Past paper Q4 to Q6' });
+
+		expect(noteOn(db, event.id, '2026-11-02')).toBe('Past paper Q4 to Q6');
+		expect(noteOn(db, event.id, '2026-11-16')).toBeNull();
+	});
+
+	test('a note is stored as typed, and a blank note deletes it', () => {
+		const { db, event } = setup();
+		setEventNote(db, { eventId: event.id, date: '2026-11-02', note: '  - one\n  - two  ' });
+		expect(noteOn(db, event.id, '2026-11-02')).toBe('  - one\n  - two  ');
+
+		setEventNote(db, { eventId: event.id, date: '2026-11-02', note: '  ' });
+		expect(noteOn(db, event.id, '2026-11-02')).toBeNull();
+	});
+
+	test('a past date can still be written, so a date can be logged afterwards', () => {
+		const { db, event } = setup();
+		setEventNote(db, { eventId: event.id, date: '2026-09-14', note: 'Only two came' });
+		expect(noteOn(db, event.id, '2026-09-14')).toBe('Only two came');
+	});
+
+	test('a date on which the Event does not occur is refused', () => {
+		const { db, event } = setup();
+		refused(
+			() => setEventNote(db, { eventId: event.id, date: '2026-11-09', note: 'x' }),
+			'invalid',
+			'Y11 intervention does not occur on 2026-11-09.'
+		);
+	});
+
+	test('a note stays when its date is blocked and returns when the day is unblocked', () => {
+		const { db, event } = setup();
+		setEventNote(db, { eventId: event.id, date: '2026-11-02', note: 'Bring the mark scheme' });
+
+		blockDay(db, { date: '2026-11-02', today: '2026-11-01' });
+		expect(noteOn(db, event.id, '2026-11-02')).toBeNull();
+		unblockDay(db, { date: '2026-11-02', today: '2026-11-01' });
+		expect(noteOn(db, event.id, '2026-11-02')).toBe('Bring the mark scheme');
+	});
+
+	test('earlier notes survive the Event moving to another position', () => {
+		const { db, event } = setup();
+		setEventNote(db, { eventId: event.id, date: '2026-11-02', note: 'Logged' });
+		clearEventSlot(db, { eventId: event.id, week: 'A', day: 1, position: 2, from: '2026-11-10' });
+		takeEventSlot(db, { eventId: event.id, week: 'A', day: 2, position: 2, from: '2026-11-10' });
+
+		expect(noteOn(db, event.id, '2026-11-02')).toBe('Logged');
 	});
 });

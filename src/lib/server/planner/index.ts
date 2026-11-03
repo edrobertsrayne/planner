@@ -79,9 +79,12 @@ export {
 	activeEventSlots,
 	clearEventSlot,
 	createEvent,
+	eventOccurrences,
+	setEventNote,
 	setEventSlotRoom,
 	takeEventSlot,
-	toggleEventSlot
+	toggleEventSlot,
+	type EventOccurrence
 } from './events';
 
 export { blockDay, blockSlot, unblockDay, unblockSlot } from './disruptions';

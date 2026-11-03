@@ -6,8 +6,17 @@ import { addDays } from '$lib/date';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import type { Db } from './derive';
-import { slotHolds } from './engine';
-import { eventKind, eventPosition, required, requireRow, slotDay, slotWeek } from './fields';
+import { inAnyTerm, slotHolds } from './engine';
+import { loadCalendar } from './derive';
+import {
+	eventKind,
+	eventPosition,
+	lessonBody,
+	required,
+	requireRow,
+	slotDay,
+	slotWeek
+} from './fields';
 import { Refused } from './refused';
 import { overlaps, positionName } from './timetable';
 
@@ -191,4 +200,103 @@ export function setEventSlotRoom(db: Db, { id, room }: { id: string; room: strin
 		.returning()
 		.all();
 	return row ?? null;
+}
+
+export type EventOccurrence = {
+	date: string;
+	eventId: string;
+	name: string;
+	kind: (typeof schema.eventKinds)[number];
+	week: 'A' | 'B';
+	day: number;
+	position: number;
+	room: string | null;
+	note: string | null;
+};
+
+// Every date an Event occurs on between two dates inclusive, in calendar order, or every Event's
+// when none is named. This is the one definition of "occurs" (ADR-0029): the date is a weekday
+// inside a Term, no Blocked Day removes it, and an Event Slot holds there for that Week letter
+// and Day. A School Holiday has no Teaching Week and so no letter; a Blocked Day hides the date
+// but not its note, which comes back when the day is unblocked.
+export function eventOccurrences(
+	db: Db,
+	{ eventId, from, to }: { eventId?: string; from: string; to: string }
+): EventOccurrence[] {
+	const cal = loadCalendar(db);
+	const blocked = new Set(cal.blockedDays.map((d) => d.date));
+	const slots = db
+		.select({
+			eventId: schema.eventSlot.eventId,
+			name: schema.event.name,
+			kind: schema.event.kind,
+			week: schema.eventSlot.week,
+			day: schema.eventSlot.day,
+			position: schema.eventSlot.position,
+			room: schema.eventSlot.room,
+			holdsFrom: schema.eventSlot.holdsFrom,
+			holdsTo: schema.eventSlot.holdsTo
+		})
+		.from(schema.eventSlot)
+		.innerJoin(schema.event, eq(schema.event.id, schema.eventSlot.eventId))
+		.all()
+		.filter((s) => !eventId || s.eventId === eventId);
+	const notes = new Map(
+		db
+			.select()
+			.from(schema.eventNote)
+			.all()
+			.map((n) => [`${n.eventId}|${n.date}`, n.body])
+	);
+
+	const out: EventOccurrence[] = [];
+	for (const week of cal.teachingWeeks) {
+		for (let day = 1; day <= 5; day++) {
+			const date = addDays(week.weekCommencing, day - 1);
+			if (date < from || date > to) continue;
+			if (!inAnyTerm(cal.terms, date) || blocked.has(date)) continue;
+			for (const slot of slots) {
+				if (slot.week !== week.letter || slot.day !== day || !slotHolds(slot, date)) continue;
+				out.push({
+					date,
+					eventId: slot.eventId,
+					name: slot.name,
+					kind: slot.kind,
+					week: slot.week,
+					day,
+					position: slot.position,
+					room: slot.room,
+					note: notes.get(`${slot.eventId}|${date}`) ?? null
+				});
+			}
+		}
+	}
+	return out.sort((a, b) => a.date.localeCompare(b.date) || a.position - b.position);
+}
+
+// Sets the Event note for one Event and date; a blank note deletes it. The date must be one the
+// Event occurs on, but it may be in the past, so a date can be logged afterwards. The body is
+// stored as typed (ADR-0023).
+export function setEventNote(
+	db: Db,
+	{ eventId, date, note }: { eventId: string; date: string; note: string | null }
+) {
+	const event = requireRow(db, schema.event, eventId, 'Event not found.');
+	if (eventOccurrences(db, { eventId, from: date, to: date }).length === 0) {
+		throw new Refused('invalid', `${event.name} does not occur on ${date}.`);
+	}
+	const body = lessonBody(note);
+	if (body === null) {
+		db.delete(schema.eventNote)
+			.where(and(eq(schema.eventNote.eventId, eventId), eq(schema.eventNote.date, date)))
+			.run();
+		return;
+	}
+	db.insert(schema.eventNote)
+		.values({ eventId, date, body })
+		.onConflictDoUpdate({
+			target: [schema.eventNote.eventId, schema.eventNote.date],
+			set: { body }
+		})
+		.run();
 }
