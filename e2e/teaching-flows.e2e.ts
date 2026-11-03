@@ -201,12 +201,17 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 
 	test("the Agenda's horizon tabs change the horizon and survive a reload via the URL (issue #341)", async () => {
 		await page.goto('/');
-		await page.getByRole('tab', { name: 'Two Weeks' }).click();
-		await expect(page).toHaveURL(/horizon=14/);
+		await expect(page.getByRole('tab', { name: 'Two Weeks' })).toHaveAttribute(
+			'aria-selected',
+			'true'
+		);
+
+		await page.getByRole('tab', { name: 'One Week' }).click();
+		await expect(page).toHaveURL(/horizon=7/);
 
 		await page.reload();
-		await expect(page).toHaveURL(/horizon=14/);
-		await expect(page.getByRole('tab', { name: 'Two Weeks' })).toHaveAttribute(
+		await expect(page).toHaveURL(/horizon=7/);
+		await expect(page.getByRole('tab', { name: 'One Week' })).toHaveAttribute(
 			'aria-selected',
 			'true'
 		);
