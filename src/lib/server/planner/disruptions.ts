@@ -1,7 +1,7 @@
 // Disruptions: a Blocked Day and a Blocked Slot. Both are scheduling inputs that can be entered
 // after the fact, so both re-derive from `rewindBoundary` — the earlier of the date they concern
 // and today — rather than from today alone (ADR-0007).
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import { rederive, rederiveAllClasses, rewindBoundary, type Db, type WriteReport } from './derive';
@@ -52,17 +52,46 @@ export function blockDay(
 export function blockSlot(
 	db: Db,
 	{
+		slotId,
+		...rest
+	}: { classId: string; date: string; slotId: string; note: string; today: string }
+): WriteReport {
+	return blockSlots(db, { ...rest, slotIds: [slotId] });
+}
+
+// Several Slots of one Class on one date at once — a double Lesson loses both its Periods, not
+// one — written and re-derived as a single change. A Slot already blocked that day is a `conflict`
+// (a stale tab, a double click), and then none of them is blocked: a pair never lands half done.
+export function blockSlots(
+	db: Db,
+	{
 		classId,
 		date,
-		slotId,
+		slotIds,
 		note,
 		today
-	}: { classId: string; date: string; slotId: string; note: string; today: string }
+	}: { classId: string; date: string; slotIds: string[]; note: string; today: string }
 ): WriteReport {
 	const trimmed = required(note, 'A Blocked Slot needs a note.');
 
 	return inTransaction(db.$client, () => {
-		db.insert(schema.blockedSlot).values({ classId, date, slotId, note: trimmed }).run();
+		for (const slotId of slotIds) {
+			const [existing] = db
+				.select({ id: schema.blockedSlot.id })
+				.from(schema.blockedSlot)
+				.where(
+					and(
+						eq(schema.blockedSlot.classId, classId),
+						eq(schema.blockedSlot.date, date),
+						eq(schema.blockedSlot.slotId, slotId)
+					)
+				)
+				.all();
+			if (existing) throw new Refused('conflict', 'That Slot is already a Blocked Slot.');
+		}
+		for (const slotId of slotIds) {
+			db.insert(schema.blockedSlot).values({ classId, date, slotId, note: trimmed }).run();
+		}
 		return rederive(db, classId, rewindBoundary(date, today));
 	});
 }

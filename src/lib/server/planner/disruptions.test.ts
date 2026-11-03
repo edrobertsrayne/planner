@@ -5,6 +5,7 @@ import {
 	assignTopic,
 	blockDay,
 	blockSlot,
+	blockSlots,
 	classSchedule,
 	sessionDetail,
 	unblockDay,
@@ -282,5 +283,56 @@ describe('removing a Blocked Slot', () => {
 		).toHaveLength(0);
 
 		expect(unblockSlot(db, { id: 'does-not-exist', today: '2026-09-03' })).toBeNull();
+	});
+});
+
+describe('blocking more than one Slot at once', () => {
+	const slotAt = (db: ReturnType<typeof setUp>['db'], classId: string, period: number) =>
+		db
+			.select()
+			.from(schema.slot)
+			.all()
+			.find((s) => s.classId === classId && s.week === 'A' && s.day === 4 && s.period === period)!;
+
+	test('a double Lesson loses both its Periods together and moves on whole', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		const [wide, next] = [...makeLessons(db, topic.id, 1, 2), ...makeLessons(db, topic.id, 1)];
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+
+		// 9B/Sc1's Thursday double: the Length-2 Lesson fills P5 and P6 on 3 September.
+		blockSlots(db, {
+			classId: classA.id,
+			date: '2026-09-03',
+			slotIds: [slotAt(db, classA.id, 5).id, slotAt(db, classA.id, 6).id],
+			note: 'Trip',
+			today: '2026-09-01'
+		});
+
+		const { scheduled } = classSchedule(db, { classId: classA.id, today: '2026-09-01' });
+		expect(scheduled.filter((s) => s.date === '2026-09-03')).toEqual([]);
+		expect(scheduled.find((s) => s.lessonId === wide.id)?.date).not.toBe('2026-09-03');
+		expect(scheduled.some((s) => s.lessonId === next.id)).toBe(true);
+		expect(db.select().from(schema.blockedSlot).all()).toHaveLength(2);
+	});
+
+	test('a Slot already blocked that day is refused, and nothing is written', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		makeLessons(db, topic.id, 3);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
+		const p5 = slotAt(db, classA.id, 5);
+		const p6 = slotAt(db, classA.id, 6);
+		const args = { classId: classA.id, date: '2026-09-03', note: 'Trip', today: '2026-09-01' };
+		blockSlot(db, { ...args, slotId: p5.id });
+
+		// A stale tab, a double click: P5 is blocked already, so the pair is refused whole and P6
+		// is not blocked either.
+		refused(
+			() => blockSlots(db, { ...args, slotIds: [p6.id, p5.id] }),
+			'conflict',
+			'That Slot is already a Blocked Slot.'
+		);
+		expect(db.select().from(schema.blockedSlot).all()).toHaveLength(1);
 	});
 });

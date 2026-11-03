@@ -74,7 +74,7 @@ export {
 	type WeekRow
 } from './sequence';
 
-export { blockDay, blockSlot, unblockDay, unblockSlot } from './disruptions';
+export { blockDay, blockSlot, blockSlots, unblockDay, unblockSlot } from './disruptions';
 
 export { placeLesson, placementAdmission, removePlacement } from './placement';
 

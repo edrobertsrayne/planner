@@ -2,19 +2,16 @@ import { TERM_NAMES } from '$lib/calendar/generate-teaching-weeks';
 import { defaultWeek } from '$lib/calendar/default-week';
 import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
-import { formAction, found, trimmed } from '$lib/server/form';
-import { Refused } from '$lib/server/planner';
+import { formAction } from '$lib/server/form';
+import {
+	blockDayAction,
+	blockSlotAction,
+	unblockDayAction,
+	unblockSlotAction
+} from '$lib/server/block-actions';
 import { asc } from 'drizzle-orm';
 import * as schema from '$lib/server/db/schema';
-import {
-	blockDay,
-	blockSlot,
-	calendarWeek,
-	replaceTerms,
-	teachingWeeks,
-	unblockDay,
-	unblockSlot
-} from '$lib/server/planner';
+import { calendarWeek, replaceTerms, teachingWeeks } from '$lib/server/planner';
 import type { Actions, PageServerLoad } from './$types';
 
 // The ribbon shows the selected week and two Teaching Weeks either side (issue #293).
@@ -53,34 +50,13 @@ export const load: PageServerLoad = ({ url }) => {
 };
 
 export const actions: Actions = {
-	blockDay: formAction((data) => {
-		const date = String(data.get('date') ?? '');
-		const note = String(data.get('note') ?? '');
-		if (!date) throw new Refused('invalid', 'No date given.');
+	blockDay: blockDayAction,
 
-		return { report: blockDay(db, { date, note, today: today() }) };
-	}),
+	unblockDay: unblockDayAction,
 
-	unblockDay: formAction((data) => ({
-		report: found(
-			unblockDay(db, { date: String(data.get('date') ?? ''), today: today() }),
-			'Blocked Day'
-		)
-	})),
+	blockSlot: blockSlotAction,
 
-	blockSlot: formAction((data) => {
-		const classId = String(data.get('classId') ?? '');
-		const date = String(data.get('date') ?? '');
-		const slotId = String(data.get('slotId') ?? '');
-		const note = String(data.get('note') ?? '');
-		if (!classId || !date || !slotId) throw new Refused('invalid', 'Missing Slot to block.');
-
-		return { report: blockSlot(db, { classId, date, slotId, note, today: today() }) };
-	}),
-
-	unblockSlot: formAction((data) => ({
-		report: found(unblockSlot(db, { id: trimmed(data, 'id'), today: today() }), 'Blocked Slot')
-	})),
+	unblockSlot: unblockSlotAction,
 
 	// The whole year, replaced as one document through the Terms seam — the seam owns every
 	// rule, so the action validates nothing of its own. The six rows are read in year position,

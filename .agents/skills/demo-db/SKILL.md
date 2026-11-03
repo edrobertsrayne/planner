@@ -28,6 +28,8 @@ cp .env /tmp/planner-before/.env
 Serve from `/tmp/planner-before` on 5173, capture, stop it, then serve the branch. Only one server can hold 5173. Seed once, before the "before" run. A run that edits data changes what the "after" run sees, so re-seed between runs that write.
 
 Write PNGs to `/tmp`, not the repo; `gh pr create --attach /tmp/x.png` uploads from there.
+Without `gh` (cloud sessions), commit the PNGs under `docs/pr-assets/<change>/` in their own final commit
+and link them in the PR body by commit SHA (`blob/<sha>/...png?raw=true`); say they can be dropped before merge.
 
 ## Gotchas
 

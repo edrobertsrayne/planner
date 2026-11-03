@@ -69,6 +69,10 @@ export interface AgendaEntry {
 	periodFrom: number;
 	periodTo: number;
 	room: string | null;
+	// The Slots the row sits in, one per Period it spans: what a Blocked Slot is made from, so a
+	// double is blocked whole. `slotId` is the first.
+	slotId: string;
+	slotIds: string[];
 	lesson: {
 		id: string;
 		title: string;
@@ -76,8 +80,9 @@ export interface AgendaEntry {
 		ready: boolean;
 		tags: string[];
 	} | null;
-	// Set on a Blocked Slot ahead: the occasion is removed, so it carries no Lesson.
-	blocked: { note: string | null } | null;
+	// Set on a Blocked Slot ahead: the occasion is removed, so it carries no Lesson. The id is
+	// what unblocks it.
+	blocked: { id: string; note: string | null } | null;
 }
 
 // One Agenda row before its Lesson is looked up: the part `agenda` and `agendaLookBack` differ on.
@@ -85,7 +90,7 @@ type Occasion = Omit<Run, 'classId' | 'lessonId'> & {
 	cls: ClassRow;
 	week: 'A' | 'B';
 	lessonId: string | null;
-	blocked: { note: string | null } | null;
+	blocked: { id: string; note: string | null } | null;
 };
 
 // Title, Topic and Tags for every Lesson in one query each, then sorted by date and Period.
@@ -111,6 +116,8 @@ function toEntries(
 				periodFrom: o.periodFrom,
 				periodTo: o.periodTo,
 				room: roomOf(rooms, o.slotIds),
+				slotId: o.slotIds[0],
+				slotIds: o.slotIds,
 				blocked: o.blocked,
 				lesson:
 					lessonId && lessonInfo
@@ -251,7 +258,7 @@ function blockedSlotOccasions(
 			periodTo: slot.period,
 			lessonId: null,
 			slotIds: [slot.slotId],
-			blocked: { note: block.note }
+			blocked: { id: block.id, note: block.note }
 		});
 	}
 

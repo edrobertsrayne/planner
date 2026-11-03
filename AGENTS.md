@@ -10,6 +10,10 @@ Test each behaviour at the lowest level that can see it: unit, then component
 (`*.svelte.test.ts`), then e2e only for what needs the running app (routing, reload, auth, writes,
 files, touch, app-shell layout).
 
+In a cloud container (Node 22, mismatched Chromium) `npm ci` needs `--engine-strict=false`, `/usr/bin/chromium`
+must link to `/opt/pw-browsers/chromium` for e2e, and component tests need a throwaway vitest config
+passing that path as `launchOptions.executablePath`. Delete those afterwards; none belongs in the repo.
+
 ## Prototyping
 
 Disable the auth guard in a prototype, unless it tests the auth pages. Serve it and open it in the
