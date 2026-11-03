@@ -8,6 +8,12 @@ Add new entries at the top, dated:
 
 - YYYY-MM-DD: idea
 
+- 2026-11-03: Share the Timetable grid between the Class page and the Event page. Both draw a
+  Week A/B grid of toggle cells with locked cells for other holders, and `TimetableGrid.svelte`,
+  `EventTimetableGrid.svelte`, `SlotRooms.svelte` and `EventRooms.svelte` are near copies (ADR-0029
+  chose a separate Event entity, so only the grid is shared). Ruled out of scope while building
+  Events.
+
 - 2026-11-02: Move to `@sveltejs/kit` 3 and `@sveltejs/adapter-node` 6, `katex` 0.19 and
   TypeScript 7. Kit 3 is blocked because `bits-ui` pins `runed@0.35`, which peers kit 2; `katex`
   0.19 is outside `@tiptap/extension-mathematics`'s peer range (`^0.18`); `typescript` 7 is untried

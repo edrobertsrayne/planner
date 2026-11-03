@@ -25,7 +25,8 @@ test.describe('the Calendar on a tablet', () => {
 		// teaching-flows ran; one of the two weeks after the engineered one carries that letter,
 		// and its Monday P1 is 9B/Sc1's Slot.
 		const mondayIso = mondayOf(TODAY);
-		const mondayCell = page.locator('tbody tr').first().locator('td').first();
+		// The first row is the Before school band (ADR-0029), so P1 is the second.
+		const mondayCell = page.locator('tbody tr').nth(1).locator('td').first();
 		await login(page);
 		for (const offset of [7, 14]) {
 			await page.goto(`/calendar?week=${plusDays(mondayIso, offset)}`);
@@ -74,9 +75,10 @@ test.describe('the Calendar grid on a phone', () => {
 		page
 	}) => {
 		await login(page, '/calendar');
-		// The corner cell of the head plus one cell per day, and one row per Period.
+		// The corner cell of the head plus one cell per day, and one row per Period between the
+		// Before school and After school bands, which the Calendar always draws.
 		await expect(page.locator('main thead th')).toHaveCount(6);
-		await expect(page.locator('main tbody tr')).toHaveCount(6);
+		await expect(page.locator('main tbody tr')).toHaveCount(8);
 	});
 
 	test('day heads read as a letter and a date (story 100)', async ({ page }) => {

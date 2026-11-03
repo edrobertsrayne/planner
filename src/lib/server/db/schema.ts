@@ -181,6 +181,57 @@ export const slot = sqliteTable(
 	]
 );
 
+// An Event: a recurring commitment of the teacher's own that is not a Class (ADR-0029). The kind
+// is a label and changes nothing. An Event holds no Lessons and is never an input to the schedule.
+export const eventKinds = ['meeting', 'club', 'intervention', 'other'] as const;
+
+export const event = sqliteTable(
+	'event',
+	{
+		id: id(),
+		name: text('name').notNull(),
+		kind: text('kind', { enum: eventKinds }).notNull()
+	},
+	(table) => [check('event_kind', sql`${table.kind} in ('meeting','club','intervention','other')`)]
+);
+
+// An Event Slot: a recurring position held by an Event, over a range of dates like a Slot. The
+// position is 0 for Before school, 1 to 6 for the Periods and 7 for After school; only an Event
+// may hold 0 or 7 (ADR-0029).
+export const eventSlot = sqliteTable(
+	'event_slot',
+	{
+		id: id(),
+		eventId: text('event_id')
+			.notNull()
+			.references(() => event.id, { onDelete: 'cascade' }),
+		week: text('week', { enum: ['A', 'B'] }).notNull(),
+		day: integer('day').notNull(),
+		position: integer('position').notNull(),
+		holdsFrom: text('holds_from'),
+		holdsTo: text('holds_to'),
+		room: text('room')
+	},
+	(table) => [
+		check('event_slot_day_range', sql`${table.day} between 1 and 5`),
+		check('event_slot_position_range', sql`${table.position} between 0 and 7`)
+	]
+);
+
+// The Event note: one per Event and date, to plan the date or log it (ADR-0029). It belongs to
+// the Event and the date, not to an Event Slot, so it survives a move of the series.
+export const eventNote = sqliteTable(
+	'event_note',
+	{
+		eventId: text('event_id')
+			.notNull()
+			.references(() => event.id, { onDelete: 'cascade' }),
+		date: text('date').notNull(),
+		body: text('body').notNull()
+	},
+	(table) => [unique('event_note_date').on(table.eventId, table.date)]
+);
+
 export const session = sqliteTable(
 	'session',
 	{

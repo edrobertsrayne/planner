@@ -16,7 +16,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { openDatabase, runMigrations, type Client } from '../db';
 import * as schema from '../db/schema';
-import { attachmentsDir } from '../planner';
+import { attachmentsDir, createEvent, takeEventSlot } from '../planner';
 import { ATTACHMENT_PREFIX, DATABASE_ENTRY, createBackup } from './backup';
 import { RestoreRefused, restoreBackup } from './restore';
 import { sizeOfFd, tarChunks } from './tar';
@@ -178,6 +178,31 @@ describe('Back up then Restore', () => {
 			expect(new Uint8Array(readFileSync(path))).toEqual(bytes);
 		}
 		expect(scratch(target)).toEqual([]);
+	});
+
+	test('an Event, its Event Slots and its notes come back with it', async () => {
+		const source = instance();
+		const event = createEvent(source.db, { name: 'Y11 intervention', kind: 'intervention' });
+		takeEventSlot(source.db, { eventId: event.id, week: 'A', day: 1, position: 0, from: null });
+		source.db
+			.insert(schema.eventNote)
+			.values({ eventId: event.id, date: '2026-09-07', body: 'Past paper Q4' })
+			.run();
+		const archive = await collect(createBackup(source.client, source.databaseUrl).body);
+
+		const target = instance();
+		await restoreInto(target, archive).done;
+
+		const restored = target.db.select().from(schema.event).all();
+		expect(restored.map((e) => [e.name, e.kind])).toEqual([['Y11 intervention', 'intervention']]);
+		expect(target.db.select().from(schema.eventSlot).all()).toHaveLength(1);
+		expect(
+			target.db
+				.select()
+				.from(schema.eventNote)
+				.all()
+				.map((n) => n.body)
+		).toEqual(['Past paper Q4']);
 	});
 
 	test('an Attachment added after the copy is taken is left out', async () => {

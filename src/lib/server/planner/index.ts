@@ -11,6 +11,7 @@
 //   derive.ts       feeding the engine from the database and persisting its answer
 //   ordering.ts     the `position` arithmetic the four ordered things share
 //   timetable.ts    Slots: which Class holds which Period, over which dates
+//   events.ts       Events and Event Slots: recurring commitments that never clash with a Class
 //   sequence.ts     a Class's Sequence: its Lessons in its own order
 //   teaching-notes.ts  the Teaching note of a Class and Lesson: read, write, end with the pairing
 //   classes.ts      a Class, and how far through its Sequence it has got
@@ -74,6 +75,23 @@ export {
 	type WeekRow
 } from './sequence';
 
+export {
+	activeEventSlots,
+	clearEventSlot,
+	createEvent,
+	deleteEvent,
+	eventOccurrences,
+	eventSlotsOf,
+	findEvent,
+	listEvents,
+	renameEvent,
+	setEventNote,
+	setEventSlotRoom,
+	takeEventSlot,
+	toggleEventSlot,
+	type EventOccurrence
+} from './events';
+
 export { blockDay, blockSlot, blockSlots, unblockDay, unblockSlot } from './disruptions';
 
 export { placeLesson, placementAdmission, removePlacement } from './placement';
@@ -92,6 +110,7 @@ export {
 export {
 	agenda,
 	agendaLookBack,
+	agendaLookBackEvents,
 	calendarWeek,
 	planningStream,
 	type AgendaEntry,

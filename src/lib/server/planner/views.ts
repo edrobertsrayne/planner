@@ -29,6 +29,7 @@ import {
 	type SessionRecord
 } from './engine';
 import { listClasses } from './classes';
+import { eventOccurrences, type EventOccurrence } from './events';
 
 type ClassRow = ReturnType<typeof listClasses>[number];
 type Batch = {
@@ -190,6 +191,9 @@ export function agenda(
 	rows: AgendaEntry[];
 	blockedDays: { date: string; note: string | null }[];
 	holidays: SchoolHoliday[];
+	// The Events that occur from today to the horizon (ADR-0029), for the screen to set among the
+	// rows by date and position. A School Holiday and a Blocked Day hold none.
+	events: EventOccurrence[];
 	horizonEnds: string;
 } {
 	const cal = loadCalendar(db);
@@ -227,6 +231,7 @@ export function agenda(
 		),
 		blockedDays,
 		holidays: schoolHolidays(cal.terms, today, horizonEnds),
+		events: eventOccurrences(db, { from: today, to: horizonEnds }),
 		horizonEnds
 	};
 }
@@ -320,6 +325,12 @@ export function agendaLookBack(db: Db, { today }: { today: string }): AgendaEntr
 	return toEntries(db, occasions, () => false);
 }
 
+// The Events of the seven calendar days before `today`, the look-back's share of what the Agenda
+// shows (ADR-0029). They are read from the Event Slots as they stand, with their notes.
+export function agendaLookBackEvents(db: Db, { today }: { today: string }): EventOccurrence[] {
+	return eventOccurrences(db, { from: addDays(today, -LOOK_BACK_DAYS), to: addDays(today, -1) });
+}
+
 // What every cell carries, whatever it shows.
 type CalendarCellBase = {
 	date: string;
@@ -372,6 +383,9 @@ export interface CalendarWeek {
 	letter: 'A' | 'B';
 	days: { date: string; kind: DayKind }[];
 	cells: CalendarCell[];
+	// The Events that occur this week, one per date and position. Only an Event holds Before school
+	// (position 0) or After school (position 7), so the grid's two bands read from here alone.
+	events: EventOccurrence[];
 	blockedDays: { id: string; date: string; note: string | null }[];
 }
 
@@ -524,6 +538,7 @@ export function calendarWeek(
 			kind: !inAnyTerm(cal.terms, date) ? 'holiday' : dayBlocks.has(date) ? 'blocked' : 'teaching'
 		})),
 		cells,
+		events: eventOccurrences(db, { from: dates[0], to: dates[4] }),
 		blockedDays: dates.flatMap((date) => {
 			const row = dayBlocks.get(date);
 			return row ? [{ id: row.id, date, note: row.note }] : [];

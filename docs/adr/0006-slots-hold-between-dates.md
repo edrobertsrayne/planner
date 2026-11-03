@@ -54,3 +54,9 @@ Slot mid-year impossible — the replacement would collide with the Slot it repl
 > Separately: the reference above to a Postgres exclusion constraint is stale. The planner runs on
 > SQLite (ADR-0008), which has no exclusion constraints, so window-aware uniqueness is enforced in
 > application code rather than by the database.
+
+> **Amended 2026-11-03 (ADR-0029).** Uniqueness now spans Class Slots and **Event Slots**: no two
+> may share a position over dates where both hold, whichever table holds them. The positions are
+> the six Periods plus Before school and After school, and only an Event Slot may take either of
+> the last two. A Class's edit that would take an Event's position is refused and names the Event,
+> as an Event's edit that would take a Class's position names the Class.

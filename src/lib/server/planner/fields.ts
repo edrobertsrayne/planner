@@ -10,7 +10,10 @@
 import { eq, sql, type SQL } from 'drizzle-orm';
 import type { SQLiteColumn, SQLiteTable } from 'drizzle-orm/sqlite-core';
 import { LESSON_STATUSES, type LessonStatus } from '$lib/lesson-status';
+import { eventKinds } from '../db/schema';
 import { Refused } from './refused';
+
+type EventKind = (typeof eventKinds)[number];
 import type { Db } from './derive';
 
 // A name equals another case-insensitively — the comparison every unique Course, Topic and Tag
@@ -94,6 +97,25 @@ export function slotPeriod(period: number): number {
 		throw new Refused('invalid', "A Slot's Period must be a whole number from 1 to 6.");
 	}
 	return period;
+}
+
+// An Event Slot's position: 0 is Before school, 1 to 6 are the Periods, 7 is After school
+// (ADR-0029). Only an Event may hold 0 or 7, so a Slot keeps `slotPeriod` and its 1 to 6.
+export function eventPosition(position: number): number {
+	if (!Number.isInteger(position) || position < 0 || position > 7) {
+		throw new Refused(
+			'invalid',
+			"An Event's position must be Before school, a Period from 1 to 6, or After school."
+		);
+	}
+	return position;
+}
+
+export function eventKind(kind: string): EventKind {
+	if (!eventKinds.includes(kind as EventKind)) {
+		throw new Refused('invalid', 'An Event must be a Meeting, Club, Intervention or Other.');
+	}
+	return kind as EventKind;
 }
 
 // A blank plan is no plan. A plan with words in it is stored as typed: Markdown gives its

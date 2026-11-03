@@ -1,10 +1,12 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
 	import BanIcon from '@lucide/svelte/icons/ban';
 	import HistoryIcon from '@lucide/svelte/icons/history';
 	import { classTone } from '$lib/class-tone';
 	import { formatWeekday } from '$lib/date';
+	import { kindLabel, positionLabel } from '$lib/events';
 	import { onFail, replaceQuery, submitForm } from '$lib/client/enhance';
 	import { sessionHref } from '$lib/client/session-href';
 	import { withParam } from '$lib/query';
@@ -19,7 +21,14 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import { AGENDA_HORIZONS } from './agenda-horizons';
-	import { agendaStream, filterByTag, groupByDay, lessonCount, tagsIn } from './agenda-days';
+	import {
+		agendaStream,
+		filterByTag,
+		groupByDay,
+		lessonCount,
+		tagsIn,
+		withEvents
+	} from './agenda-days';
 	import ReadyTick from './ready-tick.svelte';
 	import type { PageProps } from './$types';
 
@@ -55,7 +64,11 @@
 			lessonTitle: row.lesson?.title ?? null
 		});
 
-	const days = $derived(groupByDay(filterByTag(data.rows, data.tag)));
+	// An Event has no Tag, so a Tag filter leaves it out, as it leaves out an Open Slot.
+	const eventsIn = (events: typeof data.events) => (data.tag === null ? events : []);
+	const days = $derived(
+		withEvents(groupByDay(filterByTag(data.rows, data.tag)), eventsIn(data.events))
+	);
 	// A whole day is asked for through its own dialog and taken back through one hidden form that
 	// every Blocked Day panel shares, as a Blocked Slot is.
 	let dayPick = $state<string | null>(null);
@@ -68,7 +81,17 @@
 	};
 	let unblockDayForm = $state<HTMLFormElement | undefined>();
 	const stream = $derived(agendaStream(days, data.blockedDays, data.holidays));
-	const pastDays = $derived(groupByDay(filterByTag(data.lookBack, data.tag)));
+	const pastDays = $derived(
+		withEvents(groupByDay(filterByTag(data.lookBack, data.tag)), eventsIn(data.lookBackEvents))
+	);
+
+	const lineKey = (line: (typeof days)[number]['rows'][number]) =>
+		line.kind === 'row'
+			? `${line.row.classId}${line.row.periodFrom}`
+			: `${line.event.eventId}${line.event.position}`;
+
+	const eventHref = (event: (typeof data.events)[number]) =>
+		`${resolve(`/events/${event.eventId}`)}?date=${event.date}#date-${event.date}`;
 
 	// One chip per Tag in the window with its count (issue #340). A Tag with no Lesson in the
 	// window keeps its chip at a count of zero, so a filter on it can still be cleared.
@@ -239,6 +262,41 @@
 		</li>
 	{/snippet}
 
+	<!-- An Event: a neutral bar, never a Class's hue, and no Ready tick (ADR-0029). The note is the
+	     plan or the log; with none, the row offers to add one. -->
+	{#snippet eventRow(event: (typeof data.events)[number], past: boolean)}
+		<li class="relative flex items-center gap-3 pr-2 pl-4 hover:bg-muted/40">
+			<span class="absolute inset-y-0 left-0 w-1 bg-border" aria-hidden="true"></span>
+			<span class="w-14 shrink-0 text-xs text-muted-foreground tabular-nums">
+				{positionLabel(event.position)}
+				{#if event.room}<span class="block truncate" title={event.room}>{event.room}</span>{/if}
+			</span>
+			<span class="w-16 shrink-0 text-xs text-muted-foreground">{kindLabel(event.kind)}</span>
+			<a
+				href={eventHref(event)}
+				class="min-w-0 flex-1 py-3 text-left outline-none focus-visible:underline"
+			>
+				<span class="block text-sm font-medium">{event.name}</span>
+				{#if event.note}
+					<span class="block text-xs whitespace-pre-wrap text-muted-foreground">{event.note}</span>
+				{/if}
+			</a>
+			{#if !event.note}
+				<Button variant="ghost" size="sm" class="h-7 row-control" href={eventHref(event)}>
+					{past ? 'Add log' : 'Add plan'}
+				</Button>
+			{/if}
+		</li>
+	{/snippet}
+
+	{#snippet agendaLine(line: (typeof days)[number]['rows'][number], past: boolean)}
+		{#if line.kind === 'row'}
+			{@render agendaRow(line.row, past)}
+		{:else}
+			{@render eventRow(line.event, past)}
+		{/if}
+	{/snippet}
+
 	<!-- The look-back: the past seven days, shown when the teacher turns it on, fixed whatever the
 	     horizon. Told apart from the days ahead by a step in shade, never a hue, as the Calendar marks
 	     a day with no teaching. -->
@@ -250,8 +308,8 @@
 						{formatWeekday(day.date)}
 					</h2>
 					<ul class="divide-y divide-border overflow-hidden rounded-xl border bg-muted/50">
-						{#each day.rows as row (row.classId + row.periodFrom)}
-							{@render agendaRow(row, true)}
+						{#each day.rows as line (lineKey(line))}
+							{@render agendaLine(line, true)}
 						{/each}
 					</ul>
 				</section>
@@ -308,8 +366,8 @@
 				</h2>
 
 				<ul class="divide-y divide-border overflow-hidden rounded-xl border bg-card">
-					{#each item.rows as row (row.classId + row.periodFrom)}
-						{@render agendaRow(row, false)}
+					{#each item.rows as line (lineKey(line))}
+						{@render agendaLine(line, false)}
 					{/each}
 				</ul>
 			</section>

@@ -23,3 +23,8 @@ likely one the school hosts.
 
 Notes on how teaching went are still supported, but they attach to a Session and must describe the
 Class, not named individuals.
+
+> **Amended 2026-11-03 (ADR-0029).** An **Event note** is the second kind of note, beside the
+> Teaching note. It belongs to an Event and a date rather than a Session, and it must describe the
+> group, not named individuals. An intervention group is where a name is most likely to be typed, so
+> the note's field says so.

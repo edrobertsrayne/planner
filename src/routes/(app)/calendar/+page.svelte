@@ -7,6 +7,7 @@
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import { classTone } from '$lib/class-tone';
 	import { formatDayMonth } from '$lib/date';
+	import { positionLabel } from '$lib/events';
 	import { onFail, submitForm } from '$lib/client/enhance';
 	import { sessionHref } from '$lib/client/session-href';
 	import RewindReport from '$lib/components/rewind-report.svelte';
@@ -17,7 +18,13 @@
 	import PageHeader from '$lib/components/page-header.svelte';
 	import BlockSlotDialog, { type Pick } from '$lib/components/block-slot-dialog.svelte';
 	import CalendarSetup from './CalendarSetup.svelte';
-	import { availableSlotLines, blockedSlotLines, PERIODS, toGrid } from './calendar-grid';
+	import {
+		availableSlotLines,
+		blockedSlotLines,
+		PERIODS,
+		toEventGrid,
+		toGrid
+	} from './calendar-grid';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -46,6 +53,8 @@
 	// <td> is what lets the tile's `h-full` resolve, so a multi-Period Lesson renders as one tall
 	// tile rather than silently collapsing to one Period.
 	const grid = $derived.by(() => toGrid(data.week?.days ?? [], data.week?.cells ?? []));
+	// The Events of the week by day and position: 0 Before school, 1 to 6 the Periods, 7 After school.
+	const eventGrid = $derived.by(() => toEventGrid(data.week?.days ?? [], data.week?.events ?? []));
 	const blockedByDate = $derived(new Map((data.week?.blockedDays ?? []).map((b) => [b.date, b])));
 
 	// The Slot the day menu picked to block, whose note is asked for in a dialog. The dialog
@@ -67,6 +76,42 @@
 		submitForm(dayMenuForm, { action, fields: { [field]: value } });
 	}
 </script>
+
+{#snippet eventBand(position: number)}
+	<tr>
+		<th class="pr-1 text-right align-top">
+			<div class="pt-1.5 text-[10px] leading-tight font-medium text-muted-foreground md:text-xs">
+				<span class="md:hidden">{position === 0 ? 'Bef.' : 'Aft.'}</span>
+				<span class="hidden md:inline">{positionLabel(position)}</span>
+			</div>
+		</th>
+		{#each DAY_NAMES as d, di (d)}
+			<td class="h-10 align-top">{@render eventTile(eventGrid[di][position], 'h-10')}</td>
+		{/each}
+	</tr>
+{/snippet}
+
+<!-- An Event: a neutral tile, never a Class's hue (ADR-0029). It opens the Event on that date. A
+     past one takes the hatch to step back, as a past Lesson does. -->
+{#snippet eventTile(event: (typeof eventGrid)[number][number], height: string)}
+	{#if event}
+		<a
+			href="{resolve(`/events/${event.eventId}`)}?date={event.date}#date-{event.date}"
+			class={cn(
+				'flex w-full flex-col overflow-hidden rounded-lg border bg-muted px-1.5 py-1 text-left md:px-2',
+				height === 'h-10' ? 'h-10' : 'h-full min-h-16',
+				event.date < data.today && 'hatched'
+			)}
+		>
+			<span class="truncate text-xs font-semibold">{event.name}</span>
+			<span class="hidden truncate text-[11px] text-muted-foreground md:block">
+				{event.room ?? ''}
+			</span>
+		</a>
+	{:else}
+		<div class="{height === 'h-10' ? 'h-10' : 'h-16'} w-full rounded-lg bg-muted/40"></div>
+	{/if}
+{/snippet}
 
 <svelte:head><title>Calendar</title></svelte:head>
 
@@ -312,6 +357,7 @@
 				</tr>
 			</thead>
 			<tbody>
+				{@render eventBand(0)}
 				{#each PERIODS as period (period)}
 					<tr>
 						<th class="pr-1 text-right align-top">
@@ -351,7 +397,13 @@
 								{#if entry.type === 'covered'}
 									<!-- covered by an earlier Period's rowspan -->
 								{:else if entry.type === 'free'}
-									<td class="h-16 rounded-lg bg-muted/40"></td>
+									<!-- No Class holds this Period, and an Event may: it never shares one. -->
+									{@const event = eventGrid[di][period]}
+									{#if event}
+										<td class="h-16 align-top">{@render eventTile(event, 'h-full')}</td>
+									{:else}
+										<td class="h-16 rounded-lg bg-muted/40"></td>
+									{/if}
 								{:else}
 									{@const cell = entry.cell}
 									{@const rowspan = cell.periodTo - cell.periodFrom + 1}
@@ -447,6 +499,7 @@
 						{/each}
 					</tr>
 				{/each}
+				{@render eventBand(7)}
 			</tbody>
 		</table>
 

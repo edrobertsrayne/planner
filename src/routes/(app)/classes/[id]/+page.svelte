@@ -183,12 +183,13 @@
 					on={data.on}
 					readOnly={isPast}
 					slots={data.grid}
+					eventSlots={data.eventSlots}
 					{labelOf}
 				/>
 
 				<p class="mt-3 text-xs text-muted-foreground">
-					A Period held by another Class carries its label. A double is two Periods, ticked
-					separately.
+					A Period held by another Class or an Event carries its name. A double is two Periods,
+					ticked separately.
 				</p>
 
 				<SlotRooms classId={data.class.id} readOnly={isPast} slots={data.grid} />

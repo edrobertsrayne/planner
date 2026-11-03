@@ -1,5 +1,12 @@
 import { describe, expect, test } from 'vitest';
-import { agendaStream, filterByTag, groupByDay, lessonCount, tagsIn } from './agenda-days';
+import {
+	agendaStream,
+	filterByTag,
+	groupByDay,
+	lessonCount,
+	tagsIn,
+	withEvents
+} from './agenda-days';
 
 describe('groupByDay', () => {
 	test('groups a sorted stream into one day per date, in order (issue #87)', () => {
@@ -107,6 +114,39 @@ describe('agendaStream', () => {
 		);
 
 		expect(stream.map((item) => item.kind)).toEqual(['holiday', 'day']);
+	});
+});
+
+describe('withEvents (ADR-0029)', () => {
+	const row = (date: string, periodFrom: number) => ({ date, periodFrom });
+	const event = (date: string, position: number) => ({ date, position });
+	const merge = (rows: ReturnType<typeof row>[], events: ReturnType<typeof event>[]) =>
+		withEvents(groupByDay(rows), events).map((d) => [
+			d.date,
+			d.rows.map((l) => (l.kind === 'row' ? `P${l.row.periodFrom}` : `E${l.event.position}`))
+		]);
+
+	test('an Event sits in its Period among the rows, Before school first and After school last', () => {
+		expect(
+			merge(
+				[row('2026-11-02', 1), row('2026-11-02', 4), row('2026-11-02', 6)],
+				[event('2026-11-02', 7), event('2026-11-02', 0), event('2026-11-02', 3)]
+			)
+		).toEqual([['2026-11-02', ['E0', 'P1', 'E3', 'P4', 'P6', 'E7']]]);
+	});
+
+	test('a day with only Events is still a day, and days stay in date order', () => {
+		expect(merge([row('2026-11-04', 2)], [event('2026-11-03', 0), event('2026-11-05', 7)])).toEqual(
+			[
+				['2026-11-03', ['E0']],
+				['2026-11-04', ['P2']],
+				['2026-11-05', ['E7']]
+			]
+		);
+	});
+
+	test('with no Events the days are as grouped', () => {
+		expect(merge([row('2026-11-02', 1)], [])).toEqual([['2026-11-02', ['P1']]]);
 	});
 });
 

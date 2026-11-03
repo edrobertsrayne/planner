@@ -11,12 +11,12 @@ test.beforeAll(() => resetTo('standard'));
 test.describe('the App shell on a laptop', () => {
 	test.use({ viewport: { width: 1280, height: 720 } });
 
-	test('the sidebar names the five screens and holds Settings, theme, Log out and the build line', async ({
+	test('the sidebar names the six screens and holds Settings, theme, Log out and the build line', async ({
 		page
 	}) => {
 		await login(page);
 		const nav = page.getByRole('navigation', { name: 'Primary' });
-		for (const name of ['Agenda', 'Calendar', 'Classes', 'Courses', 'Planning']) {
+		for (const name of ['Agenda', 'Calendar', 'Classes', 'Events', 'Courses', 'Planning']) {
 			await expect(nav.getByRole('link', { name, exact: true })).toBeVisible();
 			await expect(nav.getByRole('link', { name, exact: true })).toHaveText(name);
 		}

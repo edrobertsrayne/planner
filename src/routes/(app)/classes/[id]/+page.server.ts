@@ -5,6 +5,7 @@ import { formAction, found, trimmed } from '$lib/server/form';
 import {
 	academicYearStart,
 	deleteClass,
+	activeEventSlots,
 	activeSlots,
 	assignTopic,
 	classDetail,
@@ -46,6 +47,7 @@ export const load: PageServerLoad = ({ params, url }) => {
 		today: today(),
 		on,
 		grid: activeSlots(db, on),
+		eventSlots: activeEventSlots(db, on),
 		datedSlots: datedSlotsOf(db, selected.id),
 		sequence: sequenceView(db, { classId: selected.id, today: today() }),
 		// Labels the grid needs for a Slot held by another Class — the grid itself carries only
