@@ -14,6 +14,8 @@
 	// A date before today is the record of what was taught, not a plan, so the whole grid renders
 	// read-only (ADR-0006, amended): same three states, no forms.
 	type Slot = { classId: string; week: 'A' | 'B'; day: number; period: number };
+	// A position an Event holds (ADR-0029): locked like another Class's, and carrying the Event's name.
+	type EventSlot = { name: string; week: 'A' | 'B'; day: number; position: number };
 
 	let {
 		classId,
@@ -21,6 +23,7 @@
 		on,
 		readOnly,
 		slots,
+		eventSlots,
 		labelOf
 	}: {
 		classId: string;
@@ -29,6 +32,7 @@
 		on: string;
 		readOnly: boolean;
 		slots: Slot[];
+		eventSlots: EventSlot[];
 		labelOf: (classId: string) => string;
 	} = $props();
 
@@ -41,7 +45,12 @@
 
 	function cellAt(week: 'A' | 'B', day: number, period: number): Cell {
 		const slot = slots.find((s) => s.week === week && s.day === day && s.period === period);
-		if (!slot) return { kind: 'empty', label: '' };
+		if (!slot) {
+			const event = eventSlots.find(
+				(s) => s.week === week && s.day === day && s.position === period
+			);
+			return event ? { kind: 'other', label: event.name } : { kind: 'empty', label: '' };
+		}
 		if (slot.classId === classId) return { kind: 'mine', label: classLabel.split('/')[0] };
 		return { kind: 'other', label: labelOf(slot.classId) };
 	}

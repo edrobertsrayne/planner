@@ -17,6 +17,7 @@ import {
 	setEventSlotRoom,
 	takeEventSlot,
 	toggleEventSlot,
+	toggleSlot,
 	unblockDay
 } from './index';
 
@@ -50,6 +51,27 @@ describe('an Event Slot never shares a position with a Class Slot', () => {
 
 		refused(
 			() => addSlot(db, { classId: classC.id, week: 'A', day: 1, period: 2 }),
+			'conflict',
+			'Week A Mon P2 already belongs to Y11 intervention over these dates.'
+		);
+	});
+
+	test('a stale click on a Class page over an Event’s position is refused, naming the Event', () => {
+		const { db, course } = setUp();
+		const event = createEvent(db, { name: 'Y11 intervention', kind: 'intervention' });
+		takeEventSlot(db, { eventId: event.id, week: 'A', day: 1, position: 2, from: null });
+		const classC = createClass(db, { label: '9C/Sc2', courseId: course.id })!;
+
+		refused(
+			() =>
+				toggleSlot(db, {
+					classId: classC.id,
+					week: 'A',
+					day: 1,
+					period: 2,
+					from: '2026-11-03',
+					today: '2026-11-03'
+				}),
 			'conflict',
 			'Week A Mon P2 already belongs to Y11 intervention over these dates.'
 		);
