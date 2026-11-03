@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'vitest';
 import type { CalendarCell } from '$lib/server/planner';
-import { availableSlotLines, blockedSlotLines, PERIODS, toGrid } from './calendar-grid';
+import {
+	availableSlotLines,
+	blockedSlotLines,
+	PERIODS,
+	toEventGrid,
+	toGrid
+} from './calendar-grid';
 
 type CellFields = {
 	date: string;
@@ -216,5 +222,26 @@ describe('blockedSlotLines', () => {
 			'2026-08-31'
 		);
 		expect(lines.map((l) => l.period)).toEqual([2, 4]);
+	});
+});
+
+describe('toEventGrid (ADR-0029)', () => {
+	const ev = (date: string, position: number) => ({ date, position, name: `E${position}` });
+	const days = [{ date: '2026-11-02' }, { date: '2026-11-03' }];
+
+	test('one slot per day for Before school, the six Periods and After school', () => {
+		const grid = toEventGrid(days, [ev('2026-11-02', 0), ev('2026-11-02', 3), ev('2026-11-03', 7)]);
+
+		expect(grid).toHaveLength(2);
+		expect(grid[0]).toHaveLength(8);
+		expect(grid[0][0]?.name).toBe('E0');
+		expect(grid[0][3]?.name).toBe('E3');
+		expect(grid[1][7]?.name).toBe('E7');
+		expect(grid[0][1]).toBeNull();
+	});
+
+	test('an Event on a date outside the week is ignored', () => {
+		const grid = toEventGrid(days, [ev('2026-12-01', 2)]);
+		expect(grid.flat().every((e) => e === null)).toBe(true);
 	});
 });

@@ -54,3 +54,28 @@ export function agendaStream<Row>(
 		...holidays.map(({ starts, ends }) => ({ kind: 'holiday' as const, date: starts, ends }))
 	].sort((a, b) => a.date.localeCompare(b.date));
 }
+
+// One line in an Agenda day: a Session row or an Event (ADR-0029). An Event never shares a Period
+// with a Class, so each Event takes its own place by position: Before school (0) leads the day,
+// the Periods (1 to 6) sit among the rows, and After school (7) closes it.
+export type AgendaLine<Row, Event> = { kind: 'row'; row: Row } | { kind: 'event'; event: Event };
+
+export function withEvents<
+	Row extends { date: string; periodFrom: number },
+	Event extends { date: string; position: number }
+>(days: readonly AgendaDay<Row>[], events: readonly Event[]): AgendaDay<AgendaLine<Row, Event>>[] {
+	const byDate = new Map<string, { at: number; line: AgendaLine<Row, Event> }[]>();
+	const put = (date: string, at: number, line: AgendaLine<Row, Event>) =>
+		byDate.set(date, [...(byDate.get(date) ?? []), { at, line }]);
+
+	for (const day of days)
+		for (const row of day.rows) put(day.date, row.periodFrom, { kind: 'row', row });
+	for (const event of events) put(event.date, event.position, { kind: 'event', event });
+
+	return [...byDate]
+		.sort(([a], [b]) => a.localeCompare(b))
+		.map(([date, lines]) => ({
+			date,
+			rows: lines.sort((a, b) => a.at - b.at).map((l) => l.line)
+		}));
+}

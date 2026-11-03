@@ -87,3 +87,19 @@ export function toGrid(
 	}
 	return matrix;
 }
+
+// The Events of a week laid out like `toGrid`: one slot per day for each of the eight positions,
+// 0 Before school, 1 to 6 the Periods, 7 After school (ADR-0029). An Event never shares a position
+// with a Class's cell, so the two grids are read side by side.
+export function toEventGrid<Event extends { date: string; position: number }>(
+	days: readonly { date: string }[],
+	events: readonly Event[]
+): (Event | null)[][] {
+	const dates = days.map((d) => d.date);
+	const matrix: (Event | null)[][] = dates.map(() => Array.from({ length: 8 }, () => null));
+	for (const event of events) {
+		const di = dates.indexOf(event.date);
+		if (di >= 0) matrix[di][event.position] = event;
+	}
+	return matrix;
+}
