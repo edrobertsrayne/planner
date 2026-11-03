@@ -139,6 +139,10 @@ test.describe('the Agenda on a phone', () => {
 
 		// With the Ready column gone there is room to name the day control, so the icon carries its
 		// words and is not mistaken for a row's own Block (story 83).
+		// A phone reads the plan and does not edit it: no row carries a Block of its own, only the
+		// day does (the sick-day case).
+		await expect(page.getByRole('button', { name: /^Block \d/ })).toHaveCount(0);
+
 		const blockDay = page.getByRole('button', { name: /^Block \w+day/ }).first();
 		await expect(blockDay).toContainText('Block day');
 		await expect(blockDay).toBeVisible();

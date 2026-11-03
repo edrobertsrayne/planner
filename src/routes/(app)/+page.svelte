@@ -207,7 +207,7 @@
 					<Button
 						variant="ghost"
 						size="sm"
-						class="h-7 row-control {touchTarget}"
+						class="h-7 row-control max-md:hidden {touchTarget}"
 						onclick={() => submitForm(unblockForm, { fields: { id: blocked.id } })}
 						aria-label="Unblock {row.classLabel}, P{row.periodFrom}">Unblock</Button
 					>
@@ -219,7 +219,7 @@
 				<Button
 					variant="ghost"
 					size="icon-sm"
-					class="row-control {touchTarget}"
+					class="row-control max-md:hidden {touchTarget}"
 					onclick={() => askToBlock(row)}
 					aria-label="Block {row.classLabel}, P{row.periodFrom}"
 				>

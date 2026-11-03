@@ -593,6 +593,31 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expect(page.getByText('Blocked Day')).toHaveCount(0);
 	});
 
+	test('a phone shows a Blocked Slot but offers no way to block or unblock a Slot', async () => {
+		await page.goto('/');
+		const first = page.locator('li').filter({ hasText: '9B/Sc1' }).first();
+		await first.getByRole('button', { name: /^Block 9B\/Sc1, P\d/ }).click();
+		await page.getByRole('textbox', { name: /^Block 9B\/Sc1, P\d/ }).fill('Assembly');
+		await page.getByRole('button', { name: 'Block', exact: true }).click();
+		await expect(page.locator('li.hatched')).toHaveCount(1);
+
+		// Narrowed to a phone, the Blocked Slot still reads with its note, but neither Unblock nor
+		// any row's Block shows; the day's own control does.
+		await page.setViewportSize({ width: 390, height: 800 });
+		await expect(page.locator('li.hatched')).toContainText('Assembly');
+		await expect(page.getByRole('button', { name: /^Unblock \d?[\w/]+, P\d/ })).toBeHidden();
+		await expect(page.getByRole('button', { name: /^Block \d/ }).first()).toBeHidden();
+		await expect(page.getByRole('button', { name: /^Block \w+day/ }).first()).toBeVisible();
+
+		// Back on a laptop, take it back, leaving nothing behind.
+		await page.setViewportSize({ width: 1280, height: 720 });
+		await page
+			.locator('li.hatched')
+			.getByRole('button', { name: /^Unblock / })
+			.click();
+		await expect(page.locator('li.hatched')).toHaveCount(0);
+	});
+
 	test('a refused Blocked Slot keeps its dialog open and names the reason, and blocks nothing', async () => {
 		await page.goto('/');
 		await page
