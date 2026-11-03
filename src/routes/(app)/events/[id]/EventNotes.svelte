@@ -3,6 +3,7 @@
 	import { formatWeekday } from '$lib/date';
 	import { positionLabel } from '$lib/events';
 	import { onFail } from '$lib/client/enhance';
+	import { notesByDate, type DateCard } from './notes-by-date';
 
 	type Occurrence = {
 		date: string;
@@ -25,13 +26,20 @@
 		editable: boolean;
 	} = $props();
 
+	// "Before school, P6 · S4": every position held on the date, each with its Room if it has one.
+	const where = (card: DateCard) =>
+		card.positions
+			.map((p) => positionLabel(p.position) + (p.room ? ` · ${p.room}` : ''))
+			.join(', ');
+
 	// Coming up first, soonest at the top, then the dates already gone, latest first: a date to plan
 	// and a date to log are the same box.
-	const upcoming = $derived(occurrences.filter((o) => o.date >= today));
-	const earlier = $derived(occurrences.filter((o) => o.date < today).reverse());
+	const cards = $derived(notesByDate(occurrences));
+	const upcoming = $derived(cards.filter((o) => o.date >= today));
+	const earlier = $derived(cards.filter((o) => o.date < today).reverse());
 </script>
 
-{#snippet dateCard(o: Occurrence)}
+{#snippet dateCard(o: DateCard)}
 	<li
 		id="date-{o.date}"
 		class="rounded-xl border bg-card p-4 {o.date === focus ? 'ring-2 ring-primary/40' : ''}"
@@ -40,7 +48,7 @@
 			<p class="flex flex-wrap items-baseline gap-x-2">
 				<span class="text-sm font-semibold">{formatWeekday(o.date)}</span>
 				<span class="text-xs text-muted-foreground">
-					{positionLabel(o.position)}{o.room ? ` · ${o.room}` : ''}
+					{where(o)}
 				</span>
 			</p>
 			<p class="mt-2 text-sm whitespace-pre-wrap {o.note ? '' : 'text-muted-foreground'}">
@@ -54,7 +62,7 @@
 					<span class="flex flex-wrap items-baseline gap-x-2">
 						<span class="text-sm font-semibold">{formatWeekday(o.date)}</span>
 						<span class="text-xs text-muted-foreground">
-							{positionLabel(o.position)}{o.room ? ` · ${o.room}` : ''}
+							{where(o)}
 						</span>
 					</span>
 					<textarea
@@ -77,7 +85,7 @@
 		afterwards.
 	</p>
 
-	{#if occurrences.length === 0}
+	{#if cards.length === 0}
 		<p class="rounded-xl border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
 			No dates yet. Put this Event on the Timetable and its dates appear here.
 		</p>

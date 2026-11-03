@@ -309,7 +309,7 @@ test.describe.serial('the Calendar setup mode', () => {
 		// is the only door to blocking: its "Block one Slot" heading lists the day's Periods, one
 		// line per real Slot.
 		const monday = mondayOf(TODAY);
-		const cell = page.locator('tbody tr').first().locator('td').first();
+		const cell = page.locator('tbody tr').nth(1).locator('td').first();
 		for (const offset of [7, 14]) {
 			await page.goto(`/calendar?week=${plusDays(monday, offset)}`);
 			// Monday P1 is 9B/Sc1's Slot, and 9C/Sc1 tiles Tuesdays in both letters — so the
@@ -363,7 +363,7 @@ test.describe.serial('the Calendar setup mode', () => {
 		// The same week the previous test landed on: one of the two weeks after TODAY's carries the
 		// Slots' letter, and Monday's P1 is 9B/Sc1's Slot.
 		const monday = mondayOf(TODAY);
-		const cell = page.locator('tbody tr').first().locator('td').first();
+		const cell = page.locator('tbody tr').nth(1).locator('td').first();
 		for (const offset of [7, 14]) {
 			await page.goto(`/calendar?week=${plusDays(monday, offset)}`);
 			// Monday P1 is 9B/Sc1's Slot, and 9C/Sc1 tiles Tuesdays in both letters — so the
@@ -417,7 +417,7 @@ test.describe.serial('the Calendar setup mode', () => {
 
 	test('closing the note form by Escape hands focus back to the day menu', async () => {
 		const monday = mondayOf(TODAY);
-		const cell = page.locator('tbody tr').first().locator('td').first();
+		const cell = page.locator('tbody tr').nth(1).locator('td').first();
 		let landedMonday = monday;
 		for (const offset of [7, 14]) {
 			landedMonday = plusDays(monday, offset);
