@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest';
+import * as schema from '../db/schema';
 import { refused, setUp } from './fixtures';
 import {
 	activeEventSlots,
@@ -285,6 +286,21 @@ describe('the Event note belongs to one Event and one date (ADR-0029)', () => {
 		expect(noteOn(db, event.id, '2026-11-02')).toBe('Bring the mark scheme');
 	});
 
+	test('a note left on a date the Event no longer occurs on can still be cleared', () => {
+		const { db, event } = setup();
+		// 2026-11-16 is a Week A Monday. The note is written while the Event occurs, then the Slot ends.
+		setEventNote(db, { eventId: event.id, date: '2026-11-16', note: 'Plan' });
+		clearEventSlot(db, { eventId: event.id, week: 'A', day: 1, position: 2, from: '2026-11-10' });
+
+		refused(
+			() => setEventNote(db, { eventId: event.id, date: '2026-11-16', note: 'More' }),
+			'invalid',
+			'Y11 intervention does not occur on 2026-11-16.'
+		);
+		setEventNote(db, { eventId: event.id, date: '2026-11-16', note: '  ' });
+		expect(db.select().from(schema.eventNote).all()).toEqual([]);
+	});
+
 	test('earlier notes survive the Event moving to another position', () => {
 		const { db, event } = setup();
 		setEventNote(db, { eventId: event.id, date: '2026-11-02', note: 'Logged' });
@@ -312,6 +328,16 @@ describe('the Events screen lists each Event with the next date it occurs', () =
 				next: expect.objectContaining({ date: '2026-11-11', position: 7 })
 			}
 		]);
+	});
+
+	test('an Event whose first date is more than a year away still has a next date', () => {
+		const { db } = setUp();
+		const event = createEvent(db, { name: 'Y11 intervention', kind: 'intervention' });
+		takeEventSlot(db, { eventId: event.id, week: 'A', day: 1, position: 2, from: null });
+
+		// The fixture year starts in September 2026, well over 400 days after this date.
+		const [listed] = listEvents(db, { today: '2025-06-01' });
+		expect(listed.next?.date).toMatch(/^2026-/);
 	});
 
 	test('an Event with no Slot, or whose series has ended, has no next date', () => {

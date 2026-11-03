@@ -45,7 +45,14 @@ test.describe.serial('an Event on a laptop', () => {
 
 		// The Calendar draws the Event in its Before school band; the Agenda lists it.
 		await page.goto('/calendar');
-		await expect(page.getByRole('link', { name: /Maths clinic/ }).first()).toBeVisible();
+		const tile = page.getByRole('link', { name: /Maths clinic/ }).first();
+		await expect(tile).toBeVisible();
+		// The tile opens the Event on its own date: the URL names the card, and the card is in view.
+		await tile.click();
+		await expect(page).toHaveURL(/\?date=(\d{4}-\d{2}-\d{2})#date-\1$/);
+		const date = new URL(page.url()).searchParams.get('date');
+		await expect(page.locator(`#date-${date}`)).toBeInViewport();
+		await page.goto('/calendar');
 		await page.goto('/');
 		await expect(page.getByRole('link', { name: /Maths clinic/ }).first()).toBeVisible();
 	});

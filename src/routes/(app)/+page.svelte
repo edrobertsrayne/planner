@@ -91,7 +91,7 @@
 			: `${line.event.eventId}${line.event.position}`;
 
 	const eventHref = (event: (typeof data.events)[number]) =>
-		`${resolve(`/events/${event.eventId}`)}?date=${event.date}`;
+		`${resolve(`/events/${event.eventId}`)}?date=${event.date}#date-${event.date}`;
 
 	// One chip per Tag in the window with its count (issue #340). A Tag with no Lesson in the
 	// window keeps its chip at a count of zero, so a filter on it can still be cleared.

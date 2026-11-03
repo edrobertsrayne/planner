@@ -96,7 +96,7 @@
 {#snippet eventTile(event: (typeof eventGrid)[number][number], height: string)}
 	{#if event}
 		<a
-			href="{resolve(`/events/${event.eventId}`)}?date={event.date}"
+			href="{resolve(`/events/${event.eventId}`)}?date={event.date}#date-{event.date}"
 			class={cn(
 				'flex w-full flex-col overflow-hidden rounded-lg border bg-muted px-1.5 py-1 text-left md:px-2',
 				height === 'h-10' ? 'h-10' : 'h-full min-h-16',

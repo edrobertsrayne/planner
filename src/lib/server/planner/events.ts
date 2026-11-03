@@ -21,6 +21,8 @@ import { Refused } from './refused';
 import { overlaps, positionName } from './timetable';
 
 const MIN_DATE = '0000-01-01';
+// Occurrences only exist inside the Terms, so this reaches as far as the calendar does.
+const MAX_DATE = '9999-12-31';
 
 export function renameEvent(db: Db, { id, name }: { id: string; name: string }) {
 	const clean = required(name, 'An Event needs a name.');
@@ -60,13 +62,12 @@ export function deleteEvent(
 // The Events screen: every Event with its kind, how many Event Slots it holds, and the next date
 // it occurs on from today, or null when it has none left. Ordered by name.
 export function listEvents(db: Db, { today }: { today: string }) {
-	const horizon = addDays(today, 400);
 	const slotCounts = new Map<string, number>();
 	for (const s of db.select().from(schema.eventSlot).all()) {
 		if (s.holdsTo !== null && s.holdsTo < today) continue;
 		slotCounts.set(s.eventId, (slotCounts.get(s.eventId) ?? 0) + 1);
 	}
-	const upcoming = eventOccurrences(db, { from: today, to: horizon });
+	const upcoming = eventOccurrences(db, { from: today, to: MAX_DATE });
 	return db
 		.select()
 		.from(schema.event)
@@ -356,15 +357,17 @@ export function setEventNote(
 	{ eventId, date, note }: { eventId: string; date: string; note: string | null }
 ) {
 	const event = requireRow(db, schema.event, eventId, 'Event not found.');
-	if (eventOccurrences(db, { eventId, from: date, to: date }).length === 0) {
-		throw new Refused('invalid', `${event.name} does not occur on ${date}.`);
-	}
 	const body = lessonBody(note);
+	// A blank note deletes, whether or not the Event still occurs on the date: a note left behind
+	// when its Slot ended or moved is out of sight, and a stale form must still be able to clear it.
 	if (body === null) {
 		db.delete(schema.eventNote)
 			.where(and(eq(schema.eventNote.eventId, eventId), eq(schema.eventNote.date, date)))
 			.run();
 		return;
+	}
+	if (eventOccurrences(db, { eventId, from: date, to: date }).length === 0) {
+		throw new Refused('invalid', `${event.name} does not occur on ${date}.`);
 	}
 	db.insert(schema.eventNote)
 		.values({ eventId, date, body })
