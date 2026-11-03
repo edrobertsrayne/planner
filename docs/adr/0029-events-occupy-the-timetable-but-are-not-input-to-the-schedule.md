@@ -33,6 +33,9 @@ An **Event** is a recurring occupant of the Timetable that never displaces a Les
 - **It has a kind.** Meeting, Club, Intervention or Other. The kind is a label and changes nothing.
 - **One note per date.** An **Event note** is kept for each Event and date, to plan the date
   beforehand or log it afterwards. It is one field. It follows the Event and the date, not a Lesson.
+- **It outlives the year.** An Event is not scoped to an academic year, as a Class is. Its Event
+  Slots hold between dates, so a series carries on until the teacher ends it, and rollover has
+  nothing to carry forward.
 - **It is its own entity.** An Event is not a Class with no Course. It has no Sequence, no Tone, no
   Readiness and no Lessons.
 

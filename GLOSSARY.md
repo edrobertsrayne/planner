@@ -187,7 +187,9 @@ intervention group, a duty. It has a name, a kind and its Event Slots. The kind 
 Intervention or Other, a label that changes nothing. It may carry a Room on each Event Slot, as a
 Class does. It holds no Lessons, no Sequence and no Tone, and it never displaces a Lesson: it can
 hold only a position that no Class holds. It recurs and is never a one-off. It does not occur on a
-School Holiday or a Blocked Day. Like a Class it holds no information about individual pupils.
+School Holiday or a Blocked Day. Unlike a Class it is not scoped to an academic year: its Event Slots
+hold between dates, so a series carries on until the teacher ends it. Like a Class it holds no
+information about individual pupils.
 _Avoid_: Meeting, club, activity, appointment, duty (each is a kind of Event, not the general term)
 
 **Event Slot**:

@@ -34,13 +34,14 @@ const to = (d: string | null) => d ?? MAX_DATE;
 
 type Window = { holdsFrom: string | null; holdsTo: string | null };
 
-const overlaps = (a: Window, b: Window) =>
+export const overlaps = (a: Window, b: Window) =>
 	from(a.holdsFrom) <= to(b.holdsTo) && from(b.holdsFrom) <= to(a.holdsTo);
 
-const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+export const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
-const positionName = (week: 'A' | 'B', day: number, period: number) =>
-	`Week ${week} ${DAY_NAMES[day - 1]} P${period}`;
+// Position 0 is Before school, 7 is After school, and 1 to 6 are the Periods (ADR-0029).
+export const positionName = (week: 'A' | 'B', day: number, period: number) =>
+	`Week ${week} ${DAY_NAMES[day - 1]} ${period === 0 ? 'Before school' : period === 7 ? 'After school' : `P${period}`}`;
 
 const takenError = (week: 'A' | 'B', day: number, period: number) =>
 	new Refused(
@@ -88,6 +89,31 @@ export function addSlot(
 
 	const clash = slotsAtPosition(db, week, day, period).find((s) => overlaps(window, s));
 	if (clash) throw takenError(week, day, period);
+
+	// An Event Slot at the position is as much a clash as another Class's Slot (ADR-0029).
+	const [heldByEvent] = db
+		.select({
+			name: schema.event.name,
+			holdsFrom: schema.eventSlot.holdsFrom,
+			holdsTo: schema.eventSlot.holdsTo
+		})
+		.from(schema.eventSlot)
+		.innerJoin(schema.event, eq(schema.event.id, schema.eventSlot.eventId))
+		.where(
+			and(
+				eq(schema.eventSlot.week, week),
+				eq(schema.eventSlot.day, day),
+				eq(schema.eventSlot.position, period)
+			)
+		)
+		.all()
+		.filter((e) => overlaps(window, e));
+	if (heldByEvent) {
+		throw new Refused(
+			'conflict',
+			`${positionName(week, day, period)} already belongs to ${heldByEvent.name} over these dates.`
+		);
+	}
 
 	const [row] = db
 		.insert(schema.slot)
