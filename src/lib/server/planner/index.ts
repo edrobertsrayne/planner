@@ -105,6 +105,7 @@ export {
 export {
 	agenda,
 	agendaLookBack,
+	agendaLookBackEvents,
 	calendarWeek,
 	planningStream,
 	type AgendaEntry,
