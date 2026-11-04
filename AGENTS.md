@@ -3,12 +3,32 @@
 An electronic teacher planner. Self-hosted, single-user, UK state secondary school.
 Runtime: Node. Package manager: npm.
 
+## Changes
+
+Subtract before you add: remove dead code, stale tests and stub references first, in their own
+commit, then build on the simpler base. Design for observed use; add no guards, validators or
+options the spec does not ask for.
+
+Make the smallest diff that solves the problem. Put each decision in one place and pass its result
+on; don't repeat the choice at every call site.
+
+Parse input at the door (form actions, `load`, API handlers, file imports) into typed values, and
+trust those types inside the seam. Don't re-check what the door already checked.
+
+To fix a bug, reproduce it first. Then fix it where the wrong state starts, not where it shows up,
+and fix every place with the same fault. A guard, retry, swallowed error or clamped value that
+hides a fault is not a fix.
+
 ## Tests
 
 Test-driven: write a failing test (red), make it pass with the least code (green), then refactor.
 Test each behaviour at the lowest level that can see it: unit, then component
 (`*.svelte.test.ts`), then e2e only for what needs the running app (routing, reload, auth, writes,
 files, touch, app-shell layout).
+
+Test behaviour, not implementation: a test should fail if the behaviour breaks and keep passing if
+only the internals change. Drive it through the interface its user sees (page, form action, seam
+function) and work out the expected value from the requirement, not from running the code.
 
 When changing a default or visible behaviour, search `e2e/` as well as unit tests for the old
 behaviour, without truncating the output. Run the affected spec locally
