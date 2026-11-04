@@ -14,7 +14,7 @@ You MUST NOT edit, create or delete files, commit, push, open PRs, or post comme
    - AGENTS.md: project-wide rules and conventions
    - A skill file: lessons specific to one task type (propose a new skill file only if none fits)
    - README or other doc: if humans need it too
-3. Read the target file. If it already covers the lesson, or a linter or test enforces it, drop the lesson. Also drop anything one-off or obvious.
+3. Read the target file. If it already covers the lesson, or a linter or test enforces it, drop the lesson. If a lint rule, type or test could enforce it, propose that instead of prose. Prose is only for lessons that need judgment; give those an example of the mistake. Also drop anything one-off or obvious.
 4. Write each proposed edit as one or two lines: an instruction plus its reason.
 
 ## Reply format
