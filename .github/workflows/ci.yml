@@ -122,4 +122,6 @@ jobs:
           variant: max
           prompt: |
             Review this pull request. Review only the diff (`gh pr diff`), not the rest of the codebase. Open other files only when a change can't be judged without them.
+
+            Report only findings the author would want to fix before merging: bugs, broken or missing tests for changed behaviour, security problems, and violations of AGENTS.md. Skip nitpicks: naming, formatting, style or lint matters, comment wording, minor refactors, speculative edge cases, and anything you would phrase as "consider" or "optionally". Each finding must name the file and line and the concrete failure. If nothing meets that bar, post a single comment saying so and stop.
           use_github_token: true
