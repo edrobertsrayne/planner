@@ -19,10 +19,10 @@ import {
 } from '$lib/server/planner';
 import type { Actions, PageServerLoad } from './$types';
 
-// How far either side of today the Notes tab lists dates: eight weeks back to log, sixteen ahead to
-// plan. A date the link names beyond that widens the window to take it in.
-const LOOK_BACK_DAYS = 56;
-const LOOK_AHEAD_DAYS = 112;
+// How far either side of today the Notes tab lists dates: a year back to read, a year ahead to
+// plan, so a long run is all there. A date the link names beyond that widens the window.
+const LOOK_BACK_DAYS = 365;
+const LOOK_AHEAD_DAYS = 365;
 
 export const load: PageServerLoad = ({ params, url }) => {
 	const event = findEvent(db, params.id);
