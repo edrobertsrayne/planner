@@ -32,6 +32,49 @@ import { listClasses } from './classes';
 import { eventOccurrences, type EventOccurrence } from './events';
 
 type ClassRow = ReturnType<typeof listClasses>[number];
+
+// The Cover recorded for an Absence's Slot (ADR-0030): the Lesson the teacher set, opened in the
+// Lesson editor. `id` is the Cover itself, for clearing it.
+export type CoverRef = { id: string; lessonId: string; title: string };
+
+// Every Cover, keyed by its occasion, for the Agenda and the Calendar to read back.
+function coversByOccasion(db: Db): Map<string, CoverRef> {
+	return new Map(
+		db
+			.select({
+				id: schema.cover.id,
+				classId: schema.cover.classId,
+				date: schema.cover.date,
+				slotId: schema.cover.slotId,
+				lessonId: schema.cover.lessonId,
+				title: schema.lesson.title
+			})
+			.from(schema.cover)
+			.innerJoin(schema.lesson, eq(schema.lesson.id, schema.cover.lessonId))
+			.all()
+			.map(({ classId, date, slotId, ...cover }) => [`${classId}|${date}|${slotId}`, cover])
+	);
+}
+
+// What a Blocked Slot row carries: whether the block is an Absence, and the Cover set for it.
+export type BlockedRow = {
+	id: string;
+	note: string | null;
+	absent: boolean;
+	cover: CoverRef | null;
+};
+
+// One Class and Slot an absent Blocked Day takes, listed in its Agenda panel with its Cover.
+export type AbsentLine = {
+	classId: string;
+	classLabel: string;
+	tone: number;
+	date: string;
+	period: number;
+	slotId: string;
+	room: string | null;
+	cover: CoverRef | null;
+};
 type Batch = {
 	cls: ClassRow;
 	result: ScheduleResult;
@@ -83,7 +126,7 @@ export interface AgendaEntry {
 	} | null;
 	// Set on a Blocked Slot ahead: the occasion is removed, so it carries no Lesson. The id is
 	// what unblocks it.
-	blocked: { id: string; note: string | null } | null;
+	blocked: BlockedRow | null;
 }
 
 // One Agenda row before its Lesson is looked up: the part `agenda` and `agendaLookBack` differ on.
@@ -91,7 +134,7 @@ type Occasion = Omit<Run, 'classId' | 'lessonId'> & {
 	cls: ClassRow;
 	week: 'A' | 'B';
 	lessonId: string | null;
-	blocked: { id: string; note: string | null } | null;
+	blocked: BlockedRow | null;
 };
 
 // Title, Topic and Tags for every Lesson in one query each, then sorted by date and Period.
@@ -189,7 +232,8 @@ export function agenda(
 	{ today, horizonDays }: { today: string; horizonDays: number | null }
 ): {
 	rows: AgendaEntry[];
-	blockedDays: { date: string; note: string | null }[];
+	// An absent day also lists the Class and Slot it takes, each with its Cover.
+	blockedDays: AgendaBlockedDay[];
 	holidays: SchoolHoliday[];
 	// The Events that occur from today to the horizon (ADR-0029), for the screen to set among the
 	// rows by date and position. A School Holiday and a Blocked Day hold none.
@@ -212,6 +256,8 @@ export function agenda(
 			.map((r) => `${r.lessonId}|${r.classId}`)
 	);
 
+	const covers = coversByOccasion(db);
+
 	return {
 		rows: toEntries(
 			db,
@@ -219,11 +265,11 @@ export function agenda(
 				...batches.flatMap(({ cls, result }) =>
 					occasionsOf(cls, result, letters).filter((occasion) => occasion.date <= horizonEnds)
 				),
-				...blockedSlotOccasions(cal, classes, { from: today, to: horizonEnds })
+				...blockedSlotOccasions(cal, classes, covers, { from: today, to: horizonEnds })
 			],
 			(lessonId, classId) => readinessSet.has(`${lessonId}|${classId}`)
 		),
-		blockedDays: blockedDaysBetween(cal, { from: today, to: horizonEnds }),
+		blockedDays: blockedDaysBetween(db, cal, { from: today, to: horizonEnds }),
 		holidays: schoolHolidays(cal.terms, today, horizonEnds),
 		events: eventOccurrences(db, { from: today, to: horizonEnds }),
 		horizonEnds
@@ -232,13 +278,31 @@ export function agenda(
 
 // The Blocked Days from `from` to `to`. One out of every Term reads as the holiday, as on the
 // Calendar, so it is left out.
+// An Absence also lists the Class and Slot it takes, each with its Cover (ADR-0030).
+export type AgendaBlockedDay = {
+	date: string;
+	note: string | null;
+	absent: boolean;
+	lines: AbsentLine[];
+};
+
 function blockedDaysBetween(
+	db: Db,
 	cal: Calendar,
 	{ from, to }: { from: string; to: string }
-): { date: string; note: string | null }[] {
+): AgendaBlockedDay[] {
+	const covers = coversByOccasion(db);
+	const rooms = roomsBySlot(db);
+	const classById = new Map(listClasses(db).map((c) => [c.id, c]));
+
 	return cal.blockedDays
 		.filter((d) => d.date >= from && d.date <= to && inAnyTerm(cal.terms, d.date))
-		.map(({ date, note }) => ({ date, note }))
+		.map(({ date, note, absent }) => ({
+			date,
+			note,
+			absent,
+			lines: absent ? absentLines(cal, classById, covers, rooms, date) : []
+		}))
 		.sort((a, b) => a.date.localeCompare(b.date));
 }
 
@@ -248,6 +312,7 @@ function blockedDaysBetween(
 function blockedSlotOccasions(
 	cal: Calendar,
 	classes: ClassRow[],
+	covers: Map<string, CoverRef>,
 	{ from, to }: { from: string; to: string }
 ): Occasion[] {
 	const byId = new Map(classes.map((c) => [c.id, c]));
@@ -269,11 +334,46 @@ function blockedSlotOccasions(
 			periodTo: slot.period,
 			lessonId: null,
 			slotIds: [slot.slotId],
-			blocked: { id: block.id, note: block.note }
+			blocked: {
+				id: block.id,
+				note: block.note,
+				absent: block.absent,
+				cover: covers.get(`${slot.classId}|${slot.date}|${slot.slotId}`) ?? null
+			}
 		});
 	}
 
 	return occasions;
+}
+
+// The Class and Slot an absent Blocked Day takes on `date`, in Period order, each with its Cover.
+function absentLines(
+	cal: Calendar,
+	classes: Map<string, ClassRow>,
+	covers: Map<string, CoverRef>,
+	rooms: Map<string, string>,
+	date: string
+): AbsentLine[] {
+	return timetabledSlots(cal)
+		.filter((slot) => slot.date === date)
+		.flatMap((slot): AbsentLine[] => {
+			const cls = classes.get(slot.classId);
+			return cls
+				? [
+						{
+							classId: cls.id,
+							classLabel: cls.label,
+							tone: cls.tone,
+							date,
+							period: slot.period,
+							slotId: slot.slotId,
+							room: rooms.get(slot.slotId) ?? null,
+							cover: covers.get(`${cls.id}|${date}|${slot.slotId}`) ?? null
+						}
+					]
+				: [];
+		})
+		.sort((a, b) => a.period - b.period || a.classLabel.localeCompare(b.classLabel));
 }
 
 const LOOK_BACK_DAYS = 7;
@@ -334,7 +434,7 @@ export function agendaLookBack(db: Db, { today }: { today: string }): AgendaEntr
 // The Blocked Days of the seven calendar days before `today`: the look-back reads them as the days
 // ahead do, since a day with no Session would otherwise look like a weekend.
 export function agendaLookBackBlockedDays(db: Db, { today }: { today: string }) {
-	return blockedDaysBetween(loadCalendar(db), {
+	return blockedDaysBetween(db, loadCalendar(db), {
 		from: addDays(today, -LOOK_BACK_DAYS),
 		to: addDays(today, -1)
 	});
@@ -384,6 +484,9 @@ export type CalendarCell = CalendarCellBase &
 				blockedNote: string | null;
 				blockedDayId: string | null;
 				blockedSlotId: string | null;
+				// Whether either block is an Absence, and the Cover set for it (ADR-0030).
+				absent: boolean;
+				cover: CoverRef | null;
 		  }
 	);
 
@@ -401,7 +504,7 @@ export interface CalendarWeek {
 	// The Events that occur this week, one per date and position. Only an Event holds Before school
 	// (position 0) or After school (position 7), so the grid's two bands read from here alone.
 	events: EventOccurrence[];
-	blockedDays: { id: string; date: string; note: string | null }[];
+	blockedDays: { id: string; date: string; note: string | null; absent: boolean }[];
 }
 
 // Each Slot's Room, for the Slots that have one. Read here, not in loadCalendar: the engine
@@ -435,7 +538,8 @@ function uncoveredCells({
 	cal,
 	classes,
 	covered,
-	rooms
+	rooms,
+	covers
 }: {
 	dates: string[];
 	today: string;
@@ -443,6 +547,7 @@ function uncoveredCells({
 	classes: ClassRow[];
 	covered: Set<string>;
 	rooms: Map<string, string>;
+	covers: Map<string, CoverRef>;
 }): CalendarCell[] {
 	const byId = new Map(classes.map((c) => [c.id, c]));
 	const dateSet = new Set(dates);
@@ -478,7 +583,9 @@ function uncoveredCells({
 					(dayBlock?.kind === 'day' ? dayBlock.note : null) ??
 					(slotBlock?.kind === 'slot' ? slotBlock.note : null),
 				blockedDayId: dayBlock?.kind === 'day' ? dayBlock.id : null,
-				blockedSlotId: slotBlock?.kind === 'slot' ? slotBlock.id : null
+				blockedSlotId: slotBlock?.kind === 'slot' ? slotBlock.id : null,
+				absent: Boolean(dayBlock?.absent || slotBlock?.absent),
+				cover: covers.get(`${cls.id}|${slot.date}|${slot.slotId}`) ?? null
 			}
 		];
 	});
@@ -542,7 +649,9 @@ export function calendarWeek(
 		})
 	);
 
-	cells.push(...uncoveredCells({ dates, today, cal, classes, covered, rooms }));
+	cells.push(
+		...uncoveredCells({ dates, today, cal, classes, covered, rooms, covers: coversByOccasion(db) })
+	);
 
 	const dayBlocks = new Map(cal.blockedDays.map((day) => [day.date, day]));
 	return {
@@ -556,7 +665,7 @@ export function calendarWeek(
 		events: eventOccurrences(db, { from: dates[0], to: dates[4] }),
 		blockedDays: dates.flatMap((date) => {
 			const row = dayBlocks.get(date);
-			return row ? [{ id: row.id, date, note: row.note }] : [];
+			return row ? [{ id: row.id, date, note: row.note, absent: row.absent }] : [];
 		})
 	};
 }
@@ -603,6 +712,14 @@ export function planningStream(db: Db, today: string, classId?: string): Plannin
 
 	const cal = loadCalendar(db);
 	const classes = listClasses(db).filter((c) => !classId || c.id === classId);
+	// A Cover is work set for an Absence, not planned teaching (ADR-0030).
+	const coverIds = new Set(
+		db
+			.select({ lessonId: schema.cover.lessonId })
+			.from(schema.cover)
+			.all()
+			.map((c) => c.lessonId)
+	);
 
 	const soonestByLesson = new Map<string, PlanningOccurrence>();
 	const rooms = roomsBySlot(db);
@@ -635,7 +752,7 @@ export function planningStream(db: Db, today: string, classId?: string): Plannin
 	);
 
 	const entries: EntryWithPosition[] = lessons
-		.filter((l) => !classId || soonestByLesson.has(l.id))
+		.filter((l) => !coverIds.has(l.id) && (!classId || soonestByLesson.has(l.id)))
 		.map((l) => ({
 			id: l.id,
 			title: l.title,

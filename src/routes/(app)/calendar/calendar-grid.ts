@@ -1,5 +1,5 @@
 import { PERIODS } from '$lib/periods';
-import type { CalendarCell } from '$lib/server/planner';
+import type { CalendarCell, CoverRef } from '$lib/server/planner';
 
 // The Calendar screen imports the Periods from here, so the shared list is passed on.
 export { PERIODS };
@@ -68,6 +68,37 @@ export function blockedSlotLines(cells: readonly CalendarCell[], date: string): 
 	return linesOn(cells, date, (c) =>
 		c.kind === 'blocked' && c.blockedSlotId !== null
 			? [{ blockedSlotId: c.blockedSlotId, period: c.periodFrom, classLabel: c.classLabel }]
+			: []
+	);
+}
+
+// One line per Slot an Absence takes on the date, with its Cover: what the day's menu offers Set
+// cover or Clear cover from, and what an absent day's panel lists, since a day with no teaching
+// draws no tiles (ADR-0030).
+export interface AbsentSlotLine {
+	slotId: string;
+	period: number;
+	classId: string;
+	classLabel: string;
+	tone: number;
+	room: string | null;
+	cover: CoverRef | null;
+}
+
+export function absentSlotLines(cells: readonly CalendarCell[], date: string): AbsentSlotLine[] {
+	return linesOn(cells, date, (c) =>
+		c.kind === 'blocked' && c.absent
+			? [
+					{
+						slotId: c.slotIds[0],
+						period: c.periodFrom,
+						classId: c.classId,
+						classLabel: c.classLabel,
+						tone: c.tone,
+						room: c.room,
+						cover: c.cover
+					}
+				]
 			: []
 	);
 }

@@ -10,7 +10,9 @@
 	import { positionLabel } from '$lib/events';
 	import { onFail, submitForm } from '$lib/client/enhance';
 	import { sessionHref } from '$lib/client/session-href';
+	import AbsentMarker from '$lib/components/absent-marker.svelte';
 	import RewindReport from '$lib/components/rewind-report.svelte';
+	import SetCoverDialog, { type CoverPick } from '$lib/components/set-cover-dialog.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { touchTarget } from '$lib/components/ui/touch-target';
 	import { cn } from '$lib/utils.js';
@@ -19,6 +21,7 @@
 	import BlockSlotDialog, { type Pick } from '$lib/components/block-slot-dialog.svelte';
 	import CalendarSetup from './CalendarSetup.svelte';
 	import {
+		absentSlotLines,
 		availableSlotLines,
 		blockedSlotLines,
 		eventSpans,
@@ -67,7 +70,13 @@
 	// the one shown — a week navigated away from and back to must not reopen the note form by
 	// itself. A form's own reload is not a navigation, so a refused note keeps its dialog and
 	// what was typed in it.
-	afterNavigate(() => (slotNote = null));
+	afterNavigate(() => {
+		slotNote = null;
+		coverPick = null;
+	});
+
+	// The Slot of an Absence a Cover is being set for, asked for in its own dialog.
+	let coverPick = $state<CoverPick | null>(null);
 
 	// The day head's menu acts through one hidden form rather than three: a Blocked Day records
 	// no cause, so every act the menu offers is a single click. `submitForm` writes the action and
@@ -253,6 +262,7 @@
 						{@const blockedDay = blockedByDate.get(date)}
 						{@const dayKind = data.week.days[di].kind}
 						{@const blockedSlots = blockedSlotLines(data.week.cells, date)}
+						{@const absentLines = absentSlotLines(data.week.cells, date)}
 						<th class="rounded-lg pb-1 text-left align-bottom" data-day-kind={dayKind}>
 							<div class="flex items-baseline gap-1.5">
 								<!-- On a phone a head reads a letter and a date ("M 5"), so the five day
@@ -290,8 +300,46 @@
 												<DropdownMenu.Item onSelect={() => dayMenuAct('?/blockDay', 'date', date)}
 													>Block day</DropdownMenu.Item
 												>
+												<DropdownMenu.Item
+													onSelect={() =>
+														submitForm(dayMenuForm, {
+															action: '?/blockDay',
+															fields: { date, absent: 'on' }
+														})}>Block day as Absence</DropdownMenu.Item
+												>
 											{/if}
 										</DropdownMenu.Group>
+										<!-- An Absence's Slots, each offering its Cover. The line survives the
+										     collapse of a day's column, like Unblock below (ADR-0030). -->
+										{#if absentLines.length > 0}
+											<DropdownMenu.Separator />
+											<DropdownMenu.Group>
+												<DropdownMenu.GroupHeading class="text-muted-foreground"
+													>Absent</DropdownMenu.GroupHeading
+												>
+												{#each absentLines as slot (slot.slotId + slot.classId)}
+													{@const cover = slot.cover}
+													{#if cover}
+														<DropdownMenu.Item
+															onSelect={() => dayMenuAct('?/clearCover', 'id', cover.id)}
+															>Clear cover for {slot.classLabel}, P{slot.period}</DropdownMenu.Item
+														>
+													{:else}
+														<DropdownMenu.Item
+															onSelect={() =>
+																(coverPick = {
+																	classId: slot.classId,
+																	classLabel: slot.classLabel,
+																	date,
+																	slotId: slot.slotId,
+																	period: slot.period
+																})}
+															>Set cover for {slot.classLabel}, P{slot.period}…</DropdownMenu.Item
+														>
+													{/if}
+												{/each}
+											</DropdownMenu.Group>
+										{/if}
 										{#if dayKind === 'teaching'}
 											{@const availableSlots = availableSlotLines(data.week.cells, date)}
 											{#if availableSlots.length > 0}
@@ -389,8 +437,32 @@
 													: 'border border-dashed border-muted-foreground/30 hatched'
 											)}
 										>
+											{#if blockedDay?.absent}
+												<AbsentMarker />
+											{/if}
 											<div class="text-xs font-semibold text-muted-foreground">{headline}</div>
 											<div class="text-[11px] text-muted-foreground/70">{under}</div>
+											<!-- An Absence lists each Class and Period it takes with its Cover, since the
+											     panel draws no tiles to carry them. -->
+											{#if blockedDay?.absent}
+												<ul class="mt-2 grid w-full gap-1.5 text-left">
+													{#each absentSlotLines(data.week.cells, date) as line (line.slotId + line.classId)}
+														<li class="rounded-md border bg-background/80 px-2 py-1.5 text-[11px]">
+															<span class="block font-semibold text-foreground"
+																>P{line.period} · {line.classLabel}</span
+															>
+															{#if line.cover}
+																<a
+																	href={resolve(`/lessons/${line.cover.lessonId}`)}
+																	class="underline underline-offset-4">Cover: {line.cover.title}</a
+																>
+															{:else}
+																<span class="text-muted-foreground">No Cover recorded</span>
+															{/if}
+														</li>
+													{/each}
+												</ul>
+											{/if}
 										</div>
 									</td>
 								{/if}
@@ -424,6 +496,9 @@
 											<div
 												class="flex h-full min-h-16 flex-col rounded-lg border border-dashed hatched px-1.5 py-1.5 md:px-2"
 											>
+												{#if cell.absent}
+													<AbsentMarker />
+												{/if}
 												<div class="text-xs font-semibold text-muted-foreground">
 													{cell.classLabel}
 												</div>
@@ -433,6 +508,13 @@
 													<div class="line-clamp-2 text-xs text-muted-foreground/80 italic">
 														{cell.blockedNote ?? 'Blocked'}
 													</div>
+													{#if cell.cover}
+														<a
+															href={resolve(`/lessons/${cell.cover.lessonId}`)}
+															class="line-clamp-1 text-xs font-medium underline underline-offset-4"
+															>{cell.cover.title}</a
+														>
+													{/if}
 												</div>
 											</div>
 										{:else}
@@ -515,6 +597,7 @@
 		     its note, and the binding carries the close back — Escape, the X, a click on the
 		     overlay and a saved note all clear the pick. -->
 		<BlockSlotDialog bind:pick={slotNote} />
+		<SetCoverDialog bind:pick={coverPick} choices={data.coverChoices} />
 	{:else}
 		<p class="text-sm text-muted-foreground">This is not a Teaching Week.</p>
 	{/if}

@@ -85,4 +85,15 @@ describe('the block-Slot dialog', () => {
 		);
 		expect(slots).toEqual(['s1', 's2']);
 	});
+
+	test('is a plain block unless the teacher ticks "I\'m absent"', async () => {
+		const screen = await render(BlockSlotDialog, { pick });
+		const form = document.querySelector<HTMLFormElement>('[role=dialog] form')!;
+		const box = screen.getByRole('checkbox', { name: /I'm absent/ });
+
+		await expect.element(box).not.toBeChecked();
+		expect(new FormData(form).has('absent')).toBe(false);
+		await box.click();
+		expect(new FormData(form).has('absent')).toBe(true);
+	});
 });

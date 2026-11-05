@@ -48,7 +48,7 @@ test.describe.serial('the Calendar setup mode', () => {
 	// landed before the test moves on.
 	async function blockDayFromHeader(day: string) {
 		await openDayMenu(day);
-		await page.getByRole('menuitem', { name: 'Block day' }).click();
+		await page.getByRole('menuitem', { name: 'Block day', exact: true }).click();
 		await expect(dayHead(day)).toHaveAttribute('data-day-kind', 'blocked');
 	}
 
@@ -253,7 +253,7 @@ test.describe.serial('the Calendar setup mode', () => {
 		// headline, and the head keeps its holiday kind through both writes, so the menu
 		// itself is what confirms each one landed before it is undone.
 		await openDayMenu('Tue');
-		await page.getByRole('menuitem', { name: 'Block day' }).click();
+		await page.getByRole('menuitem', { name: 'Block day', exact: true }).click();
 		await openDayMenu('Tue');
 		await expect(page.getByRole('menuitem', { name: 'Unblock day' })).toBeVisible();
 		// A day that is already off offers no "Block one Slot": every Slot on it is unavailable
@@ -265,7 +265,7 @@ test.describe.serial('the Calendar setup mode', () => {
 		await openDayMenu('Tue');
 		await page.getByRole('menuitem', { name: 'Unblock day' }).click();
 		await openDayMenu('Tue');
-		await expect(page.getByRole('menuitem', { name: 'Block day' })).toBeVisible();
+		await expect(page.getByRole('menuitem', { name: 'Block day', exact: true })).toBeVisible();
 		await page.keyboard.press('Escape');
 
 		// A Blocked Day with a note, added from setup mode: the panel's headline is the note

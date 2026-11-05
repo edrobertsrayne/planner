@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import type { CalendarCell } from '$lib/server/planner';
 import {
 	availableSlotLines,
+	absentSlotLines,
 	blockedSlotLines,
 	PERIODS,
 	eventSpans,
@@ -57,6 +58,8 @@ function blockedCell(
 			blockedNote: string | null;
 			blockedDayId: string | null;
 			blockedSlotId: string | null;
+			absent: boolean;
+			cover: { id: string; lessonId: string; title: string } | null;
 		}
 	> = {}
 ): CalendarCell {
@@ -66,6 +69,8 @@ function blockedCell(
 		blockedNote: null,
 		blockedDayId: null,
 		blockedSlotId: null,
+		absent: false,
+		cover: null,
 		...overrides
 	};
 }
@@ -222,6 +227,47 @@ describe('blockedSlotLines', () => {
 			],
 			'2026-08-31'
 		);
+		expect(lines.map((l) => l.period)).toEqual([2, 4]);
+	});
+});
+
+describe('absentSlotLines', () => {
+	test('an absent blocked cell yields the line Set cover needs, with its Cover', () => {
+		const cover = { id: 'v1', lessonId: 'l1', title: 'Silent reading' };
+
+		expect(
+			absentSlotLines([blockedCell({ absent: true, slotIds: ['s1'], cover })], '2026-08-31')
+		).toEqual([
+			{
+				slotId: 's1',
+				period: 1,
+				classId: 'c1',
+				classLabel: '9A/Ph1',
+				tone: 0,
+				room: null,
+				cover
+			}
+		]);
+	});
+
+	test('a closure, a lesson and another date yield nothing', () => {
+		expect(
+			absentSlotLines(
+				[blockedCell(), lessonCell(), blockedCell({ absent: true, date: '2026-09-01' })],
+				'2026-08-31'
+			)
+		).toEqual([]);
+	});
+
+	test('the lines read in Period order across Classes', () => {
+		const lines = absentSlotLines(
+			[
+				blockedCell({ absent: true, periodFrom: 4, slotIds: ['s4'] }),
+				blockedCell({ absent: true, periodFrom: 2, slotIds: ['s2'], classLabel: '9C/Sc1' })
+			],
+			'2026-08-31'
+		);
+
 		expect(lines.map((l) => l.period)).toEqual([2, 4]);
 	});
 });

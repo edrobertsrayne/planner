@@ -156,6 +156,17 @@ export function editLesson(
 	const moves = topicId !== undefined && topicId !== row.topicId;
 	if (moves && topicId !== null) {
 		requireRow(db, schema.topic, topicId, 'Topic not found.');
+		const [coveredBy] = db
+			.select({ id: schema.cover.id })
+			.from(schema.cover)
+			.where(eq(schema.cover.lessonId, id))
+			.all();
+		if (coveredBy) {
+			throw new Refused(
+				'conflict',
+				'A Cover names this Lesson, so it cannot be filed into a Topic. Remove the Cover first.'
+			);
+		}
 		next.position = endOfTopic(db, topicId);
 	}
 	if (moves) next.topicId = topicId;
@@ -244,6 +255,18 @@ export function deleteLesson(
 		throw new Refused(
 			'conflict',
 			'A Placement names this Lesson, so it cannot be removed. Remove the Placement first.'
+		);
+	}
+
+	const [coveredBy] = db
+		.select({ id: schema.cover.id })
+		.from(schema.cover)
+		.where(eq(schema.cover.lessonId, id))
+		.all();
+	if (coveredBy) {
+		throw new Refused(
+			'conflict',
+			'A Cover names this Lesson, so it cannot be removed. Remove the Cover first.'
 		);
 	}
 

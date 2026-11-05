@@ -26,6 +26,7 @@ import {
 	teachingWeeks,
 	placeLesson,
 	removePlacement,
+	setCover,
 	unblockDay
 } from './index';
 import * as schema from '../db/schema';
@@ -160,7 +161,9 @@ describe('the Agenda', () => {
 
 		const { rows, blockedDays } = agenda(db, { today: '2026-09-03', horizonDays: 7 });
 
-		expect(blockedDays).toEqual([{ date: '2026-09-07', note: 'Snow day' }]);
+		expect(blockedDays).toEqual([
+			{ date: '2026-09-07', note: 'Snow day', absent: false, lines: [] }
+		]);
 		expect(rows.some((r) => r.date === '2026-09-07')).toBe(false);
 		// The fixture's INSET days fall beyond this window.
 		expect(blockedDays.some((d) => d.date === '2026-11-26')).toBe(false);
@@ -303,7 +306,7 @@ describe('the Agenda', () => {
 		blockDay(db, { date: '2026-09-03', note: 'Snow', today: '2026-09-03' });
 
 		const { rows, blockedDays } = agenda(db, { today: '2026-09-03', horizonDays: 1 });
-		expect(blockedDays).toEqual([{ date: '2026-09-03', note: 'Snow' }]);
+		expect(blockedDays).toEqual([{ date: '2026-09-03', note: 'Snow', absent: false, lines: [] }]);
 		expect(rows.filter((r) => r.date === '2026-09-03')).toEqual([]);
 
 		// Taking the day back leaves the earlier Blocked Slot where it was.
@@ -321,11 +324,35 @@ describe('the Agenda look-back', () => {
 		blockDay(db, { date: '2026-09-07', note: 'Snow day', today: '2026-09-03' });
 
 		expect(agendaLookBackBlockedDays(db, { today: '2026-09-10' })).toEqual([
-			{ date: '2026-09-07', note: 'Snow day' }
+			{ date: '2026-09-07', note: 'Snow day', absent: false, lines: [] }
 		]);
 		// Eight days back is out of the window, and today belongs to the days ahead.
 		expect(agendaLookBackBlockedDays(db, { today: '2026-09-15' })).toEqual([]);
 		expect(agendaLookBackBlockedDays(db, { today: '2026-09-07' })).toEqual([]);
+	});
+
+	test('a past Absence keeps its lines and the Cover recorded for them (ADR-0030)', () => {
+		const { db, classA } = setUp();
+		blockDay(db, { date: '2026-09-08', note: 'Ill', absent: true, today: '2026-09-03' });
+		const slot = db
+			.select()
+			.from(schema.slot)
+			.where(eq(schema.slot.classId, classA.id))
+			.all()
+			.find((s) => s.week === 'B' && s.day === 2)!;
+		setCover(db, {
+			classId: classA.id,
+			date: '2026-09-08',
+			slotId: slot.id,
+			title: 'Silent reading'
+		});
+
+		const [day] = agendaLookBackBlockedDays(db, { today: '2026-09-10' });
+
+		expect(day).toMatchObject({ absent: true });
+		expect(day.lines.map((l) => [l.classLabel, l.cover?.title])).toEqual([
+			['9B/Sc1', 'Silent reading']
+		]);
 	});
 
 	// classA's first Sessions: Thu 2026-09-03 P5 and P6 (Week A), Tue 2026-09-08 P2 and
@@ -552,7 +579,7 @@ describe('the Calendar', () => {
 		const week = calendarWeek(db, { weekCommencing: '2026-08-31', today: '2026-09-01' });
 
 		expect(week?.blockedDays).toEqual([
-			{ id: expect.any(String), date: '2026-09-03', note: 'Snow day' }
+			{ id: expect.any(String), date: '2026-09-03', note: 'Snow day', absent: false }
 		]);
 		const blocked = week?.cells.find((c) => c.date === '2026-09-03');
 		expect(blocked).toMatchObject({ blockedDayId: week?.blockedDays[0].id });

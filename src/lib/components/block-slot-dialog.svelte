@@ -20,6 +20,7 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
+	import AbsentField from '$lib/components/absent-field.svelte';
 
 	// The note form for blocking one Slot, opened from the Calendar's day menu or from an Agenda row. A dialog, not a popover
 	// over the tile, so it works by touch as by mouse (issue #345) and cannot be clipped by the
@@ -87,6 +88,7 @@
 				{/each}
 			{/if}
 			<Input name="note" aria-label={label} required placeholder="Why (required)" />
+			<AbsentField hint="Leave it off for a trip, a fire drill or an assembly." />
 			{#if viewed && viewed.lessonTitle !== undefined}
 				<p class="mt-2 text-xs text-muted-foreground">
 					{#if viewed.lessonTitle}

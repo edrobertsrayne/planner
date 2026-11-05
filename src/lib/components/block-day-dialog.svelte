@@ -5,13 +5,13 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
+	import AbsentField from '$lib/components/absent-field.svelte';
 	import { formatWeekday } from '$lib/date';
 
 	// The form for blocking a whole day, opened from an Agenda day heading. Mounted once and opened
 	// through the bound date, as BlockSlotDialog is: `date` null is closed. Unlike a Blocked Slot a
-	// Blocked Day's note is optional, because the cause is not recorded: INSET, snow and illness
-	// all read the same. `lessons` is the page's count of the day's rows, so the dialog can say how
-	// much moves.
+	// Blocked Day's note is optional. The one cause recorded is whether it is an Absence (ADR-0030).
+	// `lessons` is the page's count of the day's rows, so the dialog can say how much moves.
 	let { date = $bindable(null), lessons }: { date: string | null; lessons: number } = $props();
 
 	// The date the dialog last opened on, kept only for the close animation.
@@ -57,7 +57,8 @@
 				}}
 		>
 			{#if viewed}<input type="hidden" name="date" value={viewed} />{/if}
-			<Input name="note" aria-label="{label}: note" placeholder="Note (optional)" />
+			<AbsentField hint="Each Class this day takes will offer a Set cover button." />
+			<Input class="mt-3" name="note" aria-label="{label}: note" placeholder="Note (optional)" />
 			{#if error}
 				<p role="alert" class="mt-1.5 text-xs text-destructive">{error}</p>
 			{/if}

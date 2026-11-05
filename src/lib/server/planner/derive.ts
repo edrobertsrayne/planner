@@ -74,7 +74,8 @@ export function loadCalendar(db: Db): Calendar {
 		.select({
 			id: schema.blockedDay.id,
 			date: schema.blockedDay.date,
-			note: schema.blockedDay.note
+			note: schema.blockedDay.note,
+			absent: schema.blockedDay.absent
 		})
 		.from(schema.blockedDay)
 		.all();
@@ -85,7 +86,8 @@ export function loadCalendar(db: Db): Calendar {
 			classId: schema.blockedSlot.classId,
 			date: schema.blockedSlot.date,
 			slotId: schema.blockedSlot.slotId,
-			note: schema.blockedSlot.note
+			note: schema.blockedSlot.note,
+			absent: schema.blockedSlot.absent
 		})
 		.from(schema.blockedSlot)
 		.all();

@@ -38,16 +38,16 @@ export function tagsIn(rows: readonly TaggedRow[]): { name: string; count: numbe
 // The Agenda's stream (issue #34): its teaching days, its Blocked Days and the School Holidays its
 // window touches, in date order, so the teacher sees what is removed as well as what is taught. A
 // holiday sits at its first day, so one already under way leads the stream.
-export type AgendaItem<Row> =
+export type AgendaItem<Row, Blocked extends { date: string }> =
 	| ({ kind: 'day' } & AgendaDay<Row>)
-	| { kind: 'blocked'; date: string; note: string | null }
+	| ({ kind: 'blocked' } & Blocked)
 	| { kind: 'holiday'; date: string; ends: string };
 
-export function agendaStream<Row>(
+export function agendaStream<Row, Blocked extends { date: string }>(
 	days: readonly AgendaDay<Row>[],
-	blockedDays: readonly { date: string; note: string | null }[],
+	blockedDays: readonly Blocked[],
 	holidays: readonly { starts: string; ends: string }[]
-): AgendaItem<Row>[] {
+): AgendaItem<Row, Blocked>[] {
 	return [
 		...days.map((day) => ({ kind: 'day' as const, ...day })),
 		...blockedDays.map((day) => ({ kind: 'blocked' as const, ...day })),

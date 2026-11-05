@@ -1,10 +1,14 @@
 import { error } from '@sveltejs/kit';
 import { today } from '$lib/date';
-import { db } from '$lib/server/db/client';
+import { DATABASE_URL, db } from '$lib/server/db/client';
 import { lessonActions } from '$lib/server/lesson-actions';
+import { formAction, trimmed } from '$lib/server/form';
 import {
 	classDetail,
+	attachmentsDir,
 	classesTaughtLesson,
+	coverDetail,
+	discardBlankCover,
 	lessonDetail,
 	lessonsOf,
 	listCourses,
@@ -27,8 +31,13 @@ export const load: PageServerLoad = ({ params, url }) => {
 	const sequence = cls ? sequenceLessonIds(db, cls.id) : [];
 	const inSequence = sequence.includes(lesson.id);
 
+	// Set cover opens a new Lesson here with its Cover in the address, so Back can take a blank one
+	// back (ADR-0030). A Cover that names another Lesson, or none, is no banner.
+	const cover = coverDetail(db, url.searchParams.get('cover') ?? '');
+
 	return {
 		lesson,
+		cover: cover?.lessonId === lesson.id ? cover : null,
 		// The Class whose Sequence the editor steps through, or null for Topic order.
 		stepClass: inSequence ? { id: cls.id, label: cls.label } : null,
 		// The Lessons to step through, for "Lesson n of N". A Standalone Lesson reached without a Class
@@ -45,5 +54,14 @@ export const load: PageServerLoad = ({ params, url }) => {
 };
 
 export const actions: Actions = {
-	...lessonActions
+	...lessonActions,
+
+	// Back from a new Cover's Lesson: blank, it is taken back with its Cover; written, it stays.
+	discardCover: formAction((data) => ({
+		discarded: discardBlankCover(db, {
+			coverId: trimmed(data, 'coverId'),
+			dir: attachmentsDir(DATABASE_URL),
+			today: today()
+		})
+	}))
 };

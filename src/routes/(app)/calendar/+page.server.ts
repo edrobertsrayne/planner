@@ -4,6 +4,8 @@ import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
 import { formAction } from '$lib/server/form';
 import {
+	clearCoverAction,
+	setCoverAction,
 	blockDayAction,
 	blockSlotAction,
 	unblockDayAction,
@@ -11,7 +13,7 @@ import {
 } from '$lib/server/block-actions';
 import { asc } from 'drizzle-orm';
 import * as schema from '$lib/server/db/schema';
-import { calendarWeek, replaceTerms, teachingWeeks } from '$lib/server/planner';
+import { calendarWeek, coverChoices, replaceTerms, teachingWeeks } from '$lib/server/planner';
 import type { Actions, PageServerLoad } from './$types';
 
 // The ribbon shows the selected week and two Teaching Weeks either side (issue #293).
@@ -46,7 +48,18 @@ export const load: PageServerLoad = ({ url }) => {
 		.orderBy(asc(schema.blockedDay.date))
 		.all();
 
-	return { selected, week, ribbon, prev, next, current, terms, blockedDays, today: today() };
+	return {
+		selected,
+		week,
+		ribbon,
+		prev,
+		next,
+		current,
+		terms,
+		blockedDays,
+		coverChoices: coverChoices(db),
+		today: today()
+	};
 };
 
 export const actions: Actions = {
@@ -57,6 +70,10 @@ export const actions: Actions = {
 	blockSlot: blockSlotAction,
 
 	unblockSlot: unblockSlotAction,
+
+	setCover: setCoverAction,
+
+	clearCover: clearCoverAction,
 
 	// The whole year, replaced as one document through the Terms seam — the seam owns every
 	// rule, so the action validates nothing of its own. The six rows are read in year position,

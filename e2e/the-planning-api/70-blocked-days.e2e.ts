@@ -39,7 +39,7 @@ test.describe.serial('the Blocked Day endpoints', () => {
 		});
 		expect(created.status()).toBe(201);
 		const report = await created.json();
-		expect(report.blockedDay).toEqual({ date: inset, note: null });
+		expect(report.blockedDay).toEqual({ date: inset, note: null, absent: false });
 		expect(report.report).toEqual({ placementsMoved: [] });
 
 		// A weekend is a 400 where an already-blocked date is a 409 — the two must be
@@ -72,15 +72,37 @@ test.describe.serial('the Blocked Day endpoints', () => {
 		expect(withExtra.status()).toBe(201);
 		expect((await withExtra.json()).blockedDay).toEqual({
 			date: bankHoliday,
-			note: 'Bank holiday'
+			note: 'Bank holiday',
+			absent: false
 		});
+
+		// An Absence is a Blocked Day with `absent` set; only a boolean says so.
+		const absentDay = isoDate(103); // a Monday
+		const absent = await request.post('/api/blocked-days', {
+			headers: BEARER(token),
+			data: { date: absentDay, note: 'Ill', absent: true }
+		});
+		expect(absent.status()).toBe(201);
+		expect((await absent.json()).blockedDay).toEqual({
+			date: absentDay,
+			note: 'Ill',
+			absent: true
+		});
+
+		const notBoolean = await request.post('/api/blocked-days', {
+			headers: BEARER(token),
+			data: { date: isoDate(104), absent: 'yes' }
+		});
+		expect(notBoolean.status()).toBe(400);
+		expect(await notBoolean.json()).toEqual({ error: 'The "absent" field must be a boolean.' });
+		await request.delete(`/api/blocked-days/${absentDay}`, { headers: BEARER(token) });
 
 		const listed = await request.get('/api/blocked-days', { headers: BEARER(token) });
 		expect(listed.status()).toBe(200);
 		const list = (await listed.json()).blockedDays;
 		expect(list.map((d: { date: string }) => d.date)).toEqual([inset, bankHoliday]);
 		for (const day of list) {
-			expect(keysOf(day)).toEqual(['date', 'note']);
+			expect(keysOf(day)).toEqual(['absent', 'date', 'note']);
 		}
 
 		// A date that is not blocked is a 404. A blocked one answers 200 with the report in the

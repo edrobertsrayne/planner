@@ -196,6 +196,7 @@ export function deleteClass(
 		db.delete(schema.session).where(eq(schema.session.classId, id)).run();
 		db.delete(schema.placement).where(eq(schema.placement.classId, id)).run();
 		db.delete(schema.blockedSlot).where(eq(schema.blockedSlot.classId, id)).run();
+		db.delete(schema.cover).where(eq(schema.cover.classId, id)).run();
 		db.delete(schema.slot).where(eq(schema.slot.classId, id)).run();
 		db.delete(schema.classLesson).where(eq(schema.classLesson.classId, id)).run();
 		db.delete(schema.readiness).where(eq(schema.readiness.classId, id)).run();

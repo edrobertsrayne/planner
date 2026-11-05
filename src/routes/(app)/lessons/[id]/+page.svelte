@@ -31,7 +31,9 @@
 	import LinkRow from './LinkRow.svelte';
 	import { onMount } from 'svelte';
 	import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
+	import AbsentMarker from '$lib/components/absent-marker.svelte';
 	import RewindReport from '$lib/components/rewind-report.svelte';
+	import { formatWeekday } from '$lib/date';
 	import { createLessonSaver } from '$lib/client/lesson-save';
 	import type { PageProps } from './$types';
 
@@ -44,6 +46,21 @@
 			? courseHref(data.lesson.course.id, data.lesson.topic.id)
 			: resolve('/planning')
 	);
+
+	// Back from a new Cover's Lesson takes the Lesson and its Cover back when nothing was written
+	// (ADR-0030). Blank is judged on the form as it stands, so a plan typed a moment ago and not yet
+	// saved is never taken for nothing; the seam judges the saved Lesson again before it deletes.
+	async function leave() {
+		const cover = data.cover;
+		if (cover && lessonForm && !String(new FormData(lessonForm).get('body') ?? '').trim()) {
+			await fetch('?/discardCover', {
+				method: 'POST',
+				body: new URLSearchParams({ coverId: cover.id }),
+				headers: { 'x-sveltekit-action': 'true' }
+			});
+		}
+		await back();
+	}
 
 	// Title and plan save on blur. Blurring the focused field before every move off this page, Back,
 	// the breadcrumb and the sidebar included, commits an edit Ed has not clicked away from yet.
@@ -177,7 +194,7 @@
 
 <div class="mx-auto max-w-6xl px-6 pt-4 pb-24">
 	<div class="flex items-center gap-2">
-		<Button variant="ghost" size="sm" class="-ml-3" onclick={back}>
+		<Button variant="ghost" size="sm" class="-ml-3" onclick={leave}>
 			<ArrowLeftIcon data-icon="inline-start" />
 			Back
 		</Button>
@@ -226,6 +243,16 @@
 		<p role="alert" class="mt-3 text-xs text-destructive">{form.error}</p>
 	{/if}
 	<RewindReport report={form?.report} />
+
+	{#if data.cover}
+		<p class="mt-3 flex items-center gap-2.5 rounded-xl border bg-muted px-4 py-2.5 text-sm">
+			<AbsentMarker />
+			<span>
+				<span class="font-medium">Cover</span> for {data.cover.classLabel},
+				{formatWeekday(data.cover.date)}, P{data.cover.period}
+			</span>
+		</p>
+	{/if}
 
 	<!-- Stepping reuses this page, so everything seeded from the Lesson starts afresh per Lesson. -->
 	{#key lesson.id}

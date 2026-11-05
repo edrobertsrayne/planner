@@ -137,30 +137,38 @@ describe('timetabledSlots', () => {
 
 	test('names what removes an occasion: a Blocked Day, or a Blocked Slot, or neither', () => {
 		const cal = calendarOf({
-			blockedDays: [{ id: 'b1', date: DAYS[2], note: 'INSET' }],
-			blockedSlots: [{ id: 'bs1', classId: 'c1', date: DAYS[3], slotId: 'd3p2', note: 'Trip' }]
+			blockedDays: [{ id: 'b1', date: DAYS[2], note: 'INSET', absent: false }],
+			blockedSlots: [
+				{ id: 'bs1', classId: 'c1', date: DAYS[3], slotId: 'd3p2', note: 'Trip', absent: false }
+			]
 		});
 
-		expect(at(cal, DAYS[2], 1).removedBy).toEqual([{ kind: 'day', id: 'b1', note: 'INSET' }]);
-		expect(at(cal, DAYS[3], 2).removedBy).toEqual([{ kind: 'slot', id: 'bs1', note: 'Trip' }]);
+		expect(at(cal, DAYS[2], 1).removedBy).toEqual([
+			{ kind: 'day', id: 'b1', note: 'INSET', absent: false }
+		]);
+		expect(at(cal, DAYS[3], 2).removedBy).toEqual([
+			{ kind: 'slot', id: 'bs1', note: 'Trip', absent: false }
+		]);
 		expect(at(cal, DAYS[3], 1).removedBy).toEqual([]);
 	});
 
 	test('keeps every reason, so a Blocked Slot survives a Blocked Day and a date outside every Term', () => {
 		const cal = calendarOf({
 			terms: [{ opens: DAYS[3], closes: '2026-09-30' }],
-			blockedDays: [{ id: 'b1', date: DAYS[1], note: null }],
-			blockedSlots: [{ id: 'bs1', classId: 'c1', date: DAYS[1], slotId: 'd1p2', note: 'Trip' }]
+			blockedDays: [{ id: 'b1', date: DAYS[1], note: null, absent: false }],
+			blockedSlots: [
+				{ id: 'bs1', classId: 'c1', date: DAYS[1], slotId: 'd1p2', note: 'Trip', absent: false }
+			]
 		});
 
 		expect(at(cal, DAYS[1], 1).removedBy).toEqual([
 			{ kind: 'outside-term' },
-			{ kind: 'day', id: 'b1', note: null }
+			{ kind: 'day', id: 'b1', note: null, absent: false }
 		]);
 		expect(at(cal, DAYS[1], 2).removedBy).toEqual([
 			{ kind: 'outside-term' },
-			{ kind: 'day', id: 'b1', note: null },
-			{ kind: 'slot', id: 'bs1', note: 'Trip' }
+			{ kind: 'day', id: 'b1', note: null, absent: false },
+			{ kind: 'slot', id: 'bs1', note: 'Trip', absent: false }
 		]);
 	});
 
@@ -284,7 +292,9 @@ describe('schedule with Placements', () => {
 
 	test('a Placement whose anchor Slot is later Blocked shift-rights past it', () => {
 		const cal = calendarOf({
-			blockedSlots: [{ id: 'bs1', classId: 'c1', date: DAYS[1], slotId: 'd1p1', note: null }]
+			blockedSlots: [
+				{ id: 'bs1', classId: 'c1', date: DAYS[1], slotId: 'd1p1', note: null, absent: false }
+			]
 		});
 		const result = scheduleOf(cal, [
 			{
@@ -305,7 +315,9 @@ describe('schedule with Placements', () => {
 
 	test("a Blocked Slot later in a Placement run only moves that Placement's own later parts", () => {
 		const cal = calendarOf({
-			blockedSlots: [{ id: 'bs1', classId: 'c1', date: DAYS[1], slotId: 'd1p2', note: null }]
+			blockedSlots: [
+				{ id: 'bs1', classId: 'c1', date: DAYS[1], slotId: 'd1p2', note: null, absent: false }
+			]
 		});
 		const result = scheduleOf(cal, [
 			{
@@ -404,7 +416,9 @@ describe('schedule with Placements', () => {
 	});
 
 	test('a Placement with no Available Slot left at or after its anchor is reported stranded, not silently dropped', () => {
-		const cal = calendarOf({ blockedDays: [{ id: 'b1', date: DAYS[5], note: null }] });
+		const cal = calendarOf({
+			blockedDays: [{ id: 'b1', date: DAYS[5], note: null, absent: false }]
+		});
 		const result = scheduleOf(cal, [
 			{
 				id: 'p1',
@@ -432,10 +446,10 @@ describe('schedule with Placements', () => {
 	test('a Length-3 Placement with only one Available Slot left at its anchor reports the unclaimed tail as unplaced, not stranded', () => {
 		const cal = calendarOf({
 			blockedDays: [
-				{ id: 'b1', date: DAYS[1], note: null },
-				{ id: 'b2', date: DAYS[2], note: null },
-				{ id: 'b3', date: DAYS[3], note: null },
-				{ id: 'b4', date: DAYS[4], note: null }
+				{ id: 'b1', date: DAYS[1], note: null, absent: false },
+				{ id: 'b2', date: DAYS[2], note: null, absent: false },
+				{ id: 'b3', date: DAYS[3], note: null, absent: false },
+				{ id: 'b4', date: DAYS[4], note: null, absent: false }
 			]
 		});
 		const result = scheduleOf(cal, [

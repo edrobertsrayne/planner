@@ -2,6 +2,8 @@ import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
 import { formAction, trimmed } from '$lib/server/form';
 import {
+	clearCoverAction,
+	setCoverAction,
 	blockDayAction,
 	blockSlotAction,
 	unblockDayAction,
@@ -12,6 +14,7 @@ import {
 	agendaLookBack,
 	agendaLookBackBlockedDays,
 	agendaLookBackEvents,
+	coverChoices,
 	setReadiness
 } from '$lib/server/planner';
 import { parseHorizon } from './agenda-horizons';
@@ -32,6 +35,7 @@ export const load: PageServerLoad = ({ url }) => {
 		tag: url.searchParams.get('tag') || null,
 		lookBackOn,
 		...ahead,
+		coverChoices: coverChoices(db),
 		lookBack: lookBackOn ? agendaLookBack(db, { today: today() }) : [],
 		lookBackBlockedDays: lookBackOn ? agendaLookBackBlockedDays(db, { today: today() }) : [],
 		lookBackEvents: lookBackOn ? agendaLookBackEvents(db, { today: today() }) : []
@@ -50,5 +54,9 @@ export const actions: Actions = {
 
 	blockSlot: blockSlotAction,
 
-	unblockSlot: unblockSlotAction
+	unblockSlot: unblockSlotAction,
+
+	setCover: setCoverAction,
+
+	clearCover: clearCoverAction
 };

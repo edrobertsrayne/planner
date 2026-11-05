@@ -237,16 +237,35 @@ then takes visual precedence in the Calendar.
 _Avoid_: Break, vacation, closure
 
 **Blocked Day**:
-A date on which none of this teacher's Classes are taught, whatever the cause — an INSET day, a
-bank holiday, illness, snow. The cause is not recorded, because nothing in the planner behaves
-differently according to it. Blocking a day blocks every Slot on it and skips every Event on it.
-_Avoid_: Closure, absence, holiday, cancellation, non-pupil day, leave
+A date on which none of this teacher's Classes are taught — an INSET day, a bank holiday, snow, or
+the teacher's own Absence. Closure, event or Absence, the schedule behaves the same; the only cause
+recorded is whether it is an Absence, because that is what needs Cover. Blocking a day blocks every
+Slot on it and skips every Event on it.
+_Avoid_: Closure, holiday, cancellation, non-pupil day, leave
 
 **Blocked Slot**:
 One Slot on one date on which one Class is not taught, though the school is open and other Classes
-are — a trip, a cover lesson, an assembly, a fire drill. Unlike a Blocked Day it may carry free
-text, because a hole in the week is otherwise unexplainable months later.
+are — a trip, an assembly, a fire drill, a meeting or appointment of the teacher's. Unlike a
+Blocked Day it needs free text, because a hole in the week is otherwise unexplainable months later.
+It may be an Absence.
 _Avoid_: Cancellation, skip, gap, missed lesson
+
+**Absence**:
+A Blocked Day or Blocked Slot that the teacher marks as their own absence — illness, a meeting, an
+appointment — rather than a closure of the school. The Class is still in school, so someone covers
+it. Scheduling is untouched: an Absence is Shift-right like any other block. An INSET day, snow or
+a bank holiday is not an Absence. Whole day or a single Slot, one date at a time; there is no
+range.
+_Avoid_: Leave, sickness, cover (that names the work set, below)
+
+**Cover**:
+The work set for one Class in one Slot of an Absence, recorded as a Standalone Lesson — written in
+the Lesson editor, and either new or an existing Lesson, so a standard cover task can serve several
+Classes. Optional: an Absence with no Cover is not a fault and nothing nags about it. A Cover is not
+in the Class's Sequence and is not a Placement; it moves no Lesson, because the displaced Lesson has
+already shifted right. It belongs to the occasion — Class, date and Slot — and ends with the
+Absence, leaving the Lesson standing. It is kept out of Planning.
+_Avoid_: Cover lesson, cover work, supply lesson
 
 **Available Slot**:
 A Slot on a date that falls within a Term, lies within the dates that Slot holds, and is neither a
@@ -343,42 +362,43 @@ The chronological stream of upcoming Sessions across every Class, grouped by day
 horizon the teacher chooses: a number of Term days, or **All**, to the end of the last Term. A
 School Holiday is skipped, not counted, so One Week on a School Holiday shows the next Term's first
 week. Every School Holiday the window touches shows as one card at its place in the stream, naming
-its first and last day. A Blocked Day shows as a panel under its day heading, with its note. A
-Blocked Slot shows as a row of its own in its position, with its note; it opens nothing and carries
-neither Plan nor Ready tick. The Agenda is where a Slot or a day is blocked and unblocked: from a
-tablet up every upcoming row has a Block control that asks for the note, and a Blocked Slot row has
-an Unblock control; every day heading has a Block day control whose note is optional, and a Blocked
-Day panel has an Unblock day control. A past row and a past day have none. All three are told apart
-from teaching by a step in shade, never a hue, and the Tag filter hides the Blocked Slot rows as it
-hides Open Slots. An Event shows as a row in its position, Before school at the head of its day and
-After school at the foot. One Event across adjacent Periods is one row over them ("P1–P2"), not
-one per Period, since its note belongs to the Event and the date. It carries its Event note, or an
-Add plan button when that date has none.
-It carries no Ready tick, because Readiness belongs to a Lesson, and it opens the Event page on that
-date. It is told apart from teaching by the same step in shade, a Blocked Day or a School Holiday
-shows none, and the Tag filter hides Event rows as it hides Open Slots. Where the
-planner opens. The teacher can also turn on the look-back: the Sessions of the past seven days,
-shown above today, grouped by day, oldest first, with the Blocked Days of those seven days as
-panels under their day headings. The look-back is off by default and read-only. Its
-span is fixed: the horizon changes only the days ahead. The look-back obeys the Tag filter the same
-way the days ahead do.
-A past row carries no Ready tick. It opens the Session page on its occasion, where the teacher
-reads the note. The past days are told apart from the days ahead by a step in shade, never a hue.
-An Open Slot appears as an ordinary row in its own position, marked as carrying no Lesson, because
-the teacher is teaching that Period and an Agenda that omitted it would report a free one — it
-carries no Ready tick, since there is no (Lesson, Class) pairing to key one on. Every other
-upcoming row carries the Ready tick for its Class from a tablet up, and this is the only screen on
-which Readiness is written; a row can be ticked only while it is on screen, so the ticks reach only
-as far as the chosen horizon, and no past day can be ticked. A Continuation's two rows share one Readiness
-record, so ticking either moves both. The Agenda can be narrowed to one Tag with a row of Tag chips
-under the heading, the same control as the Class chips on Planning: while a Tag filter is on, it
-shows only the Lessons with that Tag and hides Open Slots, in the look-back and in the days ahead.
-The Agenda is one column at every size. On a phone it is the main screen, so an Open Slot's Plan
-button and the day's Block control show without a hover, and that control names itself. A phone
-reads the plan rather than editing it, so it carries no Ready tick, no "Ready to teach?" heading and
-no Block or Unblock on a row, only a day's Block day and Unblock day, for the day the teacher is off
-sick. On a phone the page heading is out of
-sight, because the top bar names the screen; a screen reader still reads it.
+its first and last day. A Blocked Day shows as a panel under its day heading, with its note; an
+Absence panel also lists each Class and Period it takes, each with its Cover or a Set cover button.
+A Blocked Slot shows as a row of its own in its position, with its note; it opens nothing and
+carries neither Plan nor Ready tick. An Absence is told apart by a plain "Absent" marker, and its
+Cover is a link to the Lesson editor; with no Cover it shows a Set cover button, never a warning.
+The look-back shows the Cover an Absence had, as a link. The Agenda is where a Slot or a day is
+blocked and unblocked: from a tablet up every upcoming row has a Block control that asks for the
+note, and a Blocked Slot row has an Unblock control; every day heading has a Block day control whose
+note is optional, and a Blocked Day panel has an Unblock day control. A past row and a past day have
+none. All three are told apart from teaching by a step in shade, never a hue, and the Tag filter
+hides the Blocked Slot rows as it hides Open Slots. An Event shows as a row in its position, Before
+school at the head of its day and After school at the foot. One Event across adjacent Periods is one
+row over them ("P1–P2"), not one per Period, since its note belongs to the Event and the date. It
+carries its Event note, or an Add plan button when that date has none. It carries no Ready tick,
+because Readiness belongs to a Lesson, and it opens the Event page on that date. It is told apart
+from teaching by the same step in shade, a Blocked Day or a School Holiday shows none, and the Tag
+filter hides Event rows as it hides Open Slots. Where the planner opens. The teacher can also turn
+on the look-back: the Sessions of the past seven days, shown above today, grouped by day, oldest
+first, with the Blocked Days of those seven days as panels under their day headings. The look-back
+is off by default and read-only. Its span is fixed: the horizon changes only the days ahead. The
+look-back obeys the Tag filter the same way the days ahead do. A past row carries no Ready tick. It
+opens the Session page on its occasion, where the teacher reads the note. The past days are told
+apart from the days ahead by a step in shade, never a hue. An Open Slot appears as an ordinary row
+in its own position, marked as carrying no Lesson, because the teacher is teaching that Period and
+an Agenda that omitted it would report a free one — it carries no Ready tick, since there is no
+(Lesson, Class) pairing to key one on. Every other upcoming row carries the Ready tick for its Class
+from a tablet up, and this is the only screen on which Readiness is written; a row can be ticked
+only while it is on screen, so the ticks reach only as far as the chosen horizon, and no past day
+can be ticked. A Continuation's two rows share one Readiness record, so ticking either moves both.
+The Agenda can be narrowed to one Tag with a row of Tag chips under the heading, the same control as
+the Class chips on Planning: while a Tag filter is on, it shows only the Lessons with that Tag and
+hides Open Slots, in the look-back and in the days ahead. The Agenda is one column at every size. On
+a phone it is the main screen, so an Open Slot's Plan button and the day's Block control show
+without a hover, and that control names itself. A phone reads the plan rather than editing it, so it
+carries no Ready tick, no "Ready to teach?" heading and no Block or Unblock on a row, only a day's
+Block day and Unblock day, for the day the teacher is off sick. On a phone the page heading is out
+of sight, because the top bar names the screen; a screen reader still reads it.
 
 **Calendar**:
 One Teaching Week as a grid of Periods against days, showing which Class is taught when and what
@@ -398,8 +418,10 @@ empty. A day with no teaching — a Blocked Day or a
 School Holiday — drops its six Periods, its two bands and its Events. The day reads as one panel
 spanning the column. The panel is
 told apart from an empty Period by a step in shade, never a hue. No block or unblock sits on a tile.
-Every block and unblock on a day starts in that day's menu. The menu offers Block day or Unblock
-day. It offers a Block one Slot line for each Slot the day's tiles cover. It offers an Unblock line
+A tile or panel of an Absence carries the same "Absent" marker, and its Cover as a link. Every block
+and unblock on a day starts in that day's menu. The menu offers Block day, Block day as
+Absence or Unblock day. It offers a Set cover or Clear cover line for each Slot an Absence takes. It
+offers a Block one Slot line for each Slot the day's tiles cover. It offers an Unblock line
 for each Blocked Slot on it. A Blocked Slot's Unblock line survives the collapse of its column. A
 Blocked Slot recorded on a School Holiday is still a removal. The column reads as the School
 Holiday's panel. The Blocked Slot's Unblock line sits in that day's menu, like every other act on

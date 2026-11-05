@@ -228,7 +228,7 @@ test.describe.serial('Placing and removing a Lesson', () => {
 		// Blocking the Placement's own day is the one input that can force it off its anchor
 		// with no note to carry the report — placementsMoved exists precisely for this (ADR-0022).
 		await openDayMenu('Tue');
-		await page.getByRole('menuitem', { name: 'Block day' }).click();
+		await page.getByRole('menuitem', { name: 'Block day', exact: true }).click();
 
 		await expect(
 			page.getByText('A Placement moved because its Slot stopped being Available.')
@@ -278,7 +278,7 @@ test.describe.serial('Placing and removing a Lesson', () => {
 		await page.goto(`/calendar?week=${mondayOf(tuesday)}`);
 
 		await openDayMenu('Tue');
-		await expect(page.getByRole('menuitem', { name: 'Block day' })).toBeVisible();
+		await expect(page.getByRole('menuitem', { name: 'Block day', exact: true })).toBeVisible();
 		await expect(page.getByText('Place a Lesson', { exact: true })).toBeHidden();
 		await expect(page.getByRole('menuitem', { name: /to place…$/ })).toHaveCount(0);
 		await page.keyboard.press('Escape');

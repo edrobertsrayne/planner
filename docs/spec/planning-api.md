@@ -702,8 +702,8 @@ There is no POST and no DELETE: a Term is never created or removed on its own.
 
 ### 5.8 Blocked Days
 
-**`GET /api/blocked-days`** → 200, `{ "blockedDays": [{ "date": "2026-11-26", "note": "INSET" }] }`
-in date order, across the whole year, with no ids — the date is the address.
+**`GET /api/blocked-days`** → 200,
+`{ "blockedDays": [{ "date": "2026-11-26", "note": "INSET", "absent": false }] }` in date order, across the whole year, with no ids — the date is the address.
 
 **`POST /api/blocked-days`**
 
@@ -711,11 +711,14 @@ in date order, across the whole year, with no ids — the date is the address.
 { "date": "2026-11-26", "note": "INSET" }
 ```
 
-`date` is required and `note` optional (stored trimmed; absent is `null`). → 201,
-`{ "blockedDay": { "date": "...", "note": "..." }, "report": { "placementsMoved": [] } }` — the
-stored day beside the Rewind's report, because blocking a day can move a Placement.
+`date` is required and `note` optional (stored trimmed; absent is `null`). `absent` is an optional
+boolean, `false` when left out; `true` makes the day an Absence, the teacher's own, which offers a
+Cover for each Class it takes (ADR-0030). → 201,
+`{ "blockedDay": { "date": "...", "note": "...", "absent": false }, "report": { "placementsMoved": [] } }`
+— the stored day beside the Rewind's report, because blocking a day can move a Placement.
 
 - **400** — `The "date" field is required.` (also when it is not a string).
+- **400** — `The "absent" field must be a boolean.`
 - **400** — `"2026-11-28" falls on a weekend. A Blocked Day must be a Monday to Friday.`
 - **409** — `"2026-11-26" is already a Blocked Day.`
 

@@ -100,7 +100,7 @@ jobs:
     # Forks get no secrets and a read-only token, so the review could not run or comment.
     if: ${{ github.event_name == 'pull_request' && !github.event.pull_request.draft && github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 45
     permissions:
       contents: read
       # Posting a comment or reaction on a PR needs pull-requests: write; issues: write alone is a 403.
