@@ -1,7 +1,7 @@
 // Cover: the work set for one Class in one Slot of an Absence, recorded as a Lesson (ADR-0030).
 // Unlike a Placement it is not an input to the schedule — the displaced Lesson has already shifted
 // right — so nothing here re-derives, and only the views read it back.
-import { and, asc, eq, isNull } from 'drizzle-orm';
+import { and, asc, eq, isNull, notInArray } from 'drizzle-orm';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import { loadCalendar, type Db } from './derive';
@@ -47,7 +47,7 @@ export function setCover(
 
 	return inTransaction(db.$client, () => {
 		const [lesson] = lessonId
-			? [requireStandalone(requireRow(db, schema.lesson, lessonId, 'No such Lesson.'))]
+			? [requireStandalone(db, requireRow(db, schema.lesson, lessonId, 'No such Lesson.'))]
 			: db
 					.insert(schema.lesson)
 					.values({
@@ -67,11 +67,15 @@ export function setCover(
 	});
 }
 
-// A Cover is a Standalone Lesson: a Topic Lesson belongs to Sequences and Planning, which a Cover
-// must not leave (ADR-0030).
-function requireStandalone(lesson: typeof schema.lesson.$inferSelect) {
+// A Cover is a Standalone Lesson nothing else holds: a Topic Lesson belongs to Sequences and
+// Planning, and so does a Standalone Lesson a Class's Sequence or a Placement names. Planning leaves
+// out every Cover Lesson, so taking one of those would hide a scheduled Lesson (ADR-0030).
+function requireStandalone(db: Db, lesson: typeof schema.lesson.$inferSelect) {
 	if (lesson.topicId !== null) {
 		throw new Refused('invalid', 'Only a Standalone Lesson can be a Cover.');
+	}
+	if (!coverChoices(db).some((choice) => choice.id === lesson.id)) {
+		throw new Refused('invalid', 'A Lesson in a Sequence or a Placement cannot be a Cover.');
 	}
 	return lesson;
 }
@@ -105,13 +109,26 @@ export function clearCover(db: Db, { id }: { id: string }) {
 	return row;
 }
 
-// The Lessons a Cover may reuse: the Standalone ones. A Topic Lesson stays out, because it belongs
-// to Sequences and Planning and a Cover must not.
+// The Lessons a Cover may reuse: the Standalone ones that no Sequence or Placement holds. A Topic
+// Lesson stays out, and so does a held one, because a Cover must not leave Planning anything it
+// schedules.
 export function coverChoices(db: Db) {
 	return db
 		.select({ id: schema.lesson.id, title: schema.lesson.title })
 		.from(schema.lesson)
-		.where(isNull(schema.lesson.topicId))
+		.where(
+			and(
+				isNull(schema.lesson.topicId),
+				notInArray(
+					schema.lesson.id,
+					db.select({ id: schema.classLesson.lessonId }).from(schema.classLesson)
+				),
+				notInArray(
+					schema.lesson.id,
+					db.select({ id: schema.placement.lessonId }).from(schema.placement)
+				)
+			)
+		)
 		.orderBy(asc(schema.lesson.title))
 		.all();
 }

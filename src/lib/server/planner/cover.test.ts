@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import { describe, expect, test } from 'vitest';
 import { makeLessons, makeTopic, refused, setUp } from './fixtures';
 import {
+	addLesson,
 	agenda,
 	assignTopic,
 	blockDay,
@@ -336,6 +337,22 @@ describe('Cover choices', () => {
 		db.insert(schema.lesson).values({ topicId: null, title: 'Silent reading', position: 0 }).run();
 
 		expect(coverChoices(db).map((l) => l.title)).toEqual(['Silent reading']);
+	});
+});
+
+describe('a Standalone Lesson the schedule already holds', () => {
+	test('is not offered as a Cover and cannot be one', () => {
+		const { db, classA, slotA } = absentMonday();
+		const added = addLesson(db, { classId: classA.id, title: 'Held', today: TODAY });
+		db.insert(schema.lesson).values({ topicId: null, title: 'Free', position: 0 }).run();
+
+		expect(coverChoices(db).map((l) => l.title)).toEqual(['Free']);
+		refused(
+			() =>
+				setCover(db, { classId: classA.id, date: MON, slotId: slotA, lessonId: added.lesson.id }),
+			'invalid',
+			'A Lesson in a Sequence or a Placement cannot be a Cover.'
+		);
 	});
 });
 
