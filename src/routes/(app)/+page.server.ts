@@ -7,7 +7,13 @@ import {
 	unblockDayAction,
 	unblockSlotAction
 } from '$lib/server/block-actions';
-import { agenda, agendaLookBack, agendaLookBackEvents, setReadiness } from '$lib/server/planner';
+import {
+	agenda,
+	agendaLookBack,
+	agendaLookBackBlockedDays,
+	agendaLookBackEvents,
+	setReadiness
+} from '$lib/server/planner';
 import { parseHorizon } from './agenda-horizons';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -27,6 +33,7 @@ export const load: PageServerLoad = ({ url }) => {
 		lookBackOn,
 		...ahead,
 		lookBack: lookBackOn ? agendaLookBack(db, { today: today() }) : [],
+		lookBackBlockedDays: lookBackOn ? agendaLookBackBlockedDays(db, { today: today() }) : [],
 		lookBackEvents: lookBackOn ? agendaLookBackEvents(db, { today: today() }) : []
 	};
 };

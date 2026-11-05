@@ -83,8 +83,12 @@
 	};
 	let unblockDayForm = $state<HTMLFormElement | undefined>();
 	const stream = $derived(agendaStream(days, data.blockedDays, data.holidays));
-	const pastDays = $derived(
-		withEvents(groupByDay(filterByTag(data.lookBack, data.tag)), eventsIn(data.lookBackEvents))
+	const pastStream = $derived(
+		agendaStream(
+			withEvents(groupByDay(filterByTag(data.lookBack, data.tag)), eventsIn(data.lookBackEvents)),
+			data.lookBackBlockedDays,
+			[]
+		)
 	);
 
 	const lineKey = (line: (typeof days)[number]['rows'][number]) =>
@@ -309,18 +313,27 @@
 	<!-- The look-back: the past seven days, shown when the teacher turns it on, fixed whatever the
 	     horizon. Told apart from the days ahead by a step in shade, never a hue, as the Calendar marks
 	     a day with no teaching. -->
-	{#if pastDays.length > 0}
+	{#if pastStream.length > 0}
 		<div aria-label="Past seven days" role="region">
-			{#each pastDays as day (day.date)}
+			{#each pastStream as item (item.kind + item.date)}
 				<section class="mt-6">
 					<h2 class="mb-2 text-sm font-semibold text-muted-foreground">
-						{formatWeekday(day.date)}
+						{formatWeekday(item.date)}
 					</h2>
-					<ul class="divide-y divide-border overflow-hidden rounded-xl border bg-muted/50">
-						{#each day.rows as line (lineKey(line))}
-							{@render agendaLine(line, true)}
-						{/each}
-					</ul>
+					{#if item.kind === 'day'}
+						<ul class="divide-y divide-border overflow-hidden rounded-xl border bg-muted/50">
+							{#each item.rows as line (lineKey(line))}
+								{@render agendaLine(line, true)}
+							{/each}
+						</ul>
+					{:else if item.kind === 'blocked'}
+						<div class="rounded-xl border bg-muted px-4 py-3">
+							<p class="text-sm font-medium text-muted-foreground">Blocked Day</p>
+							{#if item.note}
+								<p class="text-xs text-muted-foreground">{item.note}</p>
+							{/if}
+						</div>
+					{/if}
 				</section>
 			{/each}
 		</div>
