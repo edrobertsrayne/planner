@@ -195,7 +195,7 @@
 
 			<!-- The Class chip sits in a fixed-width column, so the titles line up (issue #341), and opens
 			     the Class's page. -->
-			<span class="w-16 shrink-0">
+			<span class="w-24 shrink-0">
 				<ClassChip classId={row.classId} label={row.classLabel} tone={row.tone} />
 			</span>
 
@@ -275,7 +275,12 @@
 				{positionRangeLabel(event.position, event.positionTo)}
 				{#if event.room}<span class="block truncate" title={event.room}>{event.room}</span>{/if}
 			</span>
-			<span class="w-16 shrink-0 text-xs text-muted-foreground">{kindLabel(event.kind)}</span>
+			<span class="w-24 shrink-0">
+				<span
+					class="rounded-2xl bg-muted px-2 py-0.5 text-xs font-medium whitespace-nowrap text-muted-foreground"
+					>{kindLabel(event.kind)}</span
+				>
+			</span>
 			<a
 				href={eventHref(event)}
 				class="min-w-0 flex-1 py-3 text-left outline-none focus-visible:underline"
