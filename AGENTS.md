@@ -51,7 +51,3 @@ teacher's browser (`xdg-open <url>`) before asking about it.
   synonyms it lists to avoid.
 - Migrations: read `docs/agents/migrations.md` before writing one.
 - Backlog: put out-of-scope ideas in `docs/backlog.md`; read it before proposing a feature.
-
-## Pull requests
-
-Write every PR body with a diagram of the change, and before/after screenshots of any UI change.
