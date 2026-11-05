@@ -24,7 +24,7 @@
 
 	let { data, form }: PageProps = $props();
 
-	// Notes read on a phone and write from a tablet up; the Timetable is a tablet-up screen, as on
+	// Notes are read and written on any screen; the Timetable is a tablet-up screen, as on
 	// the Class page.
 	const md = new MediaQuery('min-width: 768px', true);
 	// The tab is chosen when the page opens (an Event with no Slot opens on its Timetable) and then
@@ -117,7 +117,6 @@
 				occurrences={data.occurrences}
 				today={data.today}
 				focus={data.date}
-				editable={md.current}
 			/>
 		</div>
 	{:else}
