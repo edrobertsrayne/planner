@@ -43,6 +43,18 @@ test.describe.serial('an Event on a laptop', () => {
 		await page.reload();
 		await expect(page.locator('textarea').first()).toHaveValue('Past paper Q4 to Q6');
 
+		// One date shows at a time; another date is chosen from the strip, and its note is kept apart.
+		await expect(page.locator('textarea')).toHaveCount(1);
+		const later = page.getByRole('group', { name: 'Dates' }).getByRole('button').nth(1);
+		await later.click();
+		await expect(page.getByPlaceholder(/(Plan|Log) this date/)).toHaveValue('');
+		await page.getByPlaceholder(/(Plan|Log) this date/).fill('Mock paper');
+		await page.getByPlaceholder(/(Plan|Log) this date/).blur();
+		await page.reload();
+		await later.click();
+		await expect(page.locator('textarea')).toHaveValue('Mock paper');
+		await expect(page.getByText('Past paper Q4 to Q6')).toBeVisible();
+
 		// The Calendar draws the Event in its Before school band; the Agenda lists it.
 		await page.goto('/calendar');
 		const tile = page.getByRole('link', { name: /Maths clinic/ }).first();
