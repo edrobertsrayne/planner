@@ -95,7 +95,7 @@ export {
 
 export { blockDay, blockSlot, blockSlots, unblockDay, unblockSlot } from './disruptions';
 
-export { clearCover, setCover } from './cover';
+export { clearCover, coverChoices, coverDetail, discardBlankCover, setCover } from './cover';
 
 export { placeLesson, placementAdmission, removePlacement } from './placement';
 

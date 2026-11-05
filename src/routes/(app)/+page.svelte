@@ -3,9 +3,11 @@
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
 	import BanIcon from '@lucide/svelte/icons/ban';
+	import PlusIcon from '@lucide/svelte/icons/plus';
 	import HistoryIcon from '@lucide/svelte/icons/history';
 	import { classTone } from '$lib/class-tone';
 	import { formatWeekday } from '$lib/date';
+	import type { CoverRef } from '$lib/server/planner';
 	import { joinAdjacentPeriods, kindLabel, positionRangeLabel } from '$lib/events';
 	import { onFail, replaceQuery, submitForm } from '$lib/client/enhance';
 	import { sessionHref } from '$lib/client/session-href';
@@ -13,7 +15,9 @@
 	import { touchTarget } from '$lib/components/ui/touch-target';
 	import BlockDayDialog from '$lib/components/block-day-dialog.svelte';
 	import BlockSlotDialog, { type Pick } from '$lib/components/block-slot-dialog.svelte';
+	import AbsentMarker from '$lib/components/absent-marker.svelte';
 	import ClassChip from '$lib/components/class-chip.svelte';
+	import SetCoverDialog, { type CoverPick } from '$lib/components/set-cover-dialog.svelte';
 	import FilterChips from '$lib/components/filter-chips.svelte';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import RewindReport from '$lib/components/rewind-report.svelte';
@@ -64,6 +68,15 @@
 			lessonTitle: row.lesson?.title ?? null
 		});
 
+	// The Slot of a Blocked Slot row, for the Set cover dialog.
+	const slotPick = (row: Row): CoverPick => ({
+		classId: row.classId,
+		classLabel: row.classLabel,
+		date: row.date,
+		slotId: row.slotId,
+		period: row.periodFrom
+	});
+
 	// An Event has no Tag, so a Tag filter leaves it out, as it leaves out an Open Slot.
 	// One Event over adjacent Periods is one row: its note belongs to the Event and the date.
 	const eventsIn = (events: typeof data.events) =>
@@ -82,6 +95,9 @@
 		dayPick = date;
 	};
 	let unblockDayForm = $state<HTMLFormElement | undefined>();
+	// A Cover is set through its own dialog and taken back through one hidden form, as above.
+	let coverPick = $state<CoverPick | null>(null);
+	let clearCoverForm = $state<HTMLFormElement | undefined>();
 	const stream = $derived(agendaStream(days, data.blockedDays, data.holidays));
 	const pastDays = $derived(
 		withEvents(groupByDay(filterByTag(data.lookBack, data.tag)), eventsIn(data.lookBackEvents))
@@ -156,6 +172,14 @@
 	></form>
 
 	<form
+		bind:this={clearCoverForm}
+		method="POST"
+		action="?/clearCover"
+		use:enhance={onFail('Could not clear the Cover.')}
+		class="hidden"
+	></form>
+
+	<form
 		bind:this={unblockDayForm}
 		method="POST"
 		action="?/unblockDay"
@@ -173,6 +197,42 @@
 		<HistoryIcon class="size-3.5" />
 		{data.lookBackOn ? 'Hide the previous 7 days' : 'Show the previous 7 days'}
 	</button>
+
+	<!-- What an Absence offers for one Slot: its Cover as a link into the Lesson editor, and a button to
+	     set or clear it. The button is from a tablet up, as every Agenda write is; a phone reads the
+	     Cover and nothing more. A Cover is plain text beside the marker, never an alert: an Absence
+	     with none set is not a fault. -->
+	{#snippet coverLink(cover: CoverRef | null)}
+		{#if cover}
+			<a
+				href={resolve(`/lessons/${cover.lessonId}`)}
+				class="block text-xs font-medium underline underline-offset-4 outline-none focus-visible:no-underline"
+				>Cover: {cover.title}</a
+			>
+		{/if}
+	{/snippet}
+
+	{#snippet coverButton(slot: CoverPick, cover: CoverRef | null)}
+		{#if cover}
+			<Button
+				variant="ghost"
+				size="sm"
+				class="h-7 text-muted-foreground max-md:hidden {touchTarget}"
+				onclick={() => submitForm(clearCoverForm, { fields: { id: cover.id } })}
+				aria-label="Clear the Cover for {slot.classLabel}, P{slot.period}">Clear</Button
+			>
+		{:else}
+			<Button
+				variant="ghost"
+				size="sm"
+				class="h-7 gap-1 max-md:hidden {touchTarget}"
+				onclick={() => (coverPick = slot)}
+				aria-label="Set cover for {slot.classLabel}, P{slot.period}"
+			>
+				<PlusIcon class="size-3.5" /> Set cover
+			</Button>
+		{/if}
+	{/snippet}
 
 	{#snippet agendaRow(row: (typeof data.rows)[number], past: boolean)}
 		{@const tone = classTone(row.tone)}
@@ -203,10 +263,15 @@
 			     hatch, never a hue, with its note. -->
 			{#if blocked}
 				<span class="min-w-0 flex-1 py-3">
-					<span class="block text-sm text-muted-foreground italic">Blocked Slot</span>
+					{#if blocked.absent}
+						<AbsentMarker />
+					{:else}
+						<span class="block text-sm text-muted-foreground italic">Blocked Slot</span>
+					{/if}
 					{#if blocked.note}
 						<span class="block text-xs text-muted-foreground">{blocked.note}</span>
 					{/if}
+					{@render coverLink(blocked.cover)}
 				</span>
 			{:else}
 				<a
@@ -230,6 +295,9 @@
 
 			<!-- A past row carries no Ready tick: Readiness is written ahead only. -->
 			{#if blocked}
+				{#if blocked.absent}
+					{@render coverButton(slotPick(row), blocked.cover)}
+				{/if}
 				{#if !past}
 					<Button
 						variant="ghost"
@@ -345,6 +413,7 @@
 	     the page blank. Both are told apart from teaching by a step in shade, never a hue. -->
 	<BlockSlotDialog bind:pick />
 	<BlockDayDialog bind:date={dayPick} lessons={dayLessons} />
+	<SetCoverDialog bind:pick={coverPick} choices={data.coverChoices} />
 
 	{#each stream as item (item.kind + item.date)}
 		{#if item.kind === 'day'}
@@ -380,20 +449,68 @@
 				<h2 class="mb-2 flex items-baseline gap-2 text-sm font-semibold">
 					{@render dayHeading(item.date)}
 				</h2>
-				<div class="flex items-center gap-3 rounded-xl border bg-muted py-3 pr-2 pl-4">
-					<div class="min-w-0 flex-1">
-						<p class="text-sm font-medium text-muted-foreground">Blocked Day</p>
-						{#if item.note}
-							<p class="text-xs text-muted-foreground">{item.note}</p>
-						{/if}
+				<div class="overflow-hidden rounded-xl border bg-muted">
+					<div class="flex items-center gap-3 py-3 pr-2 pl-4">
+						<div class="min-w-0 flex-1">
+							{#if item.absent}
+								<p class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+									<AbsentMarker /> All day
+								</p>
+							{:else}
+								<p class="text-sm font-medium text-muted-foreground">Blocked Day</p>
+							{/if}
+							{#if item.note}
+								<p class="text-xs text-muted-foreground">{item.note}</p>
+							{/if}
+						</div>
+						<Button
+							variant="ghost"
+							size="sm"
+							class="h-7 {touchTarget}"
+							onclick={() => submitForm(unblockDayForm, { fields: { date: item.date } })}
+							aria-label="Unblock {formatWeekday(item.date)}">Unblock day</Button
+						>
 					</div>
-					<Button
-						variant="ghost"
-						size="sm"
-						class="h-7 {touchTarget}"
-						onclick={() => submitForm(unblockDayForm, { fields: { date: item.date } })}
-						aria-label="Unblock {formatWeekday(item.date)}">Unblock day</Button
-					>
+					<!-- An Absence lists each Class and Period it takes, so its Cover is set from here. -->
+					{#if item.lines.length > 0}
+						<ul class="divide-y divide-border border-t bg-card">
+							{#each item.lines as line (line.classId + line.period)}
+								{@const tone = classTone(line.tone)}
+								<li class="relative flex items-center gap-3 pr-2 pl-4">
+									<span
+										class="absolute inset-y-0 left-0 w-1"
+										style:background-color={tone.ring}
+										aria-hidden="true"
+									></span>
+									<span class="w-14 shrink-0 text-xs text-muted-foreground tabular-nums">
+										P{line.period}
+										{#if line.room}<span class="block truncate" title={line.room}>{line.room}</span
+											>{/if}
+									</span>
+									<span class="w-16 shrink-0">
+										<ClassChip classId={line.classId} label={line.classLabel} tone={line.tone} />
+									</span>
+									<span class="min-w-0 flex-1 py-3">
+										{#if line.cover}
+											{@render coverLink(line.cover)}
+										{:else}
+											<span class="block text-xs text-muted-foreground">No Cover recorded</span>
+										{/if}
+									</span>
+									{@render coverButton(
+										{
+											classId: line.classId,
+											classLabel: line.classLabel,
+											date: line.date,
+											slotId: line.slotId,
+											period: line.period
+										},
+										line.cover
+									)}
+								</li>
+							{/each}
+						</ul>
+					{/if}
 				</div>
 			</section>
 		{:else}

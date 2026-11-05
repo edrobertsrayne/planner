@@ -29,12 +29,24 @@ describe('the block-day dialog', () => {
 		expect(form.querySelector<HTMLInputElement>('input[name=date]')?.value).toBe('2026-11-06');
 	});
 
-	test('submits without a note: a Blocked Day records no cause', async () => {
+	test('submits without a note: the note is optional', async () => {
 		const screen = await render(BlockDayDialog, { date: '2026-11-06', lessons: 1 });
 		const submits = countSubmits();
 
 		await screen.getByRole('button', { name: 'Block day', exact: true }).click();
 		expect(submits.n).toBe(1);
+	});
+
+	test('is a closure unless the teacher ticks "I\'m absent"', async () => {
+		const screen = await render(BlockDayDialog, { date: '2026-11-06', lessons: 1 });
+		countSubmits();
+		const form = document.querySelector<HTMLFormElement>('[role=dialog] form')!;
+		const box = screen.getByRole('checkbox', { name: /I'm absent/ });
+
+		await expect.element(box).not.toBeChecked();
+		expect(new FormData(form).has('absent')).toBe(false);
+		await box.click();
+		expect(new FormData(form).has('absent')).toBe(true);
 	});
 
 	test('says how many Lessons move, or that nothing does', async () => {

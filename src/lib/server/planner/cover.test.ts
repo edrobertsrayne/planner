@@ -9,7 +9,11 @@ import {
 	calendarWeek,
 	classSchedule,
 	clearCover,
+	coverChoices,
+	createLink,
 	deleteLesson,
+	discardBlankCover,
+	editLesson,
 	planningStream,
 	setCover,
 	unblockDay,
@@ -252,5 +256,71 @@ describe('Cover', () => {
 		setCover(db, { classId: classA.id, date: MON, slotId: slotA, title: 'Cover: 9B/Sc1' });
 
 		expect(planningStream(db, TODAY).map((e) => e.title)).not.toContain('Cover: 9B/Sc1');
+	});
+});
+
+describe('a new Cover left blank', () => {
+	function newCover() {
+		const fx = absentMonday();
+		const { lesson, coverId } = setCover(fx.db, {
+			classId: fx.classA.id,
+			date: MON,
+			slotId: fx.slotA,
+			title: 'Cover: 9B/Sc1'
+		});
+		return { ...fx, lesson, coverId };
+	}
+	const lessons = (fx: ReturnType<typeof newCover>) =>
+		fx.db.select().from(schema.lesson).where(eq(schema.lesson.id, fx.lesson.id)).all();
+
+	test('is discarded with its Lesson when nothing was written', () => {
+		const fx = newCover();
+
+		expect(discardBlankCover(fx.db, { coverId: fx.coverId, dir: fx.atDir, today: TODAY })).toBe(
+			true
+		);
+
+		expect(fx.db.select().from(schema.cover).all()).toEqual([]);
+		expect(lessons(fx)).toEqual([]);
+	});
+
+	test('is kept once the plan has text', () => {
+		const fx = newCover();
+		editLesson(fx.db, { id: fx.lesson.id, change: { body: 'Read pages 40-52' }, today: TODAY });
+
+		expect(discardBlankCover(fx.db, { coverId: fx.coverId, dir: fx.atDir, today: TODAY })).toBe(
+			false
+		);
+		expect(lessons(fx)).toHaveLength(1);
+		expect(fx.db.select().from(schema.cover).all()).toHaveLength(1);
+	});
+
+	test('is kept once the Lesson has a Link', () => {
+		const fx = newCover();
+		createLink(fx.db, { lessonId: fx.lesson.id, url: 'https://example.com', label: 'Reading' });
+
+		expect(discardBlankCover(fx.db, { coverId: fx.coverId, dir: fx.atDir, today: TODAY })).toBe(
+			false
+		);
+	});
+
+	test('a Cover already cleared is nothing to discard', () => {
+		const fx = newCover();
+		clearCover(fx.db, { id: fx.coverId });
+
+		expect(discardBlankCover(fx.db, { coverId: fx.coverId, dir: fx.atDir, today: TODAY })).toBe(
+			false
+		);
+	});
+});
+
+describe('Cover choices', () => {
+	test('are the Standalone Lessons, never a Topic Lesson', () => {
+		const { db, course } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		makeLessons(db, topic.id, 2);
+		db.insert(schema.lesson).values({ topicId: null, title: 'Silent reading', position: 0 }).run();
+
+		expect(coverChoices(db).map((l) => l.title)).toEqual(['Silent reading']);
 	});
 });

@@ -106,6 +106,16 @@ describe('agendaStream', () => {
 		expect(stream[3]).toMatchObject({ note: 'INSET' });
 	});
 
+	test('a Blocked Day keeps everything it came with, so an Absence keeps its lines', () => {
+		const stream = agendaStream(
+			[],
+			[{ date: '2026-11-03', note: 'Ill', absent: true, lines: ['P1 10C/Ph2'] }],
+			[]
+		);
+
+		expect(stream[0]).toMatchObject({ kind: 'blocked', absent: true, lines: ['P1 10C/Ph2'] });
+	});
+
 	test('a holiday already under way leads the stream', () => {
 		const stream = agendaStream(
 			[day('2026-11-02')],

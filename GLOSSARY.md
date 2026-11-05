@@ -416,8 +416,9 @@ School Holiday — drops its six Periods, its two bands and its Events. The day 
 spanning the column. The panel is
 told apart from an empty Period by a step in shade, never a hue. No block or unblock sits on a tile.
 A tile or panel of an Absence carries the same "Absent" marker, and its Cover as a link. Every block
-and unblock on a day starts in that day's menu. The menu offers Block day or Unblock
-day. It offers a Block one Slot line for each Slot the day's tiles cover. It offers an Unblock line
+and unblock on a day starts in that day's menu. The menu offers Block day, Block day as
+Absence or Unblock day. It offers a Set cover or Clear cover line for each Slot an Absence takes. It
+offers a Block one Slot line for each Slot the day's tiles cover. It offers an Unblock line
 for each Blocked Slot on it. A Blocked Slot's Unblock line survives the collapse of its column. A
 Blocked Slot recorded on a School Holiday is still a removal. The column reads as the School
 Holiday's panel. The Blocked Slot's Unblock line sits in that day's menu, like every other act on

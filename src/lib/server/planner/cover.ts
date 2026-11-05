@@ -1,10 +1,13 @@
 // Cover: the work set for one Class in one Slot of an Absence, recorded as a Lesson (ADR-0030).
 // Unlike a Placement it is not an input to the schedule — the displaced Lesson has already shifted
 // right — so nothing here re-derives, and only the views read it back.
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq, isNull } from 'drizzle-orm';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import { loadCalendar, type Db } from './derive';
+import { attachmentsOf } from './attachments';
+import { deleteLesson } from './lessons';
+import { linksOf } from './links';
 import { timetabledSlots } from './engine';
 import { Refused } from './refused';
 import { required, requireRow } from './fields';
@@ -21,7 +24,7 @@ export function setCover(
 		lessonId,
 		title
 	}: { classId: string; date: string; slotId: string; lessonId?: string; title?: string }
-): { lesson: typeof schema.lesson.$inferSelect } {
+): { lesson: typeof schema.lesson.$inferSelect; coverId: string } {
 	const slot = timetabledSlots(loadCalendar(db), classId).find(
 		(s) => s.date === date && s.slotId === slotId
 	);
@@ -55,8 +58,12 @@ export function setCover(
 					.returning()
 					.all();
 
-		db.insert(schema.cover).values({ classId, date, slotId, lessonId: lesson.id }).run();
-		return { lesson };
+		const [cover] = db
+			.insert(schema.cover)
+			.values({ classId, date, slotId, lessonId: lesson.id })
+			.returning()
+			.all();
+		return { lesson, coverId: cover.id };
 	});
 }
 
@@ -67,4 +74,61 @@ export function clearCover(db: Db, { id }: { id: string }) {
 
 	db.delete(schema.cover).where(eq(schema.cover.id, id)).run();
 	return row;
+}
+
+// The Lessons a Cover may reuse: the Standalone ones. A Topic Lesson stays out, because it belongs
+// to Sequences and Planning and a Cover must not.
+export function coverChoices(db: Db) {
+	return db
+		.select({ id: schema.lesson.id, title: schema.lesson.title })
+		.from(schema.lesson)
+		.where(isNull(schema.lesson.topicId))
+		.orderBy(asc(schema.lesson.title))
+		.all();
+}
+
+// Set cover opens the new Lesson at once to make the teacher decide what it is; leaving it with no
+// plan, Links or Attachments takes the Cover and the Lesson back (ADR-0030). True when it did. Only
+// a Cover made with a new Lesson is ever sent here — an existing Lesson is never discarded.
+export function discardBlankCover(
+	db: Db,
+	{ coverId, dir, today }: { coverId: string; dir: string; today: string }
+): boolean {
+	const [cover] = db.select().from(schema.cover).where(eq(schema.cover.id, coverId)).all();
+	if (!cover) return false;
+
+	const [lesson] = db
+		.select()
+		.from(schema.lesson)
+		.where(eq(schema.lesson.id, cover.lessonId))
+		.all();
+	const blank =
+		!lesson.body?.trim() &&
+		linksOf(db, lesson.id).length === 0 &&
+		attachmentsOf(db, lesson.id).length === 0;
+	if (!blank) return false;
+
+	// Cover first: deleting a Lesson a Cover names is refused (ADR-0030). deleteLesson commits its own
+	// write, so a fault in it leaves a Standalone Lesson, never a Cover with no Lesson.
+	db.delete(schema.cover).where(eq(schema.cover.id, coverId)).run();
+	deleteLesson(db, { id: lesson.id, today, dir });
+	return true;
+}
+
+// A Cover read for the Lesson editor's banner: which Class, date and Period it was set for.
+export function coverDetail(db: Db, id: string) {
+	const [row] = db
+		.select({
+			id: schema.cover.id,
+			lessonId: schema.cover.lessonId,
+			date: schema.cover.date,
+			classLabel: schema.classes.label,
+			period: schema.slot.period
+		})
+		.from(schema.cover)
+		.innerJoin(schema.classes, eq(schema.classes.id, schema.cover.classId))
+		.innerJoin(schema.slot, eq(schema.slot.id, schema.cover.slotId))
+		.where(eq(schema.cover.id, id))
+		.all();
+	return row ?? null;
 }
