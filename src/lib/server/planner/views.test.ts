@@ -8,6 +8,7 @@ import {
 	setSlotRoom,
 	agenda,
 	agendaLookBack,
+	agendaLookBackBlockedDays,
 	assignTopic,
 	attachTag,
 	blockDay,
@@ -315,6 +316,18 @@ describe('the Agenda', () => {
 });
 
 describe('the Agenda look-back', () => {
+	test('reports the Blocked Days of the seven days before today, with their notes', () => {
+		const { db } = setUp();
+		blockDay(db, { date: '2026-09-07', note: 'Snow day', today: '2026-09-03' });
+
+		expect(agendaLookBackBlockedDays(db, { today: '2026-09-10' })).toEqual([
+			{ date: '2026-09-07', note: 'Snow day' }
+		]);
+		// Eight days back is out of the window, and today belongs to the days ahead.
+		expect(agendaLookBackBlockedDays(db, { today: '2026-09-15' })).toEqual([]);
+		expect(agendaLookBackBlockedDays(db, { today: '2026-09-07' })).toEqual([]);
+	});
+
 	// classA's first Sessions: Thu 2026-09-03 P5 and P6 (Week A), Tue 2026-09-08 P2 and
 	// Fri 2026-09-11 P4 (Week B), then Mon 2026-09-14 P3 (Week A).
 	test('covers the seven days before today, carries the Calendar week letter, and skips a Class with no history', () => {

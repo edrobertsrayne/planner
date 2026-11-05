@@ -110,6 +110,7 @@ export {
 export {
 	agenda,
 	agendaLookBack,
+	agendaLookBackBlockedDays,
 	agendaLookBackEvents,
 	calendarWeek,
 	planningStream,

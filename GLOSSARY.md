@@ -358,7 +358,8 @@ It carries no Ready tick, because Readiness belongs to a Lesson, and it opens th
 date. It is told apart from teaching by the same step in shade, a Blocked Day or a School Holiday
 shows none, and the Tag filter hides Event rows as it hides Open Slots. Where the
 planner opens. The teacher can also turn on the look-back: the Sessions of the past seven days,
-shown above today, grouped by day, oldest first. The look-back is off by default and read-only. Its
+shown above today, grouped by day, oldest first, with the Blocked Days of those seven days as
+panels under their day headings. The look-back is off by default and read-only. Its
 span is fixed: the horizon changes only the days ahead. The look-back obeys the Tag filter the same
 way the days ahead do.
 A past row carries no Ready tick. It opens the Session page on its occasion, where the teacher
