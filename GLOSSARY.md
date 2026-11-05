@@ -449,20 +449,22 @@ Each tile carries the Event's name, its kind, where it sits ("Mondays, After sch
 date. The whole tile is one link to the Event page. An Event is created here, in a dialog that asks
 only for a name and a kind and then opens the new Event's Timetable tab. Note that this names a
 _screen_; "events" unqualified means the Events themselves. On a phone there is no New Event tile,
-because nothing is written there.
+because an Event's structure is not written there.
 
 **Event page**:
 The single surface for one Event, in two tabs under its name and kind. Notes, the default, holds
-the Event note for one date and a list of the Event's dates, each with its note: past dates are
-hatched and still written, so a date can be logged afterwards, and a date on a School Holiday or a
-Blocked Day is shown as skipped. Timetable holds the "Timetable as at" control and the Event Slot
-grid, both weeks stacked, with Before school and After school as a row above P1 and a row below P6.
+the Event note for one date at a time: arrows step to the earlier or later date, a list of every
+date marks those with a note, and Today returns to the next date. The nearest earlier note is
+quoted under the box, past dates are still written so a date can be logged afterwards, and a date
+on a School Holiday or a Blocked Day is shown as skipped. Timetable holds the "Timetable as at"
+control and the Event Slot grid, both weeks stacked, with Before school and After school as a row
+above P1 and a row below P6.
 Positions held by a Class carry that Class's label and cannot be taken; an Event Slot is given or
 cleared by a click, and a change applies from the date the teacher picks, as on the Class page. A
 Room is typed per Event Slot. Opened from the Events screen, an Agenda row or a Calendar tile; from
 a row or a tile it opens on that date. The Event note's field says that it describes the group, not
-a named pupil. Both tabs are written from a tablet up; a phone shows the Event note for one date,
-written, with no tabs and no Timetable.
+a named pupil. The Timetable is written from a tablet up; the Event note is written on any screen,
+and a phone shows it with no tabs and no Timetable.
 
 **Courses**:
 Where Course content is written. One tile per Course, marked by the Course's Tone as a dot and as

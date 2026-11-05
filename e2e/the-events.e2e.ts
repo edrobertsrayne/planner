@@ -45,13 +45,16 @@ test.describe.serial('an Event on a laptop', () => {
 
 		// One date shows at a time; another date is chosen from the strip, and its note is kept apart.
 		await expect(page.locator('textarea')).toHaveCount(1);
-		const later = page.getByRole('group', { name: 'Dates' }).getByRole('button').nth(1);
-		await later.click();
+		const dates = page.getByRole('combobox', { name: 'Date' });
+		const first = await dates.inputValue();
+		await page.getByRole('button', { name: 'Later date' }).click();
+		await expect(dates).not.toHaveValue(first);
+		const later = await dates.inputValue();
 		await expect(page.getByPlaceholder(/(Plan|Log) this date/)).toHaveValue('');
 		await page.getByPlaceholder(/(Plan|Log) this date/).fill('Mock paper');
 		await page.getByPlaceholder(/(Plan|Log) this date/).blur();
 		await page.reload();
-		await later.click();
+		await dates.selectOption(later);
 		await expect(page.locator('textarea')).toHaveValue('Mock paper');
 		await expect(page.getByText('Past paper Q4 to Q6')).toBeVisible();
 
@@ -119,11 +122,23 @@ test.describe.serial('an Event on a laptop', () => {
 		await expect(page.getByLabel('Week A Mon P6 — held by Maths clinic')).toBeVisible();
 	});
 
+	test('its note is written on a phone too', async ({ page }) => {
+		await page.setViewportSize({ width: 390, height: 844 });
+		await login(page, '/events');
+		await page.getByRole('link', { name: /Maths clinic/ }).click();
+		await expect(page.getByRole('tab')).toHaveCount(0);
+		const box = page.getByPlaceholder(/(Plan|Log) this date/);
+		await box.fill('Logged from my phone');
+		await box.blur();
+		await page.reload();
+		await expect(page.locator('textarea')).toHaveValue('Logged from my phone');
+	});
+
 	test('deleting an Event asks first, then frees its positions', async ({ page }) => {
 		await login(page, '/events');
 		await page.getByRole('link', { name: /Maths clinic/ }).click();
 		await page.getByRole('button', { name: 'Delete Event' }).click();
-		await expect(page.getByText(/Its Timetable positions and 1 note go with it/)).toBeVisible();
+		await expect(page.getByText(/Its Timetable positions and 2 notes go with it/)).toBeVisible();
 		await page
 			.getByRole('button', { name: /^Delete/ })
 			.last()
