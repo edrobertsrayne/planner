@@ -5,6 +5,7 @@ import {
 	agenda,
 	assignTopic,
 	blockDay,
+	addSlot,
 	blockSlots,
 	calendarWeek,
 	classSchedule,
@@ -14,6 +15,7 @@ import {
 	deleteLesson,
 	discardBlankCover,
 	editLesson,
+	endSlot,
 	planningStream,
 	setCover,
 	unblockDay,
@@ -322,5 +324,104 @@ describe('Cover choices', () => {
 		db.insert(schema.lesson).values({ topicId: null, title: 'Silent reading', position: 0 }).run();
 
 		expect(coverChoices(db).map((l) => l.title)).toEqual(['Silent reading']);
+	});
+});
+
+describe('Cover keeps to the Absence it was set for', () => {
+	// Mon 14 Sep is both an absent Blocked Slot (9B's P3) and a closed Blocked Day.
+	function absentSlotOnClosedDay() {
+		const fx = setUp();
+		blockSlots(fx.db, {
+			classId: fx.classA.id,
+			date: MON,
+			slotIds: [slotOf(fx)],
+			note: 'Meeting',
+			absent: true,
+			today: TODAY
+		});
+		blockDay(fx.db, { date: MON, note: 'Snow', today: TODAY });
+		setCover(fx.db, { classId: fx.classA.id, date: MON, slotId: slotOf(fx), title: 'C' });
+		return fx;
+	}
+	const slotOf = (fx: ReturnType<typeof setUp>) =>
+		fx.db
+			.select()
+			.from(schema.slot)
+			.where(eq(schema.slot.classId, fx.classA.id))
+			.all()
+			.find((s) => s.week === 'A' && s.day === 1)!.id;
+
+	test('unblocking a closure leaves the Cover of an Absence that is still there', () => {
+		const fx = absentSlotOnClosedDay();
+
+		unblockDay(fx.db, { date: MON, today: TODAY });
+
+		expect(fx.db.select().from(schema.cover).all()).toHaveLength(1);
+	});
+
+	test('unblocking a plain Blocked Slot leaves the Cover of an absent day', () => {
+		const fx = absentMonday();
+		blockSlots(fx.db, {
+			classId: fx.classA.id,
+			date: MON,
+			slotIds: [fx.slotA],
+			note: 'Meeting',
+			today: TODAY
+		});
+		setCover(fx.db, { classId: fx.classA.id, date: MON, slotId: fx.slotA, title: 'C' });
+		const [plain] = fx.db.select().from(schema.blockedSlot).all();
+
+		unblockSlot(fx.db, { id: plain.id, today: TODAY });
+
+		expect(fx.db.select().from(schema.cover).all()).toHaveLength(1);
+	});
+
+	test('ending the Slot ends its Cover, so the Lesson can be deleted again', () => {
+		const fx = absentMonday();
+		const { lesson } = setCover(fx.db, {
+			classId: fx.classA.id,
+			date: MON,
+			slotId: fx.slotA,
+			title: 'C'
+		});
+
+		endSlot(fx.db, { id: fx.slotA, from: '2026-09-10', today: TODAY });
+
+		expect(fx.db.select().from(schema.cover).all()).toEqual([]);
+		expect(() => deleteLesson(fx.db, { id: lesson.id, today: TODAY, dir: fx.atDir })).not.toThrow();
+	});
+
+	test('a Slot that never held before the end date goes without a foreign-key fault', () => {
+		const fx = setUp();
+		const added = addSlot(fx.db, {
+			classId: fx.classA.id,
+			week: 'B',
+			day: 3,
+			period: 2,
+			holdsFrom: '2026-09-16'
+		});
+		blockDay(fx.db, { date: '2026-09-23', note: 'Ill', absent: true, today: TODAY });
+		setCover(fx.db, { classId: fx.classA.id, date: '2026-09-23', slotId: added.id, title: 'C' });
+
+		expect(() => endSlot(fx.db, { id: added.id, from: '2026-09-16', today: TODAY })).not.toThrow();
+		expect(fx.db.select().from(schema.cover).all()).toEqual([]);
+	});
+
+	test('only a Standalone Lesson can be a Cover', () => {
+		const fx = absentMonday();
+		const topic = makeTopic(fx.db, fx.course.id, 'Waves');
+		const [inTopic] = makeLessons(fx.db, topic.id, 1);
+
+		refused(
+			() =>
+				setCover(fx.db, {
+					classId: fx.classA.id,
+					date: MON,
+					slotId: fx.slotA,
+					lessonId: inTopic.id
+				}),
+			'invalid',
+			'Only a Standalone Lesson can be a Cover.'
+		);
 	});
 });

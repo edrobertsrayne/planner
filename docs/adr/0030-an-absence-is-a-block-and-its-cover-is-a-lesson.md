@@ -26,9 +26,12 @@ lesson_id }`, unique on `(class_id, date, slot_id)`, shaped like a Placement but
   existing Lesson is never discarded.
 - **Optional, and never a warning.** The marker says "Absent". An Absence with no Cover shows a Set
   cover button and no alert colour.
-- **It ends with the Absence.** Unblocking the day or Slot deletes its Cover rows; the Lesson
-  stays, as it does when a Placement is removed. Deleting a Lesson a Cover names is refused, as for
-  a Placement.
+- **It ends with the Absence.** Unblocking drops the Covers whose Slot no Absence takes any more,
+  so a Blocked Day and a Blocked Slot over one Slot keep its Cover until the last of them goes.
+  Ending the Slot from a date drops its Covers from that date on. The Lesson stays, as it does when
+  a Placement is removed. Deleting a Lesson a Cover names is refused, as for a Placement.
+- **Only a Standalone Lesson can be a Cover.** The seam refuses a Topic Lesson, which belongs to
+  Sequences and Planning.
 - **Planning leaves Cover Lessons out.** They are not planned teaching.
 
 ## Consequences

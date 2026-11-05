@@ -47,7 +47,7 @@ export function setCover(
 
 	return inTransaction(db.$client, () => {
 		const [lesson] = lessonId
-			? [requireRow(db, schema.lesson, lessonId, 'No such Lesson.')]
+			? [requireStandalone(requireRow(db, schema.lesson, lessonId, 'No such Lesson.'))]
 			: db
 					.insert(schema.lesson)
 					.values({
@@ -65,6 +65,35 @@ export function setCover(
 			.all();
 		return { lesson, coverId: cover.id };
 	});
+}
+
+// A Cover is a Standalone Lesson: a Topic Lesson belongs to Sequences and Planning, which a Cover
+// must not leave (ADR-0030).
+function requireStandalone(lesson: typeof schema.lesson.$inferSelect) {
+	if (lesson.topicId !== null) {
+		throw new Refused('invalid', 'Only a Standalone Lesson can be a Cover.');
+	}
+	return lesson;
+}
+
+// Takes back the Covers on `date` whose Slot is no longer taken by an Absence. Called after any
+// unblock: a Blocked Day and a Blocked Slot can both cover one Slot, so a Cover ends only when the
+// last Absence on it does (ADR-0030).
+export function dropEndedCovers(db: Db, date: string) {
+	const absent = new Set(
+		timetabledSlots(loadCalendar(db))
+			.filter(
+				(slot) =>
+					slot.date === date &&
+					slot.removedBy.some((removal) => removal.kind !== 'outside-term' && removal.absent)
+			)
+			.map((slot) => `${slot.classId}|${slot.slotId}`)
+	);
+	for (const cover of db.select().from(schema.cover).where(eq(schema.cover.date, date)).all()) {
+		if (!absent.has(`${cover.classId}|${cover.slotId}`)) {
+			db.delete(schema.cover).where(eq(schema.cover.id, cover.id)).run();
+		}
+	}
 }
 
 // Removes a Cover, leaving its Lesson standing as a Standalone Lesson. Null when there is none.

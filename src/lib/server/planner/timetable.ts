@@ -1,7 +1,7 @@
 // The Timetable: which Class holds which (Week, Day, Period), and over which dates. A Slot is
 // the scheduling input the Calendar turns into Available Slots, so every write here re-derives
 // its Class from today.
-import { and, asc, eq, isNotNull, or } from 'drizzle-orm';
+import { and, asc, eq, gte, isNotNull, or } from 'drizzle-orm';
 import { addDays } from '$lib/date';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
@@ -152,6 +152,11 @@ function endSlotWithin(
 	endFrom: string,
 	today: string
 ) {
+	// A Cover on a date the Slot no longer holds goes with it (ADR-0030). It would otherwise be
+	// invisible, unclearable, and keep its Lesson from being deleted, or block deleting the Slot.
+	db.delete(schema.cover)
+		.where(and(eq(schema.cover.slotId, row.id), gte(schema.cover.date, endFrom)))
+		.run();
 	if (from(row.holdsFrom) >= endFrom) {
 		db.delete(schema.slot).where(eq(schema.slot.id, row.id)).run();
 	} else {

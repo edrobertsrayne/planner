@@ -8,6 +8,7 @@ import { rederive, rederiveAllClasses, rewindBoundary, type Db, type WriteReport
 import { isRealDate, weekday } from '$lib/date';
 import { Refused } from './refused';
 import { required } from './fields';
+import { dropEndedCovers } from './cover';
 
 // A Blocked Day removes every Slot on that date for every Class. A Placement this closure pushes
 // off its anchor is reported back through `placementsMoved` (ADR-0022).
@@ -125,8 +126,7 @@ export function unblockDay(db: Db, { date, today }: { date: string; today: strin
 
 	return inTransaction(db.$client, () => {
 		db.delete(schema.blockedDay).where(eq(schema.blockedDay.date, date)).run();
-		// An Absence's Cover ends with it (ADR-0030).
-		db.delete(schema.cover).where(eq(schema.cover.date, date)).run();
+		dropEndedCovers(db, date);
 		return rederiveAllClasses(db, rewindBoundary(date, today));
 	});
 }
@@ -138,15 +138,7 @@ export function unblockSlot(db: Db, { id, today }: { id: string; today: string }
 
 	return inTransaction(db.$client, () => {
 		db.delete(schema.blockedSlot).where(eq(schema.blockedSlot.id, id)).run();
-		db.delete(schema.cover)
-			.where(
-				and(
-					eq(schema.cover.classId, row.classId),
-					eq(schema.cover.date, row.date),
-					eq(schema.cover.slotId, row.slotId)
-				)
-			)
-			.run();
+		dropEndedCovers(db, row.date);
 		return rederive(db, row.classId, rewindBoundary(row.date, today));
 	});
 }
