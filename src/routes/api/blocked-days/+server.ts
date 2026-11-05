@@ -10,7 +10,7 @@ import type { RequestHandler } from './$types';
 // A Blocked Day is addressed by date, so the list carries no ids — the date is the address.
 export const GET: RequestHandler = apiRoute(async () => {
 	const rows = db
-		.select({ date: blockedDay.date, note: blockedDay.note })
+		.select({ date: blockedDay.date, note: blockedDay.note, absent: blockedDay.absent })
 		.from(blockedDay)
 		.orderBy(asc(blockedDay.date))
 		.all();
@@ -18,6 +18,7 @@ export const GET: RequestHandler = apiRoute(async () => {
 	return json({ blockedDays: rows });
 });
 
+// `absent` marks the day as the teacher's own Absence (ADR-0030); left out, it is a closure.
 // Extra fields in a body are read and ignored: the body carries what it carries. The date rules
 // — malformed, weekend, already blocked — and the note's trim live in the seam, which throws
 // `Refused` and this door answers 400 or 409 with the reason the teacher reads.
@@ -30,9 +31,18 @@ export const POST: RequestHandler = apiRoute(async (event) => {
 		throw new ApiFailure(400, 'The "note" field must be a string.');
 	}
 
-	const report = blockDay(db, { date: data.date, note: data.note ?? undefined, today: today() });
+	if (data.absent !== undefined && typeof data.absent !== 'boolean') {
+		throw new ApiFailure(400, 'The "absent" field must be a boolean.');
+	}
+
+	const report = blockDay(db, {
+		date: data.date,
+		note: data.note ?? undefined,
+		absent: data.absent,
+		today: today()
+	});
 	const [stored] = db
-		.select({ date: blockedDay.date, note: blockedDay.note })
+		.select({ date: blockedDay.date, note: blockedDay.note, absent: blockedDay.absent })
 		.from(blockedDay)
 		.where(eq(blockedDay.date, data.date))
 		.all();
