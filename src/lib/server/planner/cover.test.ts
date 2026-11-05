@@ -253,6 +253,18 @@ describe('Cover', () => {
 		);
 	});
 
+	test('keeps its Lesson Standalone: it cannot be filed into a Topic', () => {
+		const { db, classA, slotA, course } = absentMonday();
+		const { lesson } = setCover(db, { classId: classA.id, date: MON, slotId: slotA, title: 'C' });
+		const topic = makeTopic(db, course.id, 'Waves');
+
+		refused(
+			() => editLesson(db, { id: lesson.id, change: { topicId: topic.id }, today: TODAY }),
+			'conflict',
+			'A Cover names this Lesson, so it cannot be filed into a Topic. Remove the Cover first.'
+		);
+	});
+
 	test('is kept out of Planning', () => {
 		const { db, classA, slotA } = absentMonday();
 		setCover(db, { classId: classA.id, date: MON, slotId: slotA, title: 'Cover: 9B/Sc1' });
