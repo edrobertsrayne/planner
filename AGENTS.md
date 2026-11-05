@@ -48,9 +48,6 @@ browser to open, report the port and a screenshot instead.
 
 ## Reference
 
-- Issues: GitHub Issues via `gh` (`docs/agents/issue-tracker.md`); in a cloud container, use the
-  GitHub MCP tools instead. Labels in `docs/agents/triage-labels.md`.
-- Domain terms: `GLOSSARY.md`, `docs/adr/` (`docs/agents/domain.md`). Use its terms, never the
-  synonyms it lists to avoid.
-- Migrations: read `docs/agents/migrations.md` before writing one.
+- Issues: GitHub Issues via `gh`; in a cloud container, use the GitHub MCP tools instead.
+- Domain terms: `GLOSSARY.md`, `docs/adr/`. Use its terms, never the synonyms it lists to avoid.
 - Backlog: put out-of-scope ideas in `docs/backlog.md`; read it before proposing a feature.

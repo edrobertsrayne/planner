@@ -751,8 +751,7 @@ CREATE UNIQUE INDEX course_name_unique ON course (name COLLATE NOCASE);
 CREATE UNIQUE INDEX topic_name_per_course ON topic (course_id, name COLLATE NOCASE);
 ```
 
-An index needs no table rebuild, so this is safe on tables that other tables reference. See
-`docs/agents/migrations.md`.
+An index needs no table rebuild, so this is safe on tables that other tables reference.
 
 The same migration made `lesson.topic_id` nullable, with plain `ALTER TABLE ... ALTER COLUMN ...
 DROP NOT NULL` and no table rebuild.
