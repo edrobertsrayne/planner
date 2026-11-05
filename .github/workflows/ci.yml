@@ -122,4 +122,6 @@ jobs:
           variant: max
           prompt: |
             Review this pull request. Review only the diff (`gh pr diff`), not the rest of the codebase. Open other files only when a change can't be judged without them.
+
+            Report only issues that would prevent merging, each with file, line and the concrete failure. Do not report nitpicks or optional suggestions. If there are none, say so in one line.
           use_github_token: true
