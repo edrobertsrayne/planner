@@ -3,6 +3,8 @@
 An electronic teacher planner. Self-hosted, single-user, UK state secondary school.
 Runtime: Node. Package manager: npm.
 
+Checks: `npm run check` (types), `npm run lint`, `npm run test:unit -- --run`, `npm run test:e2e`.
+
 ## Changes
 
 Subtract before you add: remove dead code, stale tests and stub references first, in their own
@@ -41,13 +43,11 @@ passing that path as `launchOptions.executablePath`. Delete those afterwards; no
 ## Prototyping
 
 Disable the auth guard in a prototype, unless it tests the auth pages. Serve it and open it in the
-teacher's browser (`xdg-open <url>`) before asking about it.
+teacher's browser (`xdg-open <url>`) before asking about it. In a cloud container, which has no
+browser to open, report the port and a screenshot instead.
 
 ## Reference
 
-- Issues: GitHub Issues via `gh` (`docs/agents/issue-tracker.md`); labels in
-  `docs/agents/triage-labels.md`.
-- Domain terms: `GLOSSARY.md`, `docs/adr/` (`docs/agents/domain.md`). Use its terms, never the
-  synonyms it lists to avoid.
-- Migrations: read `docs/agents/migrations.md` before writing one.
+- Issues: GitHub Issues via `gh`; in a cloud container, use the GitHub MCP tools instead.
+- Domain terms: `GLOSSARY.md`, `docs/adr/`. Use its terms, never the synonyms it lists to avoid.
 - Backlog: put out-of-scope ideas in `docs/backlog.md`; read it before proposing a feature.
