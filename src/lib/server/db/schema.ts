@@ -286,7 +286,8 @@ export const term = sqliteTable('term', {
 export const blockedDay = sqliteTable('blocked_day', {
 	id: id(),
 	date: text('date').notNull(),
-	note: text('note')
+	note: text('note'),
+	absent: integer('absent', { mode: 'boolean' }).notNull().default(false)
 });
 
 export const apiKey = sqliteTable('api_key', {
@@ -307,7 +308,28 @@ export const blockedSlot = sqliteTable('blocked_slot', {
 	slotId: text('slot_id')
 		.notNull()
 		.references(() => slot.id),
-	note: text('note').notNull()
+	note: text('note').notNull(),
+	absent: integer('absent', { mode: 'boolean' }).notNull().default(false)
 });
+
+// The Cover for one Slot of an Absence (ADR-0030): a Lesson the teacher recorded as the work set.
+// Read only by the views, never by the engine, and dropped with the Absence it belongs to.
+export const cover = sqliteTable(
+	'cover',
+	{
+		id: id(),
+		classId: text('class_id')
+			.notNull()
+			.references(() => classes.id),
+		date: text('date').notNull(),
+		slotId: text('slot_id')
+			.notNull()
+			.references(() => slot.id),
+		lessonId: text('lesson_id')
+			.notNull()
+			.references(() => lesson.id)
+	},
+	(table) => [unique('cover_occasion').on(table.classId, table.date, table.slotId)]
+);
 
 export * from './auth.schema.ts';

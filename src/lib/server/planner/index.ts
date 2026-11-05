@@ -17,6 +17,7 @@
 //   classes.ts      a Class, and how far through its Sequence it has got
 //   disruptions.ts  Blocked Days and Blocked Slots
 //   placement.ts    Placement: a Standalone Lesson put directly onto a Class, no Topic behind it
+//   cover.ts        Cover: the Lesson recorded as the work set for a Slot of an Absence
 //   terms.ts        the six Terms, replaced as one document — the Week letter derives from them
 //   sessions.ts     one occasion: its detail, its note, its Continuation
 //   views.ts        the Agenda stream and the Calendar grid, across every Class
@@ -94,6 +95,8 @@ export {
 
 export { blockDay, blockSlot, blockSlots, unblockDay, unblockSlot } from './disruptions';
 
+export { clearCover, setCover } from './cover';
+
 export { placeLesson, placementAdmission, removePlacement } from './placement';
 
 export { replaceTerms } from './terms';
@@ -113,9 +116,12 @@ export {
 	agendaLookBackEvents,
 	calendarWeek,
 	planningStream,
+	type AbsentLine,
 	type AgendaEntry,
+	type BlockedRow,
 	type CalendarCell,
 	type CalendarWeek,
+	type CoverRef,
 	type DayKind,
 	type PlanningEntry,
 	type PlanningOccurrence

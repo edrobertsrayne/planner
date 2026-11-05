@@ -159,7 +159,9 @@ describe('the Agenda', () => {
 
 		const { rows, blockedDays } = agenda(db, { today: '2026-09-03', horizonDays: 7 });
 
-		expect(blockedDays).toEqual([{ date: '2026-09-07', note: 'Snow day' }]);
+		expect(blockedDays).toEqual([
+			{ date: '2026-09-07', note: 'Snow day', absent: false, lines: [] }
+		]);
 		expect(rows.some((r) => r.date === '2026-09-07')).toBe(false);
 		// The fixture's INSET days fall beyond this window.
 		expect(blockedDays.some((d) => d.date === '2026-11-26')).toBe(false);
@@ -302,7 +304,7 @@ describe('the Agenda', () => {
 		blockDay(db, { date: '2026-09-03', note: 'Snow', today: '2026-09-03' });
 
 		const { rows, blockedDays } = agenda(db, { today: '2026-09-03', horizonDays: 1 });
-		expect(blockedDays).toEqual([{ date: '2026-09-03', note: 'Snow' }]);
+		expect(blockedDays).toEqual([{ date: '2026-09-03', note: 'Snow', absent: false, lines: [] }]);
 		expect(rows.filter((r) => r.date === '2026-09-03')).toEqual([]);
 
 		// Taking the day back leaves the earlier Blocked Slot where it was.
@@ -610,7 +612,7 @@ describe('the Calendar', () => {
 		const week = calendarWeek(db, { weekCommencing: '2026-08-31', today: '2026-09-01' });
 
 		expect(week?.blockedDays).toEqual([
-			{ id: expect.any(String), date: '2026-09-03', note: 'Snow day' }
+			{ id: expect.any(String), date: '2026-09-03', note: 'Snow day', absent: false }
 		]);
 		const blocked = week?.cells.find((c) => c.date === '2026-09-03');
 		expect(blocked).toMatchObject({ blockedDayId: week?.blockedDays[0].id });

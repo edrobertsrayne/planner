@@ -247,6 +247,18 @@ export function deleteLesson(
 		);
 	}
 
+	const [coveredBy] = db
+		.select({ id: schema.cover.id })
+		.from(schema.cover)
+		.where(eq(schema.cover.lessonId, id))
+		.all();
+	if (coveredBy) {
+		throw new Refused(
+			'conflict',
+			'A Cover names this Lesson, so it cannot be removed. Remove the Cover first.'
+		);
+	}
+
 	const sequenceClasses = db
 		.select({ id: schema.classes.id, label: schema.classes.label })
 		.from(schema.classLesson)

@@ -16,11 +16,14 @@ day or snow, and may want to record what was set.
   moves right whether or not anything is recorded. `absent` is a fact about the block, so it is a
   column on `blocked_day` and `blocked_slot`, not a table.
 - **Cover is a Standalone Lesson attached to an occasion.** `cover { class_id, date, slot_id,
-  lesson_id }`, unique on `(class_id, date, slot_id)`, shaped like a Placement but not one. A
+lesson_id }`, unique on `(class_id, date, slot_id)`, shaped like a Placement but not one. A
   Placement takes an Available Slot and is an engine input; an absent Slot is not Available, and a
   Cover must not shift anything. So `cover` is read only by views, never by the engine.
 - **Cover is written in the Lesson editor.** It is new (a Standalone Lesson created on the spot) or
   an existing Lesson, so a standard task can serve several Classes. No second authoring surface.
+- **Set cover makes the Lesson and opens it at once.** The prompt to decide what is set is the
+  point. Leaving it with no body, Links or Attachments discards the Cover and the new Lesson; an
+  existing Lesson is never discarded.
 - **Optional, and never a warning.** The marker says "Absent". An Absence with no Cover shows a Set
   cover button and no alert colour.
 - **It ends with the Absence.** Unblocking the day or Slot deletes its Cover rows; the Lesson

@@ -28,6 +28,7 @@ export interface BlockedDay {
 	id: string;
 	date: string;
 	note: string | null;
+	absent: boolean;
 }
 
 export interface BlockedSlot {
@@ -36,6 +37,7 @@ export interface BlockedSlot {
 	date: string;
 	slotId: string;
 	note: string | null;
+	absent: boolean;
 }
 
 export interface Calendar {
@@ -186,8 +188,8 @@ export const slotHolds = (
 // covers — the Calendar must offer its Unblock — so an occasion can carry more than one reason.
 export type Removal =
 	| { kind: 'outside-term' }
-	| { kind: 'day'; id: string; note: string | null }
-	| { kind: 'slot'; id: string; note: string | null };
+	| { kind: 'day'; id: string; note: string | null; absent: boolean }
+	| { kind: 'slot'; id: string; note: string | null; absent: boolean };
 
 export interface TimetabledSlot extends AvailableSlot {
 	classId: string;
@@ -215,7 +217,13 @@ export function timetabledSlots(cal: Calendar, classId?: string, from?: string):
 			const dayRemovals: Removal[] = [];
 			if (!inAnyTerm(cal.terms, date)) dayRemovals.push({ kind: 'outside-term' });
 			const dayBlock = blockedDays.get(date);
-			if (dayBlock) dayRemovals.push({ kind: 'day', id: dayBlock.id, note: dayBlock.note });
+			if (dayBlock)
+				dayRemovals.push({
+					kind: 'day',
+					id: dayBlock.id,
+					note: dayBlock.note,
+					absent: dayBlock.absent
+				});
 
 			const todays = cal.slots
 				.filter(
@@ -236,7 +244,10 @@ export function timetabledSlots(cal: Calendar, classId?: string, from?: string):
 					week: week.letter,
 					classId: slot.classId,
 					removedBy: block
-						? [...dayRemovals, { kind: 'slot', id: block.id, note: block.note }]
+						? [
+								...dayRemovals,
+								{ kind: 'slot', id: block.id, note: block.note, absent: block.absent }
+							]
 						: dayRemovals
 				});
 			}

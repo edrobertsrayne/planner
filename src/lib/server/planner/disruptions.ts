@@ -18,7 +18,12 @@ import { required } from './fields';
 // does not need a Term to be real.
 export function blockDay(
 	db: Db,
-	{ date, note, today }: { date: string; note?: string; today: string }
+	{
+		date,
+		note,
+		absent = false,
+		today
+	}: { date: string; note?: string; absent?: boolean; today: string }
 ): WriteReport {
 	if (!isRealDate(date)) {
 		throw new Refused('invalid', `"${date}" is not a real date.`);
@@ -42,7 +47,7 @@ export function blockDay(
 	// closure recorded with the Sessions still planned through it.
 	return inTransaction(db.$client, () => {
 		db.insert(schema.blockedDay)
-			.values({ date, note: note?.trim() || undefined })
+			.values({ date, note: note?.trim() || undefined, absent })
 			.run();
 		return rederiveAllClasses(db, rewindBoundary(date, today));
 	});
@@ -54,7 +59,14 @@ export function blockSlot(
 	{
 		slotId,
 		...rest
-	}: { classId: string; date: string; slotId: string; note: string; today: string }
+	}: {
+		classId: string;
+		date: string;
+		slotId: string;
+		note: string;
+		absent?: boolean;
+		today: string;
+	}
 ): WriteReport {
 	return blockSlots(db, { ...rest, slotIds: [slotId] });
 }
@@ -69,8 +81,16 @@ export function blockSlots(
 		date,
 		slotIds,
 		note,
+		absent = false,
 		today
-	}: { classId: string; date: string; slotIds: string[]; note: string; today: string }
+	}: {
+		classId: string;
+		date: string;
+		slotIds: string[];
+		note: string;
+		absent?: boolean;
+		today: string;
+	}
 ): WriteReport {
 	const trimmed = required(note, 'A Blocked Slot needs a note.');
 
@@ -90,7 +110,7 @@ export function blockSlots(
 			if (existing) throw new Refused('conflict', 'That Slot is already a Blocked Slot.');
 		}
 		for (const slotId of slotIds) {
-			db.insert(schema.blockedSlot).values({ classId, date, slotId, note: trimmed }).run();
+			db.insert(schema.blockedSlot).values({ classId, date, slotId, note: trimmed, absent }).run();
 		}
 		return rederive(db, classId, rewindBoundary(date, today));
 	});
@@ -105,6 +125,8 @@ export function unblockDay(db: Db, { date, today }: { date: string; today: strin
 
 	return inTransaction(db.$client, () => {
 		db.delete(schema.blockedDay).where(eq(schema.blockedDay.date, date)).run();
+		// An Absence's Cover ends with it (ADR-0030).
+		db.delete(schema.cover).where(eq(schema.cover.date, date)).run();
 		return rederiveAllClasses(db, rewindBoundary(date, today));
 	});
 }
@@ -116,6 +138,15 @@ export function unblockSlot(db: Db, { id, today }: { id: string; today: string }
 
 	return inTransaction(db.$client, () => {
 		db.delete(schema.blockedSlot).where(eq(schema.blockedSlot.id, id)).run();
+		db.delete(schema.cover)
+			.where(
+				and(
+					eq(schema.cover.classId, row.classId),
+					eq(schema.cover.date, row.date),
+					eq(schema.cover.slotId, row.slotId)
+				)
+			)
+			.run();
 		return rederive(db, row.classId, rewindBoundary(row.date, today));
 	});
 }

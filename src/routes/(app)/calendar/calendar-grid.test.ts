@@ -66,6 +66,8 @@ function blockedCell(
 		blockedNote: null,
 		blockedDayId: null,
 		blockedSlotId: null,
+		absent: false,
+		cover: null,
 		...overrides
 	};
 }
