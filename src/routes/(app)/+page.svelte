@@ -7,7 +7,7 @@
 	import HistoryIcon from '@lucide/svelte/icons/history';
 	import { classTone } from '$lib/class-tone';
 	import { formatWeekday } from '$lib/date';
-	import type { CoverRef } from '$lib/server/planner';
+	import type { AgendaBlockedDay, CoverRef } from '$lib/server/planner';
 	import { joinAdjacentPeriods, kindLabel, positionRangeLabel } from '$lib/events';
 	import { onFail, replaceQuery, submitForm } from '$lib/client/enhance';
 	import { sessionHref } from '$lib/client/session-href';
@@ -99,8 +99,12 @@
 	let coverPick = $state<CoverPick | null>(null);
 	let clearCoverForm = $state<HTMLFormElement | undefined>();
 	const stream = $derived(agendaStream(days, data.blockedDays, data.holidays));
-	const pastDays = $derived(
-		withEvents(groupByDay(filterByTag(data.lookBack, data.tag)), eventsIn(data.lookBackEvents))
+	const pastStream = $derived(
+		agendaStream(
+			withEvents(groupByDay(filterByTag(data.lookBack, data.tag)), eventsIn(data.lookBackEvents)),
+			data.lookBackBlockedDays,
+			[]
+		)
 	);
 
 	const lineKey = (line: (typeof days)[number]['rows'][number]) =>
@@ -255,7 +259,7 @@
 
 			<!-- The Class chip sits in a fixed-width column, so the titles line up (issue #341), and opens
 			     the Class's page. -->
-			<span class="w-16 shrink-0">
+			<span class="w-24 shrink-0">
 				<ClassChip classId={row.classId} label={row.classLabel} tone={row.tone} />
 			</span>
 
@@ -343,7 +347,12 @@
 				{positionRangeLabel(event.position, event.positionTo)}
 				{#if event.room}<span class="block truncate" title={event.room}>{event.room}</span>{/if}
 			</span>
-			<span class="w-16 shrink-0 text-xs text-muted-foreground">{kindLabel(event.kind)}</span>
+			<span class="w-24 shrink-0">
+				<span
+					class="rounded-2xl bg-muted px-2 py-0.5 text-xs font-medium whitespace-nowrap text-muted-foreground"
+					>{kindLabel(event.kind)}</span
+				>
+			</span>
 			<a
 				href={eventHref(event)}
 				class="min-w-0 flex-1 py-3 text-left outline-none focus-visible:underline"
@@ -369,21 +378,95 @@
 		{/if}
 	{/snippet}
 
+	<!-- A Blocked Day as one panel. An Absence lists each Class and Period it takes, so its Cover is
+	     set (or read) from here; a past day, in the look-back, has no Unblock (ADR-0030). -->
+	{#snippet blockedDayPanel(item: AgendaBlockedDay, past: boolean)}
+		<div class="overflow-hidden rounded-xl border bg-muted">
+			<div class="flex items-center gap-3 py-3 pr-2 pl-4">
+				<div class="min-w-0 flex-1">
+					{#if item.absent}
+						<p class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+							<AbsentMarker /> All day
+						</p>
+					{:else}
+						<p class="text-sm font-medium text-muted-foreground">Blocked Day</p>
+					{/if}
+					{#if item.note}
+						<p class="text-xs text-muted-foreground">{item.note}</p>
+					{/if}
+				</div>
+				{#if !past}
+					<Button
+						variant="ghost"
+						size="sm"
+						class="h-7 {touchTarget}"
+						onclick={() => submitForm(unblockDayForm, { fields: { date: item.date } })}
+						aria-label="Unblock {formatWeekday(item.date)}">Unblock day</Button
+					>
+				{/if}
+			</div>
+			<!-- An Absence lists each Class and Period it takes, so its Cover is set from here. -->
+			{#if item.lines.length > 0}
+				<ul class="divide-y divide-border border-t bg-card">
+					{#each item.lines as line (line.classId + line.period)}
+						{@const tone = classTone(line.tone)}
+						<li class="relative flex items-center gap-3 pr-2 pl-4">
+							<span
+								class="absolute inset-y-0 left-0 w-1"
+								style:background-color={tone.ring}
+								aria-hidden="true"
+							></span>
+							<span class="w-14 shrink-0 text-xs text-muted-foreground tabular-nums">
+								P{line.period}
+								{#if line.room}<span class="block truncate" title={line.room}>{line.room}</span
+									>{/if}
+							</span>
+							<span class="w-16 shrink-0">
+								<ClassChip classId={line.classId} label={line.classLabel} tone={line.tone} />
+							</span>
+							<span class="min-w-0 flex-1 py-3">
+								{#if line.cover}
+									{@render coverLink(line.cover)}
+								{:else}
+									<span class="block text-xs text-muted-foreground">No Cover recorded</span>
+								{/if}
+							</span>
+							{@render coverButton(
+								{
+									classId: line.classId,
+									classLabel: line.classLabel,
+									date: line.date,
+									slotId: line.slotId,
+									period: line.period
+								},
+								line.cover
+							)}
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</div>
+	{/snippet}
+
 	<!-- The look-back: the past seven days, shown when the teacher turns it on, fixed whatever the
 	     horizon. Told apart from the days ahead by a step in shade, never a hue, as the Calendar marks
 	     a day with no teaching. -->
-	{#if pastDays.length > 0}
+	{#if pastStream.length > 0}
 		<div aria-label="Past seven days" role="region">
-			{#each pastDays as day (day.date)}
+			{#each pastStream as item (item.kind + item.date)}
 				<section class="mt-6">
 					<h2 class="mb-2 text-sm font-semibold text-muted-foreground">
-						{formatWeekday(day.date)}
+						{formatWeekday(item.date)}
 					</h2>
-					<ul class="divide-y divide-border overflow-hidden rounded-xl border bg-muted/50">
-						{#each day.rows as line (lineKey(line))}
-							{@render agendaLine(line, true)}
-						{/each}
-					</ul>
+					{#if item.kind === 'day'}
+						<ul class="divide-y divide-border overflow-hidden rounded-xl border bg-muted/50">
+							{#each item.rows as line (lineKey(line))}
+								{@render agendaLine(line, true)}
+							{/each}
+						</ul>
+					{:else if item.kind === 'blocked'}
+						{@render blockedDayPanel(item, true)}
+					{/if}
 				</section>
 			{/each}
 		</div>
@@ -449,69 +532,7 @@
 				<h2 class="mb-2 flex items-baseline gap-2 text-sm font-semibold">
 					{@render dayHeading(item.date)}
 				</h2>
-				<div class="overflow-hidden rounded-xl border bg-muted">
-					<div class="flex items-center gap-3 py-3 pr-2 pl-4">
-						<div class="min-w-0 flex-1">
-							{#if item.absent}
-								<p class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-									<AbsentMarker /> All day
-								</p>
-							{:else}
-								<p class="text-sm font-medium text-muted-foreground">Blocked Day</p>
-							{/if}
-							{#if item.note}
-								<p class="text-xs text-muted-foreground">{item.note}</p>
-							{/if}
-						</div>
-						<Button
-							variant="ghost"
-							size="sm"
-							class="h-7 {touchTarget}"
-							onclick={() => submitForm(unblockDayForm, { fields: { date: item.date } })}
-							aria-label="Unblock {formatWeekday(item.date)}">Unblock day</Button
-						>
-					</div>
-					<!-- An Absence lists each Class and Period it takes, so its Cover is set from here. -->
-					{#if item.lines.length > 0}
-						<ul class="divide-y divide-border border-t bg-card">
-							{#each item.lines as line (line.classId + line.period)}
-								{@const tone = classTone(line.tone)}
-								<li class="relative flex items-center gap-3 pr-2 pl-4">
-									<span
-										class="absolute inset-y-0 left-0 w-1"
-										style:background-color={tone.ring}
-										aria-hidden="true"
-									></span>
-									<span class="w-14 shrink-0 text-xs text-muted-foreground tabular-nums">
-										P{line.period}
-										{#if line.room}<span class="block truncate" title={line.room}>{line.room}</span
-											>{/if}
-									</span>
-									<span class="w-16 shrink-0">
-										<ClassChip classId={line.classId} label={line.classLabel} tone={line.tone} />
-									</span>
-									<span class="min-w-0 flex-1 py-3">
-										{#if line.cover}
-											{@render coverLink(line.cover)}
-										{:else}
-											<span class="block text-xs text-muted-foreground">No Cover recorded</span>
-										{/if}
-									</span>
-									{@render coverButton(
-										{
-											classId: line.classId,
-											classLabel: line.classLabel,
-											date: line.date,
-											slotId: line.slotId,
-											period: line.period
-										},
-										line.cover
-									)}
-								</li>
-							{/each}
-						</ul>
-					{/if}
-				</div>
+				{@render blockedDayPanel(item, false)}
 			</section>
 		{:else}
 			<section class="mt-6">

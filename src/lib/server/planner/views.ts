@@ -233,7 +233,7 @@ export function agenda(
 ): {
 	rows: AgendaEntry[];
 	// An absent day also lists the Class and Slot it takes, each with its Cover.
-	blockedDays: { date: string; note: string | null; absent: boolean; lines: AbsentLine[] }[];
+	blockedDays: AgendaBlockedDay[];
 	holidays: SchoolHoliday[];
 	// The Events that occur from today to the horizon (ADR-0029), for the screen to set among the
 	// rows by date and position. A School Holiday and a Blocked Day hold none.
@@ -256,19 +256,7 @@ export function agenda(
 			.map((r) => `${r.lessonId}|${r.classId}`)
 	);
 
-	// A Blocked Day out of every Term reads as the holiday, as on the Calendar.
 	const covers = coversByOccasion(db);
-	const rooms = roomsBySlot(db);
-	const classById = new Map(classes.map((c) => [c.id, c]));
-	const blockedDays = cal.blockedDays
-		.filter((d) => d.date >= today && d.date <= horizonEnds && inAnyTerm(cal.terms, d.date))
-		.map(({ date, note, absent }) => ({
-			date,
-			note,
-			absent,
-			lines: absent ? absentLines(cal, classById, covers, rooms, date) : []
-		}))
-		.sort((a, b) => a.date.localeCompare(b.date));
 
 	return {
 		rows: toEntries(
@@ -281,11 +269,41 @@ export function agenda(
 			],
 			(lessonId, classId) => readinessSet.has(`${lessonId}|${classId}`)
 		),
-		blockedDays,
+		blockedDays: blockedDaysBetween(db, cal, { from: today, to: horizonEnds }),
 		holidays: schoolHolidays(cal.terms, today, horizonEnds),
 		events: eventOccurrences(db, { from: today, to: horizonEnds }),
 		horizonEnds
 	};
+}
+
+// The Blocked Days from `from` to `to`. One out of every Term reads as the holiday, as on the
+// Calendar, so it is left out.
+// An Absence also lists the Class and Slot it takes, each with its Cover (ADR-0030).
+export type AgendaBlockedDay = {
+	date: string;
+	note: string | null;
+	absent: boolean;
+	lines: AbsentLine[];
+};
+
+function blockedDaysBetween(
+	db: Db,
+	cal: Calendar,
+	{ from, to }: { from: string; to: string }
+): AgendaBlockedDay[] {
+	const covers = coversByOccasion(db);
+	const rooms = roomsBySlot(db);
+	const classById = new Map(listClasses(db).map((c) => [c.id, c]));
+
+	return cal.blockedDays
+		.filter((d) => d.date >= from && d.date <= to && inAnyTerm(cal.terms, d.date))
+		.map(({ date, note, absent }) => ({
+			date,
+			note,
+			absent,
+			lines: absent ? absentLines(cal, classById, covers, rooms, date) : []
+		}))
+		.sort((a, b) => a.date.localeCompare(b.date));
 }
 
 // The Blocked Slots from `from` to `to` that remove a real occasion: their Slot holds that date, the
@@ -411,6 +429,15 @@ export function agendaLookBack(db: Db, { today }: { today: string }): AgendaEntr
 	});
 
 	return toEntries(db, occasions, () => false);
+}
+
+// The Blocked Days of the seven calendar days before `today`: the look-back reads them as the days
+// ahead do, since a day with no Session would otherwise look like a weekend.
+export function agendaLookBackBlockedDays(db: Db, { today }: { today: string }) {
+	return blockedDaysBetween(db, loadCalendar(db), {
+		from: addDays(today, -LOOK_BACK_DAYS),
+		to: addDays(today, -1)
+	});
 }
 
 // The Events of the seven calendar days before `today`, the look-back's share of what the Agenda

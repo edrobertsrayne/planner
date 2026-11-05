@@ -113,10 +113,12 @@ export {
 export {
 	agenda,
 	agendaLookBack,
+	agendaLookBackBlockedDays,
 	agendaLookBackEvents,
 	calendarWeek,
 	planningStream,
 	type AbsentLine,
+	type AgendaBlockedDay,
 	type AgendaEntry,
 	type BlockedRow,
 	type CalendarCell,

@@ -12,6 +12,7 @@ import {
 import {
 	agenda,
 	agendaLookBack,
+	agendaLookBackBlockedDays,
 	agendaLookBackEvents,
 	coverChoices,
 	setReadiness
@@ -36,6 +37,7 @@ export const load: PageServerLoad = ({ url }) => {
 		...ahead,
 		coverChoices: coverChoices(db),
 		lookBack: lookBackOn ? agendaLookBack(db, { today: today() }) : [],
+		lookBackBlockedDays: lookBackOn ? agendaLookBackBlockedDays(db, { today: today() }) : [],
 		lookBackEvents: lookBackOn ? agendaLookBackEvents(db, { today: today() }) : []
 	};
 };
