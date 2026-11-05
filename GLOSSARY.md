@@ -237,16 +237,35 @@ then takes visual precedence in the Calendar.
 _Avoid_: Break, vacation, closure
 
 **Blocked Day**:
-A date on which none of this teacher's Classes are taught, whatever the cause — an INSET day, a
-bank holiday, illness, snow. The cause is not recorded, because nothing in the planner behaves
-differently according to it. Blocking a day blocks every Slot on it and skips every Event on it.
-_Avoid_: Closure, absence, holiday, cancellation, non-pupil day, leave
+A date on which none of this teacher's Classes are taught — an INSET day, a bank holiday, snow, or
+the teacher's own Absence. Closure, event or Absence, the schedule behaves the same; the only cause
+recorded is whether it is an Absence, because that is what needs Cover. Blocking a day blocks every
+Slot on it and skips every Event on it.
+_Avoid_: Closure, holiday, cancellation, non-pupil day, leave
 
 **Blocked Slot**:
 One Slot on one date on which one Class is not taught, though the school is open and other Classes
-are — a trip, a cover lesson, an assembly, a fire drill. Unlike a Blocked Day it may carry free
-text, because a hole in the week is otherwise unexplainable months later.
+are — a trip, an assembly, a fire drill, a meeting or appointment of the teacher's. Unlike a
+Blocked Day it needs free text, because a hole in the week is otherwise unexplainable months later.
+It may be an Absence.
 _Avoid_: Cancellation, skip, gap, missed lesson
+
+**Absence**:
+A Blocked Day or Blocked Slot that the teacher marks as their own absence — illness, a meeting, an
+appointment — rather than a closure of the school. The Class is still in school, so someone covers
+it. Scheduling is untouched: an Absence is Shift-right like any other block. An INSET day, snow or
+a bank holiday is not an Absence. Whole day or a single Slot, one date at a time; there is no
+range.
+_Avoid_: Leave, sickness, cover (that names the work set, below)
+
+**Cover**:
+The work set for one Class in one Slot of an Absence, recorded as a Standalone Lesson — written in
+the Lesson editor, and either new or an existing Lesson, so a standard cover task can serve several
+Classes. Optional: an Absence with no Cover is not a fault and nothing nags about it. A Cover is not
+in the Class's Sequence and is not a Placement; it moves no Lesson, because the displaced Lesson has
+already shifted right. It belongs to the occasion — Class, date and Slot — and ends with the
+Absence, leaving the Lesson standing. It is kept out of Planning.
+_Avoid_: Cover lesson, cover work, supply lesson
 
 **Available Slot**:
 A Slot on a date that falls within a Term, lies within the dates that Slot holds, and is neither a
@@ -343,7 +362,8 @@ The chronological stream of upcoming Sessions across every Class, grouped by day
 horizon the teacher chooses: a number of Term days, or **All**, to the end of the last Term. A
 School Holiday is skipped, not counted, so One Week on a School Holiday shows the next Term's first
 week. Every School Holiday the window touches shows as one card at its place in the stream, naming
-its first and last day. A Blocked Day shows as a panel under its day heading, with its note. A
+its first and last day. A Blocked Day shows as a panel under its day heading, with its note; an Absence panel also lists
+each Class and Period it takes, each with its Cover or a Set cover button. A
 Blocked Slot shows as a row of its own in its position, with its note; it opens nothing and carries
 neither Plan nor Ready tick. The Agenda is where a Slot or a day is blocked and unblocked: from a
 tablet up every upcoming row has a Block control that asks for the note, and a Blocked Slot row has
@@ -397,7 +417,8 @@ empty. A day with no teaching — a Blocked Day or a
 School Holiday — drops its six Periods, its two bands and its Events. The day reads as one panel
 spanning the column. The panel is
 told apart from an empty Period by a step in shade, never a hue. No block or unblock sits on a tile.
-Every block and unblock on a day starts in that day's menu. The menu offers Block day or Unblock
+A tile or panel of an Absence carries the same "Absent" marker, and its Cover as a link. Every block
+and unblock on a day starts in that day's menu. The menu offers Block day or Unblock
 day. It offers a Block one Slot line for each Slot the day's tiles cover. It offers an Unblock line
 for each Blocked Slot on it. A Blocked Slot's Unblock line survives the collapse of its column. A
 Blocked Slot recorded on a School Holiday is still a removal. The column reads as the School
