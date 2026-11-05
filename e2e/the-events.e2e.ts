@@ -106,8 +106,8 @@ test.describe.serial('an Event on a laptop', () => {
 		await page.getByRole('link', { name: /Staff briefing/ }).click();
 		await page.getByRole('button', { name: 'Delete Event' }).click();
 		await page
+			.getByRole('dialog')
 			.getByRole('button', { name: /^Delete/ })
-			.last()
 			.click();
 		await expect(page).toHaveURL(/\/events$/);
 	});
@@ -140,8 +140,8 @@ test.describe.serial('an Event on a laptop', () => {
 		await page.getByRole('button', { name: 'Delete Event' }).click();
 		await expect(page.getByText(/Its Timetable positions and 2 notes go with it/)).toBeVisible();
 		await page
+			.getByRole('dialog')
 			.getByRole('button', { name: /^Delete/ })
-			.last()
 			.click();
 		await expect(page).toHaveURL(/\/events$/);
 		await expect(page.getByText('No Events yet')).toBeVisible();
