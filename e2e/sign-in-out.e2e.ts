@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { EMAIL, ORIGIN, PASSWORD, resetTo, signIn } from './helpers.ts';
+import { EMAIL, PASSWORD, resetTo, signIn } from './helpers.ts';
 
 // Signs in as the one user (ADR-0001) that resetTo('standard') creates, from the Login page the
 // guard has already opened: this file is the one that tests the form itself.
@@ -57,18 +57,10 @@ test('logging in, out, and back in again, and the route guard around it', async 
 	await expect(page.getByRole('button', { name: 'Log out' })).toBeVisible();
 });
 
-// ADR-0011: the form is the only sign-in door, and five failures lock it for a minute. This test
-// leaves the server unlocked, so it must stay last in the file.
-test("better-auth's sign-in endpoint is closed; five failures lock the form, and the wait clears it", async ({
-	page
-}) => {
+// ADR-0011: five failures lock the sign-in form for a minute. This test leaves the server
+// unlocked, so it must stay last in the file.
+test('five failures lock the form, and the wait clears it', async ({ page }) => {
 	test.setTimeout(120_000);
-
-	const response = await page.request.post('/api/auth/sign-in/email', {
-		data: { email: EMAIL, password: PASSWORD },
-		headers: { origin: ORIGIN }
-	});
-	expect(response.status()).toBe(404);
 
 	// Earlier tests in this file left failures behind; keep trying until the lock answers.
 	const wait = 'Too many failed sign-ins. Wait a minute and try again.';

@@ -42,7 +42,7 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await page.close();
 	});
 
-	test('a Class created from the Classes dialog lands on a distinct tone from the previous one', async () => {
+	test('two Classes with different Tones show different colours', async () => {
 		await page.goto('/classes');
 		const toneOf = async (label: string) => {
 			const dot = page

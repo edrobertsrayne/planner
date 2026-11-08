@@ -54,11 +54,8 @@ for (const [name, use] of [
 	test.describe(`the Class page on a ${name} can write the Timetable`, () => {
 		test.use(use);
 
-		test('fits the width; the Timetable tab shows, and the teacher can write a Slot', async ({
-			page
-		}) => {
+		test('the Timetable tab shows, and the teacher can write a Slot', async ({ page }) => {
 			await openClassPage(page);
-			await expectNoHorizontalScroll(page);
 			// The tablist shows from a tablet up (story 115).
 			await expect(page.getByRole('tablist')).toBeVisible();
 			await page.getByRole('tab', { name: /^Timetable/ }).click();

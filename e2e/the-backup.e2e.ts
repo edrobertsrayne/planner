@@ -103,6 +103,8 @@ test.describe.serial('Back up and Restore', () => {
 			await page.getByLabel('Backup file').setInputFiles(file);
 			await page.getByRole('button', { name: 'Restore', exact: true }).click();
 			await expect(page.getByRole('alert')).toContainText('not a Backup');
+			// The refusal leaves the Restore form open, error and all.
+			await expect(page.getByLabel('Backup file')).toBeVisible();
 			expect(readdirSync(join(folder, 'data')).filter((name) => name.startsWith('.'))).toEqual([]);
 			await page.goto(`${B}/setup`);
 			await expect(page.getByText('Set up Planner', { exact: true })).toBeVisible();

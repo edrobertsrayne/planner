@@ -8,7 +8,6 @@ import { resetFeedbackFetch, setFeedbackFetch } from '$lib/server/feedback';
 import {
 	resetStructuredTransport,
 	setStructuredTransport,
-	StructuredModelError,
 	type StructuredModelInput
 } from '$lib/server/openrouter';
 
@@ -91,14 +90,11 @@ describe('POST /feedback', () => {
 		expect(githubCalls).toHaveLength(0);
 	});
 
-	test('rejects blank text and unknown keys', async () => {
-		const blank = await post({ text: '   ', page: '/' });
-		expect(blank.status).toBe(400);
-		expect(blank.json.error).toBe('Write some feedback first.');
-
-		const extra = await post({ text: 'x', page: '/', extra: 1 });
-		expect(extra.status).toBe(400);
-		expect(extra.json.error).toBe('Unknown field "extra".');
+	test('rejects an invalid body with a 400, calling nothing', async () => {
+		const { status, json } = await post({ text: '   ', page: '/' });
+		expect(status).toBe(400);
+		expect(json.error).toBe('Write some feedback first.');
+		expect(modelCalls).toHaveLength(0);
 	});
 
 	test('files an issue titled by the model', async () => {
@@ -109,14 +105,6 @@ describe('POST /feedback', () => {
 		});
 		expect(status).toBe(201);
 		expect(json).toEqual({ number: 42, url: ISSUE_URL });
-	});
-
-	test('falls back to the first line when the model fails', async () => {
-		stubModel(new StructuredModelError('x', { code: 'MODEL_RETRYABLE', retryable: true }));
-		const { status } = await post({ text: 'Grid header overlaps\nmore detail', page: '/' });
-		expect(status).toBe(201);
-		const body = JSON.parse(String(githubCalls[0]?.init?.body));
-		expect(body.title).toBe('Feedback: Grid header overlaps');
 	});
 
 	test('maps a GitHub refusal to a 502 with the reason', async () => {

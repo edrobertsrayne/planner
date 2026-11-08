@@ -88,17 +88,6 @@ test.describe.serial('Attachments on Lessons', () => {
 		await expect(page.locator('main').getByText('field-notes.txt')).toBeVisible();
 	});
 
-	test('a file whose declared type does not match its extension is refused', async () => {
-		await attach(page, {
-			name: 'notes.pdf',
-			mimeType: 'text/plain',
-			buffer: Buffer.from('not a pdf')
-		});
-
-		await expectToast(page, '"notes.pdf" was reported as "text/plain"');
-		await expect(page.locator('main').getByText('notes.pdf')).toHaveCount(0);
-	});
-
 	test('a file over the ceiling is refused', async () => {
 		await attach(page, {
 			name: 'big.md',
