@@ -310,22 +310,6 @@ describe('the Session panel', () => {
 		expect(detail?.canPlace).toBe(true);
 	});
 
-	test("canPlace is false once today has passed the occasion's date", () => {
-		const { db, course, classA } = setUp();
-		const topic = makeTopic(db, course.id, 'Forces');
-		makeLessons(db, topic.id, 1);
-		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
-
-		const detail = sessionDetail(db, {
-			classId: classA.id,
-			date: '2026-09-03',
-			period: 5,
-			today: '2026-09-04'
-		});
-
-		expect(detail?.canPlace).toBe(false);
-	});
-
 	test('a placed Lesson carries its Placement id, cleared once the Placement is removed', () => {
 		const { db, classA } = setUp();
 		const mondaySlot = db

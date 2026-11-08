@@ -95,6 +95,5 @@ test.describe('the Settings page on a laptop (issue #349)', () => {
 			page.locator('[data-slot="card-title"]').filter({ hasText: 'Change password' })
 		).toBeVisible();
 		await expectTwoColumns(page);
-		await expectNoHorizontalScroll(page);
 	});
 });

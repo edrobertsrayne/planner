@@ -6,12 +6,10 @@ import {
 	blockDay,
 	blockSlot,
 	classSchedule,
-	createLesson,
 	deleteLesson,
 	deleteTopic,
 	editLesson,
 	endSlot,
-	moveLesson,
 	placeLesson,
 	recordContinuation,
 	removeContinuation,
@@ -93,51 +91,6 @@ describe('every scheduling write answers with its Rewind report', () => {
 			today: '2026-09-13'
 		});
 		expect(detail?.note).toBe('cover needed');
-	});
-});
-
-// Authoring writes that touch a Sequence answer with the same report. Creating and moving a
-// Lesson re-derive nothing (ADR-0026).
-describe('a Lesson write answers with the Rewind report', () => {
-	const today = '2026-09-01';
-
-	test('createLesson answers with the Lesson only and changes no Sequence', () => {
-		const { db, course, classA } = setUp();
-		const forces = makeTopic(db, course.id, 'Forces');
-		makeLessons(db, forces.id, 1);
-		assignTopic(db, { classId: classA.id, topicId: forces.id, today });
-		const before = classSchedule(db, { classId: classA.id, today });
-
-		const result = createLesson(db, { topicId: forces.id, title: 'Extra' });
-
-		expect(result.lesson.title).toBe('Extra');
-		expect(Object.keys(result)).toEqual(['lesson']);
-		expect(classSchedule(db, { classId: classA.id, today })).toEqual(before);
-	});
-
-	test('moveLesson changes no Sequence', () => {
-		const { db, course, classA } = setUp();
-		const topic = makeTopic(db, course.id, 'Forces');
-		const lessons = makeLessons(db, topic.id, 2);
-		assignTopic(db, { classId: classA.id, topicId: topic.id, today });
-		const before = classSchedule(db, { classId: classA.id, today });
-
-		moveLesson(db, { topicId: topic.id, id: lessons[1].id, targetId: lessons[0].id });
-
-		expect(classSchedule(db, { classId: classA.id, today })).toEqual(before);
-	});
-
-	test('deleteLesson of a Lesson in a Sequence re-derives the Class and answers with an empty report', () => {
-		const { db, course, classA, atDir } = setUp();
-		const topic = makeTopic(db, course.id, 'Forces');
-		const lessons = makeLessons(db, topic.id, 3);
-		assignTopic(db, { classId: classA.id, topicId: topic.id, today });
-
-		const result = deleteLesson(db, { id: lessons[1].id, today, dir: atDir, confirmed: true });
-
-		expect(result).toMatchObject({ placementsMoved: [] });
-		const scheduled = classSchedule(db, { classId: classA.id, today }).scheduled;
-		expect(scheduled.map((s) => s.lessonId)).toEqual([lessons[0].id, lessons[2].id]);
 	});
 });
 

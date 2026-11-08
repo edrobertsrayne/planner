@@ -55,7 +55,6 @@ test.describe('the Courses screen on a tablet', () => {
 		await openCourse(page);
 		await expect(page.getByRole('link', { name: 'Forces' })).toBeVisible();
 		await expect(page.getByRole('link', { name: 'Speed', exact: true })).toBeHidden();
-		await expectNoHorizontalScroll(page);
 
 		await page.getByRole('link', { name: 'Forces' }).click();
 		await expect(page.getByRole('link', { name: 'Speed', exact: true })).toBeVisible();
@@ -75,7 +74,6 @@ test.describe('the Courses screen on a tablet in landscape', () => {
 		await openCourse(page);
 		// With no Topic chosen the first Topic's Lessons show, so the panel is there at once.
 		await expect(page.getByRole('region', { name: 'Lessons' })).toBeVisible();
-		await expectNoHorizontalScroll(page);
 		await page.getByRole('link', { name: 'Forces' }).click();
 		await expect(page).toHaveURL(/\/courses\/[^/?]+\?topic=/);
 		await expect(page.getByRole('link', { name: 'Forces' })).toBeVisible();

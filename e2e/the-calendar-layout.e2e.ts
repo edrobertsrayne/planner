@@ -125,27 +125,14 @@ test.describe('the Calendar grid on a phone', () => {
 		await expect(page).toHaveURL(/\/sessions\//);
 	});
 
-	test('the week controls step weeks and Today returns to this week (story 102)', async ({
+	// The arrows and Today are the same controls at every size; the-calendar-setup steps them.
+	test('the week on show reads as its letter and its date between the arrows (story 102)', async ({
 		page
 	}) => {
 		await login(page, '/calendar');
 
-		// On a phone the week on show reads as its letter and its date between the arrows.
 		// The label is the one paragraph in the controls row, so its text is matched whole.
 		await expect(page.getByText(/^Week [AB] · w\/c \d{1,2} [A-Z][a-z]{2,3}$/)).toBeVisible();
-
-		// The arrows step the week and the address names the week on show. Each href is read
-		// before its click: after a click the arrow names the week beyond the one it opened.
-		const next = page.getByRole('link', { name: 'Next Teaching Week' });
-		const stepped = (await next.getAttribute('href'))!.split('week=')[1];
-		await next.click();
-		await expect(page).toHaveURL(`/calendar?week=${stepped}`);
-
-		// Today returns to this week.
-		const today = page.getByRole('link', { name: 'Today' });
-		const current = (await today.getAttribute('href'))!.split('week=')[1];
-		await today.click();
-		await expect(page).toHaveURL(`/calendar?week=${current}`);
 	});
 
 	test('the week controls keep a 44 px target on touch (story 102)', async ({ page }) => {

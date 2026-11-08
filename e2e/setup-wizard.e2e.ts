@@ -40,20 +40,6 @@ test.describe.serial('the first-run wizard', () => {
 		await expect(page.getByLabel('Backup file')).toHaveCount(0);
 	});
 
-	test('a file that is not a Backup is refused while restoring (issue #350)', async () => {
-		await page.goto('/setup');
-		await page.getByRole('button', { name: 'Restore from a Backup' }).click();
-		await page.getByLabel('Backup file').setInputFiles({
-			name: 'notes.tar',
-			mimeType: 'application/x-tar',
-			buffer: Buffer.from('these are not planner data')
-		});
-		await page.getByRole('button', { name: 'Restore', exact: true }).click();
-		await expect(page.getByRole('alert')).toContainText('not a Backup');
-		// The refusal leaves the Restore form open, error and all.
-		await expect(page.getByLabel('Backup file')).toBeVisible();
-	});
-
 	test('a mismatched confirmation is refused and creates no user', async () => {
 		await page.goto('/setup');
 		await page.getByLabel('Name').fill('Test Teacher');

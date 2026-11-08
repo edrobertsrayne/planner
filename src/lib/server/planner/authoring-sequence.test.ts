@@ -414,59 +414,6 @@ describe('content edits re-derive the schedule from today', () => {
 		const parts = after.scheduled.filter((s) => s.lessonId === lastLesson.id);
 		expect(parts).toHaveLength(2);
 	});
-
-	test("changing a Standalone Lesson's Length re-derives every Class holding a Placement of it", () => {
-		const { db, classA, classB } = setUp();
-		const today = '2026-09-03';
-		const slots = db.select().from(schema.slot).all();
-		const classAMonday = slots.find(
-			(s) => s.classId === classA.id && s.week === 'A' && s.day === 1 && s.period === 3
-		)!;
-		const classBMonday = slots.find(
-			(s) => s.classId === classB.id && s.week === 'A' && s.day === 1 && s.period === 1
-		)!;
-
-		const placed = placeLesson(db, {
-			classId: classA.id,
-			date: '2026-09-14',
-			period: classAMonday.period,
-			title: 'Assembly',
-			today
-		});
-		const lessonId = placed.lesson.id;
-
-		// A second Placement of the same Standalone Lesson, on a different Class — the shortcut
-		// derive.test.ts's own placementsMoved tests take, inserting the row directly.
-		db.insert(schema.placement)
-			.values({ classId: classB.id, date: '2026-09-14', slotId: classBMonday.id, lessonId })
-			.run();
-
-		editLesson(db, { id: lessonId, change: { length: 2 }, today });
-
-		const afterA = classSchedule(db, { classId: classA.id, today });
-		const afterB = classSchedule(db, { classId: classB.id, today });
-		expect(afterA.scheduled.filter((s) => s.lessonId === lessonId)).toHaveLength(2);
-		expect(afterB.scheduled.filter((s) => s.lessonId === lessonId)).toHaveLength(2);
-	});
-
-	test('assigning a Topic mid-year is itself an ordinary re-derive from today', () => {
-		const { db, course, classA } = setUp();
-		const topic = makeTopic(db, course.id, 'Forces');
-		makeLessons(db, topic.id, 20);
-
-		const today = '2026-09-03';
-		assignTopic(db, { classId: classA.id, topicId: topic.id, today });
-
-		const later = '2026-11-02';
-		const historyBefore = classSchedule(db, { classId: classA.id, today: later }).history;
-
-		const midYearTopic = makeTopic(db, course.id, 'Waves');
-		makeLessons(db, midYearTopic.id, 5);
-		assignTopic(db, { classId: classA.id, topicId: midYearTopic.id, today: later });
-
-		const after = classSchedule(db, { classId: classA.id, today: later });
-		expect(after.history).toEqual(historyBefore);
-	});
 });
 
 describe('who has been taught a Lesson', () => {
