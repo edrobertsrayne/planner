@@ -42,6 +42,21 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await page.close();
 	});
 
+	test('two Classes with different Tones show different colours', async () => {
+		await page.goto('/classes');
+		const toneOf = async (label: string) => {
+			const dot = page
+				.locator('li')
+				.filter({ hasText: label })
+				.locator('[aria-hidden="true"]')
+				.first();
+			return dot.evaluate((el) => getComputedStyle(el).backgroundColor);
+		};
+		const toneA = await toneOf('9B/Sc1');
+		const toneB = await toneOf('9C/Sc1');
+		expect(toneA).not.toBe(toneB);
+	});
+
 	test('the Lesson editor stays open on Escape, and Back returns to the Courses screen', async () => {
 		await page.goto('/courses');
 		await page.getByRole('link', { name: 'KS3 Science' }).click();

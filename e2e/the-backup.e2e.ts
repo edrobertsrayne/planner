@@ -163,4 +163,12 @@ test.describe.serial('Back up and Restore', () => {
 		});
 		expect(attempt.status()).toBe(303);
 	});
+
+	test('other routes still refuse a body over 12 MB', async ({ request }) => {
+		const response = await request.post(`${B}/login`, {
+			data: Buffer.alloc(13 * MB),
+			headers: { 'Content-Type': 'application/octet-stream' }
+		});
+		expect(response.status()).toBe(413);
+	});
 });
