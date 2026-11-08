@@ -510,14 +510,14 @@ BASE=https://planner.example.com
 AUTH="Authorization: Bearer $PLANNER_API_KEY"
 JSON='Content-Type: application/json'
 
-# Import a Topic, creating the Course if needed.
-curl -sS -X POST "$BASE/api/import" -H "$AUTH" -H "$JSON" -d '{
+# Import a Topic, creating the Course if needed. Keep the response: it holds the new ids.
+IMPORTED=$(curl -sS -X POST "$BASE/api/import" -H "$AUTH" -H "$JSON" -d '{
   "course": { "name": "Year 9 Physics" },
   "topic": { "name": "Forces", "lessons": [{ "title": "Balanced forces" }, { "title": "Revision" }] }
-}'
+}')
 
 # Add a worksheet to the first Lesson, then fill in its plan.
-LESSON=$(curl -sS "$BASE/api/topics/$TOPIC/lessons" -H "$AUTH" | jq -r '.[0].id')
+LESSON=$(echo "$IMPORTED" | jq -r '.lessons[0].id')
 curl -sS -X POST "$BASE/api/lessons/$LESSON/attachments" -H "$AUTH" -F 'file=@balanced-forces.pdf'
 curl -sS -X PATCH "$BASE/api/lessons/$LESSON" -H "$AUTH" -H "$JSON" \
   -d '{ "body": "## Starter\nRecap resultant force.", "status": "planned", "length": 2 }'
