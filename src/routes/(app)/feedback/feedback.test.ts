@@ -90,6 +90,13 @@ describe('POST /feedback', () => {
 		expect(githubCalls).toHaveLength(0);
 	});
 
+	test('rejects an invalid body with a 400, calling nothing', async () => {
+		const { status, json } = await post({ text: '   ', page: '/' });
+		expect(status).toBe(400);
+		expect(json.error).toBe('Write some feedback first.');
+		expect(modelCalls).toHaveLength(0);
+	});
+
 	test('files an issue titled by the model', async () => {
 		stubModel('{"title":"Grid header overlaps the first row"}');
 		const { status, json } = await post({
