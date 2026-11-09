@@ -18,7 +18,7 @@
 <form
 	method="POST"
 	action="?/setReadiness"
-	class="mr-2 flex shrink-0 items-center"
+	class="mr-3 flex shrink-0 items-center"
 	use:enhance={() => {
 		return async ({ result, update }) => {
 			if (result.type === 'failure') {
@@ -36,7 +36,9 @@
 	<!-- The padding widens the tick's click target; the negative margin keeps its footprint
 	     unchanged. As a label wrapping the input, a click anywhere here toggles it. On touch the
 	     shared invisible rule pads the target out to 44 px (issue #342). -->
-	<label class="relative -m-2 inline-flex cursor-pointer items-center p-2 {touchTarget}">
+	<label
+		class="relative inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-outline-soft bg-surface px-3 text-[13px] font-semibold has-checked:border-transparent has-checked:bg-ready has-checked:text-ready-foreground {touchTarget}"
+	>
 		<!-- A real checkbox carrying `ready`, so the tick persists without JavaScript; the icon
 		     only paints it. Checked sends the field, unchecked sends nothing. -->
 		<input
@@ -45,14 +47,15 @@
 			name="ready"
 			value="true"
 			checked={ready}
-			class="peer size-4 shrink-0 cursor-pointer appearance-none rounded-[5px] border border-outline bg-surface transition-shadow outline-none checked:border-primary checked:bg-primary focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
+			class="peer size-4 shrink-0 cursor-pointer appearance-none rounded-[5px] border border-outline bg-surface transition-shadow outline-none checked:border-ready-foreground checked:bg-ready-foreground focus-visible:ring-2 focus-visible:ring-ring"
 			aria-label={label}
 			onchange={(e) => e.currentTarget.form?.requestSubmit()}
 		/>
 		<CheckIcon
 			aria-hidden="true"
-			class="pointer-events-none absolute top-1/2 left-1/2 hidden size-3.5 -translate-x-1/2 -translate-y-1/2 text-primary-foreground peer-checked:block"
+			class="pointer-events-none absolute top-1/2 left-3 hidden size-3.5 translate-x-px -translate-y-1/2 text-ready peer-checked:block"
 		/>
+		<span aria-hidden="true">Ready</span>
 	</label>
 	<noscript>
 		<button type="submit" class="ml-2 rounded-md border px-1.5 py-0.5 text-xs">Save</button>

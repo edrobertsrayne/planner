@@ -58,7 +58,9 @@
 	</p>
 
 	{#if cards.length === 0}
-		<p class="rounded-xl border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
+		<p
+			class="rounded-2xl border border-dashed px-6 py-10 text-center text-sm text-muted-foreground"
+		>
 			No dates yet. Put this Event on the Timetable and its dates appear here.
 		</p>
 	{:else}
@@ -74,7 +76,7 @@
 			</Button>
 			<select
 				aria-label="Date"
-				class="h-9 min-w-0 flex-1 rounded-md border bg-transparent px-3 text-sm font-medium"
+				class="ui-input min-w-0 flex-1 text-[15px] font-medium"
 				value={date}
 				onchange={(e) => (picked = e.currentTarget.value)}
 			>
@@ -97,7 +99,7 @@
 		</div>
 
 		{#if card && date}
-			<div id="date-{date}" class="rounded-xl border bg-surface p-4">
+			<div id="date-{date}" class="flex flex-col gap-3.5">
 				<form
 					method="POST"
 					action="?/setEventNote"
@@ -107,7 +109,7 @@
 					<input type="hidden" name="date" value={date} />
 					<label class="block">
 						<span class="flex flex-wrap items-baseline gap-x-2">
-							<span class="text-sm font-semibold">{formatWeekday(date)}</span>
+							<span class="text-[13px] font-semibold">{formatWeekday(date)}</span>
 							<span class="text-xs text-muted-foreground">{where(card)}</span>
 						</span>
 						{#key date}
@@ -116,14 +118,16 @@
 								rows="7"
 								value={card.note ?? ''}
 								placeholder={date >= today ? 'Plan this date' : 'Log this date'}
-								class="mt-2 w-full resize-y rounded-md border bg-transparent px-3 py-2 text-sm"
+								class="ui-input ui-textarea mt-1.5 min-h-44 rounded-xl py-3 text-[15px] leading-[22px]"
 								onchange={(e) => e.currentTarget.form?.requestSubmit()}></textarea>
 						{/key}
 					</label>
 				</form>
 
 				{#if earlier}
-					<p class="mt-3 border-l-2 pl-3 text-sm text-muted-foreground">
+					<p
+						class="rounded-r-[10px] border-l-[3px] border-outline-soft bg-muted px-3.5 py-3 text-sm text-muted-foreground"
+					>
 						<span class="font-medium text-foreground">{formatWeekday(earlier.date)}:</span>
 						<span class="whitespace-pre-wrap">{earlier.note}</span>
 					</p>

@@ -245,19 +245,24 @@
 		{@const tone = classTone(row.tone)}
 		{@const blocked = row.blocked}
 		<li
-			class="group/row relative flex items-center gap-3 pr-2 pl-4 {blocked
+			class="group/row relative flex items-center gap-3 pr-2 {blocked
 				? 'hatched'
 				: 'hover:bg-muted/40'}"
 		>
+			<!-- The Period in the Class's Tone: a tile that names the Period and its room, a Blocked
+			     Slot's own in the neutral step. -->
 			<span
-				class="absolute inset-y-0 left-0 w-1"
-				style:background-color={tone.dot}
-				aria-hidden="true"
-			></span>
-
-			<span class="w-14 shrink-0 text-xs text-muted-foreground tabular-nums">
+				class="my-3 ml-4 flex min-h-12 w-14 shrink-0 flex-col items-center justify-center rounded-lg px-1 text-center text-[13px] leading-tight font-bold tabular-nums {blocked
+					? 'bg-surface text-foreground'
+					: ''}"
+				style:background-color={blocked ? undefined : tone.bg}
+				style:color={blocked ? undefined : tone.fg}
+			>
 				P{row.periodFrom}{#if row.periodTo !== row.periodFrom}–P{row.periodTo}{/if}
-				{#if row.room}<span class="block truncate" title={row.room}>{row.room}</span>{/if}
+				{#if row.room}<span
+						class="max-w-full truncate text-[11px] font-medium opacity-80"
+						title={row.room}>{row.room}</span
+					>{/if}
 			</span>
 
 			<!-- The Class chip sits in a fixed-width column, so the titles line up (issue #341), and opens

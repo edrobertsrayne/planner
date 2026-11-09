@@ -138,6 +138,7 @@
 	--color-border: var(--border);
 	--color-divider: var(--divider);
 	--color-outline: var(--outline);
+	--color-outline-soft: var(--outline-soft);
 	--color-primary: var(--primary);
 	--color-primary-foreground: var(--on-primary);
 	--color-primary-container: var(--primary-container);
