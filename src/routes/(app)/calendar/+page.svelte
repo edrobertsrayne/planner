@@ -444,32 +444,46 @@
 										<td rowspan={PERIODS.length} class="h-16 align-middle" data-day-kind={dayKind}>
 											<div
 												class={cn(
-													'flex h-full flex-col items-center justify-center gap-1 rounded-lg px-2 py-3 text-center',
+													'flex h-full flex-col items-center justify-center gap-1 rounded-lg px-2 py-3 text-center max-md:justify-start max-md:px-1 max-md:py-2',
 													dayKind === 'holiday' ? 'day-panel-holiday' : 'bg-step-2 hatched'
 												)}
 											>
 												{#if blockedDay?.absent}
 													<AbsentMarker />
 												{/if}
-												<div class="text-xs font-semibold text-muted-foreground">{headline}</div>
-												<div class="text-[11px] text-muted-foreground/70">{under}</div>
+												<div class="text-xs font-semibold text-muted-foreground max-md:sr-only">
+													{headline}
+												</div>
+												<div class="text-[11px] text-muted-foreground/70 max-md:sr-only">
+													{under}
+												</div>
 												<!-- An Absence lists each Class and Period it takes with its Cover, since the
 											     panel draws no tiles to carry them. -->
 												{#if blockedDay?.absent}
-													<ul class="mt-2 grid w-full gap-1.5 text-left">
+													<ul
+														class="mt-2 grid w-full gap-1.5 text-left max-md:mt-1 max-md:gap-2 max-md:text-center"
+													>
 														{#each absentSlotLines(data.week.cells, date) as line (line.slotId + line.classId)}
-															<li class="rounded-[10px] bg-surface p-2.5 text-xs">
-																<span class="block font-semibold text-foreground"
+															<li
+																class="rounded-[10px] bg-surface p-2.5 text-xs max-md:bg-transparent max-md:p-0 max-md:text-[11px] max-md:leading-[14px]"
+															>
+																<span class="block font-semibold text-foreground max-md:hidden"
 																	>P{line.period} · {line.classLabel}</span
 																>
+																<span class="sr-only md:hidden">{line.classLabel}</span>
 																{#if line.cover}
 																	<a
 																		href={resolve(`/lessons/${line.cover.lessonId}`)}
 																		class="underline underline-offset-4"
-																		>Cover: {line.cover.title}</a
+																		><span class="max-md:hidden">Cover: {line.cover.title}</span
+																		><span class="md:hidden">P{line.period} Cover</span></a
 																	>
 																{:else}
-																	<span class="text-muted-foreground">No Cover recorded</span>
+																	<span class="text-muted-foreground"
+																		><span class="max-md:hidden">No Cover recorded</span><span
+																			class="md:hidden">P{line.period} no Cover</span
+																		></span
+																	>
 																{/if}
 															</li>
 														{/each}
