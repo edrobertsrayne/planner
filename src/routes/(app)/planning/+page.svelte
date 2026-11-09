@@ -163,8 +163,10 @@
 								<span>Not scheduled</span>
 							{/if}
 							<Badge
-								variant={lesson.status === 'planned' ? 'secondary' : 'outline'}
-								class="ml-auto"
+								variant="outline"
+								class="ml-auto {lesson.status === 'planned'
+									? 'border-transparent bg-ready text-ready-foreground'
+									: 'text-muted-foreground'}"
 							>
 								{STATUS_LABEL[lesson.status]}
 							</Badge>
