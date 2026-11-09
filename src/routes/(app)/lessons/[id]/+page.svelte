@@ -302,7 +302,7 @@
 				<aside class="min-w-0 space-y-5 max-lg:contents max-lg:space-y-0 lg:self-start">
 					<div class="space-y-5 max-lg:contents max-lg:space-y-0">
 						<div
-							class="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-3 rounded-lg border p-3 text-sm max-lg:order-2"
+							class="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-3 rounded-2xl border bg-surface p-4 text-sm max-lg:order-2"
 						>
 							<span class="text-muted-foreground">Status</span>
 							<form method="POST" action="?/setLessonStatus" use:enhance bind:this={statusForm}>
