@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { submitForm } from '$lib/client/enhance';
@@ -11,7 +12,8 @@
 		classId,
 		topics,
 		submit,
-		label
+		label,
+		onTile = false
 	}: {
 		classId: string;
 		topics: TopicOption[];
@@ -19,6 +21,8 @@
 		submit: SubmitFunction;
 		// The button's accessible name when several menus share a screen; the visible text stays "Assign Topic".
 		label?: string;
+		// On a Tone-filled Class tile the button is a translucent chip, not a primary-container one.
+		onTile?: boolean;
 	} = $props();
 	let form = $state<HTMLFormElement | undefined>();
 </script>
@@ -29,8 +33,16 @@
 	<DropdownMenu.Root>
 		<DropdownMenu.Trigger>
 			{#snippet child({ props })}
-				<Button {...props} variant="outline" size="sm" class="h-7 text-xs" aria-label={label}>
-					<PlusIcon data-icon="inline-start" />Assign Topic
+				<Button
+					{...props}
+					variant={onTile ? 'ghost' : 'secondary'}
+					size="sm"
+					class="h-9 {onTile ? 'bg-white/60 dark:bg-white/10' : ''}"
+					aria-label={label}
+				>
+					<PlusIcon data-icon="inline-start" />Assign Topic<ChevronDownIcon
+						data-icon="inline-end"
+					/>
 				</Button>
 			{/snippet}
 		</DropdownMenu.Trigger>

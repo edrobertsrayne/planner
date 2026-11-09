@@ -81,7 +81,9 @@
 				field="name"
 				editable={md.current}
 			/>
-			<Badge variant="outline" class="mt-1">{kindLabel(data.event.kind)}</Badge>
+			<Badge variant="secondary" class="mt-1 text-muted-foreground"
+				>{kindLabel(data.event.kind)}</Badge
+			>
 		</div>
 		{#if md.current}
 			<form method="POST" action="?/deleteEvent" use:enhance={deleter.ask} class="ml-auto shrink-0">
@@ -126,7 +128,7 @@
 					onValueChange={setAsAt}
 					options={asAtOptions}
 					aria-label="Date"
-					class="w-56 text-xs"
+					class="w-72"
 				/>
 				<input
 					type="date"

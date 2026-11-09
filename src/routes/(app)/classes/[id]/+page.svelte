@@ -156,7 +156,7 @@
 					onValueChange={setAsAt}
 					options={asAtOptions}
 					aria-label="Date"
-					class="w-56 text-xs"
+					class="w-72"
 				/>
 				<input
 					type="date"

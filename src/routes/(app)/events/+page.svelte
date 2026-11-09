@@ -41,7 +41,9 @@
 					>
 						<span class="flex items-start justify-between gap-2">
 							<span class="block text-sm font-semibold">{event.name}</span>
-							<Badge variant="outline">{kindLabel(event.kind)}</Badge>
+							<Badge variant="secondary" class="text-muted-foreground"
+								>{kindLabel(event.kind)}</Badge
+							>
 						</span>
 						<dl class="mt-auto space-y-1 text-xs">
 							<div class="flex gap-1.5">

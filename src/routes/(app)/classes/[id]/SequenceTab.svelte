@@ -10,7 +10,6 @@
 	import { Button, Input } from '$lib/ui';
 	import * as Dialog from '$lib/ui/dialog';
 	import AssignTopicMenu from '$lib/components/assign-topic-menu.svelte';
-	import { topicColour } from '$lib/topic-colour';
 	import SequenceListRow from './SequenceListRow.svelte';
 	import SequenceWeeks from './SequenceWeeks.svelte';
 	import TopicTag from './TopicTag.svelte';
@@ -174,8 +173,7 @@
 		<ul class="mt-3 flex flex-wrap gap-2" aria-label="Topics in this Sequence">
 			{#each chips as chip (chip.topicId)}
 				<li
-					class="flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs"
-					style:background-color={topicColour(chip.topicId, 0.12)}
+					class="flex items-center gap-1.5 rounded-full border bg-surface px-2.5 py-1 text-[13px]"
 					data-topic-chip
 				>
 					<TopicTag topicId={chip.topicId} name={chip.name} />

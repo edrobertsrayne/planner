@@ -266,17 +266,25 @@
 							{@const blockedSlots = blockedSlotLines(data.week.cells, date)}
 							{@const absentLines = absentSlotLines(data.week.cells, date)}
 							<th class="rounded-lg pb-1 text-left align-bottom" data-day-kind={dayKind}>
-								<div class="flex items-baseline gap-1.5">
+								<div class="flex items-center gap-1.5">
 									<!-- On a phone a head reads a letter and a date ("M 5"), so the five day
 									     columns fit the width; the day name and the month date return from
 									     `md`. The wrapper spans own the visibility at each size. -->
-									<span class="text-sm font-semibold">
-										<span class="md:hidden">{d.slice(0, 1)}</span>
-										<span class="hidden md:inline">{d}</span>
-									</span>
-									<span class="text-xs font-normal text-muted-foreground">
-										<span class="md:hidden">{Number(date.slice(8))}</span>
-										<span class="hidden md:inline">{formatDayMonth(date)}</span>
+									<span
+										class="flex flex-col leading-[18px] max-md:flex-row max-md:items-baseline max-md:gap-1.5"
+									>
+										<span
+											class="text-xs font-medium text-muted-foreground max-md:text-sm max-md:font-semibold max-md:text-foreground"
+										>
+											<span class="md:hidden">{d.slice(0, 1)}</span>
+											<span class="hidden md:inline">{d}</span>
+										</span>
+										<span
+											class="text-[15px] font-semibold tabular-nums max-md:text-xs max-md:font-normal max-md:text-muted-foreground"
+										>
+											<span class="md:hidden">{Number(date.slice(8))}</span>
+											<span class="hidden md:inline">{formatDayMonth(date)}</span>
+										</span>
 									</span>
 									<!-- The day menu writes the calendar, so it is out below `md` (story 105):
 									     a hidden subtree is out of the accessibility tree, and no trigger

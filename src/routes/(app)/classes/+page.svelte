@@ -106,6 +106,7 @@
 					<!-- Assign Topic from the list; nothing is written on a phone, so not there. -->
 					<div class="flex justify-end border-t border-current/10 px-3 py-2 max-md:hidden">
 						<AssignTopicMenu
+							onTile
 							classId={lane.classId}
 							topics={data.topics[lane.classId] ?? []}
 							label="Assign Topic to {lane.classLabel}"

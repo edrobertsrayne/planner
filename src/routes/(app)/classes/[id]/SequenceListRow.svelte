@@ -37,10 +37,10 @@
 </script>
 
 <li
-	class="relative flex items-stretch {dragging ? 'opacity-40' : ''} {selected
+	class="relative flex items-stretch bg-surface {dragging ? 'opacity-40' : ''} {selected
 		? 'ring-2 ring-primary ring-inset'
 		: ''} {!dragging && ringed ? 'ring-2 ring-amber-500 ring-inset' : ''}"
-	style:background-color={topicColour(entry.topicId, selected ? 0.45 : 0.12)}
+	style:background-color={selected ? topicColour(entry.topicId, 0.3) : undefined}
 	data-drop={entry.fixed ? undefined : entry.lessonId}
 	data-selected={selected ? '' : undefined}
 >

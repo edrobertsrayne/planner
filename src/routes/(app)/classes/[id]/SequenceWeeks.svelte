@@ -45,7 +45,7 @@
 {#snippet lessonCard(entry: SequenceEntry, part: number, of: number, base: string | null)}
 	{@const isSelected = board.selectedIds.includes(entry.lessonId)}
 	<div
-		class="relative flex flex-1 items-stretch rounded-md border {board.dragIds.includes(
+		class="relative flex flex-1 items-stretch rounded-[10px] border bg-surface {board.dragIds.includes(
 			entry.lessonId
 		)
 			? 'opacity-40'
@@ -56,7 +56,7 @@
 			: ''} {!board.dragging && board.ringed.includes(entry.lessonId)
 			? 'ring-2 ring-amber-500'
 			: ''}"
-		style:background-color={topicColour(entry.topicId, isSelected ? 0.45 : 0.12)}
+		style:background-color={isSelected ? topicColour(entry.topicId, 0.3) : undefined}
 		data-drop={base ?? undefined}
 		data-lesson-card
 		data-selected={isSelected ? '' : undefined}
@@ -201,8 +201,7 @@
 								{:else if cell.kind === 'taught' && entry}
 									<a
 										href={resolve(`/lessons/${entry.lessonId}?class=${classId}`)}
-										class="flex min-h-10 flex-col justify-center gap-0.5 rounded-md border px-2 py-1.5 text-sm hover:bg-muted/40"
-										style:background-color={topicColour(entry.topicId, 0.12)}
+										class="flex min-h-10 flex-col justify-center gap-0.5 rounded-[10px] border bg-muted px-2 py-1.5 text-sm hover:bg-step-2"
 										data-fixed-card
 										onclick={(event) => board.tap(event, entry)}
 									>
