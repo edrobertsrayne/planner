@@ -383,7 +383,7 @@
 							{/if}
 						</div>
 
-						<section class="max-lg:order-4">
+						<section class="rounded-2xl border bg-surface p-4 max-lg:order-4">
 							{@render heading('Tags')}
 							<div class="mt-1 flex flex-wrap gap-1">
 								{#each data.lesson.tags as tag (tag.id)}
@@ -460,7 +460,7 @@
 					</div>
 
 					<div class="grid gap-5 max-lg:order-4 sm:grid-cols-2 lg:grid-cols-1">
-						<section>
+						<section class="rounded-2xl border bg-surface p-4">
 							{@render heading('Links')}
 							<ul class="mt-1 space-y-1">
 								{#each data.lesson.links as link, i (link.id)}
@@ -532,7 +532,7 @@
 								</Button>
 							{/if}
 						</section>
-						<section>
+						<section class="rounded-2xl border bg-surface p-4">
 							{@render heading('Attachments')}
 							<ul class="mt-1 space-y-1">
 								{#each data.lesson.attachments as attachment (attachment.id)}

@@ -170,7 +170,7 @@
 				{/if}
 			</div>
 
-			<div class="mt-3 rounded-xl border p-4">
+			<div class="mt-3 rounded-2xl border bg-surface p-5">
 				<TimetableGrid
 					classId={data.class.id}
 					classLabel={data.class.label}
@@ -179,6 +179,7 @@
 					slots={data.grid}
 					eventSlots={data.eventSlots}
 					{labelOf}
+					{tone}
 				/>
 
 				<p class="mt-3 text-xs text-muted-foreground">
