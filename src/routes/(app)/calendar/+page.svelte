@@ -445,9 +445,7 @@
 											<div
 												class={cn(
 													'flex h-full flex-col items-center justify-center gap-1 rounded-lg px-2 py-3 text-center',
-													dayKind === 'holiday'
-														? 'day-panel-holiday'
-														: 'border border-dashed border-muted-foreground/30 hatched'
+													dayKind === 'holiday' ? 'day-panel-holiday' : 'bg-step-2 hatched'
 												)}
 											>
 												{#if blockedDay?.absent}
@@ -460,9 +458,7 @@
 												{#if blockedDay?.absent}
 													<ul class="mt-2 grid w-full gap-1.5 text-left">
 														{#each absentSlotLines(data.week.cells, date) as line (line.slotId + line.classId)}
-															<li
-																class="rounded-md border bg-background/80 px-2 py-1.5 text-[11px]"
-															>
+															<li class="rounded-[10px] bg-surface p-2.5 text-xs">
 																<span class="block font-semibold text-foreground"
 																	>P{line.period} · {line.classLabel}</span
 																>
@@ -510,7 +506,7 @@
 											the hatch and its note. Its unblock lives in the day's menu, like every
 											other act on the day — no control sits on a tile. -->
 												<div
-													class="flex h-full min-h-16 flex-col rounded-lg border border-dashed hatched px-1.5 py-1.5 md:px-2"
+													class="flex h-full min-h-16 flex-col rounded-lg border border-dashed border-outline bg-step-2 hatched px-1.5 py-1.5 md:px-2"
 												>
 													{#if cell.absent}
 														<AbsentMarker />
