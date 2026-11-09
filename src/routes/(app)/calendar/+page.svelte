@@ -108,7 +108,7 @@
 		<a
 			href="{resolve(`/events/${event.eventId}`)}?date={event.date}#date-{event.date}"
 			class={cn(
-				'flex w-full flex-col overflow-hidden rounded-lg border bg-muted px-1.5 py-1 text-left md:px-2',
+				'flex w-full flex-col overflow-hidden rounded-lg border bg-muted px-1.5 py-1 text-left max-md:rounded-md md:px-2',
 				height === 'h-10' ? 'h-10' : 'h-full min-h-16',
 				event.date < data.today && 'hatched'
 			)}
@@ -506,7 +506,7 @@
 											the hatch and its note. Its unblock lives in the day's menu, like every
 											other act on the day — no control sits on a tile. -->
 												<div
-													class="flex h-full min-h-16 flex-col rounded-lg border border-dashed border-outline bg-step-2 hatched px-1.5 py-1.5 md:px-2"
+													class="flex h-full min-h-16 flex-col rounded-lg border border-dashed border-outline bg-step-2 hatched px-1.5 py-1.5 max-md:rounded-md md:px-2"
 												>
 													{#if cell.absent}
 														<AbsentMarker />
@@ -540,7 +540,7 @@
 														period: cell.periodFrom
 													})}
 													class={cn(
-														'relative flex h-full min-h-16 w-full flex-col overflow-hidden rounded-lg border px-1 py-1.5 text-left sm:px-1.5 md:px-2',
+														'relative flex h-full min-h-16 w-full flex-col overflow-hidden rounded-lg border px-1 py-1.5 text-left max-md:rounded-md sm:px-1.5 md:px-2',
 														cell.past && 'hatched'
 													)}
 													style:background-color={tone.bg}
