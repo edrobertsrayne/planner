@@ -624,6 +624,6 @@
 	   running — so its panel takes no hatch, only a step in shade deep enough to read as a solid
 	   block rather than an empty Period. No hue: the same grey the hatch is built from. */
 	.day-panel-holiday {
-		background-color: color-mix(in oklab, var(--muted-foreground) 16%, transparent);
+		background-color: color-mix(in oklab, var(--muted) 16%, transparent);
 	}
 </style>

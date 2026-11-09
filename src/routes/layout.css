@@ -270,7 +270,7 @@
 @utility hatched {
 	background-image: repeating-linear-gradient(
 		135deg,
-		color-mix(in oklab, var(--muted-foreground) 14%, transparent) 0 5px,
+		color-mix(in oklab, var(--muted) 9%, transparent) 0 5px,
 		transparent 5px 10px
 	);
 }
