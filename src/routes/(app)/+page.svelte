@@ -349,11 +349,15 @@
 	<!-- An Event: a neutral bar, never a Class's hue, and no Ready tick (ADR-0029). The note is the
 	     plan or the log; with none, the row offers to add one. -->
 	{#snippet eventRow(event: AgendaEvent, past: boolean)}
-		<li class="relative flex items-center gap-3 pr-2 pl-4 hover:bg-muted/40">
-			<span class="absolute inset-y-0 left-0 w-1 bg-border" aria-hidden="true"></span>
-			<span class="w-14 shrink-0 text-xs text-muted-foreground tabular-nums">
+		<li class="relative flex items-center gap-3 bg-muted pr-2">
+			<span
+				class="my-3 ml-4 flex min-h-12 w-14 shrink-0 flex-col items-center justify-center rounded-lg bg-surface px-1 text-center text-[13px] leading-tight font-bold tabular-nums"
+			>
 				{positionRangeLabel(event.position, event.positionTo)}
-				{#if event.room}<span class="block truncate" title={event.room}>{event.room}</span>{/if}
+				{#if event.room}<span
+						class="max-w-full truncate text-[11px] font-medium text-muted-foreground"
+						title={event.room}>{event.room}</span
+					>{/if}
 			</span>
 			<span class="w-24 shrink-0">
 				<span
@@ -417,14 +421,10 @@
 			{#if item.lines.length > 0}
 				<ul class="divide-y divide-border border-t bg-surface">
 					{#each item.lines as line (line.classId + line.period)}
-						{@const tone = classTone(line.tone)}
 						<li class="relative flex items-center gap-3 pr-2 pl-4">
 							<span
-								class="absolute inset-y-0 left-0 w-1"
-								style:background-color={tone.dot}
-								aria-hidden="true"
-							></span>
-							<span class="w-14 shrink-0 text-xs text-muted-foreground tabular-nums">
+								class="w-14 shrink-0 text-[13px] font-semibold text-muted-foreground tabular-nums"
+							>
 								P{line.period}
 								{#if line.room}<span class="block truncate" title={line.room}>{line.room}</span
 									>{/if}
@@ -522,11 +522,6 @@
 					>
 						<BanIcon class="size-3.5" /> Block day
 					</Button>
-					<!-- Readiness is written from a tablet up, so a phone carries neither the label nor the
-					     tick, and the day control has room to name itself. -->
-					<span class="hidden text-xs font-normal text-muted-foreground md:inline"
-						>Ready to teach?</span
-					>
 				</h2>
 
 				<ul class="divide-y divide-border overflow-hidden rounded-xl border bg-surface">

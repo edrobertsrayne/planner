@@ -10,6 +10,7 @@
 	import { formatSize } from '$lib/format-size';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import CopyIcon from '@lucide/svelte/icons/copy';
+	import DownloadIcon from '@lucide/svelte/icons/download';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import RefreshIcon from '@lucide/svelte/icons/refresh-cw';
 
@@ -119,8 +120,8 @@
 					</Field.Group>
 				</Card.Content>
 
-				<Card.Footer class="flex-wrap items-center justify-between gap-3">
-					<p class="text-xs text-muted-foreground">Logs out every other device.</p>
+				<Card.Footer class="flex-col items-start gap-3">
+					<p class="text-sm text-muted-foreground">Logs out every other device.</p>
 					<Button type="submit" disabled={pending}>
 						{pending ? 'Changing…' : 'Change password'}
 					</Button>
@@ -146,14 +147,14 @@
 							readonly
 							value={data.key.token}
 							aria-label="API key"
-							class="flex-1 font-mono text-sm"
+							class="flex-1 bg-muted font-mono text-sm"
 							onfocus={(e) => e.currentTarget.select()}
 						/>
 						<Button
 							type="button"
-							variant="outline"
+							variant="secondary"
 							size="icon"
-							class="size-8 shrink-0"
+							class="shrink-0"
 							title="Copy key"
 							aria-label="Copy key"
 							onclick={copyKey}
@@ -164,7 +165,7 @@
 							type="button"
 							variant="outline"
 							size="icon"
-							class="size-8 shrink-0"
+							class="shrink-0"
 							title="Regenerate key"
 							aria-label="Regenerate key"
 							disabled={regenerating}
@@ -203,8 +204,10 @@
 					</p>
 				</Card.Content>
 
-				<Card.Footer class="justify-end">
-					<Button href="/backup" download data-sveltekit-reload>Back up</Button>
+				<Card.Footer>
+					<Button href="/backup" download data-sveltekit-reload variant="secondary">
+						<DownloadIcon data-icon="inline-start" />Back up
+					</Button>
 				</Card.Footer>
 			</Card.Root>
 		</div>

@@ -226,27 +226,34 @@
 	     Session has started. From `lg` the plan is on the left and the rail on the right. -->
 	<div class="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
 		{#if detail.lesson}
-			<section
-				data-plan
-				class="min-w-0 rounded-2xl border bg-surface px-6 py-5 lg:order-1 {started
-					? 'order-2'
-					: 'order-1'} self-start"
+			<div
+				class="flex min-w-0 flex-col gap-4 self-start lg:order-1 {started ? 'order-2' : 'order-1'}"
 			>
-				<h2 class="mb-2 text-xs font-bold tracking-wider text-muted-foreground uppercase">Plan</h2>
-				{#if detail.lesson.body}
-					<Markdown source={detail.lesson.body} />
-				{:else}
-					<p class="text-sm text-muted-foreground italic">
-						No plan written yet — a title alone is a complete Lesson.
-					</p>
+				<section data-plan class="min-w-0 rounded-2xl border bg-surface px-6 py-5">
+					<h2 class="mb-2 text-xs font-bold tracking-wider text-muted-foreground uppercase">
+						Plan
+					</h2>
+					{#if detail.lesson.body}
+						<Markdown source={detail.lesson.body} />
+					{:else}
+						<p class="text-sm text-muted-foreground italic">
+							No plan written yet — a title alone is a complete Lesson.
+						</p>
+					{/if}
+				</section>
+				{#if detail.lesson.links.length || detail.lesson.attachments.length}
+					<section class="min-w-0 rounded-2xl border bg-surface px-5 py-4">
+						<h2 class="mb-2 text-xs font-bold tracking-wider text-muted-foreground uppercase">
+							Links and attachments
+						</h2>
+						<LessonChildren
+							links={detail.lesson.links}
+							attachments={detail.lesson.attachments}
+							variant="inline"
+						/>
+					</section>
 				{/if}
-
-				<LessonChildren
-					links={detail.lesson.links}
-					attachments={detail.lesson.attachments}
-					variant="inline"
-				/>
-			</section>
+			</div>
 		{/if}
 
 		<div class="flex min-w-0 flex-col gap-5 lg:order-2 {started ? 'order-1' : 'order-2'}">

@@ -128,14 +128,8 @@ test.describe('the Agenda on a phone', () => {
 		await expect(page.getByRole('heading', { level: 1 })).toHaveText('Agenda');
 		await expect(page.getByRole('textbox')).toHaveCount(0);
 
-		// Readiness is written from a tablet up: a phone carries neither the tick nor the heading
-		// that names it.
+		// Readiness is written from a tablet up: a phone carries no tick.
 		await expect(page.getByRole('checkbox')).toHaveCount(0);
-		const headings = page.getByText('Ready to teach?');
-		expect(await headings.count()).toBeGreaterThan(0);
-		expect(
-			await headings.evaluateAll((els) => els.every((el) => el.checkVisibility() === false))
-		).toBe(true);
 
 		// With the Ready column gone there is room to name the day control, so the icon carries its
 		// words and is not mistaken for a row's own Block (story 83).

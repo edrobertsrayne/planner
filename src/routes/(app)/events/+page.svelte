@@ -32,20 +32,20 @@
 			</NewEventDialog>
 		</div>
 	{:else}
-		<ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+		<ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 			{#each data.events as event (event.id)}
-				<li class="flex flex-col overflow-hidden rounded-xl border bg-surface">
+				<li class="flex flex-col overflow-hidden rounded-2xl border bg-surface">
 					<a
 						href={resolve(`/events/${event.id}`)}
-						class="flex flex-1 flex-col gap-3 p-4 hover:bg-muted"
+						class="flex flex-1 flex-col gap-3 p-4.5 hover:bg-muted"
 					>
 						<span class="flex items-start justify-between gap-2">
-							<span class="block text-sm font-semibold">{event.name}</span>
+							<span class="block text-lg font-semibold">{event.name}</span>
 							<Badge variant="secondary" class="text-muted-foreground"
 								>{kindLabel(event.kind)}</Badge
 							>
 						</span>
-						<dl class="mt-auto space-y-1 text-xs">
+						<dl class="mt-auto space-y-1 text-[13px]">
 							<div class="flex gap-1.5">
 								<dt class="shrink-0 text-muted-foreground">Next</dt>
 								<dd class="min-w-0">
@@ -74,7 +74,7 @@
 						<button
 							{...props}
 							type="button"
-							class="flex h-full min-h-32 w-full flex-col items-center justify-center gap-1 rounded-xl border border-dashed text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+							class="flex h-full min-h-32 w-full flex-col items-center justify-center gap-2 rounded-2xl border-[1.5px] border-dashed border-outline text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
 						>
 							<PlusIcon class="size-4" />
 							<span class="text-sm font-medium">New Event</span>

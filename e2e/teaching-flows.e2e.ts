@@ -454,8 +454,8 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 
 	test('ticking Ready on an Agenda row updates state and survives a reload', async () => {
 		await page.goto('/');
-		// Check that the heading carries "Ready to teach?"
-		await expect(page.getByText('Ready to teach?').first()).toBeVisible();
+		// The tick is a labelled control: "Ready" beside its box.
+		await expect(page.getByText('Ready', { exact: true }).first()).toBeVisible();
 
 		// Find the row for 9B/Sc1 (Motion)
 		const row = page.locator('li').filter({ hasText: '9B/Sc1' }).first();
