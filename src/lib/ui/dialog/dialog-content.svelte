@@ -29,8 +29,15 @@
 	// counts when the press began there too, so dragging a text selection out of a field and
 	// releasing over the backdrop does not close the dialog and lose what was typed.
 	let pressedBackdrop = false;
+	// The dialog's own scrollbar also targets the element, so a press must be outside its box.
 	function onpointerdown(e: PointerEvent) {
-		pressedBackdrop = e.target === e.currentTarget;
+		const box = (e.currentTarget as HTMLDialogElement).getBoundingClientRect();
+		pressedBackdrop =
+			e.target === e.currentTarget &&
+			(e.clientX < box.left ||
+				e.clientX > box.right ||
+				e.clientY < box.top ||
+				e.clientY > box.bottom);
 	}
 	function onclick(e: MouseEvent) {
 		if (pressedBackdrop && e.target === e.currentTarget) ctx.setOpen(false);

@@ -4,7 +4,7 @@
 	import { page } from '$app/state';
 	import ListChecksIcon from '@lucide/svelte/icons/list-checks';
 	import PlusIcon from '@lucide/svelte/icons/plus';
-	import { onFail, replaceQuery, submitForm } from '$lib/client/enhance';
+	import { failureReason, onFail, replaceQuery, submitForm } from '$lib/client/enhance';
 	import { createSequenceBoard } from '$lib/client/sequence-board.svelte';
 	import { lossSentence, type SequenceResult } from '$lib/sequence-text';
 	import { withParam } from '$lib/query';
@@ -51,6 +51,8 @@
 	// The Lessons that × or bulk Remove asks about. The dialog stays until the write is done or Ed
 	// cancels.
 	let removing = $state<SequenceEntry[] | null>(null);
+	// A refusal is named in the dialog: a toast would sit behind the modal's inert page.
+	let removeError = $state<string | null>(null);
 
 	let moveForm = $state<HTMLFormElement | undefined>();
 
@@ -256,6 +258,7 @@
 	open={removing !== null}
 	onOpenChange={(open) => {
 		if (!open) removing = null;
+		removeError = null;
 	}}
 >
 	<Dialog.Content class="sm:max-w-md">
@@ -274,15 +277,24 @@
 					{/each}
 				</Dialog.Description>
 			</Dialog.Header>
+			{#if removeError}
+				<p role="alert" class="text-xs text-destructive">{removeError}</p>
+			{/if}
 			<Dialog.Footer>
 				<Button variant="outline" onclick={() => (removing = null)}>Cancel</Button>
 				<form
 					method="POST"
 					action="?/removeLessons"
-					use:enhance={onFail('Could not remove.', () => {
-						board.forget(removing?.map((e) => e.lessonId) ?? []);
-						removing = null;
-					})}
+					use:enhance={() =>
+						async ({ result, update }) => {
+							if (result.type === 'failure') {
+								removeError = failureReason(result, 'Could not remove.');
+								return;
+							}
+							board.forget(removing?.map((e) => e.lessonId) ?? []);
+							removing = null;
+							await update({ invalidateAll: true });
+						}}
 				>
 					<input type="hidden" name="classId" value={classId} />
 					<input type="hidden" name="lessonIds" value={removing.map((e) => e.lessonId).join(',')} />
