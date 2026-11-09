@@ -54,7 +54,7 @@
 		)
 			? 'border-dashed border-primary outline-dashed'
 			: ''} {!board.dragging && board.ringed.includes(entry.lessonId)
-			? 'ring-2 ring-amber-500'
+			? 'ring-2 ring-(--warning-dot)'
 			: ''}"
 		style:background-color={isSelected ? topicColour(entry.topicId, 0.3) : undefined}
 		data-drop={base ?? undefined}
@@ -89,7 +89,7 @@
 					</span>
 				{/if}
 				{#if !board.dragging && board.was.has(entry.lessonId)}
-					<span class="text-amber-700 dark:text-amber-400" data-was
+					<span class="text-(--warning-fg)" data-was
 						>{wasText(board.was.get(entry.lessonId) ?? null)}</span
 					>
 				{/if}

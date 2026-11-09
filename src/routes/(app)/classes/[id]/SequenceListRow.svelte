@@ -39,7 +39,7 @@
 <li
 	class="relative flex items-stretch bg-surface {dragging ? 'opacity-40' : ''} {selected
 		? 'ring-2 ring-primary ring-inset'
-		: ''} {!dragging && ringed ? 'ring-2 ring-amber-500 ring-inset' : ''}"
+		: ''} {!dragging && ringed ? 'ring-2 ring-(--warning-dot) ring-inset' : ''}"
 	style:background-color={selected ? topicColour(entry.topicId, 0.3) : undefined}
 	data-drop={entry.fixed ? undefined : entry.lessonId}
 	data-selected={selected ? '' : undefined}
@@ -88,7 +88,7 @@
 					<LockIcon class="size-3" aria-label="Fixed: already taught" />
 				{/if}
 				{#if !dragging && was !== undefined}
-					<span class="text-amber-700 dark:text-amber-400" data-was>
+					<span class="text-(--warning-fg)" data-was>
 						{wasText(was)}
 					</span>
 				{/if}
