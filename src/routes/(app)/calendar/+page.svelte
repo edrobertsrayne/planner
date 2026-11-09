@@ -544,13 +544,16 @@
 														period: cell.periodFrom
 													})}
 													class={cn(
-														'relative flex h-full min-h-16 w-full flex-col overflow-hidden rounded-lg border px-1.5 py-1.5 text-left md:px-2',
+														'relative flex h-full min-h-16 w-full flex-col overflow-hidden rounded-lg border px-1 py-1.5 text-left sm:px-1.5 md:px-2',
 														cell.past && 'hatched'
 													)}
 													style:background-color={tone.bg}
 													style:border-color={tone.dot}
 												>
-													<span class="truncate text-xs font-semibold" style:color={tone.fg}>
+													<span
+														class="truncate text-xs font-semibold max-sm:text-[11px] max-sm:tracking-tight"
+														style:color={tone.fg}
+													>
 														{cell.classLabel}
 														{#if cell.room}<span class="hidden font-normal opacity-80 sm:inline">
 																· {cell.room}</span
