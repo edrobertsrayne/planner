@@ -29,6 +29,7 @@
 	}
 
 	function onkeydown(e: KeyboardEvent) {
+		if (e.key === 'Tab') return el.hidePopover();
 		const all = items();
 		const at = all.indexOf(document.activeElement as HTMLElement);
 		const target =

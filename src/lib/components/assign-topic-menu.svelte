@@ -37,7 +37,9 @@
 					{...props}
 					variant={onTile ? 'ghost' : 'secondary'}
 					size="sm"
-					class="h-9 {onTile ? 'bg-white/60 dark:bg-white/10' : ''}"
+					class="h-9 {onTile
+						? 'bg-white/60 hover:bg-white dark:bg-white/10 dark:hover:bg-white/20'
+						: ''}"
 					aria-label={label}
 				>
 					<PlusIcon data-icon="inline-start" />Assign Topic<ChevronDownIcon

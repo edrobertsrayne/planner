@@ -44,13 +44,8 @@
 >
 	<Dialog.Content class="sm:max-w-md">
 		<Dialog.Header>
-			{#if target}
-				<Dialog.Title>{title(target)}</Dialog.Title>
-				<Dialog.Description>{target.description}</Dialog.Description>
-			{:else}
-				<Dialog.Title>Delete?</Dialog.Title>
-				<Dialog.Description></Dialog.Description>
-			{/if}
+			<Dialog.Title>{target ? title(target) : 'Delete?'}</Dialog.Title>
+			<Dialog.Description>{target?.description}</Dialog.Description>
 		</Dialog.Header>
 		<Dialog.Footer>
 			<Button variant="outline" onclick={() => (target = null)}>Cancel</Button>

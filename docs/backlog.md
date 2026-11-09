@@ -7,6 +7,11 @@ Add new entries at the top, dated:
 
 - YYYY-MM-DD: idea
 
+- 2026-11-09: Calm design system polish left from the #501 review: toasts do not pause on hover;
+  an open menu does not re-place on scroll; `place.ts` sets `--trigger-width` after measuring; the
+  feedback popover does not focus its field; `data-invalid` has no style; `markdown-editor.svelte`
+  appends classes without a tailwind-merge, so a caller's conflicting utility depends on CSS order.
+
 - 2026-11-03: Share the Timetable grid between the Class page and the Event page. Both draw a
   Week A/B grid of toggle cells with locked cells for other holders, and `TimetableGrid.svelte`,
   `EventTimetableGrid.svelte`, `SlotRooms.svelte` and `EventRooms.svelte` are near copies (ADR-0029

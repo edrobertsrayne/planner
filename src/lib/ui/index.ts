@@ -6,6 +6,5 @@ export { default as Input } from './input.svelte';
 export { default as Textarea } from './textarea.svelte';
 export { default as Label } from './label.svelte';
 export { default as Badge } from './badge.svelte';
-export { default as Separator } from './separator.svelte';
 export { default as Select, type SelectOption } from './select.svelte';
 export { touchTarget } from './touch-target';

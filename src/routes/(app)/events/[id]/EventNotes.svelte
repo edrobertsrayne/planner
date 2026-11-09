@@ -77,7 +77,7 @@
 				</Button>
 				<select
 					aria-label="Date"
-					class="ui-input min-w-0 flex-1 text-[15px] font-medium lg:sr-only"
+					class="ui-input min-w-0 flex-1 text-[15px] font-medium lg:sr-only lg:focus:not-sr-only"
 					value={date}
 					onchange={(e) => (picked = e.currentTarget.value)}
 				>
