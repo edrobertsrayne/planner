@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { goto, afterNavigate } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
@@ -43,6 +44,13 @@
 	const savedYearNone = 'The year is saved.';
 
 	const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+	const DAY_LONG: Record<string, string> = {
+		Mon: 'Monday',
+		Tue: 'Tuesday',
+		Wed: 'Wednesday',
+		Thu: 'Thursday',
+		Fri: 'Friday'
+	};
 
 	// The ribbon, the two arrows and Today all navigate by query string. Each carries a week
 	// commencing date, not a URL, so the link is built here.
@@ -91,8 +99,8 @@
 	<tr>
 		<th class="pr-1 text-right align-top">
 			<div class="pt-1.5 text-[10px] leading-tight font-medium text-muted-foreground md:text-xs">
-				<span class="md:hidden">{position === 0 ? 'Bef.' : 'Aft.'}</span>
-				<span class="hidden md:inline">{positionLabel(position)}</span>
+				<span aria-hidden="true">{position === 0 ? 'Bef.' : 'Aft.'}</span>
+				<span class="sr-only">{positionLabel(position)}</span>
 			</div>
 		</th>
 		{#each DAY_NAMES as d, di (d)}
@@ -137,83 +145,6 @@
 			<!-- Save year and Cancel sit in the setup mode's own header: the week controls here
 			     would read a year that is not saved yet. -->
 			{#if !setup}
-				{#if data.week}
-					<!-- One row for both sizes, the size choosing what shows and where (stories 102
-					     and 103). The DOM order is the `md` order — arrows around the ribbon, Today
-					     beside the first arrow — so the keyboard path follows what a laptop shows.
-					     Below `md` the arrows frame one label — the week's letter and its Monday —
-					     with Today beside them: `max-md:order` moves the label between the arrows
-					     and Today to the end. Each control exists once, so no name is doubled in the
-					     accessibility tree. -->
-					<div class="flex min-w-0 items-center gap-1 md:gap-2">
-						<Button
-							variant="outline"
-							size="icon-sm"
-							class="size-9 max-md:order-1 max-md:size-11"
-							href={data.prev ? weekHref(data.prev) : undefined}
-							disabled={!data.prev}
-							aria-label="Previous Teaching Week"
-						>
-							<ChevronLeftIcon />
-						</Button>
-
-						<!-- Today is the header's main action once the year exists; until then the week
-					     controls do not render at all and setting the year keeps the emphasis. While
-					     already on the week it would return to it stands down, a disabled button
-					     without an href. -->
-						<Button
-							variant="secondary"
-							size="sm"
-							class="h-9 px-3.5 max-md:order-4 max-md:h-11"
-							href={data.current && data.selected !== data.current
-								? weekHref(data.current)
-								: undefined}
-							disabled={data.selected === data.current}
-						>
-							Today
-						</Button>
-
-						<!-- The week ribbon is the one row that must fit beside the arrows and Today. It
-						     shrinks and scrolls inside itself — the chip-row rule the Agenda and
-						     Planning follow — so the page never scrolls sideways (issue #343). -->
-						<div
-							class="hidden max-w-full items-center gap-1 overflow-x-auto rounded-[10px] bg-muted p-[3px] md:flex"
-						>
-							{#each data.ribbon as w (w.weekCommencing)}
-								{@const isSelected = w.weekCommencing === data.selected}
-								<a
-									href={weekHref(w.weekCommencing)}
-									aria-current={isSelected ? 'true' : undefined}
-									class="flex h-10 min-w-16 shrink-0 flex-col items-center justify-center rounded-lg px-2 text-xs leading-[15px] font-medium tabular-nums {isSelected
-										? 'bg-surface text-foreground shadow-(--shadow-raised)'
-										: 'text-muted-foreground hover:bg-surface/60'}"
-									title="w/c {formatDayMonth(w.weekCommencing)}"
-								>
-									<span class="font-semibold">Week {w.letter}</span>
-									<span>{formatDayMonth(w.weekCommencing)}</span>
-								</a>
-							{/each}
-						</div>
-
-						<Button
-							variant="outline"
-							size="icon-sm"
-							class="size-9 max-md:order-3 max-md:size-11"
-							href={data.next ? weekHref(data.next) : undefined}
-							disabled={!data.next}
-							aria-label="Next Teaching Week"
-						>
-							<ChevronRightIcon />
-						</Button>
-
-						<span
-							class="min-w-0 flex-1 truncate text-center text-[15px] font-semibold tabular-nums max-md:order-2 md:hidden"
-						>
-							Week {data.week.letter} · w/c {formatDayMonth(data.week.weekCommencing)}
-						</span>
-					</div>
-				{/if}
-
 				<!-- On a phone the year is not written, so Set up year is out below `md` (story
 				     105). -->
 				<Button
@@ -222,11 +153,92 @@
 					variant={data.terms.length === 0 ? 'default' : 'outline'}
 					onclick={() => (setup = true)}
 				>
-					Set up year
+					<PencilIcon data-icon="inline-start" />Set up year
 				</Button>
 			{/if}
 		{/snippet}
 	</PageHeader>
+
+	{#if !setup}
+		<div class="mb-4 md:mt-1">
+			{#if data.week}
+				<!-- One row for both sizes, the size choosing what shows and where (stories 102
+					     and 103). The DOM order is the `md` order — arrows around the ribbon, Today
+					     beside the first arrow — so the keyboard path follows what a laptop shows.
+					     Below `md` the arrows frame one label — the week's letter and its Monday —
+					     with Today beside them: `max-md:order` moves the label between the arrows
+					     and Today to the end. Each control exists once, so no name is doubled in the
+					     accessibility tree. -->
+				<div class="flex min-w-0 items-center gap-1 md:gap-2">
+					<Button
+						variant="outline"
+						size="icon-sm"
+						class="size-9 max-md:order-1 max-md:size-11"
+						href={data.prev ? weekHref(data.prev) : undefined}
+						disabled={!data.prev}
+						aria-label="Previous Teaching Week"
+					>
+						<ChevronLeftIcon />
+					</Button>
+
+					<!-- Today is the header's main action once the year exists; until then the week
+					     controls do not render at all and setting the year keeps the emphasis. While
+					     already on the week it would return to it stands down, a disabled button
+					     without an href. -->
+					<Button
+						variant="secondary"
+						size="sm"
+						class="h-9 px-3.5 max-md:order-4 max-md:h-11 md:order-5"
+						href={data.current && data.selected !== data.current
+							? weekHref(data.current)
+							: undefined}
+						disabled={data.selected === data.current}
+					>
+						Today
+					</Button>
+
+					<!-- The week ribbon is the one row that must fit beside the arrows and Today. It
+						     shrinks and scrolls inside itself — the chip-row rule the Agenda and
+						     Planning follow — so the page never scrolls sideways (issue #343). -->
+					<div
+						class="hidden max-w-full items-center gap-1 overflow-x-auto rounded-[10px] bg-muted p-[3px] md:flex md:flex-1"
+					>
+						{#each data.ribbon as w (w.weekCommencing)}
+							{@const isSelected = w.weekCommencing === data.selected}
+							<a
+								href={weekHref(w.weekCommencing)}
+								aria-current={isSelected ? 'true' : undefined}
+								class="flex h-10 min-w-16 shrink-0 flex-col items-center justify-center rounded-lg px-2 text-xs leading-[15px] font-medium tabular-nums md:flex-1 {isSelected
+									? 'bg-surface text-foreground shadow-(--shadow-raised)'
+									: 'text-muted-foreground hover:bg-surface/60'}"
+								title="w/c {formatDayMonth(w.weekCommencing)}"
+							>
+								<span class="font-semibold">Week {w.letter}</span>
+								<span>{formatDayMonth(w.weekCommencing)}</span>
+							</a>
+						{/each}
+					</div>
+
+					<Button
+						variant="outline"
+						size="icon-sm"
+						class="size-9 max-md:order-3 max-md:size-11"
+						href={data.next ? weekHref(data.next) : undefined}
+						disabled={!data.next}
+						aria-label="Next Teaching Week"
+					>
+						<ChevronRightIcon />
+					</Button>
+
+					<span
+						class="min-w-0 flex-1 truncate text-center text-[15px] font-semibold tabular-nums max-md:order-2 md:hidden"
+					>
+						Week {data.week.letter} · w/c {formatDayMonth(data.week.weekCommencing)}
+					</span>
+				</div>
+			{/if}
+		</div>
+	{/if}
 
 	<RewindReport
 		report={form?.report}
@@ -280,11 +292,11 @@
 											class="text-xs font-medium text-muted-foreground max-md:text-[11px] max-md:font-semibold"
 										>
 											<span class="md:hidden">{d.slice(0, 1)}</span>
-											<span class="hidden md:inline">{d}</span>
+											<span class="hidden md:inline">{DAY_LONG[d]}</span>
 										</span>
 										<span class="text-[15px] font-semibold tabular-nums">
 											<span class="md:hidden">{Number(date.slice(8))}</span>
-											<span class="hidden md:inline">{formatDayMonth(date)}</span>
+											<span class="hidden md:inline">{Number(date.slice(8))}</span>
 										</span>
 									</span>
 									<!-- The day menu writes the calendar, so it is out below `md` (story 105):
@@ -441,7 +453,11 @@
 												? 'School Holiday'
 												: (blockedDay?.note ?? 'Blocked Day')}
 										{@const under = dayKind === 'holiday' ? 'Outside every Term' : 'No teaching'}
-										<td rowspan={PERIODS.length} class="h-16 align-middle" data-day-kind={dayKind}>
+										<td
+											rowspan={PERIODS.length}
+											class="h-16 align-middle md:h-[92px]"
+											data-day-kind={dayKind}
+										>
 											<div
 												class={cn(
 													'flex h-full flex-col items-center justify-center gap-1 rounded-lg px-2 py-3 text-center max-md:justify-start max-md:px-1 max-md:py-2',
@@ -504,17 +520,17 @@
 											<!-- covered by an earlier Period's rowspan: one Event over adjacent
 										     Periods is a single block, as a double Lesson is -->
 										{:else if event}
-											<td rowspan={span} class="h-16 align-top">
+											<td rowspan={span} class="h-16 align-top md:h-[92px]">
 												{@render eventTile(event, 'h-full')}
 											</td>
 										{:else}
-											<td class="h-16 rounded-lg bg-muted/40"></td>
+											<td class="h-16 rounded-lg bg-muted/40 md:h-[92px]"></td>
 										{/if}
 									{:else}
 										{@const cell = entry.cell}
 										{@const rowspan = cell.periodTo - cell.periodFrom + 1}
 										{@const tone = classTone(cell.tone)}
-										<td {rowspan} class="relative h-16 align-top">
+										<td {rowspan} class="relative h-16 align-top md:h-[92px]">
 											{#if cell.kind === 'blocked'}
 												<!-- A Blocked Slot on an otherwise teaching day: a removal, so it keeps
 											the hatch and its note. Its unblock lives in the day's menu, like every
@@ -558,7 +574,7 @@
 														cell.past && 'hatched'
 													)}
 													style:background-color={tone.bg}
-													style:border-color={tone.dot}
+													style:border-color={tone.bg}
 												>
 													<span
 														class="truncate text-xs font-semibold max-sm:text-[11px] max-sm:tracking-tight"
@@ -581,7 +597,7 @@
 															>
 														</span>
 														{#if cell.lesson.topicName}
-															<span class="mt-auto hidden md:block">
+															<span class="hidden md:block">
 																<span
 																	class="line-clamp-1 text-[11px] opacity-80"
 																	style:color={tone.fg}>{cell.lesson.topicName}</span
@@ -591,7 +607,7 @@
 															<!-- A placed Lesson carries no Topic (issue #254): the dashed inner
 													     ring plus this line are what tell it apart from a Topic Lesson's
 													     tile at a glance, no change to the Class's own Tone. -->
-															<span class="mt-auto hidden md:block">
+															<span class="hidden md:block">
 																<span
 																	class="line-clamp-1 text-[11px] italic opacity-80"
 																	style:color={tone.fg}>Standalone Lesson</span
@@ -622,6 +638,21 @@
 				</tbody>
 			</table>
 		</div>
+
+		<ul class="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground max-md:hidden">
+			<li class="flex items-center gap-1.5">
+				<span class="h-3 w-[18px] rounded-[3px] bg-step-2 hatched"></span>Taught
+			</li>
+			<li class="flex items-center gap-1.5">
+				<span class="h-3 w-[18px] rounded-[3px] bg-primary-container"></span>Upcoming
+			</li>
+			<li class="flex items-center gap-1.5">
+				<span class="h-3 w-[18px] rounded-[3px] bg-step-2"></span>Blocked
+			</li>
+			<li class="flex items-center gap-1.5">
+				<span class="h-3 w-[18px] rounded-[3px] border bg-muted"></span>Event
+			</li>
+		</ul>
 
 		<!-- Mounted once for the whole grid: the menu sets the picked Slot, the dialog asks for
 		     its note, and the binding carries the close back — Escape, the X, a click on the
