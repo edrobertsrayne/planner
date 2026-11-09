@@ -149,7 +149,7 @@
 						<Button
 							variant="outline"
 							size="icon-sm"
-							class="size-9 max-md:order-1"
+							class="size-9 max-md:order-1 max-md:size-11"
 							href={data.prev ? weekHref(data.prev) : undefined}
 							disabled={!data.prev}
 							aria-label="Previous Teaching Week"
@@ -164,7 +164,7 @@
 						<Button
 							variant="secondary"
 							size="sm"
-							class="h-9 px-3.5 max-md:order-4"
+							class="h-9 px-3.5 max-md:order-4 max-md:h-11"
 							href={data.current && data.selected !== data.current
 								? weekHref(data.current)
 								: undefined}
@@ -198,7 +198,7 @@
 						<Button
 							variant="outline"
 							size="icon-sm"
-							class="size-9 max-md:order-3"
+							class="size-9 max-md:order-3 max-md:size-11"
 							href={data.next ? weekHref(data.next) : undefined}
 							disabled={!data.next}
 							aria-label="Next Teaching Week"
@@ -207,7 +207,7 @@
 						</Button>
 
 						<span
-							class="min-w-0 flex-1 truncate text-center text-sm font-medium tabular-nums max-md:order-2 md:hidden"
+							class="min-w-0 flex-1 truncate text-center text-[15px] font-semibold tabular-nums max-md:order-2 md:hidden"
 						>
 							Week {data.week.letter} · w/c {formatDayMonth(data.week.weekCommencing)}
 						</span>
@@ -266,22 +266,23 @@
 							{@const blockedSlots = blockedSlotLines(data.week.cells, date)}
 							{@const absentLines = absentSlotLines(data.week.cells, date)}
 							<th class="rounded-lg pb-1 text-left align-bottom" data-day-kind={dayKind}>
-								<div class="flex items-center gap-1.5">
+								<div
+									class="flex items-center gap-1.5 rounded-[10px] max-md:justify-center {date ===
+									data.today
+										? 'bg-primary-container text-primary-container-foreground'
+										: ''}"
+								>
 									<!-- On a phone a head reads a letter and a date ("M 5"), so the five day
 									     columns fit the width; the day name and the month date return from
 									     `md`. The wrapper spans own the visibility at each size. -->
-									<span
-										class="flex flex-col leading-[18px] max-md:flex-row max-md:items-baseline max-md:gap-1.5"
-									>
+									<span class="flex flex-col leading-[18px] max-md:items-center">
 										<span
-											class="text-xs font-medium text-muted-foreground max-md:text-sm max-md:font-semibold max-md:text-foreground"
+											class="text-xs font-medium text-muted-foreground max-md:text-[11px] max-md:font-semibold"
 										>
 											<span class="md:hidden">{d.slice(0, 1)}</span>
 											<span class="hidden md:inline">{d}</span>
 										</span>
-										<span
-											class="text-[15px] font-semibold tabular-nums max-md:text-xs max-md:font-normal max-md:text-muted-foreground"
-										>
+										<span class="text-[15px] font-semibold tabular-nums">
 											<span class="md:hidden">{Number(date.slice(8))}</span>
 											<span class="hidden md:inline">{formatDayMonth(date)}</span>
 										</span>
