@@ -4,7 +4,7 @@
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import { useBack } from '$lib/client/back';
 	import SessionBody from '$lib/components/session-body.svelte';
-	import { Button } from '$lib/components/ui/button';
+	import { Button } from '$lib/ui';
 
 	// The Session is addressed by its occasion (ADR-0002), so the URL is the whole state: a reload
 	// or a pasted link lands on the same Session. A period that is not a whole number is a

@@ -424,6 +424,9 @@ test.describe('Detach on the Lesson editor', () => {
 	}) => {
 		await openCourse(page);
 		await page.getByRole('link', { name: 'Forces' }).click();
+		// The create box submits through `enhance` only once the page has hydrated; before that Enter
+		// would post the form as a plain page load and lose the caret.
+		await page.waitForLoadState('networkidle');
 		await page.getByPlaceholder('New Lesson title — press Enter').fill('Detachable');
 		await page.getByPlaceholder('New Lesson title — press Enter').press('Enter');
 		// Creating a Lesson neither opens it nor takes the caret out of the box.
@@ -437,7 +440,7 @@ test.describe('Detach on the Lesson editor', () => {
 
 		await page.getByRole('button', { name: 'Detach from Topic' }).click();
 		await expect(
-			page.locator('[data-sonner-toast]').filter({ hasText: 'Lesson detached from its Topic.' })
+			page.locator('[data-slot=toast]').filter({ hasText: 'Lesson detached from its Topic.' })
 		).toBeVisible();
 		expect(page.url()).toBe(url);
 		await expect(page.getByRole('textbox', { name: 'Lesson title', exact: true })).toHaveValue(

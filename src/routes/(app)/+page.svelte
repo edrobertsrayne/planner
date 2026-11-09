@@ -12,7 +12,7 @@
 	import { onFail, replaceQuery, submitForm } from '$lib/client/enhance';
 	import { sessionHref } from '$lib/client/session-href';
 	import { withParam } from '$lib/query';
-	import { touchTarget } from '$lib/components/ui/touch-target';
+	import { Button, touchTarget } from '$lib/ui';
 	import BlockDayDialog from '$lib/components/block-day-dialog.svelte';
 	import BlockSlotDialog, { type Pick } from '$lib/components/block-slot-dialog.svelte';
 	import AbsentMarker from '$lib/components/absent-marker.svelte';
@@ -22,8 +22,7 @@
 	import PageHeader from '$lib/components/page-header.svelte';
 	import RewindReport from '$lib/components/rewind-report.svelte';
 	import TagChips from '$lib/components/tag-chips.svelte';
-	import { Button } from '$lib/components/ui/button';
-	import * as Tabs from '$lib/components/ui/tabs/index.js';
+	import * as Tabs from '$lib/ui/tabs';
 	import { AGENDA_HORIZONS } from './agenda-horizons';
 	import {
 		agendaStream,
@@ -133,7 +132,11 @@
 	<PageHeader>
 		<!-- The top bar names the screen on a phone, so below `md` the heading is out of sight (a
 		     screen reader still reads it) and the days start near the top (issue #342). -->
-		<h1 class="sr-only text-lg font-semibold tracking-tight md:not-sr-only">Agenda</h1>
+		<h1
+			class="sr-only text-[26px] leading-8 font-bold tracking-tight md:not-sr-only md:text-[32px] md:leading-10 md:font-semibold"
+		>
+			Agenda
+		</h1>
 		{#snippet actions()}
 			<!-- The horizon is tabs at the right of the heading (issue #341), the same tab style as
 			     Draft/Planned on Planning. Below `md` the heading is hidden (issue #342), so the
@@ -144,7 +147,7 @@
 					if (v) setHorizon(v);
 				}}
 			>
-				<Tabs.List variant="line">
+				<Tabs.List variant="segmented">
 					{#each AGENDA_HORIZONS as [n, label] (n)}
 						<Tabs.Trigger value={String(n)}>{label}</Tabs.Trigger>
 					{/each}
@@ -242,19 +245,24 @@
 		{@const tone = classTone(row.tone)}
 		{@const blocked = row.blocked}
 		<li
-			class="group/row relative flex items-center gap-3 pr-2 pl-4 {blocked
+			class="group/row relative flex items-center gap-3 pr-2 {blocked
 				? 'hatched'
 				: 'hover:bg-muted/40'}"
 		>
+			<!-- The Period in the Class's Tone: a tile that names the Period and its room, a Blocked
+			     Slot's own in the neutral step. -->
 			<span
-				class="absolute inset-y-0 left-0 w-1"
-				style:background-color={tone.ring}
-				aria-hidden="true"
-			></span>
-
-			<span class="w-14 shrink-0 text-xs text-muted-foreground tabular-nums">
+				class="my-3 ml-4 flex min-h-12 w-14 shrink-0 flex-col items-center justify-center rounded-lg px-1 text-center text-[13px] leading-tight font-bold tabular-nums {blocked
+					? 'bg-surface text-foreground'
+					: ''}"
+				style:background-color={blocked ? undefined : tone.bg}
+				style:color={blocked ? undefined : tone.fg}
+			>
 				P{row.periodFrom}{#if row.periodTo !== row.periodFrom}–P{row.periodTo}{/if}
-				{#if row.room}<span class="block truncate" title={row.room}>{row.room}</span>{/if}
+				{#if row.room}<span
+						class="max-w-full truncate text-[11px] font-medium opacity-80"
+						title={row.room}>{row.room}</span
+					>{/if}
 			</span>
 
 			<!-- The Class chip sits in a fixed-width column, so the titles line up (issue #341), and opens
@@ -341,11 +349,15 @@
 	<!-- An Event: a neutral bar, never a Class's hue, and no Ready tick (ADR-0029). The note is the
 	     plan or the log; with none, the row offers to add one. -->
 	{#snippet eventRow(event: AgendaEvent, past: boolean)}
-		<li class="relative flex items-center gap-3 pr-2 pl-4 hover:bg-muted/40">
-			<span class="absolute inset-y-0 left-0 w-1 bg-border" aria-hidden="true"></span>
-			<span class="w-14 shrink-0 text-xs text-muted-foreground tabular-nums">
+		<li class="relative flex items-center gap-3 bg-muted pr-2">
+			<span
+				class="my-3 ml-4 flex min-h-12 w-14 shrink-0 flex-col items-center justify-center rounded-lg bg-surface px-1 text-center text-[13px] leading-tight font-bold tabular-nums"
+			>
 				{positionRangeLabel(event.position, event.positionTo)}
-				{#if event.room}<span class="block truncate" title={event.room}>{event.room}</span>{/if}
+				{#if event.room}<span
+						class="max-w-full truncate text-[11px] font-medium text-muted-foreground"
+						title={event.room}>{event.room}</span
+					>{/if}
 			</span>
 			<span class="w-24 shrink-0">
 				<span
@@ -407,16 +419,12 @@
 			</div>
 			<!-- An Absence lists each Class and Period it takes, so its Cover is set from here. -->
 			{#if item.lines.length > 0}
-				<ul class="divide-y divide-border border-t bg-card">
+				<ul class="divide-y divide-border border-t bg-surface">
 					{#each item.lines as line (line.classId + line.period)}
-						{@const tone = classTone(line.tone)}
 						<li class="relative flex items-center gap-3 pr-2 pl-4">
 							<span
-								class="absolute inset-y-0 left-0 w-1"
-								style:background-color={tone.ring}
-								aria-hidden="true"
-							></span>
-							<span class="w-14 shrink-0 text-xs text-muted-foreground tabular-nums">
+								class="w-14 shrink-0 text-[13px] font-semibold text-muted-foreground tabular-nums"
+							>
 								P{line.period}
 								{#if line.room}<span class="block truncate" title={line.room}>{line.room}</span
 									>{/if}
@@ -514,14 +522,9 @@
 					>
 						<BanIcon class="size-3.5" /> Block day
 					</Button>
-					<!-- Readiness is written from a tablet up, so a phone carries neither the label nor the
-					     tick, and the day control has room to name itself. -->
-					<span class="hidden text-xs font-normal text-muted-foreground md:inline"
-						>Ready to teach?</span
-					>
 				</h2>
 
-				<ul class="divide-y divide-border overflow-hidden rounded-xl border bg-card">
+				<ul class="divide-y divide-border overflow-hidden rounded-xl border bg-surface">
 					{#each item.rows as line (lineKey(line))}
 						{@render agendaLine(line, false)}
 					{/each}

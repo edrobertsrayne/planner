@@ -1,3 +1,6 @@
+> **Superseded by [ADR-0031](0031-the-calm-design-system.md).** shadcn-svelte and Bits UI are gone;
+> the components are our own and the tokens are the Calm design system's.
+
 # shadcn-svelte for controls, on our own tokens
 
 The design system is shadcn-svelte, vendored into `$lib/components/ui`, rethemed onto a palette

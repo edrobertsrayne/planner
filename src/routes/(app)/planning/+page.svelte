@@ -9,11 +9,11 @@
 	import PageHeader from '$lib/components/page-header.svelte';
 	import RewindReport from '$lib/components/rewind-report.svelte';
 	import TagChips from '$lib/components/tag-chips.svelte';
-	import { Badge } from '$lib/components/ui/badge/index.js';
+	import { Badge } from '$lib/ui';
 	import { page } from '$app/state';
 	import { replaceQuery } from '$lib/client/enhance';
 	import { withParam } from '$lib/query';
-	import * as Tabs from '$lib/components/ui/tabs/index.js';
+	import * as Tabs from '$lib/ui/tabs';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -28,8 +28,8 @@
 	];
 
 	const RUNGS: { key: LessonStatus; name: string }[] = [
-		{ key: 'planned', name: STATUS_LABEL.planned },
-		{ key: 'draft', name: STATUS_LABEL.draft }
+		{ key: 'draft', name: STATUS_LABEL.draft },
+		{ key: 'planned', name: STATUS_LABEL.planned }
 	];
 
 	// The status tab lives in the query string (`?status=draft`), like the Class chips (issue
@@ -74,7 +74,7 @@
 	<form method="POST" action="?/setLessonStatus" use:enhance class="contents">
 		<input type="hidden" name="id" value={lesson.id} />
 		<div
-			class="flex shrink-0 overflow-hidden rounded-md border text-xs"
+			class="inline-flex shrink-0 gap-0.5 rounded-lg bg-muted p-0.5 text-xs"
 			role="group"
 			aria-label="Status of {lesson.title}"
 		>
@@ -86,11 +86,13 @@
 					name="status"
 					value={rung.key}
 					aria-pressed={on}
-					class="px-2 py-1.5 font-medium transition-colors {on
-						? ''
-						: 'text-muted-foreground hover:bg-muted'}"
-					style:background-color={on ? tone.bg : undefined}
-					style:color={on ? tone.fg : undefined}
+					class="h-7 rounded-md px-2.5 transition-colors {on
+						? rung.key === 'draft'
+							? 'bg-surface font-medium text-foreground shadow-(--shadow-raised)'
+							: 'font-semibold'
+						: 'font-medium text-muted-foreground hover:text-foreground'}"
+					style:background-color={on && rung.key === 'planned' ? tone.bg : undefined}
+					style:color={on && rung.key === 'planned' ? tone.fg : undefined}
 				>
 					{rung.name}
 				</button>
@@ -110,7 +112,7 @@
 					value={filter}
 					onValueChange={(v) => replaceQuery(withParam(page.url, 'status', v === 'all' ? null : v))}
 				>
-					<Tabs.List variant="line">
+					<Tabs.List variant="segmented">
 						{#each FILTERS as f (f.key)}
 							<Tabs.Trigger value={f.key}>
 								{f.name} <span class="tabular-nums opacity-60">{tally[f.key]}</span>
@@ -150,7 +152,7 @@
 			<ul class="mt-4 space-y-2 md:hidden">
 				{#each filtered as lesson (lesson.id)}
 					{@const s = lesson.occurrence}
-					<li class="rounded-lg border bg-card p-3">
+					<li class="rounded-lg border bg-surface p-3">
 						<div class="flex items-center gap-2 text-xs text-muted-foreground">
 							{#if s}
 								<span class="font-medium text-foreground tabular-nums"
@@ -163,8 +165,10 @@
 								<span>Not scheduled</span>
 							{/if}
 							<Badge
-								variant={lesson.status === 'planned' ? 'secondary' : 'outline'}
-								class="ml-auto"
+								variant="outline"
+								class="ml-auto {lesson.status === 'planned'
+									? 'border-transparent bg-ready text-ready-foreground'
+									: 'text-muted-foreground'}"
 							>
 								{STATUS_LABEL[lesson.status]}
 							</Badge>
@@ -185,76 +189,63 @@
 				{/each}
 			</ul>
 
-			<!-- From `md` the whole stream is one table: one column per fact to scan. Below `xl` the
-			     Topic and the Course fold under the title; below `lg` the Tags fold too. Only the
+			<!-- From `md` the whole stream is one table: the Topic, Course and Tags sit under the title. Only the
 			     title opens the Lesson editor, and the Status column is as wide as its toggle, so a
 			     click beside the toggle opens nothing. -->
-			<table
-				class="mt-4 hidden w-full table-fixed border-separate border-spacing-0 text-sm md:table"
-			>
-				<thead class="sticky top-0 z-10 bg-background text-left text-xs text-muted-foreground">
-					<tr>
-						<th scope="col" class="w-36 border-b py-2 pr-3 font-medium">Next taught</th>
-						<th scope="col" class="w-20 border-b py-2 pr-3 font-medium">Class</th>
-						<th scope="col" class="border-b py-2 pr-3 font-medium">Lesson</th>
-						<th scope="col" class="hidden w-44 border-b py-2 pr-3 font-medium xl:table-cell">
-							Topic
-						</th>
-						<th scope="col" class="hidden w-32 border-b py-2 pr-3 font-medium xl:table-cell">
-							Course
-						</th>
-						<th scope="col" class="hidden w-40 border-b py-2 pr-3 font-medium lg:table-cell">
-							Tags
-						</th>
-						<th scope="col" class="w-[7.25rem] border-b py-2 font-medium">Status</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each filtered as lesson (lesson.id)}
-						{@const s = lesson.occurrence}
-						<tr class="align-top">
-							<td class="border-b py-2 pr-3 whitespace-nowrap tabular-nums">
-								{#if s}
-									{formatShortWeekday(s.date)}
-									<span class="text-muted-foreground">P{s.period}</span>
-									{#if s.room}<span class="text-muted-foreground"> · {s.room}</span>{/if}
-								{:else}
-									<span class="text-muted-foreground">—</span>
-								{/if}
-							</td>
-							<td class="border-b py-2 pr-3">
-								{#if s}{@render classChip(s)}{/if}
-							</td>
-							<td class="border-b py-2 pr-3">
-								<a
-									href={resolve(`/lessons/${lesson.id}`)}
-									class="block max-w-full truncate font-medium hover:underline">{lesson.title}</a
-								>
-								<div class="truncate text-xs text-muted-foreground xl:hidden">
-									{#if lesson.topicName}
-										{lesson.topicName} · {lesson.courseName}
-									{:else}
-										Standalone Lesson
-									{/if}
-								</div>
-								<TagChips tags={lesson.tags} class="mt-1 lg:hidden" />
-							</td>
-							<td class="hidden border-b py-2 pr-3 xl:table-cell">
-								<div class="truncate text-muted-foreground">
-									{lesson.topicName ?? 'Standalone Lesson'}
-								</div>
-							</td>
-							<td class="hidden border-b py-2 pr-3 xl:table-cell">
-								<div class="truncate text-muted-foreground">{lesson.courseName ?? ''}</div>
-							</td>
-							<td class="hidden border-b py-2 pr-3 lg:table-cell">
-								<TagChips tags={lesson.tags} />
-							</td>
-							<td class="border-b py-1.5">{@render statusToggle(lesson)}</td>
+			<div class="mt-4 hidden rounded-2xl border bg-surface md:block">
+				<table class="w-full table-fixed border-separate border-spacing-0 text-sm">
+					<thead
+						class="sticky top-0 z-10 bg-muted text-left text-xs text-muted-foreground [&_th]:first:rounded-tl-2xl"
+					>
+						<tr>
+							<th scope="col" class="w-40 rounded-tl-2xl border-b px-4 py-3 font-semibold"
+								>Next taught</th
+							>
+							<th scope="col" class="w-20 border-b px-3 py-3 font-semibold">Class</th>
+							<th scope="col" class="border-b px-3 py-3 font-semibold">Lesson</th>
+							<th scope="col" class="w-[9.5rem] rounded-tr-2xl border-b px-4 py-3 font-semibold"
+								>Status</th
+							>
 						</tr>
-					{/each}
-				</tbody>
-			</table>
+					</thead>
+					<tbody>
+						{#each filtered as lesson (lesson.id)}
+							{@const s = lesson.occurrence}
+							<tr class="align-top">
+								<td class="border-b border-divider px-4 py-3 whitespace-nowrap tabular-nums">
+									{#if s}
+										<span class="block font-medium">{formatShortWeekday(s.date)}</span>
+										<span class="block text-xs text-muted-foreground"
+											>P{s.period}{#if s.room}
+												· {s.room}{/if}</span
+										>
+									{:else}
+										<span class="text-muted-foreground">—</span>
+									{/if}
+								</td>
+								<td class="border-b border-divider px-3 py-3">
+									{#if s}{@render classChip(s)}{/if}
+								</td>
+								<td class="border-b border-divider px-3 py-3">
+									<a
+										href={resolve(`/lessons/${lesson.id}`)}
+										class="block max-w-full truncate font-medium hover:underline">{lesson.title}</a
+									>
+									<div class="truncate text-[13px] text-muted-foreground">
+										{#if lesson.topicName}
+											{lesson.topicName} · {lesson.courseName}
+										{:else}
+											Standalone Lesson
+										{/if}
+									</div>
+									<TagChips tags={lesson.tags} class="mt-1" />
+								</td>
+								<td class="border-b border-divider px-3 py-2">{@render statusToggle(lesson)}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
 		{:else}
 			<div
 				class="mt-4 rounded-lg border border-dashed px-3 py-8 text-center text-sm text-muted-foreground"

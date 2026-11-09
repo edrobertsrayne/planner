@@ -130,7 +130,7 @@ test.describe.serial('Placing and removing a Lesson', () => {
 			page.waitForResponse((r) => r.url().includes('setLessonStatus')),
 			page.getByRole('radio', { name: 'Planned' }).click()
 		]);
-		await expect(page.getByRole('radio', { name: 'Planned' })).toHaveAttribute('data-state', 'on');
+		await expect(page.getByRole('radio', { name: 'Planned' })).toBeChecked();
 		await page.waitForLoadState('networkidle');
 
 		await page.getByRole('button', { name: 'Back' }).click();

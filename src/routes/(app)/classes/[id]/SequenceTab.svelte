@@ -1,17 +1,16 @@
 <script lang="ts">
+	import { MediaQuery } from 'svelte/reactivity';
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
 	import ListChecksIcon from '@lucide/svelte/icons/list-checks';
 	import PlusIcon from '@lucide/svelte/icons/plus';
-	import { onFail, replaceQuery, submitForm } from '$lib/client/enhance';
+	import { failureReason, onFail, replaceQuery, submitForm } from '$lib/client/enhance';
 	import { createSequenceBoard } from '$lib/client/sequence-board.svelte';
 	import { lossSentence, type SequenceResult } from '$lib/sequence-text';
 	import { withParam } from '$lib/query';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
-	import * as Dialog from '$lib/components/ui/dialog/index.js';
+	import { Button, Input } from '$lib/ui';
+	import * as Dialog from '$lib/ui/dialog';
 	import AssignTopicMenu from '$lib/components/assign-topic-menu.svelte';
-	import { topicColour } from '$lib/topic-colour';
 	import SequenceListRow from './SequenceListRow.svelte';
 	import SequenceWeeks from './SequenceWeeks.svelte';
 	import TopicTag from './TopicTag.svelte';
@@ -43,13 +42,21 @@
 		sequenceResult: SequenceResult | null;
 	} = $props();
 
-	const byWeek = $derived(page.url.searchParams.get('layout') !== 'list');
+	// A phone reads the Sequence as the plain List; the weekly board is for a laptop or tablet.
+	const wide = new MediaQuery('min-width: 768px', true);
+	const byWeek = $derived(wide.current && page.url.searchParams.get('layout') !== 'list');
 	const setLayout = (layout: 'week' | 'list') =>
 		replaceQuery(withParam(page.url, 'layout', layout));
 
 	// The Lessons that × or bulk Remove asks about. The dialog stays until the write is done or Ed
 	// cancels.
 	let removing = $state<SequenceEntry[] | null>(null);
+	// A refusal is named in the dialog: a toast would sit behind the modal's inert page.
+	let removeError = $state<string | null>(null);
+	function askRemove(entries: SequenceEntry[]) {
+		removeError = null;
+		removing = entries;
+	}
 
 	let moveForm = $state<HTMLFormElement | undefined>();
 
@@ -62,7 +69,7 @@
 		onDrop: (lessonIds, target) => {
 			submitForm(moveForm, { fields: { lessonIds: lessonIds.join(','), targetId: target } });
 		},
-		onRemove: (gone) => (removing = gone)
+		onRemove: askRemove
 	});
 </script>
 
@@ -175,8 +182,7 @@
 		<ul class="mt-3 flex flex-wrap gap-2" aria-label="Topics in this Sequence">
 			{#each chips as chip (chip.topicId)}
 				<li
-					class="flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs"
-					style:background-color={topicColour(chip.topicId, 0.12)}
+					class="flex items-center gap-1.5 rounded-full border bg-surface px-2.5 py-1 text-[13px]"
 					data-topic-chip
 				>
 					<TopicTag topicId={chip.topicId} name={chip.name} />
@@ -202,7 +208,10 @@
 			</p>
 		{/if}
 	{:else}
-		<ol class="mt-3 divide-y rounded-xl border" data-sequence>
+		<ol
+			class="mt-3 divide-y divide-divider overflow-hidden rounded-2xl border bg-surface"
+			data-sequence
+		>
 			{#each entries as entry (entry.lessonId)}
 				<SequenceListRow {classId} {entry} {board} dropLine={board.dropLine(entry.lessonId)} />
 			{:else}
@@ -241,7 +250,7 @@
 			variant="outline"
 			class="text-destructive"
 			disabled={board.chosen.length === 0}
-			onclick={() => (removing = board.chosen)}
+			onclick={() => askRemove(board.chosen)}
 		>
 			Remove
 		</Button>
@@ -271,21 +280,28 @@
 					{/each}
 				</Dialog.Description>
 			</Dialog.Header>
+			{#if removeError}
+				<p role="alert" class="text-xs text-destructive">{removeError}</p>
+			{/if}
 			<Dialog.Footer>
-				<Button variant="outline" size="sm" class="h-7" onclick={() => (removing = null)}>
-					Cancel
-				</Button>
+				<Button variant="outline" onclick={() => (removing = null)}>Cancel</Button>
 				<form
 					method="POST"
 					action="?/removeLessons"
-					use:enhance={onFail('Could not remove.', () => {
-						board.forget(removing?.map((e) => e.lessonId) ?? []);
-						removing = null;
-					})}
+					use:enhance={() =>
+						async ({ result, update }) => {
+							if (result.type === 'failure') {
+								removeError = failureReason(result, 'Could not remove.');
+								return;
+							}
+							board.forget(removing?.map((e) => e.lessonId) ?? []);
+							removing = null;
+							await update({ invalidateAll: true });
+						}}
 				>
 					<input type="hidden" name="classId" value={classId} />
 					<input type="hidden" name="lessonIds" value={removing.map((e) => e.lessonId).join(',')} />
-					<Button type="submit" variant="destructive" size="sm" class="h-7">Remove</Button>
+					<Button type="submit" variant="destructive">Remove</Button>
 				</form>
 			</Dialog.Footer>
 		{/if}

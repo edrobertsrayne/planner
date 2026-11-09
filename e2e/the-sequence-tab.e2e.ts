@@ -601,7 +601,7 @@ test.describe.serial('the Assign Topic menu', () => {
 			await page.request.get('/api/courses', { headers: BEARER(token) })
 		).json();
 		const courseId = courses.find((c: { name: string }) => c.name === FIXTURE_COURSE).id;
-		for (let n = 1; n <= 15; n++) {
+		for (let n = 1; n <= 30; n++) {
 			const response = await page.request.post(`/api/courses/${courseId}/topics`, {
 				headers: BEARER(token),
 				data: { name: `Spare Topic ${String(n).padStart(2, '0')} with a long name` }

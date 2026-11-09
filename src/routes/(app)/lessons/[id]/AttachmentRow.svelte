@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import PaperclipIcon from '@lucide/svelte/icons/paperclip';
 	import XIcon from '@lucide/svelte/icons/x';
-	import { Button } from '$lib/components/ui/button/index.js';
+	import { Button } from '$lib/ui';
 	import { formatSize } from '$lib/format-size';
 
 	let { attachment }: { attachment: { id: string; filename: string; size: number } } = $props();

@@ -41,10 +41,14 @@ test.describe.serial('a Teaching note and the Sequence after a Lesson write', ()
 	// The fixture Class's upcoming Sessions on the Agenda, every row to the end of the year.
 	async function agendaSessions() {
 		await page.goto('/?horizon=all');
-		return page
+		const rows = page
 			.locator('li')
 			.filter({ hasText: FIXTURE_CLASS_LABEL })
 			.filter({ has: page.locator('a[href^="/sessions/"]') });
+		// Read the rows only once the Agenda has drawn: the count may legitimately be zero after a
+		// write, so wait on the page having loaded rather than on a row.
+		await page.waitForLoadState('networkidle');
+		return rows;
 	}
 
 	// The Session page of the nth Session the Class teaches next, from the Agenda.

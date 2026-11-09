@@ -13,10 +13,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { failureReason } from '$lib/client/enhance';
-	import { latched } from '$lib/client/latch.svelte';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
+	import * as Dialog from '$lib/ui/dialog';
+	import { Button, Input } from '$lib/ui';
 	import { formatWeekday } from '$lib/date';
 
 	// Set cover (ADR-0030): a new Lesson, which opens in the Lesson editor at once so the teacher
@@ -27,9 +25,7 @@
 		choices
 	}: { pick: CoverPick | null; choices: { id: string; title: string }[] } = $props();
 
-	const shown = latched(() => pick);
-	const viewed = $derived(shown());
-	const label = $derived(viewed ? `Cover for ${viewed.classLabel}, P${viewed.period}` : '');
+	const label = $derived(pick ? `Cover for ${pick.classLabel}, P${pick.period}` : '');
 
 	let mode = $state<'new' | 'existing'>('new');
 	let chosen = $state('');
@@ -52,7 +48,7 @@
 		<Dialog.Header>
 			<Dialog.Title>{label}</Dialog.Title>
 			<Dialog.Description>
-				{viewed ? formatWeekday(viewed.date) : ''}
+				{pick ? formatWeekday(pick.date) : ''}
 			</Dialog.Description>
 		</Dialog.Header>
 		<form
@@ -67,10 +63,10 @@
 						refusal = { pick, message: failureReason(result, 'The Cover was refused.') };
 				}}
 		>
-			{#if viewed}
-				<input type="hidden" name="classId" value={viewed.classId} />
-				<input type="hidden" name="date" value={viewed.date} />
-				<input type="hidden" name="slotId" value={viewed.slotId} />
+			{#if pick}
+				<input type="hidden" name="classId" value={pick.classId} />
+				<input type="hidden" name="date" value={pick.date} />
+				<input type="hidden" name="slotId" value={pick.slotId} />
 			{/if}
 
 			<div class="flex gap-1 rounded-lg bg-muted p-0.5">
@@ -98,7 +94,7 @@
 					name="title"
 					aria-label="Title"
 					required
-					value={viewed ? `Cover: ${viewed.classLabel}` : ''}
+					value={pick ? `Cover: ${pick.classLabel}` : ''}
 				/>
 				<p class="mt-2 text-xs text-muted-foreground">
 					You will write what is set in the Lesson editor next. Leave it blank and Back takes it

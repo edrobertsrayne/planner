@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { Input } from '$lib/components/ui/input/index.js';
-	import { touchTarget } from '$lib/components/ui/touch-target.js';
+	import { Input, touchTarget } from '$lib/ui';
 
 	// A page or panel heading that its own page can rename in place. Every caller is a heading;
 	// the pencil is the only control beside it.
@@ -72,7 +71,7 @@
 			{/each}
 			<Input
 				autofocus
-				class="h-8 w-56 text-lg font-semibold"
+				class="h-10 w-64 text-2xl font-semibold"
 				name={field}
 				value={name}
 				onkeydown={(e) => {
@@ -88,7 +87,9 @@
 	{:else}
 		<svelte:element
 			this={level === 1 ? 'h1' : 'h2'}
-			class="min-w-0 font-semibold {level === 1 ? 'text-lg tracking-tight' : 'text-base'}"
+			class="min-w-0 font-semibold {level === 1
+				? 'text-[26px] leading-8 tracking-tight md:text-[32px] md:leading-10'
+				: 'text-lg'}"
 		>
 			{name}
 		</svelte:element>

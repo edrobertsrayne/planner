@@ -31,16 +31,14 @@ describe('the block-Slot dialog', () => {
 		await expect.element(screen.getByRole('dialog', { name: 'Block 9B/Sc1, P3' })).toBeVisible();
 
 		const hidden = [
-			...document.querySelectorAll<HTMLInputElement>('[role=dialog] form input[type=hidden]')
+			...document.querySelectorAll<HTMLInputElement>('dialog form input[type=hidden]')
 		].map((i) => [i.name, i.value]);
 		expect(hidden).toEqual([
 			['classId', 'c1'],
 			['date', '2026-11-03'],
 			['slotId', 's1']
 		]);
-		expect(document.querySelector('[role=dialog] form')?.getAttribute('action')).toBe(
-			'?/blockSlot'
-		);
+		expect(document.querySelector('dialog form')?.getAttribute('action')).toBe('?/blockSlot');
 	});
 
 	test('will not submit without a note, and submits with one', async () => {
@@ -88,7 +86,7 @@ describe('the block-Slot dialog', () => {
 
 	test('is a plain block unless the teacher ticks "I\'m absent"', async () => {
 		const screen = await render(BlockSlotDialog, { pick });
-		const form = document.querySelector<HTMLFormElement>('[role=dialog] form')!;
+		const form = document.querySelector<HTMLFormElement>('dialog form')!;
 		const box = screen.getByRole('checkbox', { name: /I'm absent/ });
 
 		await expect.element(box).not.toBeChecked();

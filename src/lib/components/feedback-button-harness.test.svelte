@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Toaster } from '$lib/components/ui/sonner';
+	import { Toaster } from '$lib/ui/toast';
 	import FeedbackButton from './feedback-button.svelte';
 </script>
 

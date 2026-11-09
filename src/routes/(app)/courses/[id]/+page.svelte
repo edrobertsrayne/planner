@@ -14,10 +14,9 @@
 	import RenameableRow from '$lib/components/renameable-row.svelte';
 	import DragGrip from '$lib/components/drag-grip.svelte';
 	import TagChips from '$lib/components/tag-chips.svelte';
-	import { Badge } from '$lib/components/ui/badge/index.js';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
-	import { touchTarget } from '$lib/components/ui/touch-target.js';
+	import { Badge, Input, touchTarget } from '$lib/ui';
+	import { topicColour } from '$lib/topic-colour';
+	import * as DropdownMenu from '$lib/ui/menu';
 	import { MediaQuery } from 'svelte/reactivity';
 	import ConfirmDeleteDialog from '$lib/components/confirm-delete-dialog.svelte';
 	import type { SubmitFunction } from '@sveltejs/kit';
@@ -125,17 +124,16 @@
 <div class="mx-auto w-full max-w-6xl px-6 py-6">
 	<a
 		href={resolve('/courses')}
-		class="mb-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground pointer-coarse:min-h-11"
+		class="mb-2 -ml-2 inline-flex h-9 items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-muted-foreground hover:text-foreground pointer-coarse:min-h-11"
 	>
-		<ChevronLeftIcon class="size-3" />
+		<ChevronLeftIcon class="size-4" />
 		Back to Courses
 	</a>
 
 	<header class="flex items-start gap-2 pb-4">
 		<span
-			class="mt-2 size-3 shrink-0 rounded-full ring-2"
-			style:background-color={tone.bg}
-			style:--tw-ring-color={tone.ring}
+			class="mt-3.5 size-3 shrink-0 rounded-full"
+			style:background-color={tone.dot}
 			aria-hidden="true"
 		></span>
 		<div class="min-w-0 flex-1">
@@ -145,10 +143,10 @@
 				hidden={{ id: data.course.id }}
 				editable={wide.current}
 			/>
-			<p class="mt-1 text-xs text-muted-foreground">
+			<p class="mt-1 text-sm text-muted-foreground">
 				{plural(data.topics.length, 'Topic')} · {plural(data.lessonTotal, 'Lesson')}
 			</p>
-			<p class="mt-1 text-xs text-muted-foreground">
+			<p class="mt-1 text-sm text-muted-foreground">
 				{#if data.classes.length}
 					Taught to
 					{#each data.classes as c, i (c.id)}
@@ -187,16 +185,25 @@
 					<li>
 						<a
 							href={courseHref(data.course.id, topic.id)}
-							style:--tone={tone.bg}
-							class="flex items-start gap-2 border-l-4 border-transparent px-4 py-2 text-sm hover:bg-accent pointer-coarse:min-h-11 {marked
+							style:--tone={tone.dot}
+							class="flex min-h-12 items-center gap-3 border-l-[3px] border-transparent px-4 text-[15px] hover:bg-muted pointer-coarse:min-h-11 {marked
 								? data.topic
-									? 'border-(--tone) bg-accent'
-									: 'xl:border-(--tone) xl:bg-accent'
+									? 'border-(--tone) bg-muted'
+									: 'xl:border-(--tone) xl:bg-muted'
 								: ''}"
 						>
-							<span class="min-w-0 flex-1 break-words">{topic.name}</span>
-							<span class="shrink-0 text-xs text-muted-foreground tabular-nums">
-								{topic.lessonCount}
+							<span
+								class="size-[9px] shrink-0 rounded-full"
+								style:background-color={topicColour(topic.id, 1)}
+								aria-hidden="true"
+							></span>
+							<span class="min-w-0 flex-1 break-words {marked ? 'font-semibold' : 'font-medium'}"
+								>{topic.name}</span
+							>
+							<span class="shrink-0 text-[13px] text-muted-foreground tabular-nums">
+								{topic.lessonCount}<span class="xl:hidden"
+									>&nbsp;{topic.lessonCount === 1 ? 'Lesson' : 'Lessons'}</span
+								>
 							</span>
 							<ChevronRightIcon class="mt-0.5 size-4 shrink-0 text-muted-foreground xl:hidden" />
 						</a>
@@ -255,11 +262,9 @@
 								level={2}
 								editable={wide.current}
 							/>
-							<p class="mt-1 text-xs text-muted-foreground">
-								{plural(data.lessons.length, 'Lesson')}
-							</p>
-							<p class="mt-1 text-[11px] text-muted-foreground">
-								Assign Topic adds these Lessons to a Class in this order
+							<p class="mt-0.5 text-[13px] text-muted-foreground">
+								{plural(data.lessons.length, 'Lesson')} · Assign Topic adds these Lessons to a Class in
+								this order
 							</p>
 						</div>
 						{#if wide.current && data.otherCourses.length}
@@ -304,7 +309,7 @@
 						{@const tags = data.tagsByLesson.get(lesson.id) ?? []}
 						{@const dropLine = lessonDrag.dropLine(lesson.id)}
 						<li
-							class="relative flex items-start gap-3 py-1 {wide.current
+							class="relative flex min-h-14 items-center gap-3 py-1.5 {wide.current
 								? 'pl-0'
 								: 'pl-4'} {lessonDrag.draggedId === lesson.id ? 'opacity-40' : ''}"
 							data-drop={lesson.id}
@@ -326,10 +331,10 @@
 									onmove={(direction) => stepLesson(i, direction)}
 								/>
 							{/if}
-							<span class="w-5 shrink-0 pt-2 font-mono text-xs text-muted-foreground/60">
+							<span class="w-5 shrink-0 text-[13px] text-muted-foreground tabular-nums">
 								{i + 1}
 							</span>
-							<div class="min-w-0 flex-1 py-1 text-sm">
+							<div class="min-w-0 flex-1 py-1 text-[15px] font-medium">
 								<a
 									href={resolve(`/lessons/${lesson.id}`)}
 									class="inline-block break-words hover:underline pointer-coarse:min-h-11 pointer-coarse:py-2"
@@ -338,8 +343,10 @@
 								<TagChips {tags} class="mt-1" />
 							</div>
 							<Badge
-								variant={lesson.status === 'planned' ? 'secondary' : 'outline'}
-								class="mt-2 mr-4"
+								variant="outline"
+								class="mr-4 h-6 {lesson.status === 'planned'
+									? 'border-transparent bg-ready text-ready-foreground'
+									: 'border-outline text-muted-foreground'}"
 							>
 								{STATUS_LABEL[lesson.status]}
 							</Badge>

@@ -1,19 +1,18 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import type { SubmitFunction } from '@sveltejs/kit';
-	import { toast } from 'svelte-sonner';
+	import { toast } from '$lib/ui/toast';
 	import { failureReason } from '$lib/client/enhance';
-	import * as Card from '$lib/components/ui/card/index.js';
-	import * as Field from '$lib/components/ui/field/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
-	import * as Dialog from '$lib/components/ui/dialog/index.js';
+	import * as Card from '$lib/ui/card';
+	import * as Field from '$lib/ui/field';
+	import { Button, Input } from '$lib/ui';
+	import * as Dialog from '$lib/ui/dialog';
 	import { formatSize } from '$lib/format-size';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import CopyIcon from '@lucide/svelte/icons/copy';
+	import DownloadIcon from '@lucide/svelte/icons/download';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import RefreshIcon from '@lucide/svelte/icons/refresh-cw';
-	import ToastMessage from './ToastMessage.svelte';
 
 	let { data } = $props();
 
@@ -30,14 +29,10 @@
 			pending = false;
 			if (result.type === 'failure') {
 				invalidField = typeof result.data?.field === 'string' ? result.data.field : undefined;
-				toast.error(ToastMessage, {
-					componentProps: { text: failureReason(result, ''), role: 'alert' }
-				});
+				toast.error(failureReason(result, ''));
 			} else if (result.type === 'success') {
 				invalidField = undefined;
-				toast.success(ToastMessage, {
-					componentProps: { text: 'Password changed.', role: 'status' }
-				});
+				toast.success('Password changed.');
 			}
 			await update();
 		};
@@ -50,16 +45,9 @@
 			regenerating = false;
 			if (result.type === 'success') {
 				copied = false;
-				toast.success(ToastMessage, {
-					componentProps: {
-						text: 'API key regenerated. The old key no longer works.',
-						role: 'status'
-					}
-				});
+				toast.success('API key regenerated. The old key no longer works.');
 			} else if (result.type === 'failure') {
-				toast.error(ToastMessage, {
-					componentProps: { text: failureReason(result, ''), role: 'alert' }
-				});
+				toast.error(failureReason(result, ''));
 			}
 			await update();
 		};
@@ -70,9 +58,7 @@
 		copied = true;
 		clearTimeout(copyTimer);
 		copyTimer = setTimeout(() => (copied = false), 1800);
-		toast.success(ToastMessage, {
-			componentProps: { text: 'API key copied.', role: 'status' }
-		});
+		toast.success('API key copied.');
 	}
 </script>
 
@@ -95,7 +81,7 @@
 			<form method="POST" action="?/changePassword" use:enhance={onsubmit}>
 				<Card.Content>
 					<Field.Group>
-						<Field.Field data-invalid={invalidField === 'currentPassword' || undefined}>
+						<Field.Root data-invalid={invalidField === 'currentPassword' || undefined}>
 							<Field.Label for="current">Current password</Field.Label>
 							<Input
 								id="current"
@@ -103,12 +89,11 @@
 								type="password"
 								autocomplete="current-password"
 								required
-								class="h-7"
 								aria-invalid={invalidField === 'currentPassword' || undefined}
 							/>
-						</Field.Field>
+						</Field.Root>
 
-						<Field.Field data-invalid={invalidField === 'newPassword' || undefined}>
+						<Field.Root data-invalid={invalidField === 'newPassword' || undefined}>
 							<Field.Label for="new">New password</Field.Label>
 							<Input
 								id="new"
@@ -116,13 +101,12 @@
 								type="password"
 								autocomplete="new-password"
 								required
-								class="h-7"
 								aria-invalid={invalidField === 'newPassword' || undefined}
 							/>
 							<Field.Description>At least {data.minPasswordLength} characters.</Field.Description>
-						</Field.Field>
+						</Field.Root>
 
-						<Field.Field data-invalid={invalidField === 'confirmPassword' || undefined}>
+						<Field.Root data-invalid={invalidField === 'confirmPassword' || undefined}>
 							<Field.Label for="confirm">Confirm new password</Field.Label>
 							<Input
 								id="confirm"
@@ -130,16 +114,15 @@
 								type="password"
 								autocomplete="new-password"
 								required
-								class="h-7"
 								aria-invalid={invalidField === 'confirmPassword' || undefined}
 							/>
-						</Field.Field>
+						</Field.Root>
 					</Field.Group>
 				</Card.Content>
 
-				<Card.Footer class="flex-wrap items-center justify-between gap-3">
-					<p class="text-xs text-muted-foreground">Logs out every other device.</p>
-					<Button type="submit" size="sm" class="h-7" disabled={pending}>
+				<Card.Footer class="flex-col items-start gap-3">
+					<p class="text-sm text-muted-foreground">Logs out every other device.</p>
+					<Button type="submit" disabled={pending}>
 						{pending ? 'Changing…' : 'Change password'}
 					</Button>
 				</Card.Footer>
@@ -164,14 +147,14 @@
 							readonly
 							value={data.key.token}
 							aria-label="API key"
-							class="h-8 flex-1 font-mono text-xs"
+							class="flex-1 bg-muted font-mono text-sm"
 							onfocus={(e) => e.currentTarget.select()}
 						/>
 						<Button
 							type="button"
-							variant="outline"
+							variant="secondary"
 							size="icon"
-							class="size-8 shrink-0"
+							class="shrink-0"
 							title="Copy key"
 							aria-label="Copy key"
 							onclick={copyKey}
@@ -182,7 +165,7 @@
 							type="button"
 							variant="outline"
 							size="icon"
-							class="size-8 shrink-0"
+							class="shrink-0"
 							title="Regenerate key"
 							aria-label="Regenerate key"
 							disabled={regenerating}
@@ -221,10 +204,10 @@
 					</p>
 				</Card.Content>
 
-				<Card.Footer class="justify-end">
-					<Button href="/backup" download data-sveltekit-reload size="sm" class="h-7"
-						>Back up</Button
-					>
+				<Card.Footer>
+					<Button href="/backup" download data-sveltekit-reload variant="secondary">
+						<DownloadIcon data-icon="inline-start" />Back up
+					</Button>
 				</Card.Footer>
 			</Card.Root>
 		</div>
@@ -240,11 +223,9 @@
 				</Dialog.Description>
 			</Dialog.Header>
 			<Dialog.Footer>
-				<Button variant="outline" size="sm" class="h-7" onclick={() => (confirmOpen = false)}>
-					Cancel
-				</Button>
+				<Button variant="outline" onclick={() => (confirmOpen = false)}>Cancel</Button>
 				<form method="POST" action="?/regenerateKey" use:enhance={onRegenerateKey}>
-					<Button type="submit" variant="destructive" size="sm" class="h-7">Regenerate</Button>
+					<Button type="submit" variant="destructive">Regenerate</Button>
 				</form>
 			</Dialog.Footer>
 		</Dialog.Content>

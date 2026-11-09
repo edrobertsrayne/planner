@@ -15,21 +15,36 @@
 	<h1 class="text-2xl font-semibold tracking-tight">{lesson.title}</h1>
 	<dl class="space-y-2">
 		{#if lesson.topic}
-			<div class="flex min-h-12 items-center justify-between gap-3 rounded-lg border px-4 py-2">
+			<div
+				class="flex min-h-12 items-center justify-between gap-3 rounded-xl border bg-surface px-4 py-2"
+			>
 				<dt class="text-muted-foreground">Topic</dt>
 				<dd class="min-w-0 truncate">{lesson.topic.name}</dd>
 			</div>
 		{/if}
-		<div class="flex min-h-12 items-center justify-between gap-3 rounded-lg border px-4 py-2">
+		<div
+			class="flex min-h-12 items-center justify-between gap-3 rounded-xl border bg-surface px-4 py-2"
+		>
 			<dt class="text-muted-foreground">Status</dt>
-			<dd>{STATUS_LABEL[lesson.status]}</dd>
+			<dd>
+				<span
+					class="inline-flex h-6 items-center rounded-md px-2 text-xs font-semibold {lesson.status ===
+					'planned'
+						? 'bg-ready text-ready-foreground'
+						: 'border text-muted-foreground'}">{STATUS_LABEL[lesson.status]}</span
+				>
+			</dd>
 		</div>
-		<div class="flex min-h-12 items-center justify-between gap-3 rounded-lg border px-4 py-2">
+		<div
+			class="flex min-h-12 items-center justify-between gap-3 rounded-xl border bg-surface px-4 py-2"
+		>
 			<dt class="text-muted-foreground">Length</dt>
 			<dd>{lesson.length} {lesson.length === 1 ? 'Period' : 'Periods'}</dd>
 		</div>
 		{#if lesson.tags.length}
-			<div class="flex min-h-12 flex-wrap items-center gap-1 rounded-lg border px-4 py-2">
+			<div
+				class="flex min-h-12 flex-wrap items-center gap-1 rounded-xl border bg-surface px-4 py-2"
+			>
 				{#each lesson.tags as tag (tag.id)}
 					<TagBadge name={tag.name} />
 				{/each}

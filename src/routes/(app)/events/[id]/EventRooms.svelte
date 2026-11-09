@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { applyAction, enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
-	import { toast } from 'svelte-sonner';
+	import { toast } from '$lib/ui/toast';
 	import { failureReason } from '$lib/client/enhance';
 	import { positionLabel } from '$lib/events';
-	import { Input } from '$lib/components/ui/input/index.js';
+	import { Input } from '$lib/ui';
 
 	type RoomSlot = {
 		id: string;

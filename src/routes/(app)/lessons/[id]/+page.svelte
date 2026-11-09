@@ -12,19 +12,18 @@
 		submitForm
 	} from '$lib/client/enhance';
 	import { STATUS_LABEL } from '$lib/lesson-status';
-	import { toast } from 'svelte-sonner';
+	import { toast } from '$lib/ui/toast';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
 	import UnlinkIcon from '@lucide/svelte/icons/unlink';
 	import XIcon from '@lucide/svelte/icons/x';
-	import { Button } from '$lib/components/ui/button/index.js';
+	import { Button, Input } from '$lib/ui';
 	import ConfirmDeleteDialog from '$lib/components/confirm-delete-dialog.svelte';
 	import { MediaQuery } from 'svelte/reactivity';
-	import { Input } from '$lib/components/ui/input/index.js';
 	import MarkdownEditor from '$lib/components/markdown-editor.svelte';
-	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.js';
+	import * as ToggleGroup from '$lib/ui/toggle-group';
 	import TagBadge from '$lib/components/tag-badge.svelte';
 	import AttachmentRow from './AttachmentRow.svelte';
 	import LessonReadView from './LessonReadView.svelte';
@@ -303,16 +302,13 @@
 				<aside class="min-w-0 space-y-5 max-lg:contents max-lg:space-y-0 lg:self-start">
 					<div class="space-y-5 max-lg:contents max-lg:space-y-0">
 						<div
-							class="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-3 rounded-lg border p-3 text-sm max-lg:order-2"
+							class="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-3 rounded-2xl border bg-surface p-4 text-sm max-lg:order-2"
 						>
 							<span class="text-muted-foreground">Status</span>
 							<form method="POST" action="?/setLessonStatus" use:enhance bind:this={statusForm}>
 								<input type="hidden" name="id" value={lesson.id} />
 								<input type="hidden" name="status" value={lesson.status} />
 								<ToggleGroup.Root
-									type="single"
-									variant="outline"
-									size="sm"
 									value={lesson.status}
 									onValueChange={(v) => {
 										if (v && v !== lesson.status) submitForm(statusForm, { fields: { status: v } });
@@ -320,7 +316,9 @@
 									class="justify-start"
 								>
 									<ToggleGroup.Item value="draft">{STATUS_LABEL.draft}</ToggleGroup.Item>
-									<ToggleGroup.Item value="planned">{STATUS_LABEL.planned}</ToggleGroup.Item>
+									<ToggleGroup.Item value="planned" tone="ready"
+										>{STATUS_LABEL.planned}</ToggleGroup.Item
+									>
 								</ToggleGroup.Root>
 							</form>
 
@@ -356,7 +354,7 @@
 										id="lesson-topic"
 										name="topicId"
 										value={data.lesson.topic?.id ?? ''}
-										class="w-full rounded-md border border-input bg-background px-2 py-1 text-sm pointer-coarse:min-h-11"
+										class="ui-input"
 										onchange={(e) => e.currentTarget.form?.requestSubmit()}
 									>
 										{#if data.lesson.topic}
@@ -385,7 +383,7 @@
 							{/if}
 						</div>
 
-						<section class="max-lg:order-4">
+						<section class="rounded-2xl border bg-surface p-4 max-lg:order-4">
 							{@render heading('Tags')}
 							<div class="mt-1 flex flex-wrap gap-1">
 								{#each data.lesson.tags as tag (tag.id)}
@@ -462,7 +460,7 @@
 					</div>
 
 					<div class="grid gap-5 max-lg:order-4 sm:grid-cols-2 lg:grid-cols-1">
-						<section>
+						<section class="rounded-2xl border bg-surface p-4">
 							{@render heading('Links')}
 							<ul class="mt-1 space-y-1">
 								{#each data.lesson.links as link, i (link.id)}
@@ -534,7 +532,7 @@
 								</Button>
 							{/if}
 						</section>
-						<section>
+						<section class="rounded-2xl border bg-surface p-4">
 							{@render heading('Attachments')}
 							<ul class="mt-1 space-y-1">
 								{#each data.lesson.attachments as attachment (attachment.id)}

@@ -16,6 +16,8 @@ test.describe('the Planning table on a laptop', () => {
 		// Enough Lessons that the whole stream is longer than the window.
 		await openCourse(page);
 		await page.getByRole('link', { name: 'Forces' }).click();
+		// The create box submits through `enhance` only once the page has hydrated.
+		await page.waitForLoadState('networkidle');
 		const newLesson = page.getByPlaceholder('New Lesson title — press Enter');
 		for (let i = 1; i <= 9; i++) {
 			await newLesson.fill(`Extra Lesson ${i}`);

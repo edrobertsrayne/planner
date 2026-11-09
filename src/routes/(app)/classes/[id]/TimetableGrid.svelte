@@ -4,7 +4,8 @@
 	import { onFail } from '$lib/client/enhance';
 	import { formatDate } from '$lib/date';
 	import { PERIODS } from '$lib/periods';
-	import { Button } from '$lib/components/ui/button/index.js';
+	import { Button } from '$lib/ui';
+	import type { ToneTokens } from '$lib/class-tone';
 
 	// The Timetable as it stands on one date: this Class's Periods, every other Class's shown
 	// hatched, and the rest empty. Clicking a cell toggles it — the server decides between taking
@@ -24,7 +25,8 @@
 		readOnly,
 		slots,
 		eventSlots,
-		labelOf
+		labelOf,
+		tone
 	}: {
 		classId: string;
 		classLabel: string;
@@ -34,6 +36,8 @@
 		slots: Slot[];
 		eventSlots: EventSlot[];
 		labelOf: (classId: string) => string;
+		// This Class's Tone: its own Slots are drawn in it.
+		tone: ToneTokens;
 	} = $props();
 
 	const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
@@ -107,7 +111,7 @@
 									{#if cell.kind === 'other'}
 										<div
 											role="img"
-											class="flex h-9 w-full cursor-not-allowed items-center justify-center rounded-md bg-muted/60 text-[11px] text-muted-foreground/80 inset-ring inset-ring-border"
+											class="flex h-11 w-full cursor-not-allowed items-center rounded-lg bg-muted px-2.5 text-[13px] font-medium text-muted-foreground"
 											title="Held by {cell.label}"
 											aria-label={description}
 										>
@@ -116,7 +120,9 @@
 									{:else if readOnly && cell.kind === 'mine'}
 										<div
 											role="img"
-											class="flex h-9 w-full items-center justify-center rounded-md bg-primary/10 text-[11px] font-medium text-primary inset-ring inset-ring-primary/30"
+											class="flex h-11 w-full items-center rounded-lg px-2.5 text-[13px] font-semibold"
+											style:background-color={tone.bg}
+											style:color={tone.fg}
 											aria-label={description}
 										>
 											{cell.label}
@@ -124,7 +130,7 @@
 									{:else if readOnly}
 										<div
 											role="img"
-											class="h-9 w-full rounded-md border border-dashed opacity-40"
+											class="h-11 w-full rounded-lg border opacity-50"
 											aria-label={description}
 										></div>
 									{:else}
@@ -139,7 +145,13 @@
 											<input type="hidden" name="period" value={p} />
 											<input type="hidden" name="from" value={on} />
 											{#if cell.kind === 'mine'}
-												<Button type="submit" size="xs" class="h-9 w-full" aria-label={description}>
+												<Button
+													type="submit"
+													variant="ghost"
+													class="h-11 w-full justify-start rounded-lg px-2.5 text-[13px] font-semibold hover:brightness-95"
+													style="background-color: {tone.bg}; color: {tone.fg};"
+													aria-label={description}
+												>
 													{cell.label}
 												</Button>
 											{:else}
@@ -147,7 +159,7 @@
 													type="submit"
 													variant="outline"
 													size="xs"
-													class="h-9 w-full border-dashed text-muted-foreground/40 hover:border-solid hover:text-foreground"
+													class="h-11 w-full justify-start rounded-lg border-border bg-surface px-3 text-muted-foreground/40 hover:border-primary hover:text-foreground"
 													aria-label={description}
 												>
 													<PlusIcon class="size-3" />

@@ -1,17 +1,14 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { toast } from 'svelte-sonner';
+	import { toast } from '$lib/ui/toast';
 	import { formatWeekday } from '$lib/date';
 	import type { Occasion } from '$lib/client/session-href';
 	import { createTeachingNotes } from '$lib/client/teaching-note';
 	import type { SessionDetail, WriteReport } from '$lib/server/planner';
 	import RewindReport from '$lib/components/rewind-report.svelte';
-	import { Badge } from '$lib/components/ui/badge';
-	import { touchTarget } from '$lib/components/ui/touch-target';
+	import { Badge, Button, Input, touchTarget } from '$lib/ui';
 	import LessonChildren from '$lib/components/lesson-children.svelte';
 	import TagChips from '$lib/components/tag-chips.svelte';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
 	import Markdown from '$lib/components/markdown.svelte';
 	import MarkdownEditor from '$lib/components/markdown-editor.svelte';
 
@@ -181,14 +178,20 @@
 		<Badge
 			variant="outline"
 			href={resolve(`/classes/${detail.classId}`)}
-			class="overflow-visible {touchTarget}">{detail.classLabel}</Badge
+			class="h-7 overflow-visible rounded-full px-3 text-[13px] {touchTarget}"
+			>{detail.classLabel}</Badge
 		>
 	{/if}
-	<span class="text-xs text-muted-foreground">
+	<span class="text-sm text-muted-foreground tabular-nums">
 		{formatWeekday(occasion.date)} · P{occasion.period}
 	</span>
 	{#if detail && occasion.date >= detail.today && detail.ready !== null}
-		<Badge variant="outline" class="text-xs {detail.ready ? '' : 'text-muted-foreground'}">
+		<Badge
+			variant="outline"
+			class={detail.ready
+				? 'border-transparent bg-ready text-ready-foreground'
+				: 'text-muted-foreground'}
+		>
 			{detail.ready ? 'Ready' : 'Not ready'}
 		</Badge>
 	{/if}
@@ -198,7 +201,9 @@
 	<div class="mt-4 flex flex-wrap items-start justify-between gap-3">
 		<div class="min-w-0 flex-1">
 			{#if detail.lesson}
-				<h2 class="text-lg leading-snug font-semibold">{detail.lesson.title}</h2>
+				<h2 class="text-[26px] leading-8 font-semibold tracking-tight md:text-[32px] md:leading-10">
+					{detail.lesson.title}
+				</h2>
 				{#if detail.placement}
 					<p class="mt-1 text-xs text-muted-foreground">Standalone Lesson · Placed</p>
 				{:else if detail.lesson.topic}
@@ -221,21 +226,34 @@
 	     Session has started. From `lg` the plan is on the left and the rail on the right. -->
 	<div class="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
 		{#if detail.lesson}
-			<section data-plan class="min-w-0 lg:order-1 {started ? 'order-2' : 'order-1'}">
-				{#if detail.lesson.body}
-					<Markdown source={detail.lesson.body} />
-				{:else}
-					<p class="text-sm text-muted-foreground italic">
-						No plan written yet — a title alone is a complete Lesson.
-					</p>
+			<div
+				class="flex min-w-0 flex-col gap-4 self-start lg:order-1 {started ? 'order-2' : 'order-1'}"
+			>
+				<section data-plan class="min-w-0 rounded-2xl border bg-surface px-6 py-5">
+					<h2 class="mb-2 text-xs font-bold tracking-wider text-muted-foreground uppercase">
+						Plan
+					</h2>
+					{#if detail.lesson.body}
+						<Markdown source={detail.lesson.body} />
+					{:else}
+						<p class="text-sm text-muted-foreground italic">
+							No plan written yet — a title alone is a complete Lesson.
+						</p>
+					{/if}
+				</section>
+				{#if detail.lesson.links.length || detail.lesson.attachments.length}
+					<section class="min-w-0 rounded-2xl border bg-surface px-5 py-4">
+						<h2 class="mb-2 text-xs font-bold tracking-wider text-muted-foreground uppercase">
+							Links and attachments
+						</h2>
+						<LessonChildren
+							links={detail.lesson.links}
+							attachments={detail.lesson.attachments}
+							variant="inline"
+						/>
+					</section>
 				{/if}
-
-				<LessonChildren
-					links={detail.lesson.links}
-					attachments={detail.lesson.attachments}
-					variant="inline"
-				/>
-			</section>
+			</div>
 		{/if}
 
 		<div class="flex min-w-0 flex-col gap-5 lg:order-2 {started ? 'order-1' : 'order-2'}">
@@ -282,10 +300,10 @@
 			{/if}
 
 			{#if detail.lesson && started}
-				<div>
+				<div class="rounded-2xl border bg-surface p-4">
 					<Button
 						variant="outline"
-						size="sm"
+						class="w-full"
 						disabled={pending !== null}
 						onclick={markContinuation}
 					>
@@ -326,7 +344,7 @@
 			     every Lesson after it shift right. `canPlace` (sessions.ts) is the whole gate: future or
 			     today, and no Placement anchored here already. -->
 			{#if detail.canPlace}
-				<div class="rounded-lg border border-dashed p-3">
+				<div class="rounded-2xl border border-dashed bg-surface p-4">
 					<h3 class="text-sm font-semibold">Place a Lesson</h3>
 					<p class="mt-1 text-xs text-muted-foreground">
 						A Lesson with no Topic, scheduled directly on this occasion. It will not be part of
@@ -336,7 +354,7 @@
 						{/if}
 					</p>
 					<Input
-						class="mt-2 h-8 text-sm"
+						class="mt-2"
 						placeholder="Title"
 						aria-label="Lesson title"
 						value={placeTitle}
@@ -347,7 +365,6 @@
 					/>
 					<Button
 						class="mt-2"
-						size="sm"
 						disabled={pending !== null || !placeTitle.trim()}
 						onclick={placeLessonNow}
 					>

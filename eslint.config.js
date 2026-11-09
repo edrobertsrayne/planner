@@ -51,10 +51,7 @@ export default defineConfig(
 	},
 	{
 		// Generic primitives. The href is a prop, so the caller resolves it and this file cannot.
-		files: [
-			'src/lib/components/ui/button/button.svelte',
-			'src/lib/components/renameable-row.svelte'
-		],
+		files: ['src/lib/ui/button.svelte', 'src/lib/components/renameable-row.svelte'],
 		rules: {
 			'svelte/no-navigation-without-resolve': 'off'
 		}

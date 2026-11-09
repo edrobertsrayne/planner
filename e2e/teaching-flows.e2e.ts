@@ -45,12 +45,8 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 	test('two Classes with different Tones show different colours', async () => {
 		await page.goto('/classes');
 		const toneOf = async (label: string) => {
-			const dot = page
-				.locator('li')
-				.filter({ hasText: label })
-				.locator('[aria-hidden="true"]')
-				.first();
-			return dot.evaluate((el) => getComputedStyle(el).backgroundColor);
+			const tile = page.locator('li').filter({ hasText: label }).first();
+			return tile.evaluate((el) => getComputedStyle(el).backgroundColor);
 		};
 		const toneA = await toneOf('9B/Sc1');
 		const toneB = await toneOf('9C/Sc1');
@@ -121,7 +117,7 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await page.getByRole('button', { name: 'Assign Topic' }).click();
 		await expect(
 			page.getByRole('menuitem', { name: 'Forces · all in Sequence or Placed' })
-		).toHaveAttribute('data-disabled', '');
+		).toBeDisabled();
 		await page.keyboard.press('Escape');
 
 		// A tap on a card opens the Lesson in its editor.
@@ -458,8 +454,8 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 
 	test('ticking Ready on an Agenda row updates state and survives a reload', async () => {
 		await page.goto('/');
-		// Check that the heading carries "Ready to teach?"
-		await expect(page.getByText('Ready to teach?').first()).toBeVisible();
+		// The tick is a labelled control: "Ready" beside its box.
+		await expect(page.getByText('Ready', { exact: true }).first()).toBeVisible();
 
 		// Find the row for 9B/Sc1 (Motion)
 		const row = page.locator('li').filter({ hasText: '9B/Sc1' }).first();

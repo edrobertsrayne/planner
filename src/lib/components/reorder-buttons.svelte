@@ -2,7 +2,7 @@
 	import { enhance } from '$app/forms';
 	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
-	import { Button } from '$lib/components/ui/button';
+	import { Button } from '$lib/ui';
 
 	// Move one row up or down within its order — a Topic's Lessons, a Lesson's Links. Each
 	// direction is its own POST to the same action, since a button outside a form cannot submit

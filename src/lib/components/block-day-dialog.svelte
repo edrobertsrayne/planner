@@ -1,10 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { failureReason } from '$lib/client/enhance';
-	import { latched } from '$lib/client/latch.svelte';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
+	import * as Dialog from '$lib/ui/dialog';
+	import { Button, Input } from '$lib/ui';
 	import AbsentField from '$lib/components/absent-field.svelte';
 	import { formatWeekday } from '$lib/date';
 
@@ -14,10 +12,7 @@
 	// `lessons` is the page's count of the day's rows, so the dialog can say how much moves.
 	let { date = $bindable(null), lessons }: { date: string | null; lessons: number } = $props();
 
-	// The date the dialog last opened on, kept only for the close animation.
-	const shown = latched(() => date);
-	const viewed = $derived(shown());
-	const label = $derived(viewed ? `Block ${formatWeekday(viewed)}` : '');
+	const label = $derived(date ? `Block ${formatWeekday(date)}` : '');
 
 	// A refusal (a stale tab, a day already blocked) is named under the field, kept with the date
 	// it answers so it never outlives its form.
@@ -56,7 +51,7 @@
 						refusal = { date, message: failureReason(result, 'The block was refused.') };
 				}}
 		>
-			{#if viewed}<input type="hidden" name="date" value={viewed} />{/if}
+			{#if date}<input type="hidden" name="date" value={date} />{/if}
 			<AbsentField hint="Each Class this day takes will offer a Set cover button." />
 			<Input class="mt-3" name="note" aria-label="{label}: note" placeholder="Note (optional)" />
 			{#if error}

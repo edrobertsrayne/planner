@@ -6,7 +6,7 @@
 </script>
 
 <span
-	class="inline-flex shrink-0 items-center gap-1 rounded-full border border-muted-foreground/50 bg-background px-2 py-0.5 text-[11px] font-semibold text-foreground"
+	class="inline-flex h-6 shrink-0 items-center gap-1 rounded-md border border-outline px-2 text-xs font-semibold text-foreground max-md:h-5 max-md:px-1.5 max-md:text-[10px]"
 >
-	<UserXIcon class="size-3" aria-hidden="true" />Absent
+	<UserXIcon class="size-3 max-md:hidden" aria-hidden="true" />Absent
 </span>

@@ -432,7 +432,7 @@ test.describe.serial('the Calendar setup mode', () => {
 		await expect(note).toBeVisible();
 		await page.keyboard.press('Escape');
 		await expect(note).toHaveCount(0);
-		// bits-ui hands focus back to where the dialog found it — the day's menu trigger.
+		// The dialog hands focus back to where it found it — the day's menu trigger.
 		await expect(page.locator(`#day-menu-${landedMonday}`)).toBeFocused();
 	});
 

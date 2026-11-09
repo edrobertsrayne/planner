@@ -8,9 +8,8 @@
 	// One filter chip per option, beside an "All …" chip (issue #338). The chip that is on is
 	// filled, and a click on the chip that is on clears the filter. The value lives in the query
 	// string, so it survives a reload and a Back into the page. On a phone the row scrolls
-	// sideways and the page does not; from `md` the chips wrap instead. A Class chip is filled
-	// with its Tone and rings it while off (ADR-0013); the All chip and a chip with no Tone —
-	// the Agenda's Tags, issue #340 — fill with the primary color and read muted while off. A
+	// sideways and the page does not; from `md` the chips wrap instead. A Class chip carries its
+	// Tone as a dot (ADR-0013); every chip that is on fills with the primary container. A
 	// chip may carry a count — the rows its Tag holds in the window (issue #340) — muted and
 	// tabular beside its name.
 
@@ -39,17 +38,23 @@
 		type="button"
 		aria-pressed={on}
 		class={cn(
-			'inline-flex h-7 items-center gap-1 rounded-2xl border px-2.5 text-xs font-medium whitespace-nowrap transition-colors',
-			!tone && (on ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')
+			'inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 text-[13px] font-medium whitespace-nowrap transition-colors',
+			on
+				? 'border-transparent bg-primary-container text-primary-container-foreground'
+				: 'text-foreground hover:bg-muted'
 		)}
-		style:background-color={on && tone ? tone.bg : undefined}
-		style:color={on && tone ? tone.fg : undefined}
-		style:border-color={on ? 'transparent' : tone?.ring}
 		onclick={() => select(on ? null : chipValue)}
 	>
+		{#if tone}
+			<span
+				class="size-2 shrink-0 rounded-full"
+				style:background-color={tone.dot}
+				aria-hidden="true"
+			></span>
+		{/if}
 		{text}
 		{#if count !== undefined}
-			<span class="tabular-nums opacity-60">{count}</span>
+			<span class="text-xs tabular-nums opacity-70">{count}</span>
 		{/if}
 	</button>
 {/snippet}

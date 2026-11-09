@@ -20,7 +20,11 @@
 		{#if children}
 			{@render children()}
 		{:else}
-			<h1 class="text-lg font-semibold tracking-tight">{title}</h1>
+			<h1
+				class="text-[26px] leading-8 font-bold tracking-tight md:text-[32px] md:leading-10 md:font-semibold"
+			>
+				{title}
+			</h1>
 		{/if}
 	</div>
 	{#if actions}
