@@ -63,11 +63,13 @@
 	{/if}
 	<a
 		href={resolve(`/lessons/${entry.lessonId}?class=${classId}`)}
-		class="flex min-w-0 flex-1 flex-col gap-1 px-3 py-2 hover:bg-muted/40"
+		class="flex min-w-0 flex-1 flex-col gap-1 px-3 py-2 hover:bg-muted/40 max-md:min-h-16 max-md:justify-center max-md:px-4 max-md:py-2.5"
 		onclick={(event) => board.tap(event, entry)}
 	>
-		<span class="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-			<span class="text-sm font-medium" data-title>{entry.title}</span>
+		<span class="flex flex-wrap items-center gap-x-3 gap-y-1 md:items-baseline md:gap-y-0.5">
+			<span class="text-sm font-medium max-md:basis-full max-md:text-[15px]" data-title
+				>{entry.title}</span
+			>
 			{#if selected}
 				<CheckIcon class="size-3.5 self-center text-primary" aria-label="Selected" />
 			{/if}
@@ -78,9 +80,11 @@
 					class="gap-1.5 text-xs text-muted-foreground"
 				/>
 			{/if}
-			<span class="ml-auto flex items-center gap-2 text-xs text-muted-foreground tabular-nums">
+			<span
+				class="ml-auto flex items-center gap-2 text-xs text-muted-foreground tabular-nums max-md:text-[13px]"
+			>
 				{#if entry.ready}
-					<span class="flex items-center gap-0.5" data-ready>
+					<span class="flex items-center gap-0.5 font-semibold text-ready-foreground" data-ready>
 						<CheckIcon class="size-3" aria-hidden="true" />Ready
 					</span>
 				{/if}

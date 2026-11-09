@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { MediaQuery } from 'svelte/reactivity';
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
 	import ListChecksIcon from '@lucide/svelte/icons/list-checks';
@@ -41,7 +42,9 @@
 		sequenceResult: SequenceResult | null;
 	} = $props();
 
-	const byWeek = $derived(page.url.searchParams.get('layout') !== 'list');
+	// A phone reads the Sequence as the plain List; the weekly board is for a laptop or tablet.
+	const wide = new MediaQuery('min-width: 768px', true);
+	const byWeek = $derived(wide.current && page.url.searchParams.get('layout') !== 'list');
 	const setLayout = (layout: 'week' | 'list') =>
 		replaceQuery(withParam(page.url, 'layout', layout));
 
@@ -199,7 +202,10 @@
 			</p>
 		{/if}
 	{:else}
-		<ol class="mt-3 divide-y rounded-xl border" data-sequence>
+		<ol
+			class="mt-3 divide-y divide-divider overflow-hidden rounded-2xl border bg-surface"
+			data-sequence
+		>
 			{#each entries as entry (entry.lessonId)}
 				<SequenceListRow {classId} {entry} {board} dropLine={board.dropLine(entry.lessonId)} />
 			{:else}

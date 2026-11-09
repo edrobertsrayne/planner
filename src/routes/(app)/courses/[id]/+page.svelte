@@ -201,7 +201,9 @@
 								>{topic.name}</span
 							>
 							<span class="shrink-0 text-[13px] text-muted-foreground tabular-nums">
-								{topic.lessonCount}
+								{topic.lessonCount}<span class="xl:hidden">
+									{topic.lessonCount === 1 ? 'Lesson' : 'Lessons'}</span
+								>
 							</span>
 							<ChevronRightIcon class="mt-0.5 size-4 shrink-0 text-muted-foreground xl:hidden" />
 						</a>

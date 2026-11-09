@@ -189,8 +189,7 @@
 				{/each}
 			</ul>
 
-			<!-- From `md` the whole stream is one table: one column per fact to scan. Below `xl` the
-			     Topic and the Course fold under the title; below `lg` the Tags fold too. Only the
+			<!-- From `md` the whole stream is one table: the Topic, Course and Tags sit under the title. Only the
 			     title opens the Lesson editor, and the Status column is as wide as its toggle, so a
 			     click beside the toggle opens nothing. -->
 			<div class="mt-4 hidden rounded-2xl border bg-surface md:block">
@@ -204,15 +203,6 @@
 							>
 							<th scope="col" class="w-20 border-b px-3 py-3 font-semibold">Class</th>
 							<th scope="col" class="border-b px-3 py-3 font-semibold">Lesson</th>
-							<th scope="col" class="hidden w-44 border-b px-3 py-3 font-semibold xl:table-cell">
-								Topic
-							</th>
-							<th scope="col" class="hidden w-32 border-b px-3 py-3 font-semibold xl:table-cell">
-								Course
-							</th>
-							<th scope="col" class="hidden w-40 border-b px-3 py-3 font-semibold lg:table-cell">
-								Tags
-							</th>
 							<th scope="col" class="w-[9.5rem] rounded-tr-2xl border-b px-4 py-3 font-semibold"
 								>Status</th
 							>
@@ -222,11 +212,13 @@
 						{#each filtered as lesson (lesson.id)}
 							{@const s = lesson.occurrence}
 							<tr class="align-top">
-								<td class="border-b border-divider px-3 py-3 whitespace-nowrap tabular-nums">
+								<td class="border-b border-divider px-4 py-3 whitespace-nowrap tabular-nums">
 									{#if s}
-										{formatShortWeekday(s.date)}
-										<span class="text-muted-foreground">P{s.period}</span>
-										{#if s.room}<span class="text-muted-foreground"> · {s.room}</span>{/if}
+										<span class="block font-medium">{formatShortWeekday(s.date)}</span>
+										<span class="block text-xs text-muted-foreground"
+											>P{s.period}{#if s.room}
+												· {s.room}{/if}</span
+										>
 									{:else}
 										<span class="text-muted-foreground">—</span>
 									{/if}
@@ -239,25 +231,14 @@
 										href={resolve(`/lessons/${lesson.id}`)}
 										class="block max-w-full truncate font-medium hover:underline">{lesson.title}</a
 									>
-									<div class="truncate text-xs text-muted-foreground xl:hidden">
+									<div class="truncate text-[13px] text-muted-foreground">
 										{#if lesson.topicName}
 											{lesson.topicName} · {lesson.courseName}
 										{:else}
 											Standalone Lesson
 										{/if}
 									</div>
-									<TagChips tags={lesson.tags} class="mt-1 lg:hidden" />
-								</td>
-								<td class="hidden border-b border-divider px-3 py-3 xl:table-cell">
-									<div class="truncate text-muted-foreground">
-										{lesson.topicName ?? 'Standalone Lesson'}
-									</div>
-								</td>
-								<td class="hidden border-b border-divider px-3 py-3 xl:table-cell">
-									<div class="truncate text-muted-foreground">{lesson.courseName ?? ''}</div>
-								</td>
-								<td class="hidden border-b border-divider px-3 py-3 lg:table-cell">
-									<TagChips tags={lesson.tags} />
+									<TagChips tags={lesson.tags} class="mt-1" />
 								</td>
 								<td class="border-b border-divider px-3 py-2">{@render statusToggle(lesson)}</td>
 							</tr>
