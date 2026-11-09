@@ -314,14 +314,24 @@
 		gap: 0.5rem;
 	}
 	.ui-alert {
-		display: flex;
-		flex-direction: column;
-		gap: 0.125rem;
+		display: grid;
+		row-gap: 0.125rem;
 		padding: 0.75rem 1rem;
 		border: 1px solid var(--border);
 		border-radius: 12px;
 		background: var(--surface);
 		font-size: 0.875rem;
+	}
+	/* An icon takes its own column beside the title and description. */
+	.ui-alert:has(> svg) {
+		grid-template-columns: auto 1fr;
+		column-gap: 0.5rem;
+	}
+	.ui-alert > svg {
+		grid-row: span 2;
+		width: 1rem;
+		height: 1rem;
+		margin-top: 0.125rem;
 	}
 	.ui-alert-destructive {
 		border-color: var(--error);
@@ -588,8 +598,10 @@
 		font-size: 0.75rem;
 		pointer-events: none;
 	}
+	/* Focus shows it only when the browser would draw a focus ring, so a click does not pin it
+	   open. */
 	.ui-tip:hover > .ui-tip-content,
-	.ui-tip:focus-within > .ui-tip-content {
+	.ui-tip:has(:focus-visible) > .ui-tip-content {
 		display: block;
 	}
 	.ui-tip-top {

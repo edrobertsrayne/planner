@@ -2,7 +2,6 @@
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { toast } from '$lib/ui/toast';
 	import type { Snippet } from 'svelte';
 	import { createdId, failureReason } from '$lib/client/enhance';
 	import { EVENT_KINDS } from '$lib/events';
@@ -13,10 +12,13 @@
 	let { trigger }: { trigger: Snippet<[props: Record<string, unknown>]> } = $props();
 
 	let name = $state('');
+
+	// A refusal is named in the dialog: a toast would sit behind the modal's inert page.
+	let error = $state<string | null>(null);
 	let kind = $state<string>('meeting');
 </script>
 
-<Dialog.Root>
+<Dialog.Root onOpenChange={() => (error = null)}>
 	<Dialog.Trigger>
 		{#snippet child({ props })}
 			{@render trigger(props)}
@@ -38,12 +40,13 @@
 				// A new Event opens on its own page, to be placed — so this navigates rather than
 				// refreshing the list behind the dialog.
 				return async ({ result }) => {
+					error = null;
 					const id = createdId(result, 'event');
 					if (id !== null) {
 						name = '';
 						await goto(resolve(`/events/${id}`));
 					} else if (result.type === 'failure') {
-						toast.error(failureReason(result, 'Could not create the Event.'));
+						error = failureReason(result, 'Could not create the Event.');
 					}
 				};
 			}}
@@ -72,6 +75,10 @@
 					/>
 				</Field.Root>
 			</Field.Group>
+
+			{#if error}
+				<p role="alert" class="mt-3 text-xs text-destructive">{error}</p>
+			{/if}
 
 			<Dialog.Footer class="mt-6">
 				<Dialog.Close>

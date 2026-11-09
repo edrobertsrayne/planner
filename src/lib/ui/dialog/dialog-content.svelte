@@ -3,6 +3,7 @@
 	import type { Snippet } from 'svelte';
 	import type { HTMLDialogAttributes } from 'svelte/elements';
 	import { cn } from '$lib/utils';
+	import { touchTarget } from '../touch-target';
 	import { getDialogContext } from './context';
 
 	let {
@@ -24,9 +25,15 @@
 		node.showModal();
 	}
 
-	// A click that lands on the dialog element itself is on its backdrop: the box is all children.
+	// A click on the dialog element itself is on its backdrop: the box is all children. It only
+	// counts when the press began there too, so dragging a text selection out of a field and
+	// releasing over the backdrop does not close the dialog and lose what was typed.
+	let pressedBackdrop = false;
+	function onpointerdown(e: PointerEvent) {
+		pressedBackdrop = e.target === e.currentTarget;
+	}
 	function onclick(e: MouseEvent) {
-		if (e.target === e.currentTarget) ctx.setOpen(false);
+		if (pressedBackdrop && e.target === e.currentTarget) ctx.setOpen(false);
 	}
 
 	// Escape closes through the binding rather than the browser, so state and DOM stay one thing.
@@ -41,6 +48,7 @@
 		{@attach modal}
 		aria-labelledby={ctx.titleId}
 		aria-describedby={ctx.descriptionId}
+		{onpointerdown}
 		{onclick}
 		{oncancel}
 		class={cn('ui-dialog', side && `ui-dialog-${side}`, className)}
@@ -50,7 +58,11 @@
 			{@render children?.()}
 		</div>
 		{#if showCloseButton}
-			<button type="button" class="ui-dialog-close" onclick={() => ctx.setOpen(false)}>
+			<button
+				type="button"
+				class="ui-dialog-close absolute {touchTarget}"
+				onclick={() => ctx.setOpen(false)}
+			>
 				<XIcon aria-hidden="true" />
 				<span class="sr-only">Close</span>
 			</button>

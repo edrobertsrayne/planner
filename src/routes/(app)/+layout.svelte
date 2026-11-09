@@ -136,23 +136,27 @@
 		{@render foot(true)}
 	</aside>
 
-	<!-- Phone: a top bar and a drawer from the left. -->
-	<header class="sticky top-0 z-20 flex h-14 items-center gap-1 border-b bg-surface px-2 md:hidden">
-		<Dialog.Root bind:open={drawerOpen}>
+	<!-- Phone: a top bar and a drawer from the left. The drawer is beside the header, not in it:
+	     the header is `display: none` from `md`, and a modal <dialog> inside it would vanish there
+	     while still holding the page inert. -->
+	<Dialog.Root bind:open={drawerOpen}>
+		<header
+			class="sticky top-0 z-20 flex h-14 items-center gap-1 border-b bg-surface px-2 md:hidden"
+		>
 			<Dialog.Trigger
 				class="inline-flex size-11 items-center justify-center rounded-lg hover:bg-muted"
 				aria-label="Menu"
 			>
 				<MenuIcon class="size-5" />
 			</Dialog.Trigger>
-			<Dialog.Content side="left" aria-label="Menu">
-				<Dialog.Header><Dialog.Title>Planner</Dialog.Title></Dialog.Header>
-				{@render screens(false)}
-				{@render foot(false)}
-			</Dialog.Content>
-		</Dialog.Root>
-		<span class="text-[17px] font-semibold">{screenTitle()}</span>
-	</header>
+			<span class="text-[17px] font-semibold">{screenTitle()}</span>
+		</header>
+		<Dialog.Content side="left" aria-label="Menu">
+			<Dialog.Header><Dialog.Title>Planner</Dialog.Title></Dialog.Header>
+			{@render screens(false)}
+			{@render foot(false)}
+		</Dialog.Content>
+	</Dialog.Root>
 
 	<div class="flex min-h-screen flex-col md:pl-16 lg:pl-58">
 		<main class="flex flex-1">

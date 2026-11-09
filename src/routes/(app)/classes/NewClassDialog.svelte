@@ -2,7 +2,6 @@
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { toast } from '$lib/ui/toast';
 	import type { Snippet } from 'svelte';
 	import { createdId, failureReason } from '$lib/client/enhance';
 	import * as Dialog from '$lib/ui/dialog';
@@ -18,6 +17,9 @@
 	} = $props();
 
 	let label = $state('');
+
+	// A refusal is named in the dialog: a toast would sit behind the modal's inert page.
+	let error = $state<string | null>(null);
 	let pickedCourseId = $state('');
 
 	// The first Course stands in until the teacher picks another: a Class needs one, and the
@@ -26,7 +28,7 @@
 	const course = $derived(courses.find((c) => c.id === pickedCourseId) ?? courses[0]);
 </script>
 
-<Dialog.Root>
+<Dialog.Root onOpenChange={() => (error = null)}>
 	<Dialog.Trigger>
 		{#snippet child({ props })}
 			{@render trigger(props)}
@@ -48,12 +50,13 @@
 				// A new Class opens on its own page, to be timetabled — so this navigates rather than
 				// refreshing the list behind the dialog.
 				return async ({ result }) => {
+					error = null;
 					const id = createdId(result, 'class');
 					if (id !== null) {
 						label = '';
 						await goto(resolve(`/classes/${id}`));
 					} else if (result.type === 'failure') {
-						toast.error(failureReason(result, 'Could not create the Class.'));
+						error = failureReason(result, 'Could not create the Class.');
 					}
 				};
 			}}
@@ -87,6 +90,10 @@
 					</Field.Description>
 				</Field.Root>
 			</Field.Group>
+
+			{#if error}
+				<p role="alert" class="mt-3 text-xs text-destructive">{error}</p>
+			{/if}
 
 			<Dialog.Footer class="mt-6">
 				<Dialog.Close>

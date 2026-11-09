@@ -3,7 +3,7 @@
 	import { toasts } from './toast.svelte';
 </script>
 
-<ol class="ui-toaster" aria-label="Notifications">
+<ol class="ui-toaster" aria-label="Notifications" aria-live="polite">
 	{#each toasts.items as t (t.id)}
 		<li data-slot="toast" class="ui-toast ui-toast-{t.kind}">
 			<div class="ui-toast-content" role={t.kind === 'error' ? 'alert' : 'status'}>

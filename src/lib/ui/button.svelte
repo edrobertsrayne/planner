@@ -30,7 +30,16 @@
 		...rest
 	}: ButtonProps = $props();
 
-	const cls = $derived(cn('ui-btn', `ui-btn-${variant}`, `ui-btn-${size}`, touchTarget, className));
+	// The default size is the base `.ui-btn` box; naming it would collide with the default variant.
+	const cls = $derived(
+		cn(
+			'ui-btn',
+			`ui-btn-${variant}`,
+			size !== 'default' && `ui-btn-${size}`,
+			touchTarget,
+			className
+		)
+	);
 </script>
 
 {#if href}

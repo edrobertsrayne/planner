@@ -181,22 +181,6 @@
 						<ChevronLeftIcon />
 					</Button>
 
-					<!-- Today is the header's main action once the year exists; until then the week
-					     controls do not render at all and setting the year keeps the emphasis. While
-					     already on the week it would return to it stands down, a disabled button
-					     without an href. -->
-					<Button
-						variant="secondary"
-						size="sm"
-						class="h-9 px-3.5 max-md:order-4 max-md:h-11 md:order-5"
-						href={data.current && data.selected !== data.current
-							? weekHref(data.current)
-							: undefined}
-						disabled={data.selected === data.current}
-					>
-						Today
-					</Button>
-
 					<!-- The week ribbon is the one row that must fit beside the arrows and Today. It
 						     shrinks and scrolls inside itself — the chip-row rule the Agenda and
 						     Planning follow — so the page never scrolls sideways (issue #343). -->
@@ -228,6 +212,22 @@
 						aria-label="Next Teaching Week"
 					>
 						<ChevronRightIcon />
+					</Button>
+
+					<!-- Today is the header's main action once the year exists; until then the week
+					     controls do not render at all and setting the year keeps the emphasis. While
+					     already on the week it would return to it stands down, a disabled button
+					     without an href. -->
+					<Button
+						variant="secondary"
+						size="sm"
+						class="h-9 px-3.5 max-md:order-4 max-md:h-11"
+						href={data.current && data.selected !== data.current
+							? weekHref(data.current)
+							: undefined}
+						disabled={data.selected === data.current}
+					>
+						Today
 					</Button>
 
 					<span
@@ -641,13 +641,17 @@
 
 		<ul class="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground max-md:hidden">
 			<li class="flex items-center gap-1.5">
-				<span class="h-3 w-[18px] rounded-[3px] bg-step-2 hatched"></span>Taught
+				<span class="h-3 w-[18px] rounded-[3px] hatched" style:background-color="var(--tone-0-bg)"
+				></span>Taught
 			</li>
 			<li class="flex items-center gap-1.5">
-				<span class="h-3 w-[18px] rounded-[3px] bg-primary-container"></span>Upcoming
+				<span class="h-3 w-[18px] rounded-[3px]" style:background-color="var(--tone-0-bg)"
+				></span>Upcoming
 			</li>
 			<li class="flex items-center gap-1.5">
-				<span class="h-3 w-[18px] rounded-[3px] bg-step-2"></span>Blocked
+				<span
+					class="h-3 w-[18px] rounded-[3px] border border-dashed border-outline bg-step-2 hatched"
+				></span>Blocked
 			</li>
 			<li class="flex items-center gap-1.5">
 				<span class="h-3 w-[18px] rounded-[3px] border bg-muted"></span>Event
