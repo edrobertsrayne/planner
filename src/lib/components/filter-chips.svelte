@@ -39,12 +39,15 @@
 		type="button"
 		aria-pressed={on}
 		class={cn(
-			'inline-flex h-7 items-center gap-1 rounded-2xl border px-2.5 text-xs font-medium whitespace-nowrap transition-colors',
-			!tone && (on ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')
+			'inline-flex h-9 items-center gap-1 rounded-lg border px-3 text-[13px] font-medium whitespace-nowrap transition-colors',
+			!tone &&
+				(on
+					? 'border-transparent bg-primary-container text-primary-container-foreground'
+					: 'border-outline/40 text-muted-foreground hover:bg-muted')
 		)}
 		style:background-color={on && tone ? tone.bg : undefined}
 		style:color={on && tone ? tone.fg : undefined}
-		style:border-color={on ? 'transparent' : tone?.ring}
+		style:border-color={on ? 'transparent' : tone?.dot}
 		onclick={() => select(on ? null : chipValue)}
 	>
 		{text}

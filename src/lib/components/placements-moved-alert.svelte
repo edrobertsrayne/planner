@@ -1,6 +1,6 @@
 <script lang="ts">
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
-	import * as Alert from '$lib/components/ui/alert';
+	import * as Alert from '$lib/ui/alert';
 	import { formatDate } from '$lib/date';
 	import type { PlacementMoved } from '$lib/server/planner';
 

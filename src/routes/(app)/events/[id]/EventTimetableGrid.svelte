@@ -4,7 +4,7 @@
 	import { onFail } from '$lib/client/enhance';
 	import { formatDate } from '$lib/date';
 	import { POSITIONS, positionLabel } from '$lib/events';
-	import { Button } from '$lib/components/ui/button/index.js';
+	import { Button } from '$lib/ui';
 
 	// The same Timetable grid as a Class page's, with the two extra rows only Events hold. A position
 	// a Class or another Event holds is hatched and locked, so a clash is never offered (ADR-0029).

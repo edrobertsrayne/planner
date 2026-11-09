@@ -4,8 +4,7 @@
 	import { formatWeekday } from '$lib/date';
 	import { kindLabel, positionLabel } from '$lib/events';
 	import PageHeader from '$lib/components/page-header.svelte';
-	import { Badge } from '$lib/components/ui/badge/index.js';
-	import { Button } from '$lib/components/ui/button';
+	import { Badge, Button } from '$lib/ui';
 	import NewEventDialog from './NewEventDialog.svelte';
 	import type { PageProps } from './$types';
 
@@ -35,10 +34,10 @@
 	{:else}
 		<ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 			{#each data.events as event (event.id)}
-				<li class="flex flex-col overflow-hidden rounded-xl border bg-card">
+				<li class="flex flex-col overflow-hidden rounded-xl border bg-surface">
 					<a
 						href={resolve(`/events/${event.id}`)}
-						class="flex flex-1 flex-col gap-3 p-4 hover:bg-accent"
+						class="flex flex-1 flex-col gap-3 p-4 hover:bg-muted"
 					>
 						<span class="flex items-start justify-between gap-2">
 							<span class="block text-sm font-semibold">{event.name}</span>

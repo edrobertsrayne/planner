@@ -9,9 +9,9 @@
 	import SunIcon from '@lucide/svelte/icons/sun';
 	import BuildInfo from '$lib/components/build-info.svelte';
 	import FeedbackButton from '$lib/components/feedback-button.svelte';
-	import * as Sheet from '$lib/components/ui/sheet';
-	import * as Tooltip from '$lib/components/ui/tooltip';
-	import { Toaster } from '$lib/components/ui/sonner';
+	import * as Dialog from '$lib/ui/dialog';
+	import * as Tooltip from '$lib/ui/tooltip';
+	import { Toaster } from '$lib/ui/toast';
 	import { SCREENS, isActive, screenTitle, settingsOpen } from './nav';
 	import type { LayoutProps } from './$types';
 
@@ -20,8 +20,9 @@
 	let drawerOpen = $state(false);
 
 	const ROW =
-		'flex items-center gap-3 rounded-md px-2.5 py-2 text-sm font-medium transition-colors pointer-coarse:min-h-11';
-	const IDLE = 'text-muted-foreground hover:bg-muted/60 hover:text-foreground';
+		'flex h-11 items-center gap-3 rounded-lg px-3 text-[15px] font-medium transition-colors';
+	const IDLE = 'text-muted-foreground hover:bg-muted hover:text-foreground';
+	const CURRENT = 'bg-primary-container font-semibold text-primary-container-foreground';
 	// On a tablet the sidebar shows icons only; the name stays for screen readers.
 	const ICONS_BELOW_LG = 'justify-center lg:justify-start';
 </script>
@@ -49,7 +50,7 @@
 		inSidebar: boolean;
 	}
 )}
-	{@const cls = `${ROW} ${active ? 'bg-muted text-foreground' : IDLE} ${inSidebar ? ICONS_BELOW_LG : ''}`}
+	{@const cls = `${ROW} ${active ? CURRENT : IDLE} ${inSidebar ? ICONS_BELOW_LG : ''}`}
 	<Tooltip.Root>
 		<Tooltip.Trigger>
 			{#snippet child({ props })}
@@ -88,7 +89,7 @@
 {/snippet}
 
 {#snippet foot(inSidebar: boolean)}
-	<div class="mt-auto flex flex-col gap-0.5">
+	<div class="mt-auto flex flex-col gap-0.5 border-t border-divider pt-3">
 		{@render row('Settings', SettingsIcon, {
 			href: resolve('/settings'),
 			active: settingsOpen(),
@@ -118,57 +119,53 @@
 		<form method="POST" action="/logout">
 			{@render row('Log out', LogOutIcon, { type: 'submit', inSidebar })}
 		</form>
-		<BuildInfo class="px-2.5 pt-2 {inSidebar ? 'hidden lg:block' : ''}" />
+		<BuildInfo class="px-3 pt-1.5 {inSidebar ? 'hidden lg:block' : ''}" />
 	</div>
 {/snippet}
 
-<Tooltip.Provider>
-	<div class="min-h-screen bg-background text-foreground">
-		<!-- Laptop and tablet: a fixed sidebar, 14 rem labelled or 4 rem icons only. -->
-		<aside
-			class="fixed inset-y-0 left-0 z-20 hidden w-16 flex-col gap-4 border-r bg-background px-2 py-3 md:flex lg:w-56 lg:px-3"
-		>
-			<div class="flex items-center gap-2 px-1.5 lg:px-1">
-				<div
-					class="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground"
-				>
-					<CalendarDaysIcon class="size-4" />
-				</div>
-				<span class="hidden font-semibold lg:inline">Planner</span>
+<div class="min-h-screen bg-background text-foreground">
+	<!-- Laptop and tablet: a fixed sidebar, 14 rem labelled or 4 rem icons only. -->
+	<aside
+		class="fixed inset-y-0 left-0 z-20 hidden w-16 flex-col gap-4 border-r bg-background px-2 py-3 md:flex lg:w-56 lg:px-3"
+	>
+		<div class="flex items-center gap-2 px-1.5 lg:px-1">
+			<div
+				class="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground"
+			>
+				<CalendarDaysIcon class="size-4" />
 			</div>
-			{@render screens(true)}
-			{@render foot(true)}
-		</aside>
-
-		<!-- Phone: a top bar and a drawer from the left. -->
-		<header
-			class="sticky top-0 z-20 flex h-14 items-center gap-2 border-b bg-background px-2 md:hidden"
-		>
-			<Sheet.Root bind:open={drawerOpen}>
-				<Sheet.Trigger
-					class="inline-flex size-11 items-center justify-center rounded-md hover:bg-muted"
-					aria-label="Menu"
-				>
-					<MenuIcon class="size-5" />
-				</Sheet.Trigger>
-				<Sheet.Content side="left" class="w-72 gap-4 p-4">
-					<Sheet.Header class="p-0"><Sheet.Title>Planner</Sheet.Title></Sheet.Header>
-					{@render screens(false)}
-					{@render foot(false)}
-				</Sheet.Content>
-			</Sheet.Root>
-			<span class="font-semibold">{screenTitle()}</span>
-		</header>
-
-		<div class="flex min-h-screen flex-col md:pl-16 lg:pl-56">
-			<main class="flex flex-1">
-				<div class="min-w-0 flex-1">
-					{@render children()}
-				</div>
-			</main>
+			<span class="hidden font-semibold lg:inline">Planner</span>
 		</div>
-	</div>
-</Tooltip.Provider>
+		{@render screens(true)}
+		{@render foot(true)}
+	</aside>
 
-<Toaster richColors />
+	<!-- Phone: a top bar and a drawer from the left. -->
+	<header class="sticky top-0 z-20 flex h-14 items-center gap-1 border-b bg-surface px-2 md:hidden">
+		<Dialog.Root bind:open={drawerOpen}>
+			<Dialog.Trigger
+				class="inline-flex size-11 items-center justify-center rounded-lg hover:bg-muted"
+				aria-label="Menu"
+			>
+				<MenuIcon class="size-5" />
+			</Dialog.Trigger>
+			<Dialog.Content side="left" aria-label="Menu">
+				<Dialog.Header><Dialog.Title>Planner</Dialog.Title></Dialog.Header>
+				{@render screens(false)}
+				{@render foot(false)}
+			</Dialog.Content>
+		</Dialog.Root>
+		<span class="text-[17px] font-semibold">{screenTitle()}</span>
+	</header>
+
+	<div class="flex min-h-screen flex-col md:pl-16 lg:pl-58">
+		<main class="flex flex-1">
+			<div class="min-w-0 flex-1">
+				{@render children()}
+			</div>
+		</main>
+	</div>
+</div>
+
+<Toaster />
 <FeedbackButton />

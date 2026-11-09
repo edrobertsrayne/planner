@@ -24,7 +24,7 @@ describe('the block-day dialog', () => {
 			.element(screen.getByRole('dialog', { name: 'Block Friday 6 November' }))
 			.toBeVisible();
 
-		const form = document.querySelector<HTMLFormElement>('[role=dialog] form')!;
+		const form = document.querySelector<HTMLFormElement>('dialog form')!;
 		expect(form.getAttribute('action')).toBe('?/blockDay');
 		expect(form.querySelector<HTMLInputElement>('input[name=date]')?.value).toBe('2026-11-06');
 	});
@@ -40,7 +40,7 @@ describe('the block-day dialog', () => {
 	test('is a closure unless the teacher ticks "I\'m absent"', async () => {
 		const screen = await render(BlockDayDialog, { date: '2026-11-06', lessons: 1 });
 		countSubmits();
-		const form = document.querySelector<HTMLFormElement>('[role=dialog] form')!;
+		const form = document.querySelector<HTMLFormElement>('dialog form')!;
 		const box = screen.getByRole('checkbox', { name: /I'm absent/ });
 
 		await expect.element(box).not.toBeChecked();

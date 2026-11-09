@@ -4,12 +4,12 @@
 	import { runwayText } from '$lib/runway';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import PageHeader from '$lib/components/page-header.svelte';
-	import { Button } from '$lib/components/ui/button';
+	import { Button } from '$lib/ui';
 	import NewClassDialog from './NewClassDialog.svelte';
 	import AssignTopicMenu from '$lib/components/assign-topic-menu.svelte';
 	import RewindReport from '$lib/components/rewind-report.svelte';
 	import { failureReason, hasReport, reportOfResult, sequenceOfResult } from '$lib/client/enhance';
-	import { toast } from 'svelte-sonner';
+	import { toast } from '$lib/ui/toast';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import type { PageProps } from './$types';
 
@@ -69,16 +69,16 @@
 			{#each data.lanes as lane (lane.classId)}
 				{@const tone = classTone(lane.tone)}
 				<!-- The tile body is one link to the Class page, as on Courses (story 107). -->
-				<li class="flex flex-col overflow-hidden rounded-xl border bg-card">
+				<li class="flex flex-col overflow-hidden rounded-xl border bg-surface">
 					<a
 						href={resolve(`/classes/${lane.classId}`)}
-						class="flex flex-1 flex-col gap-3 p-4 hover:bg-accent"
+						class="flex flex-1 flex-col gap-3 p-4 hover:bg-muted"
 					>
 						<span class="flex items-start gap-3">
 							<span
 								class="mt-1 size-2.5 shrink-0 rounded-full ring-2"
 								style:background-color={tone.bg}
-								style:--tw-ring-color={tone.ring}
+								style:--tw-ring-color={tone.dot}
 								aria-hidden="true"
 							></span>
 							<span class="min-w-0">

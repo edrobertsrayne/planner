@@ -16,10 +16,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { failureReason } from '$lib/client/enhance';
-	import { latched } from '$lib/client/latch.svelte';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
+	import * as Dialog from '$lib/ui/dialog';
+	import { Button, Input } from '$lib/ui';
 	import AbsentField from '$lib/components/absent-field.svelte';
 
 	// The note form for blocking one Slot, opened from the Calendar's day menu or from an Agenda row. A dialog, not a popover
@@ -31,18 +29,14 @@
 	//
 	// Mounted once, closed and opened through the bound pick, the way ConfirmDeleteDialog is:
 	// `pick` null is closed, a picked Slot is open. The page owns the pick; writing it null
-	// here closes the dialog through its binding, and bits-ui hands focus back to where the
+	// here closes the dialog through its binding, and the dialog hands focus back to where the
 	// dialog found it — the day's menu trigger.
 	let { pick = $bindable(null) }: { pick: Pick | null } = $props();
 
-	// The pick the panel last opened on, kept only for the close animation: bits-ui leaves the
-	// content mounted while it fades out, and `pick` is null by then.
-	const shown = latched(() => pick);
-	const viewed = $derived(shown());
 	const label = $derived(
-		viewed
-			? `Block ${viewed.classLabel}, P${viewed.period}${
-					viewed.periodTo && viewed.periodTo !== viewed.period ? `–P${viewed.periodTo}` : ''
+		pick
+			? `Block ${pick.classLabel}, P${pick.period}${
+					pick.periodTo && pick.periodTo !== pick.period ? `–P${pick.periodTo}` : ''
 				}`
 			: ''
 	);
@@ -80,19 +74,19 @@
 						refusal = { pick, message: failureReason(result, 'The block was refused.') };
 				}}
 		>
-			{#if viewed}
-				<input type="hidden" name="classId" value={viewed.classId} />
-				<input type="hidden" name="date" value={viewed.date} />
-				{#each viewed.slotIds as slotId (slotId)}
+			{#if pick}
+				<input type="hidden" name="classId" value={pick.classId} />
+				<input type="hidden" name="date" value={pick.date} />
+				{#each pick.slotIds as slotId (slotId)}
 					<input type="hidden" name="slotId" value={slotId} />
 				{/each}
 			{/if}
 			<Input name="note" aria-label={label} required placeholder="Why (required)" />
 			<AbsentField hint="Leave it off for a trip, a fire drill or an assembly." />
-			{#if viewed && viewed.lessonTitle !== undefined}
+			{#if pick && pick.lessonTitle !== undefined}
 				<p class="mt-2 text-xs text-muted-foreground">
-					{#if viewed.lessonTitle}
-						“{viewed.lessonTitle}” moves to this Class's next Available Slot, and every Lesson after
+					{#if pick.lessonTitle}
+						“{pick.lessonTitle}” moves to this Class's next Available Slot, and every Lesson after
 						it moves along.
 					{:else}
 						This Period has no Lesson, so nothing moves.

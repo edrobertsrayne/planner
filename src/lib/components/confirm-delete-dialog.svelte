@@ -2,9 +2,8 @@
 	import { enhance } from '$app/forms';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import type { PendingDelete } from '$lib/client/confirm-delete.svelte';
-	import { latched } from '$lib/client/latch.svelte';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import * as Dialog from '$lib/components/ui/dialog/index.js';
+	import { Button } from '$lib/ui';
+	import * as Dialog from '$lib/ui/dialog';
 
 	// The delete ask every page that deletes a record with something behind it shares: a Course or a
 	// Topic that still holds Lessons, a Class with a timetable and Sessions, a Lesson a Sequence
@@ -24,10 +23,6 @@
 		title?: (pending: PendingDelete) => string;
 		submit?: SubmitFunction;
 	} = $props();
-
-	// The dialog's content outlives `target` while it fades out, so it reads the last pick.
-	const shown = latched(() => target);
-	const view = $derived(shown());
 
 	// A confirmed post is the page's if it gave one, the ordinary refresh otherwise. Either way the
 	// dialog closes first, so a refusal cannot leave it hanging open over the page.
@@ -49,9 +44,9 @@
 >
 	<Dialog.Content class="sm:max-w-md">
 		<Dialog.Header>
-			{#if view}
-				<Dialog.Title>{title(view)}</Dialog.Title>
-				<Dialog.Description>{view.description}</Dialog.Description>
+			{#if target}
+				<Dialog.Title>{title(target)}</Dialog.Title>
+				<Dialog.Description>{target.description}</Dialog.Description>
 			{:else}
 				<Dialog.Title>Delete?</Dialog.Title>
 				<Dialog.Description></Dialog.Description>
@@ -61,8 +56,8 @@
 			<Button variant="outline" size="sm" class="h-7" onclick={() => (target = null)}>
 				Cancel
 			</Button>
-			<form method="POST" action={view?.action} use:enhance={confirm}>
-				<input type="hidden" name="id" value={view?.id} />
+			<form method="POST" action={target?.action} use:enhance={confirm}>
+				<input type="hidden" name="id" value={target?.id} />
 				<input type="hidden" name="confirmed" value="true" />
 				<Button type="submit" variant="destructive" size="sm" class="h-7">Delete</Button>
 			</form>

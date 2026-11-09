@@ -8,7 +8,7 @@ import { goto, invalidateAll } from '$app/navigation';
 import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 import type { SequenceResult } from '$lib/sequence-text';
 import type { DateChange, PlacementMoved, WriteReport } from '$lib/server/planner';
-import { toast } from 'svelte-sonner';
+import { toast } from '$lib/ui/toast';
 
 // A write can move dates on a screen other than the one it was made from — assigning a Topic
 // changes the Class lane above it — so every enhanced form re-runs the loads rather than

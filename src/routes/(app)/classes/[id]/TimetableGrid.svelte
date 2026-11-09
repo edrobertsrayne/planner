@@ -4,7 +4,7 @@
 	import { onFail } from '$lib/client/enhance';
 	import { formatDate } from '$lib/date';
 	import { PERIODS } from '$lib/periods';
-	import { Button } from '$lib/components/ui/button/index.js';
+	import { Button } from '$lib/ui';
 
 	// The Timetable as it stands on one date: this Class's Periods, every other Class's shown
 	// hatched, and the rest empty. Clicking a cell toggles it — the server decides between taking

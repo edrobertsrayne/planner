@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import type { Editor } from '@tiptap/core';
 	import { cn } from '$lib/utils.js';
-	import { Button } from '$lib/components/ui/button/index.js';
+	import { Button } from '$lib/ui';
 	import BoldIcon from '@lucide/svelte/icons/bold';
 	import ItalicIcon from '@lucide/svelte/icons/italic';
 	import Heading2Icon from '@lucide/svelte/icons/heading-2';
@@ -261,7 +261,7 @@
 <div class={cn('flex min-h-0 flex-col', className)}>
 	<div
 		class={cn(
-			'flex flex-wrap items-center gap-0.5 rounded-t-2xl bg-input/50 px-1.5 py-1',
+			'flex flex-wrap items-center gap-0.5 rounded-t-2xl bg-muted px-1.5 py-1',
 			toolbarClass
 		)}
 	>
@@ -273,7 +273,7 @@
 				size="icon-sm"
 				aria-label={tool.title}
 				aria-pressed={active[tool.key] ?? false}
-				class={active[tool.key] ? 'bg-accent text-accent-foreground' : ''}
+				class={active[tool.key] ? 'bg-muted text-foreground' : ''}
 				disabled={!editor}
 				onmousedown={hold}
 				onclick={tool.run}
@@ -284,7 +284,7 @@
 	</div>
 	<div
 		bind:this={host}
-		class={cn('min-h-0 flex-1 overflow-y-auto rounded-b-2xl bg-input/50 px-2.5 py-2', bodyClass)}
+		class={cn('min-h-0 flex-1 overflow-y-auto rounded-b-2xl bg-muted px-2.5 py-2', bodyClass)}
 	></div>
 	{#if name}
 		<input type="hidden" {name} value={text} />

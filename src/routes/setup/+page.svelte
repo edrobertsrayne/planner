@@ -1,10 +1,8 @@
 <script lang="ts">
-	import CalendarDaysIcon from '@lucide/svelte/icons/calendar-days';
-	import * as Alert from '$lib/components/ui/alert';
-	import { Button } from '$lib/components/ui/button';
-	import * as Card from '$lib/components/ui/card';
-	import * as Field from '$lib/components/ui/field';
-	import { Input } from '$lib/components/ui/input';
+	import * as Alert from '$lib/ui/alert';
+	import { Button, Input } from '$lib/ui';
+	import * as Card from '$lib/ui/card';
+	import * as Field from '$lib/ui/field';
 	import BuildInfo from '$lib/components/build-info.svelte';
 	import type { ActionData } from './$types';
 
@@ -73,24 +71,17 @@
 	class="flex min-h-svh flex-col items-center gap-6 p-4 pt-10 sm:justify-center sm:bg-muted sm:p-6 md:p-10"
 >
 	<div class="flex w-full max-w-sm flex-col gap-6">
-		<div class="flex items-center gap-2 self-center font-medium">
-			<div
-				class="flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground"
-			>
-				<CalendarDaysIcon class="size-4" />
-			</div>
-			<span class="text-sm font-semibold tracking-tight">Planner</span>
-		</div>
+		<span class="self-center text-2xl font-bold tracking-tight">Planner</span>
 
 		<!-- Below `sm` the card loses its frame and the page its centring and backdrop (story
 		     122), as Login's does: on a phone the form starts at the top. -->
-		<Card.Root class="max-sm:border-0 max-sm:bg-transparent max-sm:shadow-none max-sm:ring-0">
-			<Card.Header class="text-center max-sm:px-0">
+		<Card.Root class="max-sm:border-0 max-sm:bg-transparent max-sm:p-0">
+			<Card.Header class="text-center">
 				<Card.Title class="text-xl">
 					{showRestore ? 'Restore from a Backup' : 'Set up Planner'}
 				</Card.Title>
 			</Card.Header>
-			<Card.Content class="flex flex-col gap-6 max-sm:px-0">
+			<Card.Content class="flex flex-col gap-6">
 				{#if activeError}
 					<Alert.Root variant="destructive">
 						<Alert.Description>{activeError}</Alert.Description>
@@ -99,28 +90,28 @@
 
 				{#if showRestore}
 					<form onsubmit={restore}>
-						<Field.FieldGroup>
-							<Field.Field>
-								<Field.FieldLabel for="backup">Backup file</Field.FieldLabel>
+						<Field.Group>
+							<Field.Root>
+								<Field.Label for="backup">Backup file</Field.Label>
 								<Input id="backup" type="file" name="backup" accept=".tar" required />
 								<!-- The instructions sit under the file field (story 121), not in a card
 								     description: the swap line under the card already names the move. -->
-								<Field.FieldDescription>
+								<Field.Description>
 									Choose the file that Back up saved there. You sign in with the password from that
 									planner.
-								</Field.FieldDescription>
-							</Field.Field>
+								</Field.Description>
+							</Field.Root>
 
 							<Button type="submit" variant="outline" class="w-full" disabled={restoring}>
 								{restoring ? 'Restoring…' : 'Restore'}
 							</Button>
-						</Field.FieldGroup>
+						</Field.Group>
 					</form>
 				{:else}
 					<form method="POST">
-						<Field.FieldGroup>
-							<Field.Field data-invalid={form?.field === 'name' || undefined}>
-								<Field.FieldLabel for="name">Name</Field.FieldLabel>
+						<Field.Group>
+							<Field.Root data-invalid={form?.field === 'name' || undefined}>
+								<Field.Label for="name">Name</Field.Label>
 								<Input
 									id="name"
 									type="text"
@@ -129,10 +120,10 @@
 									required
 									aria-invalid={form?.field === 'name' || undefined}
 								/>
-							</Field.Field>
+							</Field.Root>
 
-							<Field.Field data-invalid={form?.field === 'email' || undefined}>
-								<Field.FieldLabel for="email">Email</Field.FieldLabel>
+							<Field.Root data-invalid={form?.field === 'email' || undefined}>
+								<Field.Label for="email">Email</Field.Label>
 								<Input
 									id="email"
 									type="email"
@@ -141,10 +132,10 @@
 									required
 									aria-invalid={form?.field === 'email' || undefined}
 								/>
-							</Field.Field>
+							</Field.Root>
 
-							<Field.Field data-invalid={form?.field === 'password' || undefined}>
-								<Field.FieldLabel for="password">Password</Field.FieldLabel>
+							<Field.Root data-invalid={form?.field === 'password' || undefined}>
+								<Field.Label for="password">Password</Field.Label>
 								<Input
 									id="password"
 									type="password"
@@ -153,13 +144,13 @@
 									required
 									aria-invalid={form?.field === 'password' || undefined}
 								/>
-								<Field.FieldDescription>
+								<Field.Description>
 									There is no password reset by email — keep it somewhere safe.
-								</Field.FieldDescription>
-							</Field.Field>
+								</Field.Description>
+							</Field.Root>
 
-							<Field.Field data-invalid={form?.field === 'confirmPassword' || undefined}>
-								<Field.FieldLabel for="confirmPassword">Confirm password</Field.FieldLabel>
+							<Field.Root data-invalid={form?.field === 'confirmPassword' || undefined}>
+								<Field.Label for="confirmPassword">Confirm password</Field.Label>
 								<Input
 									id="confirmPassword"
 									type="password"
@@ -168,10 +159,10 @@
 									required
 									aria-invalid={form?.field === 'confirmPassword' || undefined}
 								/>
-							</Field.Field>
+							</Field.Root>
 
 							<Button type="submit" class="w-full">Create account</Button>
-						</Field.FieldGroup>
+						</Field.Group>
 					</form>
 				{/if}
 			</Card.Content>

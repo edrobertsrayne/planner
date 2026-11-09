@@ -7,9 +7,8 @@
 	import { createSequenceBoard } from '$lib/client/sequence-board.svelte';
 	import { lossSentence, type SequenceResult } from '$lib/sequence-text';
 	import { withParam } from '$lib/query';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
-	import * as Dialog from '$lib/components/ui/dialog/index.js';
+	import { Button, Input } from '$lib/ui';
+	import * as Dialog from '$lib/ui/dialog';
 	import AssignTopicMenu from '$lib/components/assign-topic-menu.svelte';
 	import { topicColour } from '$lib/topic-colour';
 	import SequenceListRow from './SequenceListRow.svelte';

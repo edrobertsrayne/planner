@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { nextTone, TONE_SEQUENCE } from './class-tone';
 
-// The hue of each Tone position, as settled in layout.css on issue #83 — indigo 266° first,
-// every gap opened to 35°+ across the set.
-const HUES = [266, 140, 225, 305, 66, 20, 185, 340];
+// The hue of each Tone position in the Calm palette (layout.css): lilac first, then mint, sky,
+// lime, lemon, rose, lagoon, peach.
+const HUES = [290, 160, 245, 125, 90, 355, 195, 50];
 
 function circularGap(a: number, b: number) {
 	const d = Math.abs(HUES[a] - HUES[b]) % 360;

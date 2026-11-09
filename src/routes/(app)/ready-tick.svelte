@@ -2,8 +2,8 @@
 	import { enhance } from '$app/forms';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import { failureReason } from '$lib/client/enhance';
-	import { touchTarget } from '$lib/components/ui/touch-target';
-	import { toast } from 'svelte-sonner';
+	import { touchTarget } from '$lib/ui';
+	import { toast } from '$lib/ui/toast';
 
 	let {
 		lessonId,
@@ -45,7 +45,7 @@
 			name="ready"
 			value="true"
 			checked={ready}
-			class="peer size-4 shrink-0 cursor-pointer appearance-none rounded-[5px] border border-transparent bg-input/90 transition-shadow outline-none checked:border-primary checked:bg-primary focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
+			class="peer size-4 shrink-0 cursor-pointer appearance-none rounded-[5px] border border-outline bg-surface transition-shadow outline-none checked:border-primary checked:bg-primary focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
 			aria-label={label}
 			onchange={(e) => e.currentTarget.form?.requestSubmit()}
 		/>

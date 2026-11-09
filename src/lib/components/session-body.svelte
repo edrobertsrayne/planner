@@ -1,17 +1,14 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { toast } from 'svelte-sonner';
+	import { toast } from '$lib/ui/toast';
 	import { formatWeekday } from '$lib/date';
 	import type { Occasion } from '$lib/client/session-href';
 	import { createTeachingNotes } from '$lib/client/teaching-note';
 	import type { SessionDetail, WriteReport } from '$lib/server/planner';
 	import RewindReport from '$lib/components/rewind-report.svelte';
-	import { Badge } from '$lib/components/ui/badge';
-	import { touchTarget } from '$lib/components/ui/touch-target';
+	import { Badge, Button, Input, touchTarget } from '$lib/ui';
 	import LessonChildren from '$lib/components/lesson-children.svelte';
 	import TagChips from '$lib/components/tag-chips.svelte';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
 	import Markdown from '$lib/components/markdown.svelte';
 	import MarkdownEditor from '$lib/components/markdown-editor.svelte';
 

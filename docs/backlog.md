@@ -14,7 +14,7 @@ Add new entries at the top, dated:
   Events.
 
 - 2026-11-02: Move to `@sveltejs/kit` 3 and `@sveltejs/adapter-node` 6, `katex` 0.19 and
-  TypeScript 7. Kit 3 is blocked because `bits-ui` pins `runed@0.35`, which peers kit 2; `katex`
+  TypeScript 7. `katex`
   0.19 is outside `@tiptap/extension-mathematics`'s peer range (`^0.18`); `typescript` 7 is untried
   against `svelte-check` and `typescript-eslint`. `drizzle-orm` and `drizzle-kit` stay on
   1.0.0-rc.4, which is newer than the `latest` tag (0.45).

@@ -4,8 +4,7 @@
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import XIcon from '@lucide/svelte/icons/x';
 	import ReorderButtons from '$lib/components/reorder-buttons.svelte';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
+	import { Button, Input } from '$lib/ui';
 
 	let {
 		link,

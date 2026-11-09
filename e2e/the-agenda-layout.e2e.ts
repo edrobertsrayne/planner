@@ -106,7 +106,7 @@ test.describe('the Agenda on a tablet', () => {
 
 	test('the look-back button keeps a 44 px hit area on touch (issue #341)', async ({ page }) => {
 		await login(page);
-		// The button is drawn at the shadcn size from `md` up; its hit area comes from the
+		// The button is drawn at its desktop size from `md` up; its hit area comes from the
 		// shared touch rule (touch-target.ts).
 		await expectHitArea44(page, 'Show the previous 7 days', 'button');
 	});

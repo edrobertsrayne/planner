@@ -3,8 +3,8 @@
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { submitForm } from '$lib/client/enhance';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
+	import { Button } from '$lib/ui';
+	import * as DropdownMenu from '$lib/ui/menu';
 	import type { TopicOption } from '$lib/server/planner';
 
 	let {
@@ -34,7 +34,7 @@
 				</Button>
 			{/snippet}
 		</DropdownMenu.Trigger>
-		<DropdownMenu.Content align="end" class="w-auto min-w-(--bits-dropdown-menu-anchor-width)">
+		<DropdownMenu.Content align="end">
 			{#each topics as topic (topic.id)}
 				{@const all = topic.counted === topic.lessonCount}
 				<DropdownMenu.Item

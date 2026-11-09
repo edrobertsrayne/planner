@@ -2,14 +2,12 @@
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { toast } from 'svelte-sonner';
+	import { toast } from '$lib/ui/toast';
 	import type { Snippet } from 'svelte';
 	import { createdId, failureReason } from '$lib/client/enhance';
-	import * as Dialog from '$lib/components/ui/dialog/index.js';
-	import * as Field from '$lib/components/ui/field/index.js';
-	import * as Select from '$lib/components/ui/select/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
+	import * as Dialog from '$lib/ui/dialog';
+	import * as Field from '$lib/ui/field';
+	import { Button, Input, Select } from '$lib/ui';
 
 	let {
 		courses,
@@ -24,6 +22,7 @@
 
 	// The first Course stands in until the teacher picks another: a Class needs one, and the
 	// list cannot change while the dialog is open.
+	const courseOptions = $derived(courses.map((c) => ({ value: c.id, label: c.name })));
 	const course = $derived(courses.find((c) => c.id === pickedCourseId) ?? courses[0]);
 </script>
 
@@ -60,7 +59,7 @@
 			}}
 		>
 			<Field.Group>
-				<Field.Field>
+				<Field.Root>
 					<Field.Label for="new-class-label">Label</Field.Label>
 					<Input
 						id="new-class-label"
@@ -72,29 +71,22 @@
 						class="h-7"
 					/>
 					<Field.Description>However it appears on your timetable.</Field.Description>
-				</Field.Field>
+				</Field.Root>
 
-				<Field.Field>
+				<Field.Root>
 					<Field.Label for="new-class-course">Course</Field.Label>
-					<Select.Root
-						type="single"
+					<Select
 						name="courseId"
+						id="new-class-course"
 						value={course?.id ?? ''}
 						onValueChange={(id) => (pickedCourseId = id)}
-					>
-						<Select.Trigger size="sm" id="new-class-course" class="w-full">
-							{course?.name ?? 'Pick a Course'}
-						</Select.Trigger>
-						<Select.Content>
-							{#each courses as course (course.id)}
-								<Select.Item value={course.id} label={course.name} />
-							{/each}
-						</Select.Content>
-					</Select.Root>
+						options={courseOptions}
+						class="w-full"
+					/>
 					<Field.Description>
 						A mis-pick means deleting the Class and starting again.
 					</Field.Description>
-				</Field.Field>
+				</Field.Root>
 			</Field.Group>
 
 			<Dialog.Footer class="mt-6">

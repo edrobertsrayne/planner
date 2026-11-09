@@ -2,13 +2,12 @@
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { toast } from 'svelte-sonner';
+	import { toast } from '$lib/ui/toast';
 	import type { Snippet } from 'svelte';
 	import { createdId, failureReason } from '$lib/client/enhance';
-	import * as Dialog from '$lib/components/ui/dialog/index.js';
-	import * as Field from '$lib/components/ui/field/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
+	import * as Dialog from '$lib/ui/dialog';
+	import * as Field from '$lib/ui/field';
+	import { Button, Input } from '$lib/ui';
 
 	let { trigger }: { trigger: Snippet<[props: Record<string, unknown>]> } = $props();
 
@@ -45,7 +44,7 @@
 			}}
 		>
 			<Field.Group>
-				<Field.Field>
+				<Field.Root>
 					<Field.Label for="new-course-name">Name</Field.Label>
 					<Input
 						id="new-course-name"
@@ -56,7 +55,7 @@
 						placeholder="Year 9 Physics"
 						class="h-7"
 					/>
-				</Field.Field>
+				</Field.Root>
 			</Field.Group>
 
 			<Dialog.Footer class="mt-6">

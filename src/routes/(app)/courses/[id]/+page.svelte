@@ -14,10 +14,8 @@
 	import RenameableRow from '$lib/components/renameable-row.svelte';
 	import DragGrip from '$lib/components/drag-grip.svelte';
 	import TagChips from '$lib/components/tag-chips.svelte';
-	import { Badge } from '$lib/components/ui/badge/index.js';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
-	import { touchTarget } from '$lib/components/ui/touch-target.js';
+	import { Badge, Input, touchTarget } from '$lib/ui';
+	import * as DropdownMenu from '$lib/ui/menu';
 	import { MediaQuery } from 'svelte/reactivity';
 	import ConfirmDeleteDialog from '$lib/components/confirm-delete-dialog.svelte';
 	import type { SubmitFunction } from '@sveltejs/kit';
@@ -135,7 +133,7 @@
 		<span
 			class="mt-2 size-3 shrink-0 rounded-full ring-2"
 			style:background-color={tone.bg}
-			style:--tw-ring-color={tone.ring}
+			style:--tw-ring-color={tone.dot}
 			aria-hidden="true"
 		></span>
 		<div class="min-w-0 flex-1">
@@ -188,10 +186,10 @@
 						<a
 							href={courseHref(data.course.id, topic.id)}
 							style:--tone={tone.bg}
-							class="flex items-start gap-2 border-l-4 border-transparent px-4 py-2 text-sm hover:bg-accent pointer-coarse:min-h-11 {marked
+							class="flex items-start gap-2 border-l-4 border-transparent px-4 py-2 text-sm hover:bg-muted pointer-coarse:min-h-11 {marked
 								? data.topic
-									? 'border-(--tone) bg-accent'
-									: 'xl:border-(--tone) xl:bg-accent'
+									? 'border-(--tone) bg-muted'
+									: 'xl:border-(--tone) xl:bg-muted'
 								: ''}"
 						>
 							<span class="min-w-0 flex-1 break-words">{topic.name}</span>

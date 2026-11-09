@@ -12,7 +12,7 @@
 	import { onFail, replaceQuery, submitForm } from '$lib/client/enhance';
 	import { sessionHref } from '$lib/client/session-href';
 	import { withParam } from '$lib/query';
-	import { touchTarget } from '$lib/components/ui/touch-target';
+	import { Button, touchTarget } from '$lib/ui';
 	import BlockDayDialog from '$lib/components/block-day-dialog.svelte';
 	import BlockSlotDialog, { type Pick } from '$lib/components/block-slot-dialog.svelte';
 	import AbsentMarker from '$lib/components/absent-marker.svelte';
@@ -22,8 +22,7 @@
 	import PageHeader from '$lib/components/page-header.svelte';
 	import RewindReport from '$lib/components/rewind-report.svelte';
 	import TagChips from '$lib/components/tag-chips.svelte';
-	import { Button } from '$lib/components/ui/button';
-	import * as Tabs from '$lib/components/ui/tabs/index.js';
+	import * as Tabs from '$lib/ui/tabs';
 	import { AGENDA_HORIZONS } from './agenda-horizons';
 	import {
 		agendaStream,
@@ -144,7 +143,7 @@
 					if (v) setHorizon(v);
 				}}
 			>
-				<Tabs.List variant="line">
+				<Tabs.List>
 					{#each AGENDA_HORIZONS as [n, label] (n)}
 						<Tabs.Trigger value={String(n)}>{label}</Tabs.Trigger>
 					{/each}
@@ -248,7 +247,7 @@
 		>
 			<span
 				class="absolute inset-y-0 left-0 w-1"
-				style:background-color={tone.ring}
+				style:background-color={tone.dot}
 				aria-hidden="true"
 			></span>
 
@@ -407,13 +406,13 @@
 			</div>
 			<!-- An Absence lists each Class and Period it takes, so its Cover is set from here. -->
 			{#if item.lines.length > 0}
-				<ul class="divide-y divide-border border-t bg-card">
+				<ul class="divide-y divide-border border-t bg-surface">
 					{#each item.lines as line (line.classId + line.period)}
 						{@const tone = classTone(line.tone)}
 						<li class="relative flex items-center gap-3 pr-2 pl-4">
 							<span
 								class="absolute inset-y-0 left-0 w-1"
-								style:background-color={tone.ring}
+								style:background-color={tone.dot}
 								aria-hidden="true"
 							></span>
 							<span class="w-14 shrink-0 text-xs text-muted-foreground tabular-nums">
@@ -521,7 +520,7 @@
 					>
 				</h2>
 
-				<ul class="divide-y divide-border overflow-hidden rounded-xl border bg-card">
+				<ul class="divide-y divide-border overflow-hidden rounded-xl border bg-surface">
 					{#each item.rows as line (lineKey(line))}
 						{@render agendaLine(line, false)}
 					{/each}

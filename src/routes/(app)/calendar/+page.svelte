@@ -13,10 +13,9 @@
 	import AbsentMarker from '$lib/components/absent-marker.svelte';
 	import RewindReport from '$lib/components/rewind-report.svelte';
 	import SetCoverDialog, { type CoverPick } from '$lib/components/set-cover-dialog.svelte';
-	import { Button } from '$lib/components/ui/button';
-	import { touchTarget } from '$lib/components/ui/touch-target';
+	import { Button, touchTarget } from '$lib/ui';
 	import { cn } from '$lib/utils.js';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import * as DropdownMenu from '$lib/ui/menu';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import BlockSlotDialog, { type Pick } from '$lib/components/block-slot-dialog.svelte';
 	import CalendarSetup from './CalendarSetup.svelte';
@@ -183,7 +182,7 @@
 									href={weekHref(w.weekCommencing)}
 									aria-current={isSelected ? 'true' : undefined}
 									class="flex h-6 shrink-0 items-center rounded-sm px-2 text-xs font-medium tabular-nums {isSelected
-										? 'bg-secondary text-secondary-foreground'
+										? 'bg-primary-container text-primary-container-foreground'
 										: 'text-muted-foreground hover:bg-muted'}"
 									title="w/c {formatDayMonth(w.weekCommencing)}"
 								>
@@ -532,7 +531,7 @@
 													cell.past && 'hatched'
 												)}
 												style:background-color={tone.bg}
-												style:border-color={tone.ring}
+												style:border-color={tone.dot}
 											>
 												<span class="truncate text-xs font-semibold" style:color={tone.fg}>
 													{cell.classLabel}
@@ -571,7 +570,7 @@
 														<span
 															data-standalone-ring
 															class="pointer-events-none absolute inset-1 rounded-md border border-dashed"
-															style:border-color={tone.ring}
+															style:border-color={tone.dot}
 														></span>
 													{/if}
 												{:else}

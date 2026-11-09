@@ -5,8 +5,8 @@
 // sequence wraps and duplicates appear, spaced apart. Nothing here ever moves an existing Tone.
 //
 // The eight positions are the tone tokens defined in src/routes/layout.css
-// (`--tone-{0-7}-{bg|fg|ring}`, issue #83): position 0 indigo, then emerald, sky, violet, amber,
-// rose, teal, fuchsia. Handing back var() references rather than Tailwind utilities keeps this
+// (`--tone-{0-7}-{bg|fg|dot}`, issue #83): position 0 lilac, then mint, sky, lime, lemon,
+// rose, lagoon, peach. Handing back var() references rather than Tailwind utilities keeps this
 // file out of the palette business; consumers style with them inline, so both theme variants come
 // free from the .dark override.
 
@@ -30,7 +30,7 @@ export function nextTone(inUse: readonly number[]): number {
 export interface ToneTokens {
 	bg: string;
 	fg: string;
-	ring: string;
+	dot: string;
 }
 
 // A stored Tone index to its token role names.
@@ -38,6 +38,6 @@ export function classTone(tone: number): ToneTokens {
 	return {
 		bg: `var(--tone-${tone}-bg)`,
 		fg: `var(--tone-${tone}-fg)`,
-		ring: `var(--tone-${tone}-ring)`
+		dot: `var(--tone-${tone}-dot)`
 	};
 }

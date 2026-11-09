@@ -12,19 +12,18 @@
 		submitForm
 	} from '$lib/client/enhance';
 	import { STATUS_LABEL } from '$lib/lesson-status';
-	import { toast } from 'svelte-sonner';
+	import { toast } from '$lib/ui/toast';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
 	import UnlinkIcon from '@lucide/svelte/icons/unlink';
 	import XIcon from '@lucide/svelte/icons/x';
-	import { Button } from '$lib/components/ui/button/index.js';
+	import { Button, Input } from '$lib/ui';
 	import ConfirmDeleteDialog from '$lib/components/confirm-delete-dialog.svelte';
 	import { MediaQuery } from 'svelte/reactivity';
-	import { Input } from '$lib/components/ui/input/index.js';
 	import MarkdownEditor from '$lib/components/markdown-editor.svelte';
-	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.js';
+	import * as ToggleGroup from '$lib/ui/toggle-group';
 	import TagBadge from '$lib/components/tag-badge.svelte';
 	import AttachmentRow from './AttachmentRow.svelte';
 	import LessonReadView from './LessonReadView.svelte';
@@ -310,9 +309,6 @@
 								<input type="hidden" name="id" value={lesson.id} />
 								<input type="hidden" name="status" value={lesson.status} />
 								<ToggleGroup.Root
-									type="single"
-									variant="outline"
-									size="sm"
 									value={lesson.status}
 									onValueChange={(v) => {
 										if (v && v !== lesson.status) submitForm(statusForm, { fields: { status: v } });
@@ -356,7 +352,7 @@
 										id="lesson-topic"
 										name="topicId"
 										value={data.lesson.topic?.id ?? ''}
-										class="w-full rounded-md border border-input bg-background px-2 py-1 text-sm pointer-coarse:min-h-11"
+										class="w-full rounded-md border border-outline bg-background px-2 py-1 text-sm pointer-coarse:min-h-11"
 										onchange={(e) => e.currentTarget.form?.requestSubmit()}
 									>
 										{#if data.lesson.topic}

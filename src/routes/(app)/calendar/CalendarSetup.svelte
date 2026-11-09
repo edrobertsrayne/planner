@@ -11,8 +11,7 @@
 	import { formatDateShort, isRealDate } from '$lib/date';
 	import type { WriteReport } from '$lib/server/planner';
 	import RewindReport from '$lib/components/rewind-report.svelte';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
+	import { Button, Input } from '$lib/ui';
 
 	// The setup mode's own header carries Save year and Cancel, because the week controls in the
 	// page header would read a year that is not saved yet. The Blocked Days below the Terms are

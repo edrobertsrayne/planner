@@ -1,6 +1,6 @@
 <script lang="ts">
 	import GripVerticalIcon from '@lucide/svelte/icons/grip-vertical';
-	import { touchTarget } from '$lib/components/ui/touch-target';
+	import { touchTarget } from '$lib/ui';
 
 	// The grip a drag starts from, in the Sequence tab and a Topic's Lessons. It takes the pointer
 	// itself (`touch-action: none`), so the rest of the row still lets a finger scroll the page.

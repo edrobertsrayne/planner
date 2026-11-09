@@ -14,10 +14,8 @@
 	import ConfirmDeleteDialog from '$lib/components/confirm-delete-dialog.svelte';
 	import RenameableRow from '$lib/components/renameable-row.svelte';
 	import RewindReport from '$lib/components/rewind-report.svelte';
-	import { Badge } from '$lib/components/ui/badge/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import * as Select from '$lib/components/ui/select/index.js';
-	import * as Tabs from '$lib/components/ui/tabs/index.js';
+	import { Badge, Button, Select } from '$lib/ui';
+	import * as Tabs from '$lib/ui/tabs';
 	import SequenceTab from './SequenceTab.svelte';
 	import SlotRooms from './SlotRooms.svelte';
 	import TimetableGrid from './TimetableGrid.svelte';
@@ -51,12 +49,12 @@
 	// Named stops: start of year, today, and every date this Class's own Slots start or stop
 	// holding — the "Timetable as at" control's job is to make those, plus any date at all, a
 	// first-class position to view or edit from (issue #93).
-	const stops = $derived.by(() => {
-		const dates = [data.today, data.yearStart];
+	const asAtOptions = $derived.by(() => {
+		const dates = [data.today, data.yearStart, data.on];
 		for (const s of data.datedSlots) dates.push(s.holdsFrom, s.holdsTo);
 		const unique = dates.filter((d, i): d is string => d !== null && dates.indexOf(d) === i);
 		return unique.sort().map((date) => ({
-			date,
+			value: date,
 			label:
 				date === data.yearStart
 					? `Start of year — ${formatDate(date)}`
@@ -89,7 +87,7 @@
 		<span
 			class="mt-1.5 size-2.5 shrink-0 rounded-full ring-2"
 			style:background-color={tone.bg}
-			style:--tw-ring-color={tone.ring}
+			style:--tw-ring-color={tone.dot}
 			aria-hidden="true"
 		></span>
 		<div class="min-w-0">
@@ -123,7 +121,7 @@
 	     on a phone: the Sequence is all a phone reads of this page, whichever tab was last chosen on
 	     a wider window. -->
 	<Tabs.Root value={tab} onValueChange={(v) => v && (tab = v as typeof tab)} class="mt-3">
-		<Tabs.List variant="line" class="max-md:hidden">
+		<Tabs.List class="max-md:hidden">
 			<Tabs.Trigger value="overview">Overview</Tabs.Trigger>
 			<Tabs.Trigger value="timetable">
 				Timetable <span class="text-xs tabular-nums opacity-60">{slotCount}</span>
@@ -154,16 +152,13 @@
 		<section class="min-w-0">
 			<div class="mt-4 flex flex-wrap items-center gap-2">
 				<span class="text-xs font-medium text-muted-foreground">Timetable as at</span>
-				<Select.Root type="single" value={data.on} onValueChange={(v) => v && setAsAt(v)}>
-					<Select.Trigger size="sm" class="h-7 w-56 text-xs">
-						{formatDate(data.on)}
-					</Select.Trigger>
-					<Select.Content>
-						{#each stops as s (s.date)}
-							<Select.Item value={s.date} label={s.label} />
-						{/each}
-					</Select.Content>
-				</Select.Root>
+				<Select
+					value={data.on}
+					onValueChange={setAsAt}
+					options={asAtOptions}
+					aria-label="Date"
+					class="w-56 text-xs"
+				/>
 				<input
 					type="date"
 					class="h-7 rounded-md border bg-transparent px-2 text-xs"

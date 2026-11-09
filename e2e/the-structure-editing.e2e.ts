@@ -437,7 +437,7 @@ test.describe('Detach on the Lesson editor', () => {
 
 		await page.getByRole('button', { name: 'Detach from Topic' }).click();
 		await expect(
-			page.locator('[data-sonner-toast]').filter({ hasText: 'Lesson detached from its Topic.' })
+			page.locator('[data-slot=toast]').filter({ hasText: 'Lesson detached from its Topic.' })
 		).toBeVisible();
 		expect(page.url()).toBe(url);
 		await expect(page.getByRole('textbox', { name: 'Lesson title', exact: true })).toHaveValue(

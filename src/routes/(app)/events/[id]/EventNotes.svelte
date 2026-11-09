@@ -2,7 +2,7 @@
 	import { enhance } from '$app/forms';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-	import { Button } from '$lib/components/ui/button/index.js';
+	import { Button } from '$lib/ui';
 	import { formatShortWeekday, formatWeekday } from '$lib/date';
 	import { positionLabel } from '$lib/events';
 	import { onFail } from '$lib/client/enhance';
@@ -97,7 +97,7 @@
 		</div>
 
 		{#if card && date}
-			<div id="date-{date}" class="rounded-xl border bg-card p-4">
+			<div id="date-{date}" class="rounded-xl border bg-surface p-4">
 				<form
 					method="POST"
 					action="?/setEventNote"

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { Input } from '$lib/components/ui/input/index.js';
-	import { touchTarget } from '$lib/components/ui/touch-target.js';
+	import { Input, touchTarget } from '$lib/ui';
 
 	// A page or panel heading that its own page can rename in place. Every caller is a heading;
 	// the pencil is the only control beside it.

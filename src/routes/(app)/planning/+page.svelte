@@ -9,11 +9,11 @@
 	import PageHeader from '$lib/components/page-header.svelte';
 	import RewindReport from '$lib/components/rewind-report.svelte';
 	import TagChips from '$lib/components/tag-chips.svelte';
-	import { Badge } from '$lib/components/ui/badge/index.js';
+	import { Badge } from '$lib/ui';
 	import { page } from '$app/state';
 	import { replaceQuery } from '$lib/client/enhance';
 	import { withParam } from '$lib/query';
-	import * as Tabs from '$lib/components/ui/tabs/index.js';
+	import * as Tabs from '$lib/ui/tabs';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -110,7 +110,7 @@
 					value={filter}
 					onValueChange={(v) => replaceQuery(withParam(page.url, 'status', v === 'all' ? null : v))}
 				>
-					<Tabs.List variant="line">
+					<Tabs.List>
 						{#each FILTERS as f (f.key)}
 							<Tabs.Trigger value={f.key}>
 								{f.name} <span class="tabular-nums opacity-60">{tally[f.key]}</span>
@@ -150,7 +150,7 @@
 			<ul class="mt-4 space-y-2 md:hidden">
 				{#each filtered as lesson (lesson.id)}
 					{@const s = lesson.occurrence}
-					<li class="rounded-lg border bg-card p-3">
+					<li class="rounded-lg border bg-surface p-3">
 						<div class="flex items-center gap-2 text-xs text-muted-foreground">
 							{#if s}
 								<span class="font-medium text-foreground tabular-nums"

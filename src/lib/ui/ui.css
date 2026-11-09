@@ -1,0 +1,644 @@
+/*
+	The Calm design system's components. Plain classes on purpose: they live in the `components`
+	layer, so a Tailwind utility on the same element (layout, width, spacing) always wins without a
+	class-merging step. Every colour is a token from layout.css, so dark mode is the tokens' job.
+*/
+@layer components {
+	/* ---- Button ------------------------------------------------------------------------ */
+	.ui-btn {
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		justify-content: center;
+		gap: 0.375rem;
+		height: 2.75rem;
+		padding: 0 1.125rem;
+		border: 1px solid transparent;
+		border-radius: 10px;
+		font-size: 0.9375rem;
+		font-weight: 600;
+		line-height: 1;
+		white-space: nowrap;
+		cursor: pointer;
+		user-select: none;
+		transition: background-color 120ms;
+	}
+	.ui-btn:disabled,
+	.ui-btn[aria-disabled='true'] {
+		opacity: 0.5;
+		pointer-events: none;
+	}
+	.ui-btn svg {
+		width: 1rem;
+		height: 1rem;
+		flex-shrink: 0;
+		pointer-events: none;
+	}
+	.ui-btn-default {
+		background: var(--primary);
+		color: var(--on-primary);
+	}
+	.ui-btn-default:hover {
+		background: color-mix(in oklab, var(--primary), var(--text) 12%);
+	}
+	.ui-btn-secondary {
+		background: var(--primary-container);
+		color: var(--on-primary-container);
+	}
+	.ui-btn-secondary:hover {
+		background: color-mix(in oklab, var(--primary-container), var(--text) 6%);
+	}
+	.ui-btn-outline {
+		background: transparent;
+		color: var(--text);
+		border-color: var(--outline);
+	}
+	.ui-btn-outline:hover,
+	.ui-btn-outline[aria-expanded='true'] {
+		background: var(--step-1);
+	}
+	.ui-btn-ghost {
+		background: transparent;
+		color: var(--text);
+	}
+	.ui-btn-ghost:hover,
+	.ui-btn-ghost[aria-expanded='true'] {
+		background: var(--step-1);
+	}
+	.ui-btn-destructive {
+		background: transparent;
+		color: var(--error);
+		border-color: var(--error);
+	}
+	.ui-btn-destructive:hover {
+		background: color-mix(in oklab, var(--error) 10%, transparent);
+	}
+	.ui-btn-link {
+		background: transparent;
+		color: var(--primary);
+		height: auto;
+		padding: 0;
+	}
+	.ui-btn-link:hover {
+		text-decoration: underline;
+		text-underline-offset: 4px;
+	}
+	.ui-btn-xs {
+		height: 1.5rem;
+		padding: 0 0.625rem;
+		font-size: 0.75rem;
+		border-radius: 6px;
+	}
+	.ui-btn-sm {
+		height: 2rem;
+		padding: 0 0.75rem;
+		font-size: 0.875rem;
+	}
+	.ui-btn-lg {
+		height: 3rem;
+		padding: 0 1.25rem;
+	}
+	.ui-btn-icon {
+		width: 2.75rem;
+		padding: 0;
+	}
+	.ui-btn-icon-xs {
+		width: 1.5rem;
+		height: 1.5rem;
+		padding: 0;
+		border-radius: 6px;
+	}
+	.ui-btn-icon-sm {
+		width: 2rem;
+		height: 2rem;
+		padding: 0;
+	}
+	.ui-btn-icon-lg {
+		width: 2.75rem;
+		height: 2.75rem;
+		padding: 0;
+	}
+
+	/* ---- Text controls ----------------------------------------------------------------- */
+	.ui-input {
+		display: block;
+		width: 100%;
+		min-width: 0;
+		height: 2.75rem;
+		padding: 0 0.75rem;
+		border: 1px solid var(--outline);
+		border-radius: 10px;
+		background: var(--surface);
+		color: var(--text);
+		font: inherit;
+		font-size: 0.9375rem;
+	}
+	.ui-input::placeholder {
+		color: var(--muted);
+	}
+	.ui-input:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+	.ui-input[aria-invalid='true'] {
+		border-color: var(--error);
+	}
+	.ui-input[type='file'] {
+		padding: 0.3rem 0.5rem;
+		height: auto;
+	}
+	.ui-textarea {
+		height: auto;
+		min-height: 5rem;
+		padding: 0.625rem 0.75rem;
+		line-height: 1.45;
+		resize: vertical;
+	}
+	@media (pointer: coarse) {
+		.ui-input {
+			min-height: 2.75rem;
+		}
+	}
+	.ui-label {
+		display: flex;
+		width: fit-content;
+		gap: 0.5rem;
+		font-size: 0.8125rem;
+		font-weight: 600;
+		line-height: 1.2;
+	}
+	.ui-field {
+		display: flex;
+		width: 100%;
+		flex-direction: column;
+		gap: 0.375rem;
+	}
+	.ui-field-horizontal {
+		flex-direction: row;
+		align-items: center;
+	}
+	.ui-field-group {
+		display: flex;
+		width: 100%;
+		flex-direction: column;
+		gap: 1rem;
+	}
+	.ui-field-description {
+		font-size: 0.75rem;
+		line-height: 1rem;
+		color: var(--muted);
+	}
+
+	/* A native <select> wearing the control's look, with the chevron laid over it. */
+	.ui-select {
+		position: relative;
+		display: inline-flex;
+		align-items: center;
+		min-width: 0;
+	}
+	.ui-select select {
+		appearance: none;
+		width: 100%;
+		height: 2.75rem;
+		padding: 0 2rem 0 0.75rem;
+		border: 1px solid var(--outline);
+		border-radius: 10px;
+		background: var(--surface);
+		color: var(--text);
+		font: inherit;
+		font-size: 0.9375rem;
+	}
+	.ui-select svg {
+		position: absolute;
+		right: 0.625rem;
+		width: 1rem;
+		height: 1rem;
+		color: var(--muted);
+		pointer-events: none;
+	}
+	@media (pointer: coarse) {
+		.ui-select select {
+			min-height: 2.75rem;
+		}
+	}
+
+	/* ---- Badge ------------------------------------------------------------------------- */
+	.ui-badge {
+		display: inline-flex;
+		width: fit-content;
+		flex-shrink: 0;
+		align-items: center;
+		justify-content: center;
+		gap: 0.25rem;
+		height: 1.375rem;
+		padding: 0 0.5rem;
+		border: 1px solid transparent;
+		border-radius: 6px;
+		font-size: 0.75rem;
+		font-weight: 600;
+		line-height: 1;
+		white-space: nowrap;
+		overflow: hidden;
+	}
+	.ui-badge svg {
+		width: 0.75rem;
+		height: 0.75rem;
+	}
+	.ui-badge-default {
+		background: var(--primary-container);
+		color: var(--on-primary-container);
+	}
+	.ui-badge-secondary {
+		background: var(--step-2);
+		color: var(--text);
+	}
+	.ui-badge-destructive {
+		background: var(--error-bg);
+		color: var(--error-fg);
+	}
+	.ui-badge-outline {
+		border-color: var(--border);
+		color: var(--text);
+	}
+	a.ui-badge:hover {
+		background: var(--step-1);
+	}
+
+	.ui-separator {
+		flex-shrink: 0;
+		background: var(--divider);
+	}
+	.ui-separator-horizontal {
+		height: 1px;
+		width: 100%;
+	}
+	.ui-separator-vertical {
+		width: 1px;
+		align-self: stretch;
+	}
+
+	/* ---- Card, Alert ------------------------------------------------------------------- */
+	.ui-card {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+		padding: 1.5rem;
+		border: 1px solid var(--border);
+		border-radius: 16px;
+		background: var(--surface);
+		color: var(--text);
+		font-size: 0.9375rem;
+	}
+	.ui-card-header {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+	}
+	.ui-card-title {
+		font-size: 1.125rem;
+		line-height: 1.625rem;
+		font-weight: 600;
+	}
+	.ui-card-description {
+		font-size: 0.8125rem;
+		line-height: 1.125rem;
+		color: var(--muted);
+	}
+	.ui-card-footer {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.ui-alert {
+		display: flex;
+		flex-direction: column;
+		gap: 0.125rem;
+		padding: 0.75rem 1rem;
+		border: 1px solid var(--border);
+		border-radius: 12px;
+		background: var(--surface);
+		font-size: 0.875rem;
+	}
+	.ui-alert-destructive {
+		border-color: var(--error);
+		background: var(--error-bg);
+		color: var(--error-fg);
+	}
+	.ui-alert-title {
+		font-weight: 600;
+	}
+
+	/* ---- Dialog and drawer ------------------------------------------------------------- */
+	.ui-dialog {
+		position: fixed;
+		inset: 0;
+		margin: auto;
+		width: calc(100% - 2rem);
+		max-width: 28rem;
+		max-height: calc(100dvh - 2rem);
+		padding: 0;
+		overflow: auto;
+		border: 1px solid var(--border);
+		border-radius: 16px;
+		background: var(--surface);
+		color: var(--text);
+		box-shadow: var(--shadow-overlay);
+		font-size: 0.9375rem;
+	}
+	.ui-dialog::backdrop {
+		background: rgb(10 12 20 / 0.5);
+	}
+	.ui-dialog-body {
+		display: grid;
+		gap: 1.25rem;
+		padding: 1.5rem;
+	}
+	.ui-dialog-left {
+		inset: 0 auto 0 0;
+		margin: 0;
+		width: 18rem;
+		max-width: 85vw;
+		height: 100dvh;
+		max-height: none;
+		border-radius: 0 16px 16px 0;
+	}
+	.ui-dialog-left .ui-dialog-body {
+		min-height: 100%;
+		grid-template-rows: auto auto 1fr;
+		padding: 1rem;
+	}
+	.ui-dialog-header {
+		display: flex;
+		flex-direction: column;
+		gap: 0.375rem;
+	}
+	.ui-dialog-title {
+		font-size: 1.125rem;
+		line-height: 1.625rem;
+		font-weight: 600;
+	}
+	.ui-dialog-description {
+		font-size: 0.875rem;
+		color: var(--muted);
+	}
+	.ui-dialog-footer {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: flex-end;
+		gap: 0.5rem;
+	}
+	.ui-dialog-close {
+		position: absolute;
+		top: 0.75rem;
+		right: 0.75rem;
+		display: flex;
+		width: 2rem;
+		height: 2rem;
+		align-items: center;
+		justify-content: center;
+		border-radius: 8px;
+		color: var(--muted);
+	}
+	.ui-dialog-close:hover {
+		background: var(--step-1);
+		color: var(--text);
+	}
+	.ui-dialog-close svg {
+		width: 1rem;
+		height: 1rem;
+	}
+
+	/* ---- Popover and menu -------------------------------------------------------------- */
+	.ui-popover {
+		position: fixed;
+		inset: auto;
+		margin: 0;
+		width: 18rem;
+		max-width: calc(100vw - 1rem);
+		padding: 1rem;
+		border: 1px solid var(--border);
+		border-radius: 12px;
+		background: var(--surface);
+		color: var(--text);
+		box-shadow: var(--shadow-overlay);
+		font-size: 0.875rem;
+	}
+	.ui-menu {
+		width: max-content;
+		min-width: max(10rem, var(--trigger-width, 0px));
+		max-height: calc(100dvh - 1rem);
+		overflow-y: auto;
+		padding: 0.25rem;
+	}
+	.ui-menu-item {
+		display: flex;
+		width: 100%;
+		min-height: 2rem;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.375rem 0.625rem;
+		border-radius: 8px;
+		text-align: left;
+		font-size: 0.875rem;
+		cursor: pointer;
+	}
+	.ui-menu-item:hover,
+	.ui-menu-item:focus-visible {
+		background: var(--step-1);
+		outline: none;
+	}
+	.ui-menu-item:disabled {
+		opacity: 0.5;
+		pointer-events: none;
+	}
+	.ui-menu-item-destructive {
+		color: var(--error);
+	}
+	.ui-menu-heading {
+		padding: 0.375rem 0.625rem 0.125rem;
+		font-size: 0.75rem;
+		font-weight: 600;
+		color: var(--muted);
+	}
+	.ui-menu-separator {
+		height: 1px;
+		margin: 0.25rem -0.25rem;
+		background: var(--divider);
+	}
+	@media (pointer: coarse) {
+		.ui-menu-item {
+			min-height: 2.75rem;
+		}
+	}
+
+	/* ---- Tabs and segmented control ---------------------------------------------------- */
+	.ui-tabs {
+		display: inline-flex;
+		gap: 0.25rem;
+		border-bottom: 1px solid var(--border);
+	}
+	.ui-tab {
+		position: relative;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.375rem;
+		height: 2.25rem;
+		padding: 0 0.75rem;
+		font-size: 0.875rem;
+		font-weight: 500;
+		white-space: nowrap;
+		color: var(--muted);
+		cursor: pointer;
+	}
+	.ui-tab:hover {
+		color: var(--text);
+	}
+	.ui-tab[aria-selected='true'] {
+		color: var(--text);
+		font-weight: 600;
+	}
+	.ui-tab[aria-selected='true']::before {
+		content: '';
+		position: absolute;
+		inset: auto 0.5rem -1px;
+		height: 2px;
+		border-radius: 2px;
+		background: var(--primary);
+	}
+	.ui-segmented {
+		display: inline-flex;
+		gap: 2px;
+		padding: 3px;
+		border-radius: 10px;
+		background: var(--step-1);
+	}
+	.ui-segment {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		height: 2rem;
+		padding: 0 0.875rem;
+		border-radius: 8px;
+		font-size: 0.875rem;
+		font-weight: 500;
+		color: var(--muted);
+		cursor: pointer;
+	}
+	.ui-segment[aria-checked='true'] {
+		background: var(--surface);
+		color: var(--text);
+		font-weight: 600;
+		box-shadow: var(--shadow-raised);
+	}
+
+	/* ---- Tooltip ----------------------------------------------------------------------- */
+	.ui-tip {
+		position: relative;
+		display: block;
+	}
+	.ui-tip-content {
+		position: absolute;
+		z-index: 60;
+		display: none;
+		width: max-content;
+		max-width: 16rem;
+		padding: 0.375rem 0.625rem;
+		border-radius: 8px;
+		background: var(--text);
+		color: var(--bg);
+		font-size: 0.75rem;
+		pointer-events: none;
+	}
+	.ui-tip:hover > .ui-tip-content,
+	.ui-tip:focus-within > .ui-tip-content {
+		display: block;
+	}
+	.ui-tip-top {
+		bottom: calc(100% + 6px);
+		left: 50%;
+		transform: translateX(-50%);
+	}
+	.ui-tip-right {
+		left: calc(100% + 8px);
+		top: 50%;
+		transform: translateY(-50%);
+	}
+
+	/* ---- Toast ------------------------------------------------------------------------- */
+	.ui-toaster {
+		position: fixed;
+		right: 1rem;
+		bottom: 1rem;
+		z-index: 100;
+		display: flex;
+		max-width: calc(100vw - 2rem);
+		flex-direction: column;
+		gap: 0.5rem;
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+	.ui-toast {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		width: 22rem;
+		max-width: 100%;
+		padding: 0.75rem 0.75rem 0.75rem 1rem;
+		border: 1px solid var(--border);
+		border-radius: 12px;
+		background: var(--surface);
+		color: var(--text);
+		box-shadow: var(--shadow-overlay);
+		font-size: 0.875rem;
+	}
+	.ui-toast-content {
+		display: flex;
+		flex: 1;
+		min-width: 0;
+		flex-direction: column;
+		gap: 0.125rem;
+	}
+	.ui-toast-text {
+		font-weight: 500;
+	}
+	.ui-toast-description {
+		font-size: 0.8125rem;
+		opacity: 0.85;
+	}
+	.ui-toast-action {
+		padding: 0.25rem 0.5rem;
+		border-radius: 8px;
+		font-weight: 600;
+		color: inherit;
+		text-decoration: underline;
+		text-underline-offset: 3px;
+	}
+	.ui-toast-success {
+		background: var(--success-bg);
+		color: var(--success-fg);
+		border-color: transparent;
+	}
+	.ui-toast-error {
+		background: var(--error-bg);
+		color: var(--error-fg);
+		border-color: transparent;
+	}
+	.ui-toast-close {
+		display: flex;
+		width: 1.75rem;
+		height: 1.75rem;
+		align-items: center;
+		justify-content: center;
+		border-radius: 8px;
+		opacity: 0.7;
+	}
+	.ui-toast-close:hover {
+		opacity: 1;
+	}
+	.ui-toast-close svg {
+		width: 1rem;
+		height: 1rem;
+	}
+}

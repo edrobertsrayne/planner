@@ -5,17 +5,15 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import MessageSquarePlusIcon from '@lucide/svelte/icons/message-square-plus';
-	import { toast } from 'svelte-sonner';
+	import { toast } from '$lib/ui/toast';
 	import {
 		FEEDBACK_MAX_CHARS,
 		feedbackError,
 		isFeedbackEnabled,
 		isFiledIssue
 	} from '$lib/feedback';
-	import { Button } from '$lib/components/ui/button';
-	import { Label } from '$lib/components/ui/label';
-	import * as Popover from '$lib/components/ui/popover';
-	import { Textarea } from '$lib/components/ui/textarea';
+	import { Button, Label, Textarea } from '$lib/ui';
+	import * as Popover from '$lib/ui/popover';
 
 	let enabled = $state(false);
 	let open = $state(false);

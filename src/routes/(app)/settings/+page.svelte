@@ -1,19 +1,17 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import type { SubmitFunction } from '@sveltejs/kit';
-	import { toast } from 'svelte-sonner';
+	import { toast } from '$lib/ui/toast';
 	import { failureReason } from '$lib/client/enhance';
-	import * as Card from '$lib/components/ui/card/index.js';
-	import * as Field from '$lib/components/ui/field/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
-	import * as Dialog from '$lib/components/ui/dialog/index.js';
+	import * as Card from '$lib/ui/card';
+	import * as Field from '$lib/ui/field';
+	import { Button, Input } from '$lib/ui';
+	import * as Dialog from '$lib/ui/dialog';
 	import { formatSize } from '$lib/format-size';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import RefreshIcon from '@lucide/svelte/icons/refresh-cw';
-	import ToastMessage from './ToastMessage.svelte';
 
 	let { data } = $props();
 
@@ -30,14 +28,10 @@
 			pending = false;
 			if (result.type === 'failure') {
 				invalidField = typeof result.data?.field === 'string' ? result.data.field : undefined;
-				toast.error(ToastMessage, {
-					componentProps: { text: failureReason(result, ''), role: 'alert' }
-				});
+				toast.error(failureReason(result, ''));
 			} else if (result.type === 'success') {
 				invalidField = undefined;
-				toast.success(ToastMessage, {
-					componentProps: { text: 'Password changed.', role: 'status' }
-				});
+				toast.success('Password changed.');
 			}
 			await update();
 		};
@@ -50,16 +44,9 @@
 			regenerating = false;
 			if (result.type === 'success') {
 				copied = false;
-				toast.success(ToastMessage, {
-					componentProps: {
-						text: 'API key regenerated. The old key no longer works.',
-						role: 'status'
-					}
-				});
+				toast.success('API key regenerated. The old key no longer works.');
 			} else if (result.type === 'failure') {
-				toast.error(ToastMessage, {
-					componentProps: { text: failureReason(result, ''), role: 'alert' }
-				});
+				toast.error(failureReason(result, ''));
 			}
 			await update();
 		};
@@ -70,9 +57,7 @@
 		copied = true;
 		clearTimeout(copyTimer);
 		copyTimer = setTimeout(() => (copied = false), 1800);
-		toast.success(ToastMessage, {
-			componentProps: { text: 'API key copied.', role: 'status' }
-		});
+		toast.success('API key copied.');
 	}
 </script>
 
@@ -95,7 +80,7 @@
 			<form method="POST" action="?/changePassword" use:enhance={onsubmit}>
 				<Card.Content>
 					<Field.Group>
-						<Field.Field data-invalid={invalidField === 'currentPassword' || undefined}>
+						<Field.Root data-invalid={invalidField === 'currentPassword' || undefined}>
 							<Field.Label for="current">Current password</Field.Label>
 							<Input
 								id="current"
@@ -106,9 +91,9 @@
 								class="h-7"
 								aria-invalid={invalidField === 'currentPassword' || undefined}
 							/>
-						</Field.Field>
+						</Field.Root>
 
-						<Field.Field data-invalid={invalidField === 'newPassword' || undefined}>
+						<Field.Root data-invalid={invalidField === 'newPassword' || undefined}>
 							<Field.Label for="new">New password</Field.Label>
 							<Input
 								id="new"
@@ -120,9 +105,9 @@
 								aria-invalid={invalidField === 'newPassword' || undefined}
 							/>
 							<Field.Description>At least {data.minPasswordLength} characters.</Field.Description>
-						</Field.Field>
+						</Field.Root>
 
-						<Field.Field data-invalid={invalidField === 'confirmPassword' || undefined}>
+						<Field.Root data-invalid={invalidField === 'confirmPassword' || undefined}>
 							<Field.Label for="confirm">Confirm new password</Field.Label>
 							<Input
 								id="confirm"
@@ -133,7 +118,7 @@
 								class="h-7"
 								aria-invalid={invalidField === 'confirmPassword' || undefined}
 							/>
-						</Field.Field>
+						</Field.Root>
 					</Field.Group>
 				</Card.Content>
 

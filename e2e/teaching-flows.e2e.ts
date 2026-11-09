@@ -121,7 +121,7 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await page.getByRole('button', { name: 'Assign Topic' }).click();
 		await expect(
 			page.getByRole('menuitem', { name: 'Forces · all in Sequence or Placed' })
-		).toHaveAttribute('data-disabled', '');
+		).toBeDisabled();
 		await page.keyboard.press('Escape');
 
 		// A tap on a card opens the Lesson in its editor.

@@ -148,7 +148,7 @@ export async function expectNoHorizontalScroll(page: Page) {
 // A refusal rides the app's toast convention; an older toast may still be on screen, so the
 // reason is matched rather than any toast.
 export async function expectToast(page: Page, fragment: string) {
-	await expect(page.locator('[data-sonner-toast]').filter({ hasText: fragment })).toBeVisible();
+	await expect(page.locator('[data-slot=toast]').filter({ hasText: fragment })).toBeVisible();
 }
 
 export async function openCourse(page: Page) {

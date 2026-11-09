@@ -15,7 +15,7 @@ const choices = [
 	{ id: 'l2', title: 'Forces recap worksheet' }
 ];
 
-const formOf = () => document.querySelector<HTMLFormElement>('[role=dialog] form')!;
+const formOf = () => document.querySelector<HTMLFormElement>('dialog form')!;
 
 describe('the Set cover dialog', () => {
 	test('names the Class and Period, and posts the Slot to setCover', async () => {

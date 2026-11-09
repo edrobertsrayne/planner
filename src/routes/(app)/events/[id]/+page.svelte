@@ -13,10 +13,8 @@
 	import { withParam } from '$lib/query';
 	import ConfirmDeleteDialog from '$lib/components/confirm-delete-dialog.svelte';
 	import RenameableRow from '$lib/components/renameable-row.svelte';
-	import { Badge } from '$lib/components/ui/badge/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import * as Select from '$lib/components/ui/select/index.js';
-	import * as Tabs from '$lib/components/ui/tabs/index.js';
+	import { Badge, Button, Select } from '$lib/ui';
+	import * as Tabs from '$lib/ui/tabs';
 	import EventNotes from './EventNotes.svelte';
 	import EventRooms from './EventRooms.svelte';
 	import EventTimetableGrid from './EventTimetableGrid.svelte';
@@ -44,12 +42,12 @@
 
 	// Named stops, as on the Class page: start of year, today, and every date this Event's own
 	// Slots start or stop holding.
-	const stops = $derived.by(() => {
-		const dates = [data.today, data.yearStart];
+	const asAtOptions = $derived.by(() => {
+		const dates = [data.today, data.yearStart, data.on];
 		for (const s of data.datedSlots) dates.push(s.holdsFrom, s.holdsTo);
 		const unique = dates.filter((d, i): d is string => d !== null && dates.indexOf(d) === i);
 		return unique.sort().map((date) => ({
-			date,
+			value: date,
 			label:
 				date === data.yearStart
 					? `Start of year — ${formatDate(date)}`
@@ -102,7 +100,7 @@
 	</div>
 
 	<Tabs.Root value={tab} onValueChange={(v) => v && setTab(v)} class="mt-3">
-		<Tabs.List variant="line" class="max-md:hidden">
+		<Tabs.List class="max-md:hidden">
 			<Tabs.Trigger value="notes">Notes</Tabs.Trigger>
 			<Tabs.Trigger value="timetable">
 				Timetable <span class="text-xs tabular-nums opacity-60">{slotCount}</span>
@@ -123,16 +121,13 @@
 		<section class="min-w-0">
 			<div class="mt-4 flex flex-wrap items-center gap-2">
 				<span class="text-xs font-medium text-muted-foreground">Timetable as at</span>
-				<Select.Root type="single" value={data.on} onValueChange={(v) => v && setAsAt(v)}>
-					<Select.Trigger size="sm" class="h-7 w-56 text-xs">
-						{formatDate(data.on)}
-					</Select.Trigger>
-					<Select.Content>
-						{#each stops as s (s.date)}
-							<Select.Item value={s.date} label={s.label} />
-						{/each}
-					</Select.Content>
-				</Select.Root>
+				<Select
+					value={data.on}
+					onValueChange={setAsAt}
+					options={asAtOptions}
+					aria-label="Date"
+					class="w-56 text-xs"
+				/>
 				<input
 					type="date"
 					class="h-7 rounded-md border bg-transparent px-2 text-xs"

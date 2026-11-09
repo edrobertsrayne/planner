@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Badge } from '$lib/components/ui/badge';
+	import { Badge } from '$lib/ui';
 	import { tagColor } from '$lib/tag-color';
 	import type { Snippet } from 'svelte';
 

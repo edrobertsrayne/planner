@@ -21,16 +21,16 @@
 			{@const percent = course.lessonCount
 				? Math.round((course.plannedCount / course.lessonCount) * 100)
 				: 0}
-			<li class="rounded-xl border bg-card">
+			<li class="rounded-xl border bg-surface">
 				<a
 					href={resolve(`/courses/${course.id}`)}
-					class="flex h-full flex-col gap-3 rounded-xl p-4 hover:bg-accent"
+					class="flex h-full flex-col gap-3 rounded-xl p-4 hover:bg-muted"
 				>
 					<span class="flex items-start gap-3">
 						<span
 							class="mt-1 size-2.5 shrink-0 rounded-full ring-2"
 							style:background-color={tone.bg}
-							style:--tw-ring-color={tone.ring}
+							style:--tw-ring-color={tone.dot}
 							aria-hidden="true"
 						></span>
 						<span class="min-w-0">
@@ -45,7 +45,7 @@
 						role="img"
 						aria-label="{percent}% of Lessons Planned"
 					>
-						<span class="block h-full" style:width="{percent}%" style:background-color={tone.ring}
+						<span class="block h-full" style:width="{percent}%" style:background-color={tone.dot}
 						></span>
 					</span>
 					<span class="mt-auto text-xs text-muted-foreground">
