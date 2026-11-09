@@ -49,9 +49,9 @@
 		background: color-mix(in oklab, var(--primary-container), var(--text) 6%);
 	}
 	.ui-btn-outline {
-		background: transparent;
+		background: var(--surface);
 		color: var(--text);
-		border-color: var(--outline);
+		border-color: var(--outline-soft);
 	}
 	.ui-btn-outline:hover,
 	.ui-btn-outline[aria-expanded='true'] {
@@ -66,12 +66,11 @@
 		background: var(--step-1);
 	}
 	.ui-btn-destructive {
-		background: transparent;
-		color: var(--error);
-		border-color: var(--error);
+		background: var(--error);
+		color: var(--on-error);
 	}
 	.ui-btn-destructive:hover {
-		background: color-mix(in oklab, var(--error) 10%, transparent);
+		background: color-mix(in oklab, var(--error), var(--text) 12%);
 	}
 	.ui-btn-link {
 		background: transparent;
@@ -132,6 +131,11 @@
 		color: var(--text);
 		font: inherit;
 		font-size: 0.9375rem;
+	}
+	.ui-input:focus-visible {
+		outline: none;
+		border-color: var(--primary);
+		box-shadow: 0 0 0 1px var(--primary);
 	}
 	.ui-input::placeholder {
 		color: var(--muted);
@@ -506,6 +510,34 @@
 		border-radius: 2px;
 		background: var(--primary);
 	}
+	/* The same tabs as a segmented control: the view switchers beside a page title. */
+	.ui-tabs-segmented {
+		gap: 2px;
+		padding: 3px;
+		border: 0;
+		border-radius: 10px;
+		background: var(--step-1);
+	}
+	.ui-tabs-segmented {
+		max-width: 100%;
+	}
+	.ui-tabs-segmented .ui-tab {
+		height: 2.25rem;
+		padding: 0 0.625rem;
+		border-radius: 8px;
+	}
+	@media (min-width: 40rem) {
+		.ui-tabs-segmented .ui-tab {
+			padding: 0 0.875rem;
+		}
+	}
+	.ui-tabs-segmented .ui-tab[aria-selected='true'] {
+		background: var(--surface);
+		box-shadow: var(--shadow-raised);
+	}
+	.ui-tabs-segmented .ui-tab[aria-selected='true']::before {
+		content: none;
+	}
 	.ui-segmented {
 		display: inline-flex;
 		gap: 2px;
@@ -530,6 +562,12 @@
 		color: var(--text);
 		font-weight: 600;
 		box-shadow: var(--shadow-raised);
+	}
+
+	/* A segment that means Ready (Planned) turns green when it is the one on. */
+	.ui-segment-ready[aria-checked='true'] {
+		background: var(--success-bg);
+		color: var(--success-fg);
 	}
 
 	/* ---- Tooltip ----------------------------------------------------------------------- */

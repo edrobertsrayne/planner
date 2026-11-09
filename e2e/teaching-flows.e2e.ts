@@ -45,12 +45,8 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 	test('two Classes with different Tones show different colours', async () => {
 		await page.goto('/classes');
 		const toneOf = async (label: string) => {
-			const dot = page
-				.locator('li')
-				.filter({ hasText: label })
-				.locator('[aria-hidden="true"]')
-				.first();
-			return dot.evaluate((el) => getComputedStyle(el).backgroundColor);
+			const tile = page.locator('li').filter({ hasText: label }).first();
+			return tile.evaluate((el) => getComputedStyle(el).backgroundColor);
 		};
 		const toneA = await toneOf('9B/Sc1');
 		const toneB = await toneOf('9C/Sc1');

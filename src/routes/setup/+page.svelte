@@ -76,8 +76,8 @@
 		<!-- Below `sm` the card loses its frame and the page its centring and backdrop (story
 		     122), as Login's does: on a phone the form starts at the top. -->
 		<Card.Root class="max-sm:border-0 max-sm:bg-transparent max-sm:p-0">
-			<Card.Header class="text-center">
-				<Card.Title class="text-xl">
+			<Card.Header>
+				<Card.Title class="text-2xl leading-8">
 					{showRestore ? 'Restore from a Backup' : 'Set up Planner'}
 				</Card.Title>
 			</Card.Header>

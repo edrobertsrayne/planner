@@ -53,13 +53,11 @@
 			{/if}
 		</Dialog.Header>
 		<Dialog.Footer>
-			<Button variant="outline" size="sm" class="h-7" onclick={() => (target = null)}>
-				Cancel
-			</Button>
+			<Button variant="outline" onclick={() => (target = null)}>Cancel</Button>
 			<form method="POST" action={target?.action} use:enhance={confirm}>
 				<input type="hidden" name="id" value={target?.id} />
 				<input type="hidden" name="confirmed" value="true" />
-				<Button type="submit" variant="destructive" size="sm" class="h-7">Delete</Button>
+				<Button type="submit" variant="destructive">Delete</Button>
 			</form>
 		</Dialog.Footer>
 	</Dialog.Content>

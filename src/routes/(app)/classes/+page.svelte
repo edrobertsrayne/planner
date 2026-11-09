@@ -69,52 +69,42 @@
 			{#each data.lanes as lane (lane.classId)}
 				{@const tone = classTone(lane.tone)}
 				<!-- The tile body is one link to the Class page, as on Courses (story 107). -->
-				<li class="flex flex-col overflow-hidden rounded-xl border bg-surface">
+				<li
+					class="flex flex-col overflow-hidden rounded-2xl"
+					style:background-color={tone.bg}
+					style:color={tone.fg}
+				>
 					<a
 						href={resolve(`/classes/${lane.classId}`)}
-						class="flex flex-1 flex-col gap-3 p-4 hover:bg-muted"
+						class="flex flex-1 flex-col gap-3.5 p-4.5 pb-3.5 hover:brightness-95 dark:hover:brightness-110"
 					>
-						<span class="flex items-start gap-3">
-							<span
-								class="mt-1 size-2.5 shrink-0 rounded-full ring-2"
-								style:background-color={tone.bg}
-								style:--tw-ring-color={tone.dot}
-								aria-hidden="true"
-							></span>
-							<span class="min-w-0">
-								<span class="block text-sm font-semibold">{lane.classLabel}</span>
-								<span class="block text-xs text-muted-foreground">
-									{courseName(lane.courseId)}
-								</span>
-							</span>
+						<span class="flex items-baseline justify-between gap-2">
+							<span class="text-[22px] font-bold tracking-tight">{lane.classLabel}</span>
+							<span class="text-[13px] font-medium">{courseName(lane.courseId)}</span>
 						</span>
 
-						<dl class="mt-auto space-y-1 text-xs">
+						<dl class="mt-auto grid grid-cols-[4rem_minmax(0,1fr)] gap-x-2.5 gap-y-1.5 text-sm">
 							<!-- The Topic sits above the Lesson because the Lesson is inside it: the tile reads
 						     "you are in Electricity, and the next one is Resistance". -->
-							<div class="flex gap-1.5">
-								<dt class="shrink-0 text-muted-foreground">Topic</dt>
-								<dd class="min-w-0 font-medium">{lane.nextUp?.topicName ?? '—'}</dd>
-							</div>
-							<div class="flex gap-1.5">
-								<dt class="shrink-0 text-muted-foreground">Next</dt>
-								<dd class="min-w-0">{lane.nextUp?.title ?? '—'}</dd>
-							</div>
-							<div class="flex gap-1.5">
-								<dt class="shrink-0 text-muted-foreground">Runway</dt>
-								<dd
-									class="min-w-0 {lane.runway.lessonsRemaining > 0
-										? 'text-destructive'
-										: 'tabular-nums'}"
+							<dt class="text-xs/5 font-semibold tracking-wide uppercase opacity-80">Topic</dt>
+							<dd class="min-w-0 font-semibold">{lane.nextUp?.topicName ?? '—'}</dd>
+							<dt class="text-xs/5 font-semibold tracking-wide uppercase opacity-80">Next</dt>
+							<dd class="min-w-0">{lane.nextUp?.title ?? '—'}</dd>
+							<dt class="text-xs/5 font-semibold tracking-wide uppercase opacity-80">Runway</dt>
+							<dd class="min-w-0">
+								<span
+									class={lane.runway.lessonsRemaining > 0
+										? 'inline-block rounded-md bg-surface px-2 font-semibold text-destructive'
+										: 'tabular-nums'}
 								>
 									{runwayText(lane.runway)}
-								</dd>
-							</div>
+								</span>
+							</dd>
 						</dl>
 					</a>
 
 					<!-- Assign Topic from the list; nothing is written on a phone, so not there. -->
-					<div class="flex justify-end border-t px-4 py-2 max-md:hidden">
+					<div class="flex justify-end border-t border-current/10 px-3 py-2 max-md:hidden">
 						<AssignTopicMenu
 							classId={lane.classId}
 							topics={data.topics[lane.classId] ?? []}
@@ -132,7 +122,7 @@
 						<button
 							{...props}
 							type="button"
-							class="flex h-full min-h-44 w-full flex-col items-center justify-center gap-1 rounded-xl border border-dashed text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+							class="flex h-full min-h-44 w-full flex-col items-center justify-center gap-2 rounded-2xl border-[1.5px] border-dashed border-outline text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
 						>
 							<PlusIcon class="size-4" />
 							<span class="text-sm font-medium">New Class</span>

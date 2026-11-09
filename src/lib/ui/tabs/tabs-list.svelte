@@ -2,7 +2,11 @@
 	import type { Snippet } from 'svelte';
 	import { cn } from '$lib/utils';
 
-	let { class: className, children }: { class?: string; children?: Snippet } = $props();
+	let {
+		variant = 'line',
+		class: className,
+		children
+	}: { variant?: 'line' | 'segmented'; class?: string; children?: Snippet } = $props();
 
 	// Arrow keys move between tabs and select as they go, the pattern for tabs that swap a view
 	// at once: roving tabindex keeps one tab in the Tab order.
@@ -26,6 +30,11 @@
 	}
 </script>
 
-<div role="tablist" tabindex="-1" {onkeydown} class={cn('ui-tabs', className)}>
+<div
+	role="tablist"
+	tabindex="-1"
+	{onkeydown}
+	class={cn('ui-tabs', variant === 'segmented' && 'ui-tabs-segmented', className)}
+>
 	{@render children?.()}
 </div>

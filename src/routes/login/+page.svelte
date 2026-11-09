@@ -20,8 +20,8 @@
 		<!-- Below `sm` the card loses its frame and the page its centring and backdrop (story
 		     122): on a phone the form starts at the top, so the keyboard does not push it about. -->
 		<Card.Root class="max-sm:border-0 max-sm:bg-transparent max-sm:p-0">
-			<Card.Header class="text-center">
-				<Card.Title class="text-xl">Log in</Card.Title>
+			<Card.Header>
+				<Card.Title class="text-2xl leading-8">Log in</Card.Title>
 			</Card.Header>
 			<Card.Content class="flex flex-col gap-6">
 				{#if form?.error}

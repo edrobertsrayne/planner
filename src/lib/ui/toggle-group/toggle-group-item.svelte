@@ -3,7 +3,7 @@
 	import { touchTarget } from '../touch-target';
 	import { getToggleGroupContext } from './context';
 
-	let { value, children }: { value: string; children?: Snippet } = $props();
+	let { value, tone, children }: { value: string; tone?: 'ready'; children?: Snippet } = $props();
 
 	const ctx = getToggleGroupContext();
 	const on = $derived(ctx.value === value);
@@ -14,7 +14,7 @@
 	role="radio"
 	aria-checked={on}
 	onclick={() => ctx.select(value)}
-	class="ui-segment {touchTarget}"
+	class="ui-segment {tone ? `ui-segment-${tone}` : ''} {touchTarget}"
 >
 	{@render children?.()}
 </button>

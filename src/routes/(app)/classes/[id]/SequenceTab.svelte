@@ -271,9 +271,7 @@
 				</Dialog.Description>
 			</Dialog.Header>
 			<Dialog.Footer>
-				<Button variant="outline" size="sm" class="h-7" onclick={() => (removing = null)}>
-					Cancel
-				</Button>
+				<Button variant="outline" onclick={() => (removing = null)}>Cancel</Button>
 				<form
 					method="POST"
 					action="?/removeLessons"
@@ -284,7 +282,7 @@
 				>
 					<input type="hidden" name="classId" value={classId} />
 					<input type="hidden" name="lessonIds" value={removing.map((e) => e.lessonId).join(',')} />
-					<Button type="submit" variant="destructive" size="sm" class="h-7">Remove</Button>
+					<Button type="submit" variant="destructive">Remove</Button>
 				</form>
 			</Dialog.Footer>
 		{/if}

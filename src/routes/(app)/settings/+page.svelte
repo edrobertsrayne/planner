@@ -88,7 +88,6 @@
 								type="password"
 								autocomplete="current-password"
 								required
-								class="h-7"
 								aria-invalid={invalidField === 'currentPassword' || undefined}
 							/>
 						</Field.Root>
@@ -101,7 +100,6 @@
 								type="password"
 								autocomplete="new-password"
 								required
-								class="h-7"
 								aria-invalid={invalidField === 'newPassword' || undefined}
 							/>
 							<Field.Description>At least {data.minPasswordLength} characters.</Field.Description>
@@ -115,7 +113,6 @@
 								type="password"
 								autocomplete="new-password"
 								required
-								class="h-7"
 								aria-invalid={invalidField === 'confirmPassword' || undefined}
 							/>
 						</Field.Root>
@@ -124,7 +121,7 @@
 
 				<Card.Footer class="flex-wrap items-center justify-between gap-3">
 					<p class="text-xs text-muted-foreground">Logs out every other device.</p>
-					<Button type="submit" size="sm" class="h-7" disabled={pending}>
+					<Button type="submit" disabled={pending}>
 						{pending ? 'Changing…' : 'Change password'}
 					</Button>
 				</Card.Footer>
@@ -149,7 +146,7 @@
 							readonly
 							value={data.key.token}
 							aria-label="API key"
-							class="h-8 flex-1 font-mono text-xs"
+							class="flex-1 font-mono text-sm"
 							onfocus={(e) => e.currentTarget.select()}
 						/>
 						<Button
@@ -207,9 +204,7 @@
 				</Card.Content>
 
 				<Card.Footer class="justify-end">
-					<Button href="/backup" download data-sveltekit-reload size="sm" class="h-7"
-						>Back up</Button
-					>
+					<Button href="/backup" download data-sveltekit-reload>Back up</Button>
 				</Card.Footer>
 			</Card.Root>
 		</div>
@@ -225,11 +220,9 @@
 				</Dialog.Description>
 			</Dialog.Header>
 			<Dialog.Footer>
-				<Button variant="outline" size="sm" class="h-7" onclick={() => (confirmOpen = false)}>
-					Cancel
-				</Button>
+				<Button variant="outline" onclick={() => (confirmOpen = false)}>Cancel</Button>
 				<form method="POST" action="?/regenerateKey" use:enhance={onRegenerateKey}>
-					<Button type="submit" variant="destructive" size="sm" class="h-7">Regenerate</Button>
+					<Button type="submit" variant="destructive">Regenerate</Button>
 				</form>
 			</Dialog.Footer>
 		</Dialog.Content>

@@ -131,9 +131,8 @@
 
 	<header class="flex items-start gap-2 pb-4">
 		<span
-			class="mt-2 size-3 shrink-0 rounded-full ring-2"
-			style:background-color={tone.bg}
-			style:--tw-ring-color={tone.dot}
+			class="mt-3.5 size-3 shrink-0 rounded-full"
+			style:background-color={tone.dot}
 			aria-hidden="true"
 		></span>
 		<div class="min-w-0 flex-1">

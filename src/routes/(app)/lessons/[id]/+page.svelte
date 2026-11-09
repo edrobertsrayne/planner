@@ -316,7 +316,9 @@
 									class="justify-start"
 								>
 									<ToggleGroup.Item value="draft">{STATUS_LABEL.draft}</ToggleGroup.Item>
-									<ToggleGroup.Item value="planned">{STATUS_LABEL.planned}</ToggleGroup.Item>
+									<ToggleGroup.Item value="planned" tone="ready"
+										>{STATUS_LABEL.planned}</ToggleGroup.Item
+									>
 								</ToggleGroup.Root>
 							</form>
 
@@ -352,7 +354,7 @@
 										id="lesson-topic"
 										name="topicId"
 										value={data.lesson.topic?.id ?? ''}
-										class="w-full rounded-md border border-outline bg-background px-2 py-1 text-sm pointer-coarse:min-h-11"
+										class="ui-input"
 										onchange={(e) => e.currentTarget.form?.requestSubmit()}
 									>
 										{#if data.lesson.topic}

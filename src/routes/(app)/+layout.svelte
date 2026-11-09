@@ -126,15 +126,11 @@
 <div class="min-h-screen bg-background text-foreground">
 	<!-- Laptop and tablet: a fixed sidebar, 14 rem labelled or 4 rem icons only. -->
 	<aside
-		class="fixed inset-y-0 left-0 z-20 hidden w-16 flex-col gap-4 border-r bg-background px-2 py-3 md:flex lg:w-56 lg:px-3"
+		class="fixed inset-y-0 left-0 z-20 hidden w-16 flex-col gap-6 border-r bg-surface px-2 pt-6 pb-5 md:flex lg:w-58 lg:px-3"
 	>
-		<div class="flex items-center gap-2 px-1.5 lg:px-1">
-			<div
-				class="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground"
-			>
-				<CalendarDaysIcon class="size-4" />
-			</div>
-			<span class="hidden font-semibold lg:inline">Planner</span>
+		<div class="flex items-center justify-center px-3 lg:justify-start">
+			<CalendarDaysIcon class="size-5 text-primary lg:hidden" aria-hidden="true" />
+			<span class="hidden text-xl font-bold tracking-tight lg:inline">Planner</span>
 		</div>
 		{@render screens(true)}
 		{@render foot(true)}

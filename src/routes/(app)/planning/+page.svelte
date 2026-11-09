@@ -110,7 +110,7 @@
 					value={filter}
 					onValueChange={(v) => replaceQuery(withParam(page.url, 'status', v === 'all' ? null : v))}
 				>
-					<Tabs.List>
+					<Tabs.List variant="segmented">
 						{#each FILTERS as f (f.key)}
 							<Tabs.Trigger value={f.key}>
 								{f.name} <span class="tabular-nums opacity-60">{tally[f.key]}</span>

@@ -21,37 +21,34 @@
 			{@const percent = course.lessonCount
 				? Math.round((course.plannedCount / course.lessonCount) * 100)
 				: 0}
-			<li class="rounded-xl border bg-surface">
+			<li class="rounded-2xl border bg-surface">
 				<a
 					href={resolve(`/courses/${course.id}`)}
-					class="flex h-full flex-col gap-3 rounded-xl p-4 hover:bg-muted"
+					class="flex h-full flex-col gap-3 rounded-2xl p-4.5 hover:bg-muted"
 				>
-					<span class="flex items-start gap-3">
+					<span class="flex items-center gap-2.5">
 						<span
-							class="mt-1 size-2.5 shrink-0 rounded-full ring-2"
-							style:background-color={tone.bg}
-							style:--tw-ring-color={tone.dot}
+							class="size-3 shrink-0 rounded-full"
+							style:background-color={tone.dot}
 							aria-hidden="true"
 						></span>
-						<span class="min-w-0">
-							<span class="block text-sm font-semibold">{course.name}</span>
-							<span class="block text-xs text-muted-foreground">
-								{plural(course.topicCount, 'Topic')} · {plural(course.lessonCount, 'Lesson')}
-							</span>
-						</span>
+						<span class="text-lg font-semibold">{course.name}</span>
+					</span>
+					<span class="text-sm text-muted-foreground">
+						{plural(course.topicCount, 'Topic')} · {course.plannedCount} of
+						{plural(course.lessonCount, 'Lesson')} Planned
+					</span>
+					<span class="text-[13px] text-muted-foreground">
+						{course.classes.length ? `Taught to ${course.classes.join(', ')}` : 'No Classes yet'}
 					</span>
 					<span
-						class="h-1 overflow-hidden rounded-full bg-muted"
+						class="mt-auto h-1.5 overflow-hidden rounded-full bg-step-2"
 						role="img"
 						aria-label="{percent}% of Lessons Planned"
 					>
 						<span class="block h-full" style:width="{percent}%" style:background-color={tone.dot}
 						></span>
 					</span>
-					<span class="mt-auto text-xs text-muted-foreground">
-						{course.classes.length ? `Taught to ${course.classes.join(', ')}` : 'No Classes yet'}
-					</span>
-					<span class="text-xs font-medium">Open Course</span>
 				</a>
 			</li>
 		{/each}
@@ -65,7 +62,7 @@
 					<button
 						{...props}
 						type="button"
-						class="flex h-full min-h-44 w-full flex-col items-center justify-center gap-1 rounded-xl border border-dashed text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+						class="flex h-full min-h-44 w-full flex-col items-center justify-center gap-2 rounded-2xl border-[1.5px] border-dashed border-outline text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
 					>
 						<PlusIcon class="size-4" />
 						<span class="text-sm font-medium">New Course</span>

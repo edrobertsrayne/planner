@@ -53,7 +53,6 @@
 						required
 						autocomplete="off"
 						placeholder="Year 9 Physics"
-						class="h-7"
 					/>
 				</Field.Root>
 			</Field.Group>
@@ -61,10 +60,10 @@
 			<Dialog.Footer class="mt-6">
 				<Dialog.Close>
 					{#snippet child({ props })}
-						<Button {...props} variant="ghost" size="sm">Cancel</Button>
+						<Button {...props} variant="ghost">Cancel</Button>
 					{/snippet}
 				</Dialog.Close>
-				<Button type="submit" size="sm">Create Course</Button>
+				<Button type="submit">Create Course</Button>
 			</Dialog.Footer>
 		</form>
 	</Dialog.Content>

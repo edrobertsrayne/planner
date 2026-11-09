@@ -58,7 +58,6 @@
 						required
 						autocomplete="off"
 						placeholder="Y11 intervention"
-						class="h-7"
 					/>
 				</Field.Root>
 
@@ -77,10 +76,10 @@
 			<Dialog.Footer class="mt-6">
 				<Dialog.Close>
 					{#snippet child({ props })}
-						<Button {...props} variant="ghost" size="sm">Cancel</Button>
+						<Button {...props} variant="ghost">Cancel</Button>
 					{/snippet}
 				</Dialog.Close>
-				<Button type="submit" size="sm">Create Event</Button>
+				<Button type="submit">Create Event</Button>
 			</Dialog.Footer>
 		</form>
 	</Dialog.Content>

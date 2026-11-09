@@ -68,7 +68,6 @@
 						required
 						autocomplete="off"
 						placeholder="9B/Sc1"
-						class="h-7"
 					/>
 					<Field.Description>However it appears on your timetable.</Field.Description>
 				</Field.Root>
@@ -92,10 +91,10 @@
 			<Dialog.Footer class="mt-6">
 				<Dialog.Close>
 					{#snippet child({ props })}
-						<Button {...props} variant="ghost" size="sm">Cancel</Button>
+						<Button {...props} variant="ghost">Cancel</Button>
 					{/snippet}
 				</Dialog.Close>
-				<Button type="submit" size="sm">Create Class</Button>
+				<Button type="submit">Create Class</Button>
 			</Dialog.Footer>
 		</form>
 	</Dialog.Content>
