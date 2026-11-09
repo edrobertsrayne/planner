@@ -53,6 +53,10 @@
 	let removing = $state<SequenceEntry[] | null>(null);
 	// A refusal is named in the dialog: a toast would sit behind the modal's inert page.
 	let removeError = $state<string | null>(null);
+	function askRemove(entries: SequenceEntry[]) {
+		removeError = null;
+		removing = entries;
+	}
 
 	let moveForm = $state<HTMLFormElement | undefined>();
 
@@ -65,7 +69,7 @@
 		onDrop: (lessonIds, target) => {
 			submitForm(moveForm, { fields: { lessonIds: lessonIds.join(','), targetId: target } });
 		},
-		onRemove: (gone) => (removing = gone)
+		onRemove: askRemove
 	});
 </script>
 
@@ -246,7 +250,7 @@
 			variant="outline"
 			class="text-destructive"
 			disabled={board.chosen.length === 0}
-			onclick={() => (removing = board.chosen)}
+			onclick={() => askRemove(board.chosen)}
 		>
 			Remove
 		</Button>
@@ -258,7 +262,6 @@
 	open={removing !== null}
 	onOpenChange={(open) => {
 		if (!open) removing = null;
-		removeError = null;
 	}}
 >
 	<Dialog.Content class="sm:max-w-md">
