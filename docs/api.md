@@ -545,5 +545,6 @@ change with the UI.
 | `POST /logout`                        | Sign out                                                                                                     |
 | `/api/auth/*`                         | Better Auth's own endpoints. Sign-up and email sign-in are disabled; the login form is the only sign-in door |
 
-Cross-site form-typed writes (`application/x-www-form-urlencoded`, `multipart/form-data`,
-`text/plain`) to the app are refused with 403 unless the `Origin` header matches the site.
+Writes to the app are refused with 403 when the `Origin` header names another site, whatever the
+content type. A form-typed write (`application/x-www-form-urlencoded`, `multipart/form-data`,
+`text/plain`) must also state its `Origin`; any other body may omit it.

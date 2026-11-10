@@ -7,7 +7,7 @@ import { auth } from '$lib/server/auth';
 import { hasUser } from '$lib/server/setup';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import { runWithRequestState } from '@better-auth/core/context';
-import { crossSiteFormRefused, guardRedirect } from '$lib/server/guard';
+import { crossSiteWriteRefused, guardRedirect } from '$lib/server/guard';
 import { bodyTooLarge } from '$lib/server/body-limit';
 import { requireApiKey } from '$lib/server/api-key';
 import { apiWriteLine } from '$lib/server/api-log';
@@ -45,7 +45,7 @@ const handleBodyLimit: Handle = ({ event, resolve }) => {
 };
 
 const handleCsrf: Handle = async ({ event, resolve }) => {
-	const refused = crossSiteFormRefused({
+	const refused = crossSiteWriteRefused({
 		zone: event.locals.zone,
 		method: event.request.method,
 		pathname: event.url.pathname,
@@ -54,7 +54,7 @@ const handleCsrf: Handle = async ({ event, resolve }) => {
 		siteOrigin: event.url.origin
 	});
 	if (refused) {
-		return new Response(`Cross-site ${event.request.method} form submissions are forbidden`, {
+		return new Response(`Cross-site ${event.request.method} submissions are forbidden`, {
 			status: 403
 		});
 	}

@@ -12,9 +12,21 @@
 export type Zone = 'auth' | 'api' | 'app';
 
 export function zoneOf(pathname: string): Zone {
-	if (matches(pathname, '/api/auth')) return 'auth';
-	if (matches(pathname, '/api')) return 'api';
+	const path = routedPath(pathname);
+	if (matches(path, '/api/auth')) return 'auth';
+	if (matches(path, '/api')) return 'api';
 	return 'app';
+}
+
+/** The path SvelteKit matches routes against: `decodeURI` on each side of a literal `%25`, so
+ * `/%61pi` is `/api` and `/%2561pi` stays as it is. A path that does not decode matches no route
+ * in the router, so it is left as it is here. */
+function routedPath(pathname: string): string {
+	try {
+		return pathname.split('%25').map(decodeURI).join('%25');
+	} catch {
+		return pathname;
+	}
 }
 
 /** Whether `pathname` is `route` itself or a child of it: `/api` matches `/api` and `/api/x`, but

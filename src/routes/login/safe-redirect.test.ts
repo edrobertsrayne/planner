@@ -40,3 +40,16 @@ describe('safeRedirectTarget', () => {
 		expect(safeRedirectTarget(target, ORIGIN)).toBe('/');
 	});
 });
+
+describe('safeRedirectTarget dot segments', () => {
+	// The URL parser resolves dot segments, which can leave a path that begins `//`; written into a
+	// Location header, the browser reads that as another host.
+	test.each([
+		'/.//evil.example',
+		'/..//evil.example',
+		'/a/..//evil.example',
+		'/%2e%2e//evil.example'
+	])('%s is rejected', (target) => {
+		expect(safeRedirectTarget(target, ORIGIN)).toBe('/');
+	});
+});
