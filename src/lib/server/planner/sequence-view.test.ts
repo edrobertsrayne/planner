@@ -162,6 +162,23 @@ describe('the By week view', () => {
 		});
 	});
 
+	test('with no Lesson to teach, the rows start at the first Open Slot, not at a later Placement', () => {
+		const { db, classA } = setUp();
+		const { openSlots } = classSchedule(db, { classId: classA.id, today });
+		const later = openSlots.find((s) => s.date >= '2026-11-02')!;
+		placeLesson(db, {
+			classId: classA.id,
+			date: later.date,
+			period: later.period,
+			title: 'Far away',
+			today
+		});
+
+		const cells = weeksOf(db, classA.id).weeks.flatMap((w) => (w.kind === 'week' ? w.cells : []));
+		const early = cells.find((c) => c.key === `${openSlots[0].date}|${openSlots[0].period}`);
+		expect(early).toMatchObject({ kind: 'movable' });
+	});
+
 	test('a Lesson with no Slot left has no first date, only when one exists', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');

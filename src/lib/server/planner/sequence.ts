@@ -561,7 +561,7 @@ function weekRows(
 	}));
 
 	// A row starts at the first week a Lesson that can still move stands in (a Sequence Lesson or an
-	// untaught Placement), or, when there is none, the first week with an Open Slot. It ends a week
+	// untaught Placement) or holds an Open Slot, whichever is first. It ends a week
 	// past the last such week.
 	const movable = new Set(
 		result.scheduled
@@ -572,9 +572,9 @@ function weekRows(
 	);
 	const has = (keys: Set<string>) => (row: (typeof all)[number]) =>
 		row.cells.some((cell) => keys.has(cell.key));
-	let first = all.findIndex(has(movable));
-	if (first === -1) first = all.findIndex(has(open));
-	if (first === -1) return { weeks: [] as WeekRow[], freeAfter: 0 };
+	const starts = [movable, open].map((keys) => all.findIndex(has(keys))).filter((at) => at !== -1);
+	if (starts.length === 0) return { weeks: [] as WeekRow[], freeAfter: 0 };
+	const first = Math.min(...starts);
 	const last = all.findLastIndex(has(movable));
 	const shown = all.slice(first, Math.min(Math.max(last, first) + 2, all.length));
 
