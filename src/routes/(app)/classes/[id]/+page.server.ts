@@ -13,6 +13,7 @@ import {
 	listClasses,
 	addLesson,
 	moveLessons,
+	movePlacement,
 	removeFromSequence,
 	renameClass,
 	reportOf,
@@ -117,6 +118,20 @@ export const actions: Actions = {
 			changed: result.changed,
 			lines: [changeLine(result.changed.length)],
 			ringed: lessonIds
+		});
+	}),
+
+	movePlacement: formAction((data) => {
+		const result = movePlacement(db, {
+			id: trimmed(data, 'placementId'),
+			date: trimmed(data, 'date'),
+			period: Number(data.get('period')),
+			today: today()
+		});
+		return sequenceAnswer('move', {
+			report: reportOf(result),
+			changed: result.changed,
+			lines: [changeLine(result.changed.length)]
 		});
 	}),
 

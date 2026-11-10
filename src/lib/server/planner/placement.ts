@@ -14,6 +14,7 @@ import { Refused, type RefusalKind } from './refused';
 import { required } from './fields';
 import { classSchedule } from './classes';
 import type { Occasion } from './sessions';
+import { writeSequence } from './sequence';
 
 // Where a Lesson may be Placed, and the one answer both screens and the door read (ADR-0025):
 // today or later, in a Slot the Class holds on that date and that the Calendar has not removed,
@@ -92,6 +93,33 @@ export function placeLesson(
 			.run();
 
 		return { lesson, ...rederive(db, classId, today) };
+	});
+}
+
+// Moves a Placement to another occasion: the same Lesson, a new anchor, chosen the way Placing
+// chooses one (`placementAdmission`), so the Slot and every rule about it stay in that one place.
+// A Placement already taught, wholly or in part, is fixed. The Sequence Lessons go round the new
+// anchor, so the answer lists those that got a different first date.
+export function movePlacement(
+	db: Db,
+	{ id, date, period, today }: Omit<Occasion, 'classId'> & { id: string; today: string }
+) {
+	const [row] = db.select().from(schema.placement).where(eq(schema.placement.id, id)).all();
+	if (!row) throw new Refused('missing', 'No such Placement.');
+
+	const { history } = classSchedule(db, { classId: row.classId, today });
+	if (history.some((session) => session.placementId === id)) {
+		throw new Refused('conflict', 'This Placement has been taught, so it cannot move.');
+	}
+
+	const admission = placementAdmission(db, { classId: row.classId, date, period, today });
+	if (!admission.admitted) throw new Refused(admission.kind, admission.reason);
+
+	return writeSequence(db, { classId: row.classId, today }, () => {
+		db.update(schema.placement)
+			.set({ date, slotId: admission.slotId })
+			.where(eq(schema.placement.id, id))
+			.run();
 	});
 }
 

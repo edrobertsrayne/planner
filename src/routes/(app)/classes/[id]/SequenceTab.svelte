@@ -59,6 +59,7 @@
 	}
 
 	let moveForm = $state<HTMLFormElement | undefined>();
+	let placeForm = $state<HTMLFormElement | undefined>();
 
 	// The tab's board: the selection, the drag and its live layout preview, and the inline Add
 	// Lesson field. Both layouts draw it; this file keeps the writes.
@@ -68,6 +69,10 @@
 		result: () => sequenceResult,
 		onDrop: (lessonIds, target) => {
 			submitForm(moveForm, { fields: { lessonIds: lessonIds.join(','), targetId: target } });
+		},
+		onPlace: (placementId, slotKey) => {
+			const [date, period] = slotKey.split('|');
+			submitForm(placeForm, { fields: { placementId, date, period } });
 		},
 		onRemove: askRemove
 	});
@@ -160,6 +165,13 @@
 		<input type="hidden" name="targetId" />
 	</form>
 
+	<form
+		method="POST"
+		action="?/movePlacement"
+		bind:this={placeForm}
+		use:enhance={onFail('Could not move the Placement.')}
+	></form>
+
 	{#if board.adding?.row === 'tab'}
 		<div class="mt-2">{@render addField()}</div>
 	{/if}
@@ -223,15 +235,19 @@
 	{/if}
 </section>
 
-{#if board.dragged}
+{#if board.dragged || board.placing}
 	<div
 		class="pointer-events-none fixed z-50 rounded-lg border bg-background px-2 py-1 text-xs font-medium shadow-lg"
 		style:left="{board.ghost.x + 12}px"
 		style:top="{board.ghost.y + 12}px"
 	>
-		{board.dragIds.length > 1
-			? `${board.dragIds.length} Lessons, from “${board.dragged.title}”`
-			: board.dragged.title}
+		{#if board.placing}
+			{board.placing.title}
+		{:else if board.dragged}
+			{board.dragIds.length > 1
+				? `${board.dragIds.length} Lessons, from “${board.dragged.title}”`
+				: board.dragged.title}
+		{/if}
 	</div>
 {/if}
 
