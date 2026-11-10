@@ -421,7 +421,7 @@
 			{#if item.lines.length > 0}
 				<ul class="divide-y divide-border border-t bg-surface">
 					{#each item.lines as line (line.classId + line.period)}
-						<li class="relative flex items-center gap-3 pr-2 pl-4">
+						<li class="hatched relative flex items-center gap-3 pr-2 pl-4">
 							<span
 								class="w-14 shrink-0 text-[13px] font-semibold text-muted-foreground tabular-nums"
 							>
