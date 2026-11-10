@@ -6,17 +6,14 @@
 // teacher out for a minute at a time, and that is accepted; the alternative was no limit at all.
 
 export interface SignInThrottle {
-	// Whether an attempt must be refused without testing the password.
-	locked: (now?: number) => boolean;
-	// Record a failed attempt, starting the lock when the limit is reached.
-	failed: (now?: number) => void;
-	// A successful sign-in: the count starts again.
-	signedIn: () => void;
 	// One sign-in, taking its turn behind any already running. `signIn` tests the password and
 	// says whether it was right. Testing awaits a hash, so attempts that arrived together would
-	// all pass `locked()` before any failure was recorded and the limit would be five plus however
-	// many arrived at once. A refused attempt never reaches `signIn`.
-	attempt: (signIn: () => Promise<boolean>) => Promise<'locked' | 'signedIn' | 'failed'>;
+	// all be checked against the lock before any failure was recorded and the limit would be five
+	// plus however many arrived at once. A locked attempt never reaches `signIn`.
+	attempt: (
+		signIn: () => Promise<boolean>,
+		now?: number
+	) => Promise<'locked' | 'signedIn' | 'failed'>;
 }
 
 export function createSignInThrottle({
@@ -28,34 +25,29 @@ export function createSignInThrottle({
 	let lockedUntil = 0;
 	let queue: Promise<unknown> = Promise.resolve();
 
-	const throttle: SignInThrottle = {
-		locked(now = Date.now()) {
-			if (now < lockedUntil) return true;
-			if (lockedUntil !== 0) {
-				// The wait is over. A fresh count, or the expired lock's failures would lock again on
-				// the next attempt and the teacher could never sign in.
-				lockedUntil = 0;
-				attempts = [];
-			}
-			return false;
-		},
-		failed(now = Date.now()) {
-			attempts = attempts.filter((at) => now - at < windowMs);
-			attempts.push(now);
-			if (attempts.length >= failures) lockedUntil = now + lockMs;
-		},
-		signedIn() {
-			attempts = [];
+	function locked(now: number) {
+		if (now < lockedUntil) return true;
+		if (lockedUntil !== 0) {
+			// The wait is over. A fresh count, or the expired lock's failures would lock again on
+			// the next attempt and the teacher could never sign in.
 			lockedUntil = 0;
-		},
-		attempt(signIn) {
+			attempts = [];
+		}
+		return false;
+	}
+
+	return {
+		attempt(signIn, now = Date.now()) {
 			const turn = queue.then(async () => {
-				if (throttle.locked()) return 'locked' as const;
+				if (locked(now)) return 'locked' as const;
 				if (await signIn()) {
-					throttle.signedIn();
+					attempts = [];
+					lockedUntil = 0;
 					return 'signedIn' as const;
 				}
-				throttle.failed();
+				attempts = attempts.filter((at) => now - at < windowMs);
+				attempts.push(now);
+				if (attempts.length >= failures) lockedUntil = now + lockMs;
 				return 'failed' as const;
 			});
 			// A throw is the caller's to see; the turn after it still runs.
@@ -63,7 +55,6 @@ export function createSignInThrottle({
 			return turn;
 		}
 	};
-	return throttle;
 }
 
 // The process's one counter: the login action is its only caller.
