@@ -40,11 +40,21 @@ In a cloud container (Node 22, mismatched Chromium) `npm ci` needs `--engine-str
 must link to `/opt/pw-browsers/chromium` for e2e, and component tests need a throwaway vitest config
 passing that path as `launchOptions.executablePath`. Delete those afterwards; none belongs in the repo.
 
+Run `npm ci` before the first check: `npm run lint` fails without `prettier-plugin-svelte`. Then run
+all four checks before pushing. For the throwaway config, copy `vite.config.ts` and change
+`provider: playwright()` to `provider: playwright({ launchOptions: { executablePath: '/opt/pw-browsers/chromium' } })`
+(`launchOptions` on the `instances` entry is ignored); run it with `npx vitest --config <file> --run`.
+Run e2e as `npx playwright test e2e/<file> --trace off`.
+
 ## Prototyping
 
 Disable the auth guard in a prototype, unless it tests the auth pages. Serve it and open it in the
 teacher's browser (`xdg-open <url>`) before asking about it. In a cloud container, which has no
 browser to open, report the port and a screenshot instead.
+
+A cloud container has no `.env`, so start the dev server with `ORIGIN`, `BETTER_AUTH_URL` (both
+`http://localhost:5173`) and `BETTER_AUTH_SECRET` set on the command line. In a Playwright script, `await page.waitForLoadState('networkidle')` after each
+`goto` before clicking, or the click lands before hydration and does nothing.
 
 ## Reference
 

@@ -361,7 +361,7 @@
 			</span>
 			<span class="w-24 shrink-0">
 				<span
-					class="rounded-2xl bg-muted px-2 py-0.5 text-xs font-medium whitespace-nowrap text-muted-foreground"
+					class="inline-flex h-6 items-center rounded-full bg-surface px-2.5 text-xs font-semibold whitespace-nowrap text-muted-foreground"
 					>{kindLabel(event.kind)}</span
 				>
 			</span>
