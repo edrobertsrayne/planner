@@ -170,7 +170,13 @@
 									? byId.get(cell.lessonId)
 									: undefined}
 							<div
-								class="flex min-w-44 flex-1 basis-44 flex-col"
+								class="flex min-w-44 flex-1 basis-44 flex-col rounded-md {board.placing &&
+								cell.kind === 'movable'
+									? board.placing.overKey === cell.key
+										? 'ring-2 ring-primary'
+										: 'ring-1 ring-primary/30'
+									: ''}"
+								data-drop-slot={board.placing && cell.kind === 'movable' ? cell.key : undefined}
 								data-cell
 								data-cell-kind={cell.kind}
 							>
@@ -219,12 +225,23 @@
 									</a>
 								{:else if cell.kind === 'placed'}
 									<div
-										class="flex min-h-10 items-center gap-1.5 rounded-md border bg-muted/40 px-2 py-1.5 text-sm"
+										class="flex min-h-10 items-stretch gap-1.5 rounded-md border bg-muted/40 text-sm {board
+											.placing?.title !== undefined && board.dragIds.includes(cell.placementId)
+											? 'opacity-40'
+											: ''}"
 										data-placed-card
 									>
-										<LockIcon class="size-3 shrink-0" aria-hidden="true" />
-										<span class="font-medium">{cell.title ?? 'Placement'}</span>
-										<span class="ml-auto text-xs text-muted-foreground">Placed</span>
+										{#if cell.fixed}
+											<LockIcon class="my-auto ml-2 size-3 shrink-0" aria-hidden="true" />
+										{:else}
+											<DragGrip
+												label={cell.title ?? 'Placement'}
+												class="w-6 max-md:hidden"
+												onstart={(event) => board.startPlacement(event, cell.placementId)}
+											/>
+										{/if}
+										<span class="my-auto py-1.5 font-medium">{cell.title ?? 'Placement'}</span>
+										<span class="my-auto ml-auto pr-2 text-xs text-muted-foreground">Placed</span>
 									</div>
 								{:else}
 									<div

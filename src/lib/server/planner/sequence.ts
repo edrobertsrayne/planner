@@ -89,7 +89,7 @@ export interface DateChange {
 
 // Runs one Sequence write: in one transaction, re-deriving this Class from today, and listing the
 // Lessons that stay in the Sequence and now fall on a different first date.
-function writeSequence<T>(
+export function writeSequence<T>(
 	db: Db,
 	{ classId, today }: { classId: string; today: string },
 	write: () => T
@@ -324,14 +324,15 @@ export interface SequenceEntry {
 
 // One Slot of a week row. A Slot stays in its place; the Lessons move through the Slots.
 //   movable  a Slot a Sequence Lesson may take, empty or not   taught   a fixed Lesson (it was taught)
-//   placed   a Placement, fixed in its Slot                    past     a Slot before today with no Session
+//   placed   a Placement, taught or movable by a drag          past     a Slot before today with no Session
 //   blocked  a Blocked Day or Blocked Slot
 // What a movable Slot shows is laid out by the client from the Sequence order (layOutSequence).
 export type WeekCell = { key: string; date: string; day: number; period: number } & (
 	| { kind: 'movable' }
 	| { kind: 'taught'; lessonId: string }
-	// A Placement's Lesson is not in the Sequence, so the entries cannot name it.
-	| { kind: 'placed'; title: string | null }
+	// A Placement's Lesson is not in the Sequence, so the entries cannot name it. `fixed` once any
+	// part of it was taught: only an untaught Placement can be dragged to another Slot.
+	| { kind: 'placed'; title: string | null; placementId: string; fixed: boolean }
 	| { kind: 'past' }
 	| { kind: 'blocked' }
 );
@@ -502,6 +503,20 @@ function weekRows(
 		)
 	]);
 
+	// The Placements with a part already taught are fixed; the rest can still be moved.
+	const begun = new Set(result.history.flatMap((s) => (s.placementId ? [s.placementId] : [])));
+	const placedCell = (
+		base: { key: string; date: string; day: number; period: number },
+		lessonId: string,
+		placementId: string
+	): WeekCell => ({
+		...base,
+		kind: 'placed',
+		title: titles.get(lessonId)?.title ?? null,
+		placementId,
+		fixed: begun.has(placementId)
+	});
+
 	// What one occasion of the Class's Timetable shows: the record first (a taught Lesson is
 	// fixed), then the schedule's own rows, then an Open Slot, and otherwise a removal the Calendar
 	// made or a position before `today` the engine lays nothing on.
@@ -512,14 +527,13 @@ function weekRows(
 		const taught = recorded.get(key);
 		if (taught) {
 			return taught.placementId
-				? { ...base, kind: 'placed', title: titles.get(taught.lessonId)?.title ?? null }
+				? placedCell(base, taught.lessonId, taught.placementId)
 				: { ...base, kind: 'taught', lessonId: taught.lessonId };
 		}
 
 		const at = scheduled.get(key);
 		if (at) {
-			if (at.placementId)
-				return { ...base, kind: 'placed', title: titles.get(at.lessonId)?.title ?? null };
+			if (at.placementId) return placedCell(base, at.lessonId, at.placementId);
 			return fixed.has(at.lessonId)
 				? { ...base, kind: 'taught', lessonId: at.lessonId }
 				: { ...base, kind: 'movable' };
@@ -546,11 +560,14 @@ function weekRows(
 		cells: (byWeek.get(week.weekCommencing) ?? []).map(cellFor)
 	}));
 
-	// A row starts at the first week a movable Lesson stands in, or, when nothing is left to teach,
-	// the first week with an Open Slot. It ends a week past the last week a movable Lesson is in.
+	// A row starts at the first week a Lesson that can still move stands in (a Sequence Lesson or an
+	// untaught Placement), or, when there is none, the first week with an Open Slot. It ends a week
+	// past the last such week.
 	const movable = new Set(
 		result.scheduled
-			.filter((session) => !session.placementId && !fixed.has(session.lessonId))
+			.filter((session) =>
+				session.placementId ? !begun.has(session.placementId) : !fixed.has(session.lessonId)
+			)
 			.map(occasionKey)
 	);
 	const has = (keys: Set<string>) => (row: (typeof all)[number]) =>

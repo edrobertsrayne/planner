@@ -322,6 +322,40 @@ test.describe.serial('the By week layout', () => {
 		await weekDrag(page, titleOf('C'), titleOf('B'), 3);
 		await expect.poll(() => weekOrder(page)).toEqual(expected(LETTERS));
 	});
+
+	test('a Placement drags onto another Slot, and a reload keeps it there', async ({ page }) => {
+		// A Placement on 9C/Sc1's Slot three weeks ahead, made through the seam.
+		const lessonId = runFixture('place-at', '9C/Sc1', isoDate(20), 'Slot mover').trim();
+		await login(page);
+		await openWeeks(page);
+
+		const placed = page.locator('[data-cell]').filter({ has: page.locator('[data-placed-card]') });
+		const slotOf = () => placed.locator(':scope > p').innerText();
+		const before = await slotOf();
+
+		// Onto Move K's Slot: the Placement takes it, and Move K and the Lessons after it go on.
+		const grip = await placed.getByRole('button', { name: 'Drag Slot mover' }).boundingBox();
+		const target = await cardOf(page, titleOf('K')).boundingBox();
+		if (!grip || !target) throw new Error('No box');
+		await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+		await page.mouse.down();
+		await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, { steps: 6 });
+		await page.mouse.up();
+
+		await expect(page.locator('[data-move-result]')).toBeVisible();
+		await expect.poll(slotOf).not.toBe(before);
+		const after = await slotOf();
+		// The Lessons keep their order.
+		expect(await weekOrder(page)).toEqual(expected(LETTERS));
+		await openWeeks(page);
+		expect(await slotOf()).toBe(after);
+
+		// Take it away again, with its Lesson, so the tests after this one see the state they expect.
+		runFixture('remove-placement', lessonId);
+		await page.goto(`/lessons/${lessonId}`);
+		await page.getByRole('button', { name: 'Delete Lesson' }).click();
+		await expect(page).toHaveURL(/\/planning$/);
+	});
 });
 
 test.describe('a taught Lesson is fixed', () => {

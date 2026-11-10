@@ -14,6 +14,9 @@ export interface DragSnapshot {
 	point: { x: number; y: number };
 }
 
+const SELECTOR: Record<DropZone, string> = { drop: '[data-drop]', dropSlot: '[data-drop-slot]' };
+export type DropZone = 'drop' | 'dropSlot';
+
 export interface SequenceDragOptions {
 	// Every change to the snapshot: the press, each move, each auto-scroll step and the drop.
 	onChange: (snapshot: DragSnapshot) => void;
@@ -22,8 +25,9 @@ export interface SequenceDragOptions {
 }
 
 export interface SequenceDrag {
-	// Begins a drag carrying `ids`; the caller has already ruled out a secondary button.
-	start: (event: PointerEvent, ids: string[], grabbedId: string) => void;
+	// Begins a drag carrying `ids`; the caller has already ruled out a secondary button. The cards
+	// it can land on are marked `data-drop` (a Lesson's place) or `data-drop-slot` (a Slot's key).
+	start: (event: PointerEvent, ids: string[], grabbedId: string, zone?: DropZone) => void;
 	move: (event: PointerEvent) => void;
 	// The pointer went up. `drop` is false for a cancelled pointer.
 	end: (drop: boolean) => void;
@@ -38,6 +42,7 @@ const SCROLL_STEP = 16;
 
 export function createSequenceDrag({ onChange, onDrop }: SequenceDragOptions): SequenceDrag {
 	let ids: string[] = [];
+	let zone: DropZone = 'drop';
 	let grabbedId: string | null = null;
 	let overId: string | null = null;
 	let point = { x: 0, y: 0 };
@@ -47,8 +52,8 @@ export function createSequenceDrag({ onChange, onDrop }: SequenceDragOptions): S
 	const active = () => ids.length > 0;
 
 	function hitTest() {
-		const el = document.elementFromPoint(point.x, point.y)?.closest<HTMLElement>('[data-drop]');
-		overId = el?.dataset.drop ?? null;
+		const el = document.elementFromPoint(point.x, point.y)?.closest<HTMLElement>(SELECTOR[zone]);
+		overId = (zone === 'drop' ? el?.dataset.drop : el?.dataset.dropSlot) ?? null;
 	}
 
 	function stop() {
@@ -74,8 +79,9 @@ export function createSequenceDrag({ onChange, onDrop }: SequenceDragOptions): S
 	}
 
 	return {
-		start(event, carried, grip) {
+		start(event, carried, grip, target = 'drop') {
 			ids = carried;
+			zone = target;
 			grabbedId = grip;
 			overId = null;
 			point = { x: event.clientX, y: event.clientY };

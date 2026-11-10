@@ -18,6 +18,8 @@
  *   DATABASE_URL=e2e.db npx tsx scripts/e2e-fixtures.ts add-lesson <classLabel> <title>
  *   DATABASE_URL=e2e.db npx tsx scripts/e2e-fixtures.ts place-lesson <lessonId> <classLabel> <date>
  *   DATABASE_URL=e2e.db npx tsx scripts/e2e-fixtures.ts unplace-lesson <lessonId>
+ *   DATABASE_URL=e2e.db npx tsx scripts/e2e-fixtures.ts place-at <classLabel> <date> <title>
+ *   DATABASE_URL=e2e.db npx tsx scripts/e2e-fixtures.ts remove-placement <lessonId>
  */
 import { rmSync } from 'node:fs';
 import { and, eq } from 'drizzle-orm';
@@ -29,11 +31,14 @@ import {
 	addLesson,
 	assignTopic,
 	attachmentsDir,
+	classSchedule,
 	createAttachment,
 	createClass,
 	createCourse,
 	createLesson,
 	createTopic,
+	placeLesson,
+	removePlacement,
 	sequenceLessonIds,
 	takeSlot
 } from '../src/lib/server/planner/index.ts';
@@ -287,6 +292,47 @@ switch (command) {
 		const [lessonId] = args;
 		if (!lessonId) throw new Error('Usage: unplace-lesson <lessonId>');
 		db.delete(schema.placement).where(eq(schema.placement.lessonId, lessonId)).run();
+		break;
+	}
+	// A Placement made through the seam, on the first Slot of the Class at or after the date, so
+	// the Class is re-derived as the app does. Prints the new Lesson's id.
+	case 'place-at': {
+		const [classLabel, date, title] = args;
+		if (!classLabel || !date || !title) {
+			throw new Error('Usage: place-at <classLabel> <date> <title>');
+		}
+		const [row] = db
+			.select()
+			.from(schema.classes)
+			.where(eq(schema.classes.label, classLabel))
+			.all();
+		if (!row) throw new Error(`No Class ${classLabel}`);
+		const now = today();
+		const { scheduled, openSlots } = classSchedule(db, { classId: row.id, today: now });
+		const at = [...scheduled, ...openSlots]
+			.filter((s) => s.date >= date)
+			.sort((a, b) => a.date.localeCompare(b.date))[0];
+		if (!at) throw new Error(`No Slot for ${classLabel} on or after ${date}`);
+		const { lesson } = placeLesson(db, {
+			classId: row.id,
+			date: at.date,
+			period: at.period,
+			title,
+			today: now
+		});
+		process.stdout.write(lesson.id);
+		break;
+	}
+	case 'remove-placement': {
+		const [lessonId] = args;
+		if (!lessonId) throw new Error('Usage: remove-placement <lessonId>');
+		const [row] = db
+			.select()
+			.from(schema.placement)
+			.where(eq(schema.placement.lessonId, lessonId))
+			.all();
+		if (!row) throw new Error(`No Placement for ${lessonId}`);
+		removePlacement(db, { id: row.id, today: today() });
 		break;
 	}
 	case 'add-attachment': {

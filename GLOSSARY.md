@@ -172,7 +172,9 @@ _Avoid_: Session note, Lesson note, comment
 **Placement**:
 One Lesson put on one Class on one date the teacher chooses, outside that Class's Sequence. To
 **Place** is to make one, and Placing makes a new Standalone Lesson; the reverse is to remove it,
-which leaves the Lesson standing. A Lesson is in a Class's Sequence or Placed on that Class, never
+which leaves the Lesson standing. A Placement not yet taught can be moved to another Slot by a
+drag in the Class's Sequence, which re-anchors it. A Lesson is in a Class's Sequence or Placed on
+that Class, never
 both. A Placement is anchored to the date and Slot chosen and takes the first Available Slot at or
 after it, so it shifts right when that Slot stops being Available, and returns when the Slot is
 Available again. The Slot chosen may be an Open Slot or one a Sequence Lesson already holds; a
@@ -453,7 +455,8 @@ shows By week, each week's Slots in fixed
 places, or as a List. The teacher drags a Lesson by its grip to take another Lesson's place, and
 select mode moves or removes several at once. Assign Topic, Add Lesson and Remove Lesson are here
 too. Each change is kept at once, and a line says how many Lessons change date. Taught Lessons are
-fixed and hidden until asked for; a Placement shows fixed in its Slot; Lessons with no Slot left
+fixed and hidden until asked for; a Placement not yet taught is dragged by its grip to another Slot
+that takes it, and a taught one shows fixed; Lessons with no Slot left
 show in a "Past the end of the year" row. Both tabs are written from a tablet up; a phone shows
 the Sequence only, read-only, with no tabs. The only place a Class is timetabled.
 Creating a Class happens on the Classes screen. There is no screen showing every Class's Timetable

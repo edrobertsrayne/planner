@@ -21,6 +21,8 @@ export interface SequenceBoardOptions {
 	result: () => SequenceResult | null;
 	// A drop: the Lessons to move, and the target Lesson whose place they take. The tab writes it.
 	onDrop: (lessonIds: string[], targetId: string) => void;
+	// A Placement dropped on a Slot: the Placement and the Slot's key, `date|period`.
+	onPlace: (placementId: string, slotKey: string) => void;
 	// × or the select bar's Remove: the Lessons the confirm dialog asks about.
 	onRemove: (entries: SequenceEntry[]) => void;
 }
@@ -46,6 +48,9 @@ export interface SequenceBoard {
 	readonly dragging: boolean;
 	readonly dragged: SequenceEntry | undefined;
 	start: (event: PointerEvent, lessonId: string) => void;
+	startPlacement: (event: PointerEvent, placementId: string) => void;
+	// The Placement being dragged and the Slot key under it, or null when none is in flight.
+	readonly placing: { title: string; overKey: string | null } | null;
 	move: (event: PointerEvent) => void;
 	end: (drop: boolean) => void;
 	dropLine: (lessonId: string) => 'above' | 'below' | null;
@@ -87,9 +92,11 @@ export function createSequenceBoard(options: SequenceBoardOptions): SequenceBoar
 	// engine in `sequence-drag` hit-tests the cards on each move and each auto-scroll step, because a
 	// Lesson can scroll under a pointer that is still. A fixed Lesson has no grip and no `data-drop`.
 	let dragState = $state<DragSnapshot>({ ...AT_REST });
+	let carrying = $state<'lesson' | 'placement'>('lesson');
 	const drag = createSequenceDrag({
 		onChange: (snapshot) => (dragState = snapshot),
-		onDrop: options.onDrop
+		onDrop: (ids, target) =>
+			carrying === 'placement' ? options.onPlace(ids[0], target) : options.onDrop(ids, target)
 	});
 	const dragIds = $derived(dragState.ids);
 	const overId = $derived(dragState.overId);
@@ -97,8 +104,20 @@ export function createSequenceBoard(options: SequenceBoardOptions): SequenceBoar
 	const dragging = $derived(dragState.ids.length > 0);
 	const dragged = $derived(entries.find((entry) => entry.lessonId === dragState.grabbedId));
 	const order = $derived(entries.map((entry) => entry.lessonId));
+	// The Placement in flight and the Slot it is over, or null when a Lesson is carried.
+	const placing = $derived.by(() => {
+		if (!dragging || carrying !== 'placement') return null;
+		const cell = options
+			.weeks()
+			.flatMap((row) => (row.kind === 'week' ? row.cells : []))
+			.find((c) => c.kind === 'placed' && c.placementId === dragState.grabbedId);
+		return {
+			title: cell?.kind === 'placed' ? (cell.title ?? 'Placement') : 'Placement',
+			overKey: overId
+		};
+	});
 	// The new order if the drop happened now, or null when it would do nothing.
-	const proposal = $derived(overId ? movedOrder(order, dragIds, overId) : null);
+	const proposal = $derived(overId && !placing ? movedOrder(order, dragIds, overId) : null);
 	// The drop line sits on the side of the target that the Lesson comes from.
 	const lineAbove = $derived(!!overId && order.indexOf(overId) < order.indexOf(dragIds[0]));
 
@@ -172,6 +191,7 @@ export function createSequenceBoard(options: SequenceBoardOptions): SequenceBoar
 		event.preventDefault();
 		// A drag on a picked Lesson carries the selection, in its order; any other carries one Lesson.
 		const ids = selectMode && selectedIds.includes(lessonId) ? selectedIds : [lessonId];
+		carrying = 'lesson';
 		drag.start(event, ids, lessonId);
 	}
 
@@ -179,6 +199,16 @@ export function createSequenceBoard(options: SequenceBoardOptions): SequenceBoar
 	function dropLine(lessonId: string): 'above' | 'below' | null {
 		if (!dragging || !proposal || overId !== lessonId) return null;
 		return lineAbove ? 'above' : 'below';
+	}
+
+	// A grip on a Placement carries it alone, to a Slot that can take it: the cells marked
+	// `data-drop-slot`. Nothing about the Sequence's order changes, so there is no preview.
+	function startPlacement(event: PointerEvent, placementId: string) {
+		if (dragging || !event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0))
+			return;
+		event.preventDefault();
+		carrying = 'placement';
+		drag.start(event, [placementId], placementId, 'dropSlot');
 	}
 
 	function remove(entry: SequenceEntry) {
@@ -227,6 +257,10 @@ export function createSequenceBoard(options: SequenceBoardOptions): SequenceBoar
 			return dragged;
 		},
 		start,
+		startPlacement,
+		get placing() {
+			return placing;
+		},
 		move: drag.move,
 		end: drag.end,
 		dropLine,

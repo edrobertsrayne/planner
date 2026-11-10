@@ -6,6 +6,7 @@ import {
 	assignTopic,
 	blockSlot,
 	classSchedule,
+	placeLesson,
 	recordContinuation,
 	moveLessons,
 	sequenceLessonIds,
@@ -135,6 +136,30 @@ describe('the By week view', () => {
 				.filter((e) => e.firstDate !== null && cells.some((c) => c.key.startsWith(e.firstDate!)))
 				.map((e) => e.lessonId)
 		).toEqual(lessons.map((l) => l.id));
+	});
+
+	test('a week holding only an untaught Placement is shown, so the Placement can be moved', () => {
+		const { db, course, classA } = setUp();
+		const topic = makeTopic(db, course.id, 'Forces');
+		makeLessons(db, topic.id, 2);
+		assignTopic(db, { classId: classA.id, topicId: topic.id, today });
+		const { openSlots } = classSchedule(db, { classId: classA.id, today });
+		// An occasion six weeks past the Sequence's last Lesson.
+		const far = openSlots.find((s) => s.date >= '2026-11-02')!;
+		const { lesson } = placeLesson(db, {
+			classId: classA.id,
+			date: far.date,
+			period: far.period,
+			title: 'Far away',
+			today
+		});
+
+		const cells = weeksOf(db, classA.id).weeks.flatMap((w) => (w.kind === 'week' ? w.cells : []));
+		expect(cells.find((c) => c.key === `${far.date}|${far.period}`)).toMatchObject({
+			kind: 'placed',
+			title: lesson.title,
+			fixed: false
+		});
 	});
 
 	test('a Lesson with no Slot left has no first date, only when one exists', () => {
