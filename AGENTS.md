@@ -52,6 +52,10 @@ Disable the auth guard in a prototype, unless it tests the auth pages. Serve it 
 teacher's browser (`xdg-open <url>`) before asking about it. In a cloud container, which has no
 browser to open, report the port and a screenshot instead.
 
+A cloud container has no `.env`, so start the dev server with `ORIGIN`, `BETTER_AUTH_URL` (both
+`http://localhost:5173`) and `BETTER_AUTH_SECRET` set on the command line. In a Playwright script, `await page.waitForLoadState('networkidle')` after each
+`goto` before clicking, or the click lands before hydration and does nothing.
+
 ## Reference
 
 - Issues: GitHub Issues via `gh`; in a cloud container, use the GitHub MCP tools instead.
