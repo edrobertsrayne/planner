@@ -12,6 +12,11 @@ export interface SignInThrottle {
 	failed: (now?: number) => void;
 	// A successful sign-in: the count starts again.
 	signedIn: () => void;
+	// One sign-in, taking its turn behind any already running. `signIn` tests the password and
+	// says whether it was right. Testing awaits a hash, so attempts that arrived together would
+	// all pass `locked()` before any failure was recorded and the limit would be five plus however
+	// many arrived at once. A refused attempt never reaches `signIn`.
+	attempt: (signIn: () => Promise<boolean>) => Promise<'locked' | 'signedIn' | 'failed'>;
 }
 
 export function createSignInThrottle({
@@ -21,8 +26,9 @@ export function createSignInThrottle({
 } = {}): SignInThrottle {
 	let attempts: number[] = [];
 	let lockedUntil = 0;
+	let queue: Promise<unknown> = Promise.resolve();
 
-	return {
+	const throttle: SignInThrottle = {
 		locked(now = Date.now()) {
 			if (now < lockedUntil) return true;
 			if (lockedUntil !== 0) {
@@ -41,8 +47,23 @@ export function createSignInThrottle({
 		signedIn() {
 			attempts = [];
 			lockedUntil = 0;
+		},
+		attempt(signIn) {
+			const turn = queue.then(async () => {
+				if (throttle.locked()) return 'locked' as const;
+				if (await signIn()) {
+					throttle.signedIn();
+					return 'signedIn' as const;
+				}
+				throttle.failed();
+				return 'failed' as const;
+			});
+			// A throw is the caller's to see; the turn after it still runs.
+			queue = turn.catch(() => {});
+			return turn;
 		}
 	};
+	return throttle;
 }
 
 // The process's one counter: the login action is its only caller.

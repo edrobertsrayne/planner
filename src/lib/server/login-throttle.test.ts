@@ -53,3 +53,43 @@ describe('the sign-in throttle', () => {
 		expect(throttle.locked(start + 10)).toBe(false);
 	});
 });
+
+// The password check awaits a hash, so attempts that arrive together would all pass `locked()`
+// before any failure is recorded; `attempt` makes them take turns.
+describe('concurrent sign-in attempts', () => {
+	test('a burst of wrong passwords tests five, then refuses the rest without testing them', async () => {
+		const throttle = createSignInThrottle();
+		let tested = 0;
+		const wrong = async () => {
+			tested++;
+			await Promise.resolve();
+			return false;
+		};
+
+		const results = await Promise.all(Array.from({ length: 50 }, () => throttle.attempt(wrong)));
+
+		expect(tested).toBe(5);
+		expect(results.filter((r) => r === 'failed')).toHaveLength(5);
+		expect(results.filter((r) => r === 'locked')).toHaveLength(45);
+	});
+
+	test('a right password signs in and clears the count', async () => {
+		const throttle = createSignInThrottle();
+		for (let i = 0; i < 4; i++) await throttle.attempt(async () => false);
+
+		expect(await throttle.attempt(async () => true)).toBe('signedIn');
+		for (let i = 0; i < 4; i++) await throttle.attempt(async () => false);
+		expect(await throttle.attempt(async () => true)).toBe('signedIn');
+	});
+
+	test('an attempt that throws does not stall the ones behind it', async () => {
+		const throttle = createSignInThrottle();
+		const broken = throttle.attempt(async () => {
+			throw new Error('database gone');
+		});
+		const next = throttle.attempt(async () => true);
+
+		await expect(broken).rejects.toThrow('database gone');
+		expect(await next).toBe('signedIn');
+	});
+});
