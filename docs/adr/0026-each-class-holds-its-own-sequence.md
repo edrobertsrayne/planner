@@ -27,7 +27,7 @@ that holds its detail.
   Sequence holds asks first. Deleting a Topic keeps its Lessons as Standalone Lessons.
   ([#370](https://github.com/edrobertsrayne/planner/issues/370),
   [#376](https://github.com/edrobertsrayne/planner/issues/376))
-- **The taught part is locked.** A Lesson with a Session on or before today cannot move or be
+- **The taught part is locked.** A Lesson with a Session before today cannot move or be
   removed, and nothing moves in front of it. A reorder re-derives one Class from today and never
   rewinds. So a later Rewind lays the past again in the order it was taught.
   ([#371](https://github.com/edrobertsrayne/planner/issues/371))

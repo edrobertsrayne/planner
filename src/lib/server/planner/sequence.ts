@@ -4,7 +4,7 @@
 //
 // Each write runs in one transaction, re-derives this Class only, from today, and answers with
 // the `WriteReport` plus `changed`: the Lessons that got a different first date.
-import { and, asc, eq, inArray, lte, ne } from 'drizzle-orm';
+import { and, asc, eq, inArray, lt, ne } from 'drizzle-orm';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import { addDays, mondayOf, weekday } from '$lib/date';
@@ -25,10 +25,10 @@ import { required } from './fields';
 import { Refused } from './refused';
 import { endPairing, teachingNotesOf } from './teaching-notes';
 
-// Fixed Lessons: those with a Session on or before today. They are what was taught, so no write
+// Fixed Lessons: those with a Session before today. They are what was taught, so no write
 // may move or remove them. `fixedOn` is the one rule for "is this Session fixed?".
 export function fixedOn(today: string) {
-	return lte(schema.session.date, today);
+	return lt(schema.session.date, today);
 }
 
 export function fixedLessonIds(db: Db, classId: string, today: string): Set<string> {

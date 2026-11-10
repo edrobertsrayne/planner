@@ -40,8 +40,8 @@ describe('Add Lesson', () => {
 		const [one, two, three] = makeLessons(db, topic.id, 3);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today });
 
-		// On Thu 3 Sep Lessons 1 and 2 are taught, so they are fixed.
-		const { lesson } = addLesson(db, { classId: classA.id, title: 'Quiz', today: '2026-09-03' });
+		// Lessons 1 and 2 fall on Thu 3 Sep, so on Fri 4 Sep they are taught and fixed.
+		const { lesson } = addLesson(db, { classId: classA.id, title: 'Quiz', today: '2026-09-04' });
 
 		expect(sequenceLessonIds(db, classA.id)).toEqual([one.id, two.id, lesson.id, three.id]);
 	});
@@ -63,7 +63,7 @@ describe('Add Lesson', () => {
 		const topic = makeTopic(db, course.id, 'Forces');
 		const [one, two, three] = makeLessons(db, topic.id, 3);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today });
-		const on = '2026-09-03';
+		const on = '2026-09-04';
 
 		refused(
 			() => addLesson(db, { classId: classA.id, title: 'Quiz', afterLessonId: one.id, today: on }),

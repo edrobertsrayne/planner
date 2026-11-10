@@ -132,14 +132,14 @@ describe('reordering and moving Lessons', () => {
 		);
 	});
 
-	test('refuses to delete a Lesson with a Session today, even confirmed', () => {
+	test('refuses to delete a Lesson with a Session before today, even confirmed', () => {
 		const { db, course, classA, atDir: dir } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		const lessons = makeLessons(db, topic.id, 1);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
 
 		refused(
-			() => deleteLesson(db, { id: lessons[0].id, today: '2026-09-03', dir, confirmed: true }),
+			() => deleteLesson(db, { id: lessons[0].id, today: '2026-09-04', dir, confirmed: true }),
 			'conflict',
 			'A Class has already been taught this Lesson, so it cannot be removed.'
 		);
@@ -428,8 +428,8 @@ describe('who has been taught a Lesson', () => {
 		expect(classesTaughtLesson(db, { lessonId: lessons[0].id, today })).toEqual([
 			expect.objectContaining({ id: classA.id, label: classA.label })
 		]);
-		expect(classesTaughtLesson(db, { lessonId: lessons[0].id, today: '2026-09-02' })).toEqual([]);
-		expect(classesTaughtLesson(db, { lessonId: lessons[0].id, today: '2026-09-03' })).toEqual([
+		expect(classesTaughtLesson(db, { lessonId: lessons[0].id, today: '2026-09-03' })).toEqual([]);
+		expect(classesTaughtLesson(db, { lessonId: lessons[0].id, today: '2026-09-04' })).toEqual([
 			expect.objectContaining({ id: classA.id })
 		]);
 

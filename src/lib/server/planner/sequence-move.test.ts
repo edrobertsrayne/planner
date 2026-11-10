@@ -103,8 +103,8 @@ describe('Move', () => {
 
 	test('refuses a fixed Lesson, and a target in front of a fixed Lesson', () => {
 		const { db, classA, ids } = withSequence(5);
-		// Lessons 1 and 2 fall on 3 Sep, and Lesson 3 on 8 Sep: all three are fixed on 8 Sep.
-		const later = '2026-09-08';
+		// Lessons 1 and 2 fall on 3 Sep, and Lesson 3 on 8 Sep: all three are fixed on 9 Sep.
+		const later = '2026-09-09';
 
 		refused(
 			() =>

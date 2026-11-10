@@ -214,7 +214,7 @@ function rederiveHolders(db: Db, lessonId: string, today: string): WriteReport {
 }
 
 // Removes a Lesson entirely, along with its Links, and re-derives every Class that held it.
-// Refuses when a Lesson is Fixed for any Class (a Session on or before today, the rule in
+// Refuses when a Lesson is Fixed for any Class (a Session before today, the rule in
 // `fixedLessonIds`): the historical Session rows reference it (ADR-0002), so deleting it would
 // erase part of the record of what happened — the taught-by block in the Lesson editor is what
 // warns Ed before he tries this and it fails.
@@ -346,7 +346,7 @@ export function moveLesson(
 	});
 }
 
-// Which Classes have this Lesson Fixed — a Session for it on or before `today`, the one rule in
+// Which Classes have this Lesson Fixed — a Session for it before `today`, the one rule in
 // `fixedLessonIds`. It is the taught-by block in the Lesson editor, so Ed knows an edit here
 // touches a plan already in use, and what makes deleteLesson refuse.
 export function classesTaughtLesson(
