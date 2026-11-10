@@ -30,3 +30,19 @@ describe('zoneOf', () => {
 		expect(zoneOf('/calendar')).toBe('app');
 	});
 });
+
+describe('zoneOf and the path SvelteKit routes', () => {
+	// SvelteKit matches routes on the decoded path, so the zone must be read from it too: otherwise
+	// `/%61pi/courses` is the app zone to the hooks and `/api/courses` to the router.
+	it('reads a percent-encoded letter as the letter', () => {
+		expect(zoneOf('/%61pi/courses')).toBe('api');
+		expect(zoneOf('/%61pi/%61uth/get-session')).toBe('auth');
+		expect(zoneOf('/api/%61uth/get-session')).toBe('auth');
+	});
+
+	it('keeps an encoded slash or percent inside its segment, as the router does', () => {
+		expect(zoneOf('/%2Fapi/courses')).toBe('app');
+		expect(zoneOf('/api%2Fcourses')).toBe('app');
+		expect(zoneOf('/%2561pi/courses')).toBe('app');
+	});
+});
