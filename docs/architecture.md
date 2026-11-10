@@ -31,16 +31,16 @@ flowchart LR
 
 `src/hooks.server.ts` composes the request handlers in a fixed order:
 
-| Step | Hook                    | Does                                                                      |
-| ---- | ----------------------- | ------------------------------------------------------------------------- |
-| 1    | `handleZone`            | Classifies the path once into `event.locals.zone`                         |
-| 2    | `handleSecurityHeaders` | `nosniff`, `Referrer-Policy: same-origin`, `frame-ancestors 'none'`       |
-| 3    | `handleBodyLimit`       | 413 for a body over 12 MiB, except `/setup/restore`; JSON for API zones   |
-| 4    | `handleCsrf`            | In the app zone, refuses form-typed writes whose `Origin` is not the site |
-| 5    | `handleApiLog`          | After the response: logs one line for a successful API write              |
-| 6    | `handleApiKey`          | In the `api` zone, requires the bearer key; 401 JSON otherwise            |
-| 7    | `handleAuth`            | In the app zone, reads the session; hands `/api/auth/*` to Better Auth    |
-| 8    | `handleGuard`           | In the app zone, redirects to `/setup`, `/login` or `/` by state          |
+| Step | Hook                    | Does                                                                    |
+| ---- | ----------------------- | ----------------------------------------------------------------------- |
+| 1    | `handleZone`            | Classifies the path once into `event.locals.zone`                       |
+| 2    | `handleSecurityHeaders` | `nosniff`, `Referrer-Policy: same-origin`, `frame-ancestors 'none'`     |
+| 3    | `handleBodyLimit`       | 413 for a body over 12 MiB, except `/setup/restore`; JSON for API zones |
+| 4    | `handleCsrf`            | In the app zone, refuses writes whose `Origin` is not the site          |
+| 5    | `handleApiLog`          | After the response: logs one line for a successful API write            |
+| 6    | `handleApiKey`          | In the `api` zone, requires the bearer key; 401 JSON otherwise          |
+| 7    | `handleAuth`            | In the app zone, reads the session; hands `/api/auth/*` to Better Auth  |
+| 8    | `handleGuard`           | In the app zone, redirects to `/setup`, `/login` or `/` by state        |
 
 Every later hook branches on the **zone** rather than re-reading the path (`src/lib/server/zone.ts`):
 
@@ -54,8 +54,9 @@ a user but no session, to `/login` (keeping `redirectTo`); a signed-in visitor h
 the wizard back without a restart.
 
 SvelteKit's built-in CSRF origin check is switched off (`csrf.trustedOrigins: ['*']`) because it
-cannot be scoped to a path and would refuse a bearer-key file upload. `handleCsrf` applies the same
-rule to the app zone only. The API carries no ambient credential a forged form could ride on.
+cannot be scoped to a path and would refuse a bearer-key file upload. `handleCsrf` applies a wider
+rule to the app zone only: any write from another origin, whatever its content type. The API
+carries no ambient credential a forged request could ride on.
 
 ## Authentication
 
