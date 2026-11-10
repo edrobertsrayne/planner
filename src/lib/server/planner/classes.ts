@@ -180,7 +180,7 @@ export function deleteClass(
 		.all();
 
 	if (!confirmed) {
-		const taught = dates.filter((session) => session.date <= today).length;
+		const taught = dates.filter((session) => session.date < today).length;
 		throw new Refused('unconfirmed', classDeleteText(dates.length, taught, notes.length));
 	}
 

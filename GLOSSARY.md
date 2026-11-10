@@ -122,7 +122,7 @@ may interleave and two Classes differ freely. A Lesson is in a Sequence once at 
 begins the year with an empty Sequence. **Assign Topic** adds a Topic's Lessons, as they are then,
 to the end, and skips each one already in the Sequence or Placed on that Class; a Lesson written
 later reaches no Class until its Topic is assigned again. The teacher moves, adds and removes
-Lessons. A Lesson with a Session on or before today is fixed, and nothing moves in front of it.
+Lessons. A Lesson with a Session before today is fixed, and nothing moves in front of it.
 The Sequence is what the schedule is derived from: it is laid onto that Class's Available Slots.
 _Avoid_: Queue, list, Assigned Topic
 

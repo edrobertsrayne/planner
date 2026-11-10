@@ -95,7 +95,7 @@ describe('Remove', () => {
 		expect(sequenceOf(db, classA.id)).toEqual([]);
 	});
 
-	test('refuses when a Lesson has a Session today, and changes nothing', () => {
+	test('refuses when a Lesson has a Session before today, and changes nothing', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		const [one, two, three] = makeLessons(db, topic.id, 3);
@@ -104,13 +104,13 @@ describe('Remove', () => {
 			.values({ classId: classA.id, lessonId: three.id, body: 'note' })
 			.run();
 
-		// Lesson 1 falls on Thu 3 Sep P5: a Session today counts as fixed.
+		// Lesson 1 falls on Thu 3 Sep P5: a Session before today counts as fixed.
 		refused(
 			() =>
 				removeFromSequence(db, {
 					classId: classA.id,
 					lessonIds: [three.id, one.id],
-					today: '2026-09-03'
+					today: '2026-09-04'
 				}),
 			'conflict',
 			'“Lesson 1” was taught, so it cannot be removed.'

@@ -222,18 +222,21 @@ describe('Assign Topic', () => {
 });
 
 describe('fixed Lessons', () => {
-	test('counts a Lesson with a Session on or before today, and not a later one', () => {
+	test('counts a Lesson with a Session before today, and not one today or later', () => {
 		const { db, course, classA } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		const lessons = makeLessons(db, topic.id, 3);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today });
 
 		// Lessons 1 and 2 fall on Thu 3 Sep P5 and P6; Lesson 3 falls on Tue 8 Sep.
-		expect(fixedLessonIds(db, classA.id, '2026-09-02')).toEqual(new Set());
-		expect(fixedLessonIds(db, classA.id, '2026-09-03')).toEqual(
+		expect(fixedLessonIds(db, classA.id, '2026-09-03')).toEqual(new Set());
+		expect(fixedLessonIds(db, classA.id, '2026-09-04')).toEqual(
 			new Set([lessons[0].id, lessons[1].id])
 		);
-		expect(fixedLessonIds(db, classA.id, '2026-09-08')).toEqual(new Set(lessons.map((l) => l.id)));
+		expect(fixedLessonIds(db, classA.id, '2026-09-08')).toEqual(
+			new Set([lessons[0].id, lessons[1].id])
+		);
+		expect(fixedLessonIds(db, classA.id, '2026-09-09')).toEqual(new Set(lessons.map((l) => l.id)));
 	});
 
 	test('answers for the one Class asked', () => {
