@@ -36,11 +36,14 @@ export function guardRedirect(request: {
 /**
  * SvelteKit's own CSRF check refuses any form-typed write without a matching `Origin` header,
  * which a script uploading a file with a Bearer key never sends. It cannot be scoped to a path, so
- * `vite.config.ts` turns it off and this applies the same rule to the app zone. Neither API zone
- * carries an ambient credential a forged browser form could ride on (each route needs the Bearer
- * key, and `/api/auth/*` runs Better Auth's own origin check).
+ * `vite.config.ts` turns it off and this applies the rule to the app zone, wider: a cross-site
+ * `fetch` with `mode: 'no-cors'` and an untyped Blob carries the session cookie with no preflight
+ * and no form content type, so every write whose browser-stated `Origin` is another site is
+ * refused. A form must also state its Origin; any other body may omit it, since only a script
+ * does, and a script holds no ambient cookie. Neither API zone carries one either (each route
+ * needs the Bearer key, and `/api/auth/*` runs Better Auth's own origin check).
  */
-export function crossSiteFormRefused(request: {
+export function crossSiteWriteRefused(request: {
 	zone: Zone;
 	method: string;
 	pathname: string;
@@ -54,7 +57,8 @@ export function crossSiteFormRefused(request: {
 		/^\s*(application\/x-www-form-urlencoded|multipart\/form-data|text\/plain)\s*(;|$)/i.test(
 			request.contentType ?? ''
 		);
-	return isForm && request.origin !== request.siteOrigin;
+	if (request.origin === null) return isForm;
+	return request.origin !== request.siteOrigin;
 }
 
 const PUBLIC_ROUTES = ['/login'];

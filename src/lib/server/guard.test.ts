@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { crossSiteFormRefused, guardRedirect, isPublicRoute } from './guard';
+import { crossSiteWriteRefused, guardRedirect, isPublicRoute } from './guard';
 
 const site = 'https://planner.example';
 const form = {
@@ -9,32 +9,59 @@ const form = {
 	contentType: 'multipart/form-data; boundary=x'
 };
 
-describe('crossSiteFormRefused', () => {
+describe('crossSiteWriteRefused', () => {
 	it('refuses a form write from another origin, or with no origin, outside /api', () => {
 		expect(
-			crossSiteFormRefused({ ...form, origin: 'https://evil.example', siteOrigin: site })
+			crossSiteWriteRefused({ ...form, origin: 'https://evil.example', siteOrigin: site })
 		).toBe(true);
-		expect(crossSiteFormRefused({ ...form, origin: null, siteOrigin: site })).toBe(true);
+		expect(crossSiteWriteRefused({ ...form, origin: null, siteOrigin: site })).toBe(true);
 	});
 
 	it('lets a same-origin form write, a JSON write and a read through', () => {
-		expect(crossSiteFormRefused({ ...form, origin: site, siteOrigin: site })).toBe(false);
+		expect(crossSiteWriteRefused({ ...form, origin: site, siteOrigin: site })).toBe(false);
 		expect(
-			crossSiteFormRefused({
+			crossSiteWriteRefused({
 				...form,
 				contentType: 'application/json',
-				origin: 'https://evil.example',
+				origin: site,
 				siteOrigin: site
 			})
 		).toBe(false);
-		expect(crossSiteFormRefused({ ...form, method: 'GET', origin: null, siteOrigin: site })).toBe(
+		expect(crossSiteWriteRefused({ ...form, method: 'GET', origin: null, siteOrigin: site })).toBe(
 			false
 		);
 	});
 
+	// A cross-site `fetch(..., { mode: 'no-cors', body: blob })` carries the cookie, sends no
+	// preflight and, with an untyped Blob, no Content-Type; the browser still states the Origin.
+	it.each([null, 'application/json', 'application/octet-stream', 'text/plain'])(
+		'refuses a write from another origin whatever its content type (%s)',
+		(contentType) => {
+			expect(
+				crossSiteWriteRefused({
+					...form,
+					contentType,
+					origin: 'https://evil.example',
+					siteOrigin: site
+				})
+			).toBe(true);
+		}
+	);
+
+	it('lets a body that is not a form through with no origin: only a script sends that', () => {
+		expect(
+			crossSiteWriteRefused({
+				...form,
+				contentType: 'application/json',
+				origin: null,
+				siteOrigin: site
+			})
+		).toBe(false);
+	});
+
 	it('leaves both API zones to their own checks, so a script can upload with no origin', () => {
 		expect(
-			crossSiteFormRefused({
+			crossSiteWriteRefused({
 				...form,
 				zone: 'api',
 				pathname: '/api/lessons/1/attachments',
@@ -43,7 +70,7 @@ describe('crossSiteFormRefused', () => {
 			})
 		).toBe(false);
 		expect(
-			crossSiteFormRefused({
+			crossSiteWriteRefused({
 				...form,
 				zone: 'auth',
 				pathname: '/api/auth/sign-in/email',
