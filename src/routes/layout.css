@@ -261,6 +261,22 @@
 	}
 }
 
+/* The same reveal for a narrow row whose name needs the width (a Link's, an Attachment's): the
+   control takes no room at all until the row is hovered or holds focus, so the name is never cut
+   for a control the reader cannot see. Always shown on touch, where there is no hover. */
+@utility row-control-collapsed {
+	display: none;
+
+	:is(.group, .group\/row):hover &,
+	:is(.group, .group\/row):focus-within & {
+		display: flex;
+	}
+
+	@media (pointer: coarse) {
+		display: flex;
+	}
+}
+
 /*
 	The hatch marks a position that is not an upcoming Session. A Blocked Day and a Blocked Slot
 	drain the colour instead of keeping it (GLOSSARY.md, Calendar): present-but-empty and removed

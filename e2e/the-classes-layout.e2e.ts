@@ -215,10 +215,23 @@ test.describe('the Class page on a laptop', () => {
 		await Promise.all([page.waitForResponse((r) => r.url().includes('setClassNote')), note.blur()]);
 
 		await page.getByRole('button', { name: '+ Add Link' }).click();
-		await page.getByPlaceholder('Label').fill('Class folder');
+		await page.getByPlaceholder('Label').fill('Class shared folder');
 		await page.getByPlaceholder('https://…').fill('https://drive.example.com/9b');
 		await page.getByRole('button', { name: 'Add', exact: true }).click();
-		await expect(page.getByRole('link', { name: 'Class folder' })).toBeVisible();
+		const link = page.getByRole('link', { name: 'Class shared folder' });
+		await expect(link).toBeVisible();
+		// The name has the row to itself: no host beside it, and the row's controls take no room
+		// until the row is hovered.
+		const row = page.getByRole('listitem').filter({ has: link });
+		await expect(row).toHaveText('Class shared folder');
+		expect(await link.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+		const edit = page.getByRole('button', { name: 'Edit Class shared folder' });
+		await expect(edit).toBeHidden();
+		const height = (await row.boundingBox())!.height;
+		await row.hover();
+		await expect(edit).toBeVisible();
+		// Showing the controls moves nothing.
+		expect((await row.boundingBox())!.height).toBe(height);
 
 		await page
 			.locator('main')
@@ -235,7 +248,7 @@ test.describe('the Class page on a laptop', () => {
 		await expect(page.getByRole('textbox', { name: 'Class note' })).toHaveText(
 			'Lab S4 on Mondays.'
 		);
-		await expect(page.getByRole('link', { name: 'Class folder' })).toHaveAttribute(
+		await expect(page.getByRole('link', { name: 'Class shared folder' })).toHaveAttribute(
 			'href',
 			'https://drive.example.com/9b'
 		);
@@ -266,7 +279,7 @@ test.describe('the Class page on a phone writes nothing', () => {
 		// The Overview reads: the note rendered, the Link opens, the Attachment downloads.
 		await expect(page.getByRole('textbox', { name: 'Class note' })).toHaveCount(0);
 		await expect(page.locator('main')).toContainText('Lab S4 on Mondays.');
-		await expect(page.getByRole('link', { name: 'Class folder' })).toBeVisible();
+		await expect(page.getByRole('link', { name: 'Class shared folder' })).toBeVisible();
 		await expect(page.getByRole('link', { name: 'seating-plan.txt' })).toBeVisible();
 		await expect(page.getByRole('button', { name: '+ Add Link' })).toHaveCount(0);
 		await expect(page.getByRole('button', { name: '+ Add Attachment' })).toHaveCount(0);
@@ -290,8 +303,11 @@ test.describe('the Class page on a laptop, tidying up', () => {
 
 	test('a Link and an Attachment are removed, and a blank note clears it', async ({ page }) => {
 		await openClassPage(page);
-		await page.getByRole('button', { name: 'Remove Class folder' }).click();
-		await expect(page.getByRole('link', { name: 'Class folder' })).toHaveCount(0);
+		// A row's controls show on hover.
+		await page.getByRole('link', { name: 'Class shared folder' }).hover();
+		await page.getByRole('button', { name: 'Remove Class shared folder' }).click();
+		await expect(page.getByRole('link', { name: 'Class shared folder' })).toHaveCount(0);
+		await page.getByRole('link', { name: 'seating-plan.txt' }).hover();
 		await page.getByRole('button', { name: 'Remove seating-plan.txt' }).click();
 		await expect(page.getByRole('link', { name: 'seating-plan.txt' })).toHaveCount(0);
 
