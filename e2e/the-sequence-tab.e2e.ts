@@ -124,6 +124,8 @@ test.describe.serial('moving Lessons in a Sequence by drag', () => {
 			.first()
 			.click();
 		await expect(page).toHaveURL(/\/classes\/[^/]+$/);
+		await page.waitForLoadState('networkidle');
+		await page.getByRole('tab', { name: 'Schedule' }).click();
 		await page.getByRole('button', { name: 'Assign Topic' }).click();
 		await page.getByRole('menuitem', { name: /^Moves / }).click();
 		await expect(page.getByText('Added 14 Lessons from Moves.')).toBeVisible();
@@ -590,6 +592,8 @@ test.describe.serial('Add Lesson', () => {
 			.getByRole('link', { name: /9B\/Sc1/ })
 			.first()
 			.click();
+		await page.waitForLoadState('networkidle');
+		await page.getByRole('tab', { name: 'Schedule' }).click();
 		await expect(page.locator('[data-sequence-weeks]')).toBeVisible();
 		await expect(page.getByText('Starter')).toHaveCount(0);
 	});
@@ -600,7 +604,7 @@ test.describe.serial('Add Lesson', () => {
 test.describe.serial('Remove', () => {
 	test.use({ viewport: { width: 1180, height: 820 } });
 
-	test('shows "was <date>" on the Lessons that moved up, and a reload keeps the Sequence tab', async ({
+	test('shows "was <date>" on the Lessons that moved up, and a reload keeps the Sequence', async ({
 		page
 	}) => {
 		await login(page);
@@ -616,7 +620,10 @@ test.describe.serial('Remove', () => {
 				.locator('[data-was]')
 		).toBeVisible();
 
+		// The open tab is page state, so the reload opens on the Overview (ADR-0032).
 		await page.reload();
+		await page.waitForLoadState('networkidle');
+		await page.getByRole('tab', { name: 'Schedule' }).click();
 		await expect(page.locator('[data-sequence]')).toBeVisible();
 
 		await page.getByRole('button', { name: 'Assign Topic' }).click();

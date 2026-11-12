@@ -11,7 +11,7 @@ import { dirname, join } from 'node:path';
 import { asc, eq } from 'drizzle-orm';
 import type { Db } from './derive';
 import { nextPosition } from './ordering';
-import { ownedBy, ownerColumns, requireOwner, type Owner } from './owner';
+import { ownedBy, ownedRow, ownerColumns, requireOwner, type Owner } from './owner';
 import { Refused } from './refused';
 import * as schema from '../db/schema';
 
@@ -82,7 +82,8 @@ export function attachmentsOf(db: Db, owner: Owner) {
 		.from(schema.attachment)
 		.where(ownedBy(schema.attachment, owner))
 		.orderBy(asc(schema.attachment.position))
-		.all();
+		.all()
+		.map(ownedRow);
 }
 
 // The serving route's one lookup (spec #221): a parameterized query resolved before any path is
@@ -122,7 +123,7 @@ export function createAttachment(
 	db: Db,
 	input: Owner & { filename: string; mimeType: string; bytes: Uint8Array },
 	dir: string
-): typeof schema.attachment.$inferSelect {
+) {
 	const { filename, mimeType, bytes } = input;
 	requireOwner(db, input);
 
@@ -162,7 +163,7 @@ export function createAttachment(
 			})
 			.returning()
 			.all();
-		return row;
+		return ownedRow(row);
 	} catch (cause) {
 		removeAttachmentFiles(dir, [id]);
 		throw cause;

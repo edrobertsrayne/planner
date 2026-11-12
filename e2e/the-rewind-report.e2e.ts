@@ -5,7 +5,8 @@ import {
 	FIXTURE_COURSE,
 	openPage,
 	resetTo,
-	standingKey
+	standingKey,
+	openSchedule
 } from './helpers.ts';
 
 // A Teaching note follows its Lesson when a write moves the Lesson (ADR-0026), and writing a
@@ -36,6 +37,8 @@ test.describe.serial('a Teaching note and the Sequence after a Lesson write', ()
 			.first()
 			.click();
 		await expect(page).toHaveURL(/\/classes\/[^/]+$/);
+		await page.waitForLoadState('networkidle');
+		await page.getByRole('tab', { name: 'Schedule' }).click();
 	}
 
 	// The fixture Class's upcoming Sessions on the Agenda, every row to the end of the year.
@@ -121,7 +124,7 @@ test.describe.serial('a Teaching note and the Sequence after a Lesson write', ()
 
 	test('a Lesson moved in front of a noted Lesson moves its Teaching note to the new date', async () => {
 		await openFixtureClass();
-		await page.goto(`${page.url()}?layout=list`);
+		await openSchedule(page, `${page.url()}?layout=list`);
 		const titles = page.locator('[data-sequence] [data-title]');
 		await expect(titles).toHaveText(['A one', 'B one', 'B two']);
 

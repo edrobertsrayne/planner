@@ -197,6 +197,8 @@ test.describe.serial('Placing and removing a Lesson', () => {
 		// Back returns to the Class page.
 		await page.getByRole('button', { name: 'Back' }).click();
 		await expect(page).toHaveURL(`/classes/${classId}`);
+		await page.waitForLoadState('networkidle');
+		await page.getByRole('tab', { name: 'Schedule' }).click();
 
 		// In select mode a tap is for choosing Lessons, so an Open Slot opens nothing.
 		await page.getByRole('button', { name: 'Select', exact: true }).click();

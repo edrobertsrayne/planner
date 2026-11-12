@@ -4,7 +4,7 @@ import { asc, eq } from 'drizzle-orm';
 import * as schema from '../db/schema';
 import { nextPosition, swapTargets, type Direction } from './ordering';
 import { linkUrl, required } from './fields';
-import { ownedBy, ownerColumns, requireOwner, type Owner } from './owner';
+import { ownedBy, ownedRow, ownerColumns, requireOwner, type Owner } from './owner';
 import type { Db } from './derive';
 
 export function linksOf(db: Db, owner: Owner) {
@@ -13,14 +13,15 @@ export function linksOf(db: Db, owner: Owner) {
 		.from(schema.link)
 		.where(ownedBy(schema.link, owner))
 		.orderBy(asc(schema.link.position))
-		.all();
+		.all()
+		.map(ownedRow);
 }
 
 // A PATCH reads the stored pair before merging the fields the body names. An unknown id returns
 // undefined, the door's 404.
 export function linkById(db: Db, id: string) {
 	const [row] = db.select().from(schema.link).where(eq(schema.link.id, id)).all();
-	return row;
+	return row && ownedRow(row);
 }
 
 // Appended at the next position in its owner's order, same as a Lesson within a Topic.
@@ -41,7 +42,7 @@ export function createLink(db: Db, input: Owner & { url: string; label: string }
 		.values({ ...ownerColumns(input), url, label, position })
 		.returning()
 		.all();
-	return row;
+	return ownedRow(row);
 }
 
 export function updateLink(db: Db, { id, url, label }: { id: string; url: string; label: string }) {
@@ -51,7 +52,7 @@ export function updateLink(db: Db, { id, url, label }: { id: string; url: string
 		.where(eq(schema.link.id, id))
 		.returning()
 		.all();
-	return row;
+	return row && ownedRow(row);
 }
 
 export function deleteLink(db: Db, { id }: { id: string }) {

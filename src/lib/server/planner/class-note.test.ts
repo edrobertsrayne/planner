@@ -75,7 +75,8 @@ describe("a Class's own Links and Attachments (ADR-0032)", () => {
 			'Seneca',
 			'Class folder'
 		]);
-		expect(folder).toMatchObject({ classId: classA.id, lessonId: null });
+		expect(folder).toMatchObject({ classId: classA.id });
+		expect(folder).not.toHaveProperty('lessonId');
 		expect(linksOf(db, { classId: classB.id })).toEqual([]);
 		expect(linksOf(db, { lessonId: lesson.id }).map((l) => l.label)).toEqual(['Lesson link']);
 	});
@@ -94,7 +95,8 @@ describe("a Class's own Links and Attachments (ADR-0032)", () => {
 
 		const row = createAttachment(db, { classId: classA.id, ...pdf('Seating plan.pdf') }, atDir);
 
-		expect(row).toMatchObject({ classId: classA.id, lessonId: null, position: 0 });
+		expect(row).toMatchObject({ classId: classA.id, position: 0 });
+		expect(row).not.toHaveProperty('lessonId');
 		expect(attachmentsOf(db, { classId: classA.id }).map((a) => a.filename)).toEqual([
 			'Seating plan.pdf'
 		]);

@@ -24,3 +24,13 @@ export function requireOwner(db: Db, owner: Owner): void {
 		requireRow(db, schema.classes, owner.classId, 'Class not found.');
 	else requireRow(db, schema.lesson, owner.lessonId, 'Lesson not found.');
 }
+
+// A row as the seam hands it out: its one owner's key and never the other's null, so a Lesson's
+// Link or Attachment reads exactly as it did before a Class could hold one (docs/api.md).
+export function ownedRow<R extends { lessonId: string | null; classId: string | null }>({
+	lessonId,
+	classId,
+	...rest
+}: R): Omit<R, 'lessonId' | 'classId'> & Owner {
+	return { ...rest, ...(classId !== null ? { classId } : { lessonId: lessonId as string }) };
+}
