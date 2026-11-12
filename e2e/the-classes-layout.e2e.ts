@@ -172,6 +172,39 @@ test.describe('the Class page on a laptop', () => {
 		await expect(page.getByLabel('Timetable as at — pick any date')).toBeVisible();
 	});
 
+	test('the open tab is in the address, so a reload and Back return to it, with no history entry of its own', async ({
+		page
+	}) => {
+		await openClassPage(page);
+		const classUrl = page.url();
+		await page.getByRole('tab', { name: 'Schedule' }).click();
+		await expect(page).toHaveURL(`${classUrl}?tab=schedule`);
+
+		await page.reload();
+		await expect(page.getByRole('tab', { name: 'Schedule' })).toHaveAttribute(
+			'aria-selected',
+			'true'
+		);
+		await expect(page.getByRole('button', { name: 'Assign Topic' })).toBeVisible();
+
+		// A Lesson opened from the Schedule, and Back: the Schedule again.
+		await page.getByRole('link', { name: /Grip target/ }).click();
+		await expect(page).toHaveURL(/\/lessons\//);
+		await page.getByRole('button', { name: 'Back' }).click();
+		await expect(page).toHaveURL(`${classUrl}?tab=schedule`);
+		await expect(page.getByRole('button', { name: 'Assign Topic' })).toBeVisible();
+
+		// Overview is the default, so it clears the parameter; switching tabs added no entry, so
+		// one Back leaves the Class page.
+		await page.waitForLoadState('networkidle');
+		await page.getByRole('tab', { name: /^Timetable/ }).click();
+		await expect(page).toHaveURL(`${classUrl}?tab=timetable`);
+		await page.getByRole('tab', { name: 'Overview' }).click();
+		await expect(page).toHaveURL(classUrl);
+		await page.goBack();
+		await expect(page).not.toHaveURL(new RegExp(`^${classUrl}`));
+	});
+
 	test('the Class note, a Link and an Attachment are written on the Overview and kept', async ({
 		page
 	}) => {

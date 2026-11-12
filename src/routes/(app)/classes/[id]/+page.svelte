@@ -32,7 +32,15 @@
 	// there is no Timetable (ADR-0032), so the rename pencil — the page's other edit — follows the
 	// Course page's rule.
 	const md = new MediaQuery('min-width: 768px', true);
-	let tab = $state<'overview' | 'schedule' | 'timetable'>('overview');
+	// The open tab is in the address (`tab=schedule`, `tab=timetable`; none is the Overview), so a
+	// reload and Back return to it. Switching replaces the entry, like every filter (withParam).
+	const TABS = ['overview', 'schedule', 'timetable'] as const;
+	type Tab = (typeof TABS)[number];
+	const tab = $derived(
+		TABS.find((t) => t === page.url.searchParams.get('tab')) ?? ('overview' as Tab)
+	);
+	const setTab = (next: Tab) =>
+		replaceQuery(withParam(page.url, 'tab', next === 'overview' ? null : next));
 	// A phone has no Timetable tab, so one chosen on a wider window shows the Overview there.
 	const shown = $derived(tab === 'timetable' && !md.current ? 'overview' : tab);
 
@@ -126,7 +134,7 @@
 
 	<!-- Overview (the Class note, Links and Attachments), Schedule (the Sequence) and Timetable
 	     under the Class's label (ADR-0032). A phone has no Timetable tab. -->
-	<Tabs.Root value={shown} onValueChange={(v) => v && (tab = v as typeof tab)} class="mt-3">
+	<Tabs.Root value={shown} onValueChange={(v) => v && setTab(v as Tab)} class="mt-3">
 		<Tabs.List>
 			<Tabs.Trigger value="overview">Overview</Tabs.Trigger>
 			<Tabs.Trigger value="schedule">Schedule</Tabs.Trigger>

@@ -23,8 +23,12 @@ Attachments, shown on a new Overview tab that opens by default on the Class page
   with none; nothing is carried forward.
 - **The Class page has three tabs: Overview, Schedule, Timetable.** Overview is new and the default:
   the Class note on the left, Links then Attachments in a column on the right, laid out like the
-  Lesson editor. Schedule is the tab that was called Overview, holding the Sequence, unchanged. The
-  open tab is page state, not part of the URL, so the rename breaks no link.
+  Lesson editor. Schedule is the tab that was called Overview, holding the Sequence, unchanged.
+- **The open tab is in the address**: `tab=schedule` or `tab=timetable`, and none for the Overview.
+  A reload, and Back from a Lesson or Session opened on the Schedule, return to the tab the teacher
+  left. Switching tabs replaces the history entry rather than adding one, like every filter, so
+  Back leaves the Class page in one step. No address named a tab before, so the rename breaks no
+  link.
 - **On a phone, Overview and Schedule are read-only.** The Class note shows rendered, Links open and
   Attachments download; the Sequence reads as before. Timetable stays tablet-up only.
 

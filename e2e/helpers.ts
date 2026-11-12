@@ -45,12 +45,12 @@ export async function login(page: Page, path = '/', origin = ORIGIN) {
 	if (target !== new URL('/', origin).href) await page.goto(target);
 }
 
-// The Class page opens on its Overview (ADR-0032); the Sequence is on the Schedule tab. The tab
-// is page state, so it is clicked once the page has hydrated.
+// The Class page opens on its Overview (ADR-0032); the Sequence is on the Schedule tab, which the
+// address names.
 export async function openSchedule(page: Page, path: string) {
-	await page.goto(path);
-	await page.waitForLoadState('networkidle');
-	await page.getByRole('tab', { name: 'Schedule' }).click();
+	const url = new URL(path, ORIGIN);
+	url.searchParams.set('tab', 'schedule');
+	await page.goto(`${url.pathname}${url.search}`);
 }
 
 // The Course and Class of the standard state. A Class follows the Course, so the delete route's

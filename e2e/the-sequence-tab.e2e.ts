@@ -604,7 +604,7 @@ test.describe.serial('Add Lesson', () => {
 test.describe.serial('Remove', () => {
 	test.use({ viewport: { width: 1180, height: 820 } });
 
-	test('shows "was <date>" on the Lessons that moved up, and a reload keeps the Sequence', async ({
+	test('shows "was <date>" on the Lessons that moved up, and a reload keeps the Sequence tab', async ({
 		page
 	}) => {
 		await login(page);
@@ -620,10 +620,7 @@ test.describe.serial('Remove', () => {
 				.locator('[data-was]')
 		).toBeVisible();
 
-		// The open tab is page state, so the reload opens on the Overview (ADR-0032).
 		await page.reload();
-		await page.waitForLoadState('networkidle');
-		await page.getByRole('tab', { name: 'Schedule' }).click();
 		await expect(page.locator('[data-sequence]')).toBeVisible();
 
 		await page.getByRole('button', { name: 'Assign Topic' }).click();
