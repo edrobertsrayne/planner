@@ -260,7 +260,7 @@ describe('reordering and moving Lessons', () => {
 			expect(
 				db.select().from(schema.session).where(eq(schema.session.lessonId, lessons[1].id)).all()
 			).toEqual(sessions);
-			expect(attachmentsOf(db, lessons[1].id)).toHaveLength(1);
+			expect(attachmentsOf(db, { lessonId: lessons[1].id })).toHaveLength(1);
 			expect(existsSync(join(dir, attachment.id))).toBe(true);
 		});
 

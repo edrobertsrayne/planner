@@ -8,7 +8,8 @@ import {
 	mondayOf,
 	resetTo,
 	runFixture,
-	signIn
+	signIn,
+	openSchedule
 } from './helpers.ts';
 
 // Logs in as the one user that resetTo('standard') creates, and reads the standard state (see
@@ -96,7 +97,7 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 	});
 
 	test('a Topic is assigned to a Class on its Overview, and its Lessons then show there', async () => {
-		await page.goto(`/classes/${classBId}?layout=list`);
+		await openSchedule(page, `/classes/${classBId}?layout=list`);
 		await expect(page.getByText('No Lessons in this Sequence yet.')).toBeVisible();
 
 		// The menu counts the Lessons that the Sequence or a Placement already holds.
@@ -140,7 +141,7 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 	});
 
 	test('× removes a Lesson from one Class after a confirm, and Assign Topic brings it back', async () => {
-		await page.goto(`/classes/${classBId}?layout=list`);
+		await openSchedule(page, `/classes/${classBId}?layout=list`);
 		const entries = page.locator('[data-sequence] > li');
 		await expect(entries).toHaveCount(2);
 

@@ -110,9 +110,9 @@ export function lessonDetail(db: Db, id: string): LessonDetail | null {
 		...row,
 		topic: topic ?? null,
 		course: course ?? null,
-		links: linksOf(db, id),
+		links: linksOf(db, { lessonId: id }),
 		tags: attachedTags(db, id),
-		attachments: attachmentsOf(db, id)
+		attachments: attachmentsOf(db, { lessonId: id })
 	};
 }
 
@@ -290,7 +290,7 @@ export function deleteLesson(
 	// file is the one thing a rollback cannot restore. `attachmentsOf` is read first because the
 	// join disappears with the rows.
 	const { report, attachmentIds } = inTransaction(db.$client, () => {
-		const attachmentIds = attachmentsOf(db, id).map((attachment) => attachment.id);
+		const attachmentIds = attachmentsOf(db, { lessonId: id }).map((attachment) => attachment.id);
 
 		db.delete(schema.continuation)
 			.where(

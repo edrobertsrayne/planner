@@ -8,12 +8,13 @@
 
 	let {
 		link,
-		lessonId,
+		owner,
 		first,
 		last
 	}: {
 		link: { id: string; label: string; url: string };
-		lessonId: string;
+		// The Lesson or Class the Link belongs to, as the form field that names it (ADR-0032).
+		owner: { lessonId: string } | { classId: string };
 		first: boolean;
 		last: boolean;
 	} = $props();
@@ -96,7 +97,7 @@
 			</Button>
 			<ReorderButtons
 				action="?/moveLink"
-				fields={{ lessonId, id: link.id }}
+				fields={{ ...owner, id: link.id }}
 				label={link.label}
 				{first}
 				{last}

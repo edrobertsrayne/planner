@@ -21,7 +21,22 @@ export const lessonDeleteText = (labels: string[]) => {
 
 // What deleting a Class loses (ADR-0022): everything it owns goes with it, taught Sessions
 // included, so the question says how much of the record that is. The Backup is the undo.
-export const classDeleteText = (sessions: number, taught: number, notes: number) =>
-	`Its timetable, its ${plural(sessions, 'Session')}${
+// A Class's own note, Links and Attachments are named only when it has them (ADR-0032).
+export const classDeleteText = (
+	sessions: number,
+	taught: number,
+	notes: number,
+	own: { note: boolean; links: number; attachments: number }
+) => {
+	const owned = [
+		own.note && 'its Class note',
+		own.links > 0 && `its ${plural(own.links, 'Link')}`,
+		own.attachments > 0 && `its ${plural(own.attachments, 'Attachment')}`
+	].filter((part) => part !== false);
+	const also = owned.length
+		? ` So do ${owned.length > 1 ? `${owned.slice(0, -1).join(', ')} and ${owned.at(-1)}` : owned[0]}.`
+		: '';
+	return `Its timetable, its ${plural(sessions, 'Session')}${
 		taught > 0 ? ` (${taught} taught)` : ''
-	} and its ${plural(notes, 'Teaching note')} go with it.`;
+	} and its ${plural(notes, 'Teaching note')} go with it.${also}`;
+};

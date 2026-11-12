@@ -93,6 +93,7 @@ describe('the Session panel', () => {
 					{
 						id: 'att-1',
 						lessonId: 'lesson-1',
+						classId: null,
 						filename: 'worksheet.pdf',
 						mimeType: 'application/pdf',
 						size: 2048,
@@ -101,6 +102,7 @@ describe('the Session panel', () => {
 					{
 						id: 'att-2',
 						lessonId: 'lesson-1',
+						classId: null,
 						filename: 'slides.pdf',
 						mimeType: 'application/pdf',
 						size: 512,

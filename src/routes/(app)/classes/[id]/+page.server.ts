@@ -1,15 +1,19 @@
 import { redirect } from '@sveltejs/kit';
 import { today } from '$lib/date';
-import { db } from '$lib/server/db/client';
+import { DATABASE_URL, db } from '$lib/server/db/client';
 import { formAction, found, trimmed } from '$lib/server/form';
+import { ownedActions } from '$lib/server/owned-actions';
 import {
 	academicYearStart,
+	attachmentsDir,
+	attachmentsOf,
 	deleteClass,
 	activeEventSlots,
 	activeSlots,
 	assignTopic,
 	classDetail,
 	datedSlotsOf,
+	linksOf,
 	listClasses,
 	addLesson,
 	moveLessons,
@@ -18,6 +22,7 @@ import {
 	renameClass,
 	reportOf,
 	Refused,
+	setClassNote,
 	setSlotRoom,
 	sequenceView,
 	toggleSlot
@@ -43,6 +48,8 @@ export const load: PageServerLoad = ({ params, url }) => {
 
 	return {
 		class: selected,
+		links: linksOf(db, { classId: selected.id }),
+		attachments: attachmentsOf(db, { classId: selected.id }),
 		yearStart,
 		effectiveFrom,
 		today: today(),
@@ -58,6 +65,13 @@ export const load: PageServerLoad = ({ params, url }) => {
 };
 
 export const actions: Actions = {
+	...ownedActions,
+
+	setClassNote: formAction((data) => {
+		setClassNote(db, { classId: trimmed(data, 'classId'), note: String(data.get('note') ?? '') });
+		return {};
+	}),
+
 	renameClass: formAction((data) => ({
 		class: found(
 			renameClass(db, { id: trimmed(data, 'id'), label: String(data.get('label') ?? '') }),
@@ -85,6 +99,7 @@ export const actions: Actions = {
 			deleteClass(db, {
 				id: trimmed(data, 'id'),
 				today: today(),
+				dir: attachmentsDir(DATABASE_URL),
 				confirmed: trimmed(data, 'confirmed') === 'true'
 			}),
 			'Class'

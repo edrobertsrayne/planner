@@ -8,7 +8,8 @@ import {
 	plusDays,
 	resetTo,
 	runFixture,
-	weekdayOf
+	weekdayOf,
+	openSchedule
 } from './helpers.ts';
 
 // Covers the doors a teacher places and removes a Lesson from (issue #254): an Open Slot's
@@ -182,7 +183,7 @@ test.describe.serial('Placing and removing a Lesson', () => {
 
 	test("an Open Slot in the Class page's By week Sequence opens its Session page's Place-a-Lesson card", async () => {
 		const classId = runFixture('find-class-id', '9C/Sc1');
-		await page.goto(`/classes/${classId}`);
+		await openSchedule(page, `/classes/${classId}`);
 		const slot = page.locator('[data-free]').first();
 		await expect(slot).toHaveAttribute(
 			'href',

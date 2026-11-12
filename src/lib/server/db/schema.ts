@@ -56,15 +56,22 @@ export const lesson = sqliteTable(
 	(table) => [check('lesson_status', sql`${table.status} in ('draft','planned')`)]
 );
 
-export const link = sqliteTable('link', {
-	id: id(),
-	lessonId: text('lesson_id')
-		.notNull()
-		.references(() => lesson.id),
-	url: text('url').notNull(),
-	label: text('label').notNull(),
-	position: integer('position').notNull()
-});
+// A Link and an Attachment each have one owner: a Lesson or a Class, never both (ADR-0032).
+const oneOwner = (table: { lessonId: unknown; classId: unknown }) =>
+	sql`(${table.lessonId} is null) <> (${table.classId} is null)`;
+
+export const link = sqliteTable(
+	'link',
+	{
+		id: id(),
+		lessonId: text('lesson_id').references(() => lesson.id),
+		classId: text('class_id').references(() => classes.id),
+		url: text('url').notNull(),
+		label: text('label').notNull(),
+		position: integer('position').notNull()
+	},
+	(table) => [check('link_one_owner', oneOwner(table))]
+);
 
 // A Tag is a short, user-typed label a Lesson may carry zero or more of — freely created, never
 // drawn from a fixed set. Names are unique across the planner, case-insensitive, mirroring
@@ -95,16 +102,19 @@ export const lessonTag = sqliteTable(
 	},
 	(table) => [primaryKey({ columns: [table.lessonId, table.tagId] })]
 );
-export const attachment = sqliteTable('attachment', {
-	id: id(),
-	lessonId: text('lesson_id')
-		.notNull()
-		.references(() => lesson.id),
-	filename: text('filename').notNull(),
-	mimeType: text('mime_type').notNull(),
-	size: integer('size').notNull(),
-	position: integer('position').notNull()
-});
+export const attachment = sqliteTable(
+	'attachment',
+	{
+		id: id(),
+		lessonId: text('lesson_id').references(() => lesson.id),
+		classId: text('class_id').references(() => classes.id),
+		filename: text('filename').notNull(),
+		mimeType: text('mime_type').notNull(),
+		size: integer('size').notNull(),
+		position: integer('position').notNull()
+	},
+	(table) => [check('attachment_one_owner', oneOwner(table))]
+);
 
 export const readiness = sqliteTable(
 	'readiness',
@@ -128,7 +138,9 @@ export const classes = sqliteTable('class', {
 	courseId: text('course_id')
 		.notNull()
 		.references(() => course.id),
-	tone: integer('tone').notNull().default(0)
+	tone: integer('tone').notNull().default(0),
+	// The Class note: one markdown entry about the Class as a whole (ADR-0032).
+	note: text('note')
 });
 
 // A Class's Sequence (ADR-0026): the shared Lessons it teaches, in its own order.

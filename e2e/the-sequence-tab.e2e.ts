@@ -7,7 +7,8 @@ import {
 	openPage,
 	resetTo,
 	runFixture,
-	standingKey
+	standingKey,
+	openSchedule
 } from './helpers.ts';
 
 // The Sequence tab, By week (the default) and List (`layout=list`). The 9C/Sc1 Class of the standard
@@ -30,15 +31,15 @@ test.beforeAll(() => {
 const LETTERS = 'ABCDEFGHIJKLMN'.split('');
 const titleOf = (letter: string) => `Move ${letter}`;
 
-// The Class page of a Class, on its Overview (the Sequence), as a List.
+// The Class page of a Class, on its Schedule (the Sequence), as a List.
 async function openSequence(page: Page, classId = classCId) {
-	await page.goto(`/classes/${classId}?layout=list`);
+	await openSchedule(page, `/classes/${classId}?layout=list`);
 	await expect(page.locator('[data-sequence]')).toBeVisible();
 }
 
 // The same, By week: the default layout.
 async function openWeeks(page: Page, classId = classCId) {
-	await page.goto(`/classes/${classId}`);
+	await openSchedule(page, `/classes/${classId}`);
 	await expect(page.locator('[data-sequence-weeks]')).toBeVisible();
 }
 
@@ -258,7 +259,7 @@ test.describe.serial('the By week layout', () => {
 		await expect(page.locator('[data-past-end]')).toHaveCount(0);
 		await expect(page.locator('[data-taught]')).toHaveCount(0);
 
-		await page.goto(`/classes/${classCId}?layout=list`);
+		await openSchedule(page, `/classes/${classCId}?layout=list`);
 		await expect(page.locator('[data-sequence]')).toBeVisible();
 		await expect(page.locator('[data-sequence-weeks]')).toHaveCount(0);
 		// The layout button goes back, and the address says so.

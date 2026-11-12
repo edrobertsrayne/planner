@@ -23,10 +23,11 @@
 //   views.ts        the Agenda stream and the Calendar grid, across every Class
 //   courses.ts      Courses and Topics, the planning containers
 //   lessons.ts      Lessons: the plan, the whole-Lesson read and the delete rules
-//   links.ts        the URLs a Lesson points at
+//   links.ts        the URLs a Lesson or a Class points at
 //   tags.ts         short labels a Lesson may carry
 //   import.ts       one Topic, its Lessons and their Links, in one transaction
-//   attachments.ts  files a Lesson holds: the directory, the allow-list, the create
+//   attachments.ts  files a Lesson or a Class holds: the directory, the allow-list, the create
+//   owner.ts        a Link's or an Attachment's one owner, a Lesson or a Class
 //   refused.ts      the one refusal every write leaves by, and the kind→status table
 
 export type { PlacementMoved, WriteReport } from './derive';
@@ -57,8 +58,10 @@ export {
 	deleteClass,
 	listClasses,
 	renameClass,
+	setClassNote,
 	type ClassLane
 } from './classes';
+export type { Owner } from './owner';
 
 export {
 	addLesson,

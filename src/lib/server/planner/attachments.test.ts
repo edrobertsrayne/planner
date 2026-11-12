@@ -316,7 +316,10 @@ describe('attachment storage', () => {
 		);
 		createLink(db, { lessonId: lesson.id, label: 'PhET', url: 'https://phet.example' });
 
-		expect(attachmentsOf(db, lesson.id).map((a) => a.id)).toEqual([slides.id, worksheet.id]);
+		expect(attachmentsOf(db, { lessonId: lesson.id }).map((a) => a.id)).toEqual([
+			slides.id,
+			worksheet.id
+		]);
 		const detail = lessonDetail(db, lesson.id)!;
 		expect(detail.attachments.map((a) => a.id)).toEqual([slides.id, worksheet.id]);
 		expect(detail.links).toHaveLength(1);
@@ -373,7 +376,7 @@ describe('removing an Attachment', () => {
 		const result = deleteAttachment(db, removed.id, atDir);
 
 		expect(result?.id).toBe(removed.id);
-		expect(attachmentsOf(db, lesson.id).map((a) => a.id)).toEqual([kept.id]);
+		expect(attachmentsOf(db, { lessonId: lesson.id }).map((a) => a.id)).toEqual([kept.id]);
 		expect(existsSync(join(atDir, removed.id))).toBe(false);
 		expect(existsSync(join(atDir, kept.id))).toBe(true);
 	});
@@ -397,7 +400,7 @@ describe('removing an Attachment', () => {
 		rmSync(join(atDir, attachment.id));
 
 		expect(() => deleteAttachment(db, attachment.id, atDir)).not.toThrow();
-		expect(attachmentsOf(db, lesson.id)).toEqual([]);
+		expect(attachmentsOf(db, { lessonId: lesson.id })).toEqual([]);
 	});
 
 	test('the file cleanup ignores only ENOENT and rethrows anything else', () => {
@@ -460,11 +463,11 @@ describe("an Attachment's lifecycle follows its Lesson", () => {
 		const [course] = db.select().from(schema.course).all();
 		const otherTopic = createTopic(db, { courseId: course.id, name: 'Waves' });
 		editLesson(db, { id: lesson.id, change: { topicId: otherTopic.id }, today: '2026-09-03' });
-		expect(attachmentsOf(db, lesson.id).map((a) => a.id)).toEqual([attachment.id]);
+		expect(attachmentsOf(db, { lessonId: lesson.id }).map((a) => a.id)).toEqual([attachment.id]);
 		expect(existsSync(join(atDir, attachment.id))).toBe(true);
 
 		editLesson(db, { id: lesson.id, change: { topicId: null }, today: '2026-09-03' });
-		expect(attachmentsOf(db, lesson.id).map((a) => a.id)).toEqual([attachment.id]);
+		expect(attachmentsOf(db, { lessonId: lesson.id }).map((a) => a.id)).toEqual([attachment.id]);
 		expect(existsSync(join(atDir, attachment.id))).toBe(true);
 	});
 
@@ -492,7 +495,7 @@ describe("an Attachment's lifecycle follows its Lesson", () => {
 			'conflict',
 			'A Class has already been taught this Lesson, so it cannot be removed.'
 		);
-		expect(attachmentsOf(db, lesson.id).map((a) => a.id)).toEqual([attachment.id]);
+		expect(attachmentsOf(db, { lessonId: lesson.id }).map((a) => a.id)).toEqual([attachment.id]);
 		expect(existsSync(join(atDir, attachment.id))).toBe(true);
 	});
 

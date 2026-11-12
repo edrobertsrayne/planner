@@ -5,8 +5,9 @@
 	import { formatSize } from '$lib/format-size';
 	import type { LessonDetail } from '$lib/server/planner';
 
-	// A Lesson's Links and its Attachments, read-only — the one place that markup lives, because
-	// both the Lesson editor's phone view and the Session panel show them and neither writes them.
+	// A Lesson's or a Class's Links and Attachments, read-only — the one place that markup lives,
+	// because the Lesson editor's and the Class page's phone views and the Session panel show them
+	// and none writes them.
 	// `rows` draws the editor's card rows with their headings; `inline` the Session panel's compact
 	// underlined lists, which sit beside the plan and add no headings of their own.
 	let {
