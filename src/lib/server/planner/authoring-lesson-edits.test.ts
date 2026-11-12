@@ -70,7 +70,7 @@ describe('field rules', () => {
 				'A Link must be an http(s) URL.'
 			);
 		}
-		expect(linksOf(db, lesson.id)[0].url).toBe('https://example.com');
+		expect(linksOf(db, { lessonId: lesson.id })[0].url).toBe('https://example.com');
 	});
 
 	test('names, titles, labels and urls are stored trimmed; a plan is stored as typed unless blank', () => {

@@ -310,7 +310,7 @@ describe('the Classes view', () => {
 // table for.
 describe('deleting a Class', () => {
 	test('asks first, naming what goes with it', () => {
-		const { db, course, classA } = setUp();
+		const { db, course, classA, atDir } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		const lessons = makeLessons(db, topic.id, 3);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
@@ -324,7 +324,7 @@ describe('deleting a Class', () => {
 
 		let asked: unknown;
 		try {
-			deleteClass(db, { id: classA.id, today: '2026-09-14' });
+			deleteClass(db, { id: classA.id, today: '2026-09-14', dir: atDir });
 		} catch (error) {
 			asked = error;
 		}
@@ -339,7 +339,7 @@ describe('deleting a Class', () => {
 	});
 
 	test('takes every row the Class owns and leaves no row naming it', () => {
-		const { db, course, classA, classB } = setUp();
+		const { db, course, classA, classB, atDir } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		const lessons = makeLessons(db, topic.id, 3);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
@@ -375,7 +375,12 @@ describe('deleting a Class', () => {
 			})
 			.run();
 
-		const removed = deleteClass(db, { id: classA.id, today: '2026-09-14', confirmed: true });
+		const removed = deleteClass(db, {
+			id: classA.id,
+			today: '2026-09-14',
+			confirmed: true,
+			dir: atDir
+		});
 
 		expect(removed).toMatchObject({ id: classA.id, label: '9B/Sc1' });
 		expect(classDetail(db, classA.id)).toBeNull();
@@ -421,7 +426,7 @@ describe('deleting a Class', () => {
 	});
 
 	test('a failure after the deletes leaves the Class whole', () => {
-		const { db, course, classA } = setUp();
+		const { db, course, classA, atDir } = setUp();
 		const topic = makeTopic(db, course.id, 'Forces');
 		const lessons = makeLessons(db, topic.id, 3);
 		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
@@ -432,7 +437,12 @@ describe('deleting a Class', () => {
 			.all();
 
 		expect(() =>
-			deleteClass(failingCommit(db), { id: classA.id, today: '2026-09-14', confirmed: true })
+			deleteClass(failingCommit(db), {
+				id: classA.id,
+				today: '2026-09-14',
+				confirmed: true,
+				dir: atDir
+			})
 		).toThrow('COMMIT failed');
 
 		expect(classDetail(db, classA.id)).not.toBeNull();

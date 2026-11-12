@@ -150,8 +150,8 @@ export function discardBlankCover(
 		.all();
 	const blank =
 		!lesson.body?.trim() &&
-		linksOf(db, lesson.id).length === 0 &&
-		attachmentsOf(db, lesson.id).length === 0;
+		linksOf(db, { lessonId: lesson.id }).length === 0 &&
+		attachmentsOf(db, { lessonId: lesson.id }).length === 0;
 	if (!blank) return false;
 
 	// Cover first: deleting a Lesson a Cover names is refused (ADR-0030). deleteLesson commits its own

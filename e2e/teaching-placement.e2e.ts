@@ -8,7 +8,8 @@ import {
 	plusDays,
 	resetTo,
 	runFixture,
-	weekdayOf
+	weekdayOf,
+	openSchedule
 } from './helpers.ts';
 
 // Covers the doors a teacher places and removes a Lesson from (issue #254): an Open Slot's
@@ -182,7 +183,7 @@ test.describe.serial('Placing and removing a Lesson', () => {
 
 	test("an Open Slot in the Class page's By week Sequence opens its Session page's Place-a-Lesson card", async () => {
 		const classId = runFixture('find-class-id', '9C/Sc1');
-		await page.goto(`/classes/${classId}`);
+		await openSchedule(page, `/classes/${classId}`);
 		const slot = page.locator('[data-free]').first();
 		await expect(slot).toHaveAttribute(
 			'href',
@@ -195,13 +196,13 @@ test.describe.serial('Placing and removing a Lesson', () => {
 
 		// Back returns to the Class page.
 		await page.getByRole('button', { name: 'Back' }).click();
-		await expect(page).toHaveURL(`/classes/${classId}`);
+		await expect(page).toHaveURL(`/classes/${classId}?tab=schedule`);
 
 		// In select mode a tap is for choosing Lessons, so an Open Slot opens nothing.
 		await page.getByRole('button', { name: 'Select', exact: true }).click();
 		await expect(slot).not.toHaveAttribute('href');
 		await slot.click();
-		await expect(page).toHaveURL(`/classes/${classId}`);
+		await expect(page).toHaveURL(`/classes/${classId}?tab=schedule`);
 		await expect(page.locator('[data-select-bar]')).toBeVisible();
 	});
 

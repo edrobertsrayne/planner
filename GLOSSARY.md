@@ -46,12 +46,13 @@ still exists, ready to be reused. Set from the Lesson editor; read wherever a Le
 except the Calendar tile.
 _Avoid_: Label, category
 **Attachment**:
-A file a Lesson holds that the planner stores itself — a worksheet PDF, a slide deck — as
-distinct from a Link, which points at a resource elsewhere on the web. Carried by the Lesson like
-its notes and Links, it shows its original filename and size, downloads under its own name, and is
-never edited in place: replacing one is delete-then-add. Outside the Lesson editor it is
-download-only. It dies with its Lesson, never with its place — deleting the Lesson removes it,
-Detaching or moving the Lesson keeps it.
+A file a Lesson or a Class holds that the planner stores itself — a worksheet PDF, a slide deck —
+as distinct from a Link, which points at a resource elsewhere on the web. Each has exactly one
+owner. Carried like its owner's notes and Links, it shows its original filename and size, downloads
+under its own name, and is never edited in place: replacing one is delete-then-add. A Lesson's is
+download-only outside the Lesson editor; a Class's is download-only on a phone. It dies with its
+owner, never with a Lesson's place — deleting the Lesson or the Class removes it, Detaching or
+moving the Lesson keeps it.
 _Avoid_: Upload, media, resource
 
 **Standalone Lesson**:
@@ -102,8 +103,17 @@ A group of pupils taught as a unit, identified by a label such as "9B/Sc1". A Cl
 exactly one Course, fixed when the Class is created, which limits the Topics it may be given; what
 it actually teaches is its Sequence. It has its own Slots, and is scoped to one academic year —
 next year's teaching is new Classes, not these ones carried forward. It is a label, a Course, a
-Timetable, a Sequence and a Tone only — it holds no information about individual pupils.
+Timetable, a Sequence, a Tone, a Class note, and its own Links and Attachments only — it holds no
+information about individual pupils.
 _Avoid_: Group, set, form, cohort
+
+**Class note**:
+The teacher's one markdown note on one Class as a whole — its room and routines, how it works in
+groups, what is due this term. A single entry kept current, not a log of dated notes. Written on
+the Class page's Overview tab beside the Class's Links and Attachments, and deleted with the Class.
+Distinct from a Lesson's notes, which every Class teaching that Lesson shares, and from a Teaching
+note, which is about one Lesson with this Class. It describes the group, never a named pupil.
+_Avoid_: Class notes, comment, log
 
 **Tone**:
 One of eight recurring colour identities that tell Classes apart, and tell Courses apart. Every
@@ -448,17 +458,19 @@ end of the year" in red. Apart from that, the Agenda showing Open Slots
 inside its own horizon is the only alert the planner has.
 
 **Class page**:
-The single surface for one Class, in two tabs under the Class's label and Course. Overview, the
-default, holds the Class's Sequence: the only place a Sequence is read or written.
-Timetable holds the "Timetable as at" control and the Slot grid, both weeks stacked. The Sequence
+The single surface for one Class, in three tabs under the Class's label and Course. Overview, the
+default, holds the Class note, with the Class's Links and Attachments in a column beside it.
+Schedule holds the Class's Sequence: the only place a Sequence is read or written.
+Timetable holds the "Timetable as at" control and the Slot grid, both weeks stacked. The open tab
+lives in the address, so a reload or a Back into the page keeps it. The Sequence
 shows By week, each week's Slots in fixed
 places, or as a List. The teacher drags a Lesson by its grip to take another Lesson's place, and
 select mode moves or removes several at once. Assign Topic, Add Lesson and Remove Lesson are here
 too. Each change is kept at once, and a line says how many Lessons change date. Taught Lessons are
 fixed and hidden until asked for; a Placement not yet taught is dragged by its grip to another Slot
 that takes it, and a taught one shows fixed; Lessons with no Slot left
-show in a "Past the end of the year" row. Both tabs are written from a tablet up; a phone shows
-the Sequence only, read-only, with no tabs. The only place a Class is timetabled.
+show in a "Past the end of the year" row. Every tab is written from a tablet up; a phone shows
+Overview and Schedule, read-only, and no Timetable. The only place a Class is timetabled.
 Creating a Class happens on the Classes screen. There is no screen showing every Class's Timetable
 at once, because the Timetable is only ever read or written one Class at a time. Periods held by
 another Class carry that Class's label rather than being hatched or hidden, since a position can

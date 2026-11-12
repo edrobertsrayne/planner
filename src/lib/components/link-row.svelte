@@ -8,12 +8,13 @@
 
 	let {
 		link,
-		lessonId,
+		owner,
 		first,
 		last
 	}: {
 		link: { id: string; label: string; url: string };
-		lessonId: string;
+		// The Lesson or Class the Link belongs to, as the form field that names it (ADR-0032).
+		owner: { lessonId: string } | { classId: string };
 		first: boolean;
 		last: boolean;
 	} = $props();
@@ -72,8 +73,9 @@
 		</div>
 	</form>
 {:else}
-	<div class="group flex items-baseline gap-2">
-		<LinkIcon class="size-3.5 shrink-0 translate-y-0.5 text-muted-foreground" />
+	<!-- As tall as the controls, so showing them on hover moves nothing. -->
+	<div class="group flex min-h-8 items-center gap-2">
+		<LinkIcon class="size-3.5 shrink-0 text-muted-foreground" />
 		<a
 			href={link.url}
 			target="_blank"
@@ -82,10 +84,7 @@
 		>
 			{link.label}
 		</a>
-		<span class="shrink-0 font-mono text-[10px] text-muted-foreground">
-			{new URL(link.url).hostname.split('.')[0]}
-		</span>
-		<span class="flex shrink-0 items-center gap-0.5 row-control">
+		<span class="row-control-collapsed shrink-0 items-center gap-0.5">
 			<Button
 				variant="ghost"
 				size="icon-sm"
@@ -96,7 +95,7 @@
 			</Button>
 			<ReorderButtons
 				action="?/moveLink"
-				fields={{ lessonId, id: link.id }}
+				fields={{ ...owner, id: link.id }}
 				label={link.label}
 				{first}
 				{last}

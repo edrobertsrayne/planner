@@ -11,11 +11,16 @@
 	import { replaceQuery } from '$lib/client/enhance';
 	import { formatDate } from '$lib/date';
 	import { withParam } from '$lib/query';
+	import AttachmentsSection from '$lib/components/attachments-section.svelte';
 	import ConfirmDeleteDialog from '$lib/components/confirm-delete-dialog.svelte';
+	import LessonChildren from '$lib/components/lesson-children.svelte';
+	import LinksSection from '$lib/components/links-section.svelte';
+	import Markdown from '$lib/components/markdown.svelte';
 	import RenameableRow from '$lib/components/renameable-row.svelte';
 	import RewindReport from '$lib/components/rewind-report.svelte';
 	import { Badge, Button, Select } from '$lib/ui';
 	import * as Tabs from '$lib/ui/tabs';
+	import ClassNote from './ClassNote.svelte';
 	import SequenceTab from './SequenceTab.svelte';
 	import SlotRooms from './SlotRooms.svelte';
 	import TimetableGrid from './TimetableGrid.svelte';
@@ -23,10 +28,21 @@
 
 	let { data, form }: PageProps = $props();
 
-	// The Timetable and the Sequence write from a tablet up; on a phone the Sequence reads only,
-	// so the rename pencil — the page's other edit — follows the Course page's rule.
+	// Every tab writes from a tablet up; on a phone the Overview and the Schedule read only and
+	// there is no Timetable (ADR-0032), so the rename pencil — the page's other edit — follows the
+	// Course page's rule.
 	const md = new MediaQuery('min-width: 768px', true);
-	let tab = $state<'overview' | 'timetable'>('overview');
+	// The open tab is in the address (`tab=schedule`, `tab=timetable`; none is the Overview), so a
+	// reload and Back return to it. Switching replaces the entry, like every filter (withParam).
+	const TABS = ['overview', 'schedule', 'timetable'] as const;
+	type Tab = (typeof TABS)[number];
+	const tab = $derived(
+		TABS.find((t) => t === page.url.searchParams.get('tab')) ?? ('overview' as Tab)
+	);
+	const setTab = (next: Tab) =>
+		replaceQuery(withParam(page.url, 'tab', next === 'overview' ? null : next));
+	// A phone has no Timetable tab, so one chosen on a wider window shows the Overview there.
+	const shown = $derived(tab === 'timetable' && !md.current ? 'overview' : tab);
 
 	// The "Timetable as at" date sets one parameter and keeps the rest, like every filter
 	// (withParam, issue #338).
@@ -116,22 +132,45 @@
 		{/if}
 	</div>
 
-	<!-- Overview (the Class's Sequence) and Timetable under the Class's label (story 110). No tabs
-	     on a phone: the Sequence is all a phone reads of this page, whichever tab was last chosen on
-	     a wider window. -->
-	<Tabs.Root value={tab} onValueChange={(v) => v && (tab = v as typeof tab)} class="mt-3">
-		<Tabs.List class="max-md:hidden">
+	<!-- Overview (the Class note, Links and Attachments), Schedule (the Sequence) and Timetable
+	     under the Class's label (ADR-0032). A phone has no Timetable tab. -->
+	<Tabs.Root value={shown} onValueChange={(v) => v && setTab(v as Tab)} class="mt-3">
+		<Tabs.List>
 			<Tabs.Trigger value="overview">Overview</Tabs.Trigger>
-			<Tabs.Trigger value="timetable">
+			<Tabs.Trigger value="schedule">Schedule</Tabs.Trigger>
+			<Tabs.Trigger value="timetable" class="max-md:hidden">
 				Timetable <span class="text-xs tabular-nums opacity-60">{slotCount}</span>
 			</Tabs.Trigger>
 		</Tabs.List>
 	</Tabs.Root>
 
-	<!-- The Sequence always shows on a phone, read-only (story 116); from a tablet up, when the
-	     Overview tab is on. -->
+	<!-- Kept mounted while another tab is on, so an unsaved note is never torn down with it. -->
+	<div class={shown === 'overview' ? '' : 'hidden'}>
+		{#if md.current}
+			<div class="mt-4 grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-8">
+				<ClassNote classId={data.class.id} note={data.class.note} />
+				<aside class="grid min-w-0 gap-5 sm:grid-cols-2 lg:grid-cols-1 lg:self-start">
+					<LinksSection links={data.links} owner={{ classId: data.class.id }} />
+					<AttachmentsSection attachments={data.attachments} owner={{ classId: data.class.id }} />
+				</aside>
+			</div>
+		{:else}
+			<!-- A phone reads the Overview: the note rendered, Links that open, Attachments that
+			     download. -->
+			<div class="mt-4 space-y-3">
+				{#if data.class.note}
+					<Markdown source={data.class.note} class="rounded-lg border px-4 py-3" />
+				{/if}
+				<LessonChildren links={data.links} attachments={data.attachments} variant="rows" />
+				{#if !data.class.note && !data.links.length && !data.attachments.length}
+					<p class="text-sm text-muted-foreground">Nothing written for this Class yet.</p>
+				{/if}
+			</div>
+		{/if}
+	</div>
+
 	{#if data.sequence}
-		<div class={tab === 'overview' ? '' : 'md:hidden'}>
+		<div class={shown === 'schedule' ? '' : 'hidden'}>
 			<SequenceTab
 				classId={data.class.id}
 				classLabel={data.class.label}
@@ -145,9 +184,8 @@
 		</div>
 	{/if}
 
-	<!-- The Timetable from a tablet up only (story 116): hidden below `md`, and unless its tab
-	     is on above `md`. -->
-	<div class={tab === 'timetable' ? 'max-md:hidden' : 'hidden'}>
+	<!-- The Timetable from a tablet up only (story 116). -->
+	<div class={shown === 'timetable' ? '' : 'hidden'}>
 		<section class="min-w-0">
 			<div class="mt-4 flex flex-wrap items-center gap-2">
 				<span class="text-xs font-medium text-muted-foreground">Timetable as at</span>

@@ -160,6 +160,8 @@ test.describe.serial('Attachments on Lessons', () => {
 			.getByRole('link', { name: 'field-notes.txt' })
 			.getAttribute('href');
 
+		// A row's controls show on hover.
+		await lessonPage.getByRole('link', { name: 'field-notes.txt' }).hover();
 		await lessonPage.getByRole('button', { name: 'Remove field-notes.txt' }).click();
 		await expect(lessonPage.getByText('field-notes.txt')).toHaveCount(0);
 

@@ -4,13 +4,7 @@
 	import { resolve } from '$app/paths';
 	import { courseHref, useBack } from '$lib/client/back';
 	import { createDeleteAsk } from '$lib/client/confirm-delete.svelte';
-	import {
-		failureReason,
-		hasReport,
-		onFail,
-		reportOfResult,
-		submitForm
-	} from '$lib/client/enhance';
+	import { failureReason, hasReport, reportOfResult, submitForm } from '$lib/client/enhance';
 	import { STATUS_LABEL } from '$lib/lesson-status';
 	import { toast } from '$lib/ui/toast';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
@@ -25,9 +19,9 @@
 	import MarkdownEditor from '$lib/components/markdown-editor.svelte';
 	import * as ToggleGroup from '$lib/ui/toggle-group';
 	import TagBadge from '$lib/components/tag-badge.svelte';
-	import AttachmentRow from './AttachmentRow.svelte';
+	import AttachmentsSection from '$lib/components/attachments-section.svelte';
+	import LinksSection from '$lib/components/links-section.svelte';
 	import LessonReadView from './LessonReadView.svelte';
-	import LinkRow from './LinkRow.svelte';
 	import { onMount } from 'svelte';
 	import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 	import AbsentMarker from '$lib/components/absent-marker.svelte';
@@ -167,15 +161,7 @@
 	}
 
 	let statusForm = $state<HTMLFormElement>();
-	let addingLink = $state(false);
 	let addingTag = $state(false);
-	let fileInput: HTMLInputElement | null = $state(null);
-
-	// Mirrors attachments.ts's MAX_BYTES (spec #219): a file over this never reaches the form
-	// action, since a body over the server's own request-size cap (src/lib/server/body-limit.ts)
-	// fails before the action runs, turning what should be this same readable refusal into a
-	// SvelteKit error page instead.
-	const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 
 	// From `md` up the Lesson is written; below it, it is read. Only one view is in the page, so no
 	// control of the other can be reached, and a text appears once. The server renders the written view.
@@ -460,132 +446,11 @@
 					</div>
 
 					<div class="grid gap-5 max-lg:order-4 sm:grid-cols-2 lg:grid-cols-1">
-						<section class="rounded-2xl border bg-surface p-4">
-							{@render heading('Links')}
-							<ul class="mt-1 space-y-1">
-								{#each data.lesson.links as link, i (link.id)}
-									<li class="rounded-md bg-muted px-2 py-1.5 text-sm">
-										<LinkRow
-											{link}
-											lessonId={lesson.id}
-											first={i === 0}
-											last={i === data.lesson.links.length - 1}
-										/>
-									</li>
-								{/each}
-								{#if !data.lesson.links.length}
-									<li class="px-1 py-1 text-xs text-muted-foreground">No Links yet.</li>
-								{/if}
-							</ul>
-
-							{#if addingLink}
-								<form
-									method="POST"
-									action="?/createLink"
-									class="mt-2 space-y-1"
-									use:enhance={() => {
-										return async ({ result, update }) => {
-											await update();
-											if (result.type === 'success') addingLink = false;
-										};
-									}}
-								>
-									<input type="hidden" name="lessonId" value={lesson.id} />
-									<Input
-										autofocus
-										name="label"
-										required
-										autocomplete="off"
-										class="h-7 text-xs md:text-xs"
-										placeholder="Label"
-									/>
-									<div class="flex gap-1">
-										<Input
-											name="url"
-											type="url"
-											required
-											autocomplete="off"
-											class="h-7 min-w-0 flex-1 text-xs md:text-xs"
-											placeholder="https://…"
-										/>
-										<Button type="submit" size="sm" class="shrink-0">Add</Button>
-										<Button
-											type="button"
-											variant="ghost"
-											size="sm"
-											class="shrink-0"
-											onclick={() => (addingLink = false)}
-										>
-											Cancel
-										</Button>
-									</div>
-								</form>
-							{:else}
-								<Button
-									type="button"
-									variant="ghost"
-									size="sm"
-									class="mt-2 text-xs text-muted-foreground"
-									onclick={() => (addingLink = true)}
-								>
-									+ Add Link
-								</Button>
-							{/if}
-						</section>
-						<section class="rounded-2xl border bg-surface p-4">
-							{@render heading('Attachments')}
-							<ul class="mt-1 space-y-1">
-								{#each data.lesson.attachments as attachment (attachment.id)}
-									<li class="rounded-md bg-muted px-2 py-1.5 text-sm">
-										<AttachmentRow {attachment} />
-									</li>
-								{/each}
-								{#if !data.lesson.attachments.length}
-									<li class="px-1 py-1 text-xs text-muted-foreground">No Attachments yet.</li>
-								{/if}
-							</ul>
-
-							<form
-								method="POST"
-								action="?/createAttachment"
-								enctype="multipart/form-data"
-								class="mt-2"
-								use:enhance={onFail('Could not attach the file.')}
-							>
-								<input type="hidden" name="lessonId" value={lesson.id} />
-								<input
-									bind:this={fileInput}
-									type="file"
-									name="file"
-									class="hidden"
-									aria-label="Choose a file to attach"
-									onchange={(e) => {
-										const input = e.currentTarget;
-										// Refused here, before the request ever starts: a file over the server's own
-										// body-size cap would otherwise fail the request itself, and use:enhance turns
-										// that into a full error page rather than this same readable toast.
-										if ((input.files?.[0]?.size ?? 0) > MAX_ATTACHMENT_BYTES) {
-											toast.error('Attachments are limited to 10 MB.');
-											input.value = '';
-											return;
-										}
-										// The submit snapshots the form data synchronously, so clearing here keeps the
-										// upload in flight while letting a re-pick of the same file fire change again.
-										input.form?.requestSubmit();
-										input.value = '';
-									}}
-								/>
-								<Button
-									type="button"
-									variant="ghost"
-									size="sm"
-									class="text-xs text-muted-foreground"
-									onclick={() => fileInput?.click()}
-								>
-									+ Add Attachment
-								</Button>
-							</form>
-						</section>
+						<LinksSection links={data.lesson.links} owner={{ lessonId: lesson.id }} />
+						<AttachmentsSection
+							attachments={data.lesson.attachments}
+							owner={{ lessonId: lesson.id }}
+						/>
 					</div>
 
 					<div class="flex flex-wrap items-center gap-1 border-t pt-3 max-lg:order-4">

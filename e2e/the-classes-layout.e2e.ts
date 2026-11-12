@@ -23,8 +23,9 @@ test.beforeAll(() => {
 // It leaves a `Grip target` Lesson at the end of 9B/Sc1's Sequence; everything else it makes it
 // undoes.
 
-// The Class page: Overview (the default, the Class's Sequence) and Timetable tabs from `md` up; on
-// a phone the Sequence only, read-only.
+// The Class page: Overview (the default: the Class note, Links and Attachments), Schedule (the
+// Sequence) and Timetable tabs from `md` up; on a phone Overview and Schedule only, read-only
+// (ADR-0032).
 async function openClassPage(page: Page) {
 	await login(page, '/classes');
 	const href = await page
@@ -33,6 +34,7 @@ async function openClassPage(page: Page) {
 		.getAttribute('href');
 	await page.goto(href as string);
 	await expect(page.getByRole('heading', { level: 1, name: '9B/Sc1' })).toBeVisible();
+	await page.waitForLoadState('networkidle');
 }
 
 test.describe('the Class page on a tablet in portrait', () => {
@@ -43,6 +45,7 @@ test.describe('the Class page on a tablet in portrait', () => {
 	}) => {
 		await openClassPage(page);
 		await expectHitArea44(page, /^Timetable/, 'tab');
+		await page.getByRole('tab', { name: 'Schedule' }).click();
 		await expectBox44(page.getByRole('button', { name: 'Drag Grip target' }));
 	});
 });
@@ -137,18 +140,26 @@ test.describe('the Classes screen on a phone writes nothing', () => {
 test.describe('the Class page on a laptop', () => {
 	test.use({ viewport: { width: 1280, height: 720 } });
 
-	test('opens on the Overview, and the Timetable tab shows its Slot count and the Timetable', async ({
+	test('opens on the Overview; Schedule holds the Sequence, and Timetable its Slot count and the Timetable', async ({
 		page
 	}) => {
 		await openClassPage(page);
 		await expect(page.getByRole('tablist')).toBeVisible();
 		const tabs = page.getByRole('tab');
-		await expect(tabs).toHaveCount(2);
+		await expect(tabs).toHaveCount(3);
 		await expect(tabs.nth(0)).toHaveAccessibleName('Overview');
 		await expect(tabs.nth(0)).toHaveAttribute('aria-selected', 'true');
-		await expect(tabs.nth(1)).toHaveAccessibleName(/^Timetable/);
-		await expect(page.getByRole('button', { name: 'Assign Topic' })).toBeVisible();
+		await expect(tabs.nth(1)).toHaveAccessibleName('Schedule');
+		await expect(tabs.nth(2)).toHaveAccessibleName(/^Timetable/);
+		await expect(page.getByRole('textbox', { name: 'Class note' })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Links', level: 2 })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Attachments', level: 2 })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Assign Topic' })).toBeHidden();
 		await expect(page.getByLabel('Timetable as at — pick any date')).toBeHidden();
+
+		await page.getByRole('tab', { name: 'Schedule' }).click();
+		await expect(page.getByRole('button', { name: 'Assign Topic' })).toBeVisible();
+		await expect(page.getByRole('textbox', { name: 'Class note' })).toBeHidden();
 
 		await page.getByRole('tab', { name: /^Timetable/ }).click();
 		await expect(page.getByRole('button', { name: 'Assign Topic' })).toBeHidden();
@@ -160,6 +171,93 @@ test.describe('the Class page on a laptop', () => {
 		await expect(page.getByRole('tab', { name: /^Timetable/ })).toHaveAccessibleName(/3/);
 		await expect(page.getByLabel('Timetable as at — pick any date')).toBeVisible();
 	});
+
+	test('the open tab is in the address, so a reload and Back return to it, with no history entry of its own', async ({
+		page
+	}) => {
+		await openClassPage(page);
+		const classUrl = page.url();
+		await page.getByRole('tab', { name: 'Schedule' }).click();
+		await expect(page).toHaveURL(`${classUrl}?tab=schedule`);
+
+		await page.reload();
+		await expect(page.getByRole('tab', { name: 'Schedule' })).toHaveAttribute(
+			'aria-selected',
+			'true'
+		);
+		await expect(page.getByRole('button', { name: 'Assign Topic' })).toBeVisible();
+
+		// A Lesson opened from the Schedule, and Back: the Schedule again.
+		await page.getByRole('link', { name: /Grip target/ }).click();
+		await expect(page).toHaveURL(/\/lessons\//);
+		await page.getByRole('button', { name: 'Back' }).click();
+		await expect(page).toHaveURL(`${classUrl}?tab=schedule`);
+		await expect(page.getByRole('button', { name: 'Assign Topic' })).toBeVisible();
+
+		// Overview is the default, so it clears the parameter; switching tabs added no entry, so
+		// one Back leaves the Class page.
+		await page.waitForLoadState('networkidle');
+		await page.getByRole('tab', { name: /^Timetable/ }).click();
+		await expect(page).toHaveURL(`${classUrl}?tab=timetable`);
+		await page.getByRole('tab', { name: 'Overview' }).click();
+		await expect(page).toHaveURL(classUrl);
+		await page.goBack();
+		await expect(page).not.toHaveURL(new RegExp(`^${classUrl}`));
+	});
+
+	test('the Class note, a Link and an Attachment are written on the Overview and kept', async ({
+		page
+	}) => {
+		await openClassPage(page);
+		const note = page.getByRole('textbox', { name: 'Class note' });
+		await note.fill('Lab S4 on Mondays.');
+		// The note saves on blur, through the same action as every other save.
+		await Promise.all([page.waitForResponse((r) => r.url().includes('setClassNote')), note.blur()]);
+
+		await page.getByRole('button', { name: '+ Add Link' }).click();
+		await page.getByPlaceholder('Label').fill('Class shared folder');
+		await page.getByPlaceholder('https://…').fill('https://drive.example.com/9b');
+		await page.getByRole('button', { name: 'Add', exact: true }).click();
+		const link = page.getByRole('link', { name: 'Class shared folder' });
+		await expect(link).toBeVisible();
+		// The name has the row to itself: no host beside it, and the row's controls take no room
+		// until the row is hovered.
+		const row = page.getByRole('listitem').filter({ has: link });
+		await expect(row).toHaveText('Class shared folder');
+		expect(await link.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+		const edit = page.getByRole('button', { name: 'Edit Class shared folder' });
+		await expect(edit).toBeHidden();
+		const height = (await row.boundingBox())!.height;
+		await row.hover();
+		await expect(edit).toBeVisible();
+		// Showing the controls moves nothing.
+		expect((await row.boundingBox())!.height).toBe(height);
+
+		await page
+			.locator('main')
+			.getByLabel('Choose a file to attach')
+			.setInputFiles({
+				name: 'seating-plan.txt',
+				mimeType: 'text/plain',
+				buffer: Buffer.from('Front row: table 3')
+			});
+		await expect(page.getByRole('link', { name: 'seating-plan.txt' })).toBeVisible();
+
+		await page.reload();
+		await page.waitForLoadState('networkidle');
+		await expect(page.getByRole('textbox', { name: 'Class note' })).toHaveText(
+			'Lab S4 on Mondays.'
+		);
+		await expect(page.getByRole('link', { name: 'Class shared folder' })).toHaveAttribute(
+			'href',
+			'https://drive.example.com/9b'
+		);
+		const download = page.waitForEvent('download');
+		await page.getByRole('link', { name: 'seating-plan.txt' }).click();
+		expect((await download).suggestedFilename()).toBe('seating-plan.txt');
+
+		// The phone test below reads these; the last describe in this file takes them away.
+	});
 });
 
 test.describe('the Class page on a phone writes nothing', () => {
@@ -167,14 +265,27 @@ test.describe('the Class page on a phone writes nothing', () => {
 	const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];
 	test.use({ viewport, userAgent, deviceScaleFactor, isMobile, hasTouch });
 
-	test('no tabs, no Timetable; the Sequence reads and nothing is written (story 116)', async ({
+	test('Overview and Schedule, no Timetable; the Class reads and nothing is written (ADR-0032)', async ({
 		page
 	}) => {
 		await openClassPage(page);
 		await expectNoHorizontalScroll(page);
-		await expect(page.getByRole('tablist')).toBeHidden();
+		const tabs = page.getByRole('tab');
+		await expect(tabs.nth(0)).toHaveAccessibleName('Overview');
+		await expect(tabs.nth(1)).toHaveAccessibleName('Schedule');
+		await expect(page.getByRole('tab', { name: /^Timetable/ })).toBeHidden();
 		await expect(page.getByLabel('Timetable as at — pick any date')).toBeHidden();
+
+		// The Overview reads: the note rendered, the Link opens, the Attachment downloads.
+		await expect(page.getByRole('textbox', { name: 'Class note' })).toHaveCount(0);
+		await expect(page.locator('main')).toContainText('Lab S4 on Mondays.');
+		await expect(page.getByRole('link', { name: 'Class shared folder' })).toBeVisible();
+		await expect(page.getByRole('link', { name: 'seating-plan.txt' })).toBeVisible();
+		await expect(page.getByRole('button', { name: '+ Add Link' })).toHaveCount(0);
+		await expect(page.getByRole('button', { name: '+ Add Attachment' })).toHaveCount(0);
+
 		// The Sequence reads: its Lessons link to the Lesson page.
+		await page.getByRole('tab', { name: 'Schedule' }).click();
 		await expect(page.getByRole('heading', { name: 'Sequence', level: 2 })).toBeVisible();
 		await expect(page.getByRole('link', { name: /Grip target/ })).toBeVisible();
 		// Nothing written: no toolbar, grip, ×, week Add or chip Select.
@@ -184,5 +295,26 @@ test.describe('the Class page on a phone writes nothing', () => {
 		await expect(page.getByRole('button', { name: 'Remove Grip target' })).toHaveCount(0);
 		await expect(page.getByRole('button', { name: /^Add a Lesson to the week of/ })).toHaveCount(0);
 		await expect(page.getByRole('button', { name: /^Select / })).toHaveCount(0);
+	});
+});
+
+test.describe('the Class page on a laptop, tidying up', () => {
+	test.use({ viewport: { width: 1280, height: 720 } });
+
+	test('a Link and an Attachment are removed, and a blank note clears it', async ({ page }) => {
+		await openClassPage(page);
+		// A row's controls show on hover.
+		await page.getByRole('link', { name: 'Class shared folder' }).hover();
+		await page.getByRole('button', { name: 'Remove Class shared folder' }).click();
+		await expect(page.getByRole('link', { name: 'Class shared folder' })).toHaveCount(0);
+		await page.getByRole('link', { name: 'seating-plan.txt' }).hover();
+		await page.getByRole('button', { name: 'Remove seating-plan.txt' }).click();
+		await expect(page.getByRole('link', { name: 'seating-plan.txt' })).toHaveCount(0);
+
+		const note = page.getByRole('textbox', { name: 'Class note' });
+		await note.fill('');
+		await Promise.all([page.waitForResponse((r) => r.url().includes('setClassNote')), note.blur()]);
+		await page.reload();
+		await expect(page.getByRole('textbox', { name: 'Class note' })).toHaveText('');
 	});
 });

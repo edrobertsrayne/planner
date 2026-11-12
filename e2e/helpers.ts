@@ -45,6 +45,14 @@ export async function login(page: Page, path = '/', origin = ORIGIN) {
 	if (target !== new URL('/', origin).href) await page.goto(target);
 }
 
+// The Class page opens on its Overview (ADR-0032); the Sequence is on the Schedule tab, which the
+// address names.
+export async function openSchedule(page: Page, path: string) {
+	const url = new URL(path, ORIGIN);
+	url.searchParams.set('tab', 'schedule');
+	await page.goto(`${url.pathname}${url.search}`);
+}
+
 // The Course and Class of the standard state. A Class follows the Course, so the delete route's
 // Class refusal is reachable.
 export const FIXTURE_COURSE = 'KS3 Science';

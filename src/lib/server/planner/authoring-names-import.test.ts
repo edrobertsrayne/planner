@@ -167,7 +167,9 @@ describe('importing a Topic with its Lessons and Links', () => {
 		expect(listCourses(db)).toHaveLength(1);
 		expect(topicsOf(db, result.course.id).map((t) => t.name)).toEqual(['Forces']);
 		expect(lessonsOf(db, result.topic.id).map((l) => l.title)).toEqual(['Newton I', 'Newton II']);
-		expect(linksOf(db, result.lessons[0].id).map((l) => l.url)).toEqual(['https://example.com/a']);
+		expect(linksOf(db, { lessonId: result.lessons[0].id }).map((l) => l.url)).toEqual([
+			'https://example.com/a'
+		]);
 	});
 
 	test('targets an existing Course by id and leaves it uncreated', () => {

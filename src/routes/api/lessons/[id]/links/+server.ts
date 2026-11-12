@@ -8,7 +8,7 @@ import type { RequestHandler } from './$types';
 export const GET: RequestHandler = apiRoute(async (event) => {
 	requireExisting(db, lesson, event.params.id, 'Lesson not found.');
 
-	return json(linksOf(db, event.params.id));
+	return json(linksOf(db, { lessonId: event.params.id }));
 });
 
 export const POST: RequestHandler = apiRoute(async (event) => {

@@ -1,4 +1,5 @@
-// Attachments — files a Lesson holds that the planner stores itself (spec #237). A Link points
+// Attachments — files a Lesson or a Class holds that the planner stores itself (spec #237,
+// ADR-0032). A Link points
 // elsewhere; an Attachment's bytes live in a flat directory beside the database file, named by
 // the row's own UUID with no extension, so a Detach or Topic move never moves a file.
 //
@@ -10,7 +11,7 @@ import { dirname, join } from 'node:path';
 import { asc, eq } from 'drizzle-orm';
 import type { Db } from './derive';
 import { nextPosition } from './ordering';
-import { requireRow } from './fields';
+import { ownedBy, ownedRow, ownerColumns, requireOwner, type Owner } from './owner';
 import { Refused } from './refused';
 import * as schema from '../db/schema';
 
@@ -73,15 +74,16 @@ function rejectionReason(filename: string, mimeType: string, size: number): stri
 	return null;
 }
 
-// A Lesson's Attachments in their own position order — independent of Link's, the sections are
+// An owner's Attachments in their own position order — independent of Link's, the sections are
 // separate (spec #220).
-export function attachmentsOf(db: Db, lessonId: string) {
+export function attachmentsOf(db: Db, owner: Owner) {
 	return db
 		.select()
 		.from(schema.attachment)
-		.where(eq(schema.attachment.lessonId, lessonId))
+		.where(ownedBy(schema.attachment, owner))
 		.orderBy(asc(schema.attachment.position))
-		.all();
+		.all()
+		.map(ownedRow);
 }
 
 // The serving route's one lookup (spec #221): a parameterized query resolved before any path is
@@ -92,8 +94,8 @@ export function attachmentById(db: Db, id: string) {
 	return row;
 }
 
-// Removes the files behind Attachment rows: the one cleanup a direct delete, a Lesson delete and
-// a create's own undo share. A file already gone is the desired end state, so only ENOENT is
+// Removes the files behind Attachment rows: the one cleanup a direct delete, a Lesson or Class
+// delete and a create's own undo share. A file already gone is the desired end state, so only ENOENT is
 // ignored; any other fault is real and rethrows rather than leaving an unexplained file behind.
 export function removeAttachmentFiles(dir: string, ids: readonly string[]): void {
 	for (const id of ids) {
@@ -115,19 +117,15 @@ export function deleteAttachment(db: Db, id: string, dir: string) {
 	return row;
 }
 
-// Appended at the next position in its Lesson's own order, independent of Link's — the sections
+// Appended at the next position in its owner's own order, independent of Link's — the sections
 // are separate, so there is no shared order for a shared counter to serve (spec #220).
 export function createAttachment(
 	db: Db,
-	{
-		lessonId,
-		filename,
-		mimeType,
-		bytes
-	}: { lessonId: string; filename: string; mimeType: string; bytes: Uint8Array },
+	input: Owner & { filename: string; mimeType: string; bytes: Uint8Array },
 	dir: string
-): typeof schema.attachment.$inferSelect {
-	requireRow(db, schema.lesson, lessonId, 'Lesson not found.');
+) {
+	const { filename, mimeType, bytes } = input;
+	requireOwner(db, input);
 
 	// Browsers report the Content-Type inconsistently across platforms, and decorate it with
 	// parameters. Normalise before checking, and store the normalised form — never arbitrary
@@ -142,7 +140,7 @@ export function createAttachment(
 		db
 			.select({ position: schema.attachment.position })
 			.from(schema.attachment)
-			.where(eq(schema.attachment.lessonId, lessonId))
+			.where(ownedBy(schema.attachment, input))
 			.all()
 	);
 
@@ -155,10 +153,17 @@ export function createAttachment(
 	try {
 		const [row] = db
 			.insert(schema.attachment)
-			.values({ id, lessonId, filename, mimeType: normalized, size: bytes.length, position })
+			.values({
+				id,
+				...ownerColumns(input),
+				filename,
+				mimeType: normalized,
+				size: bytes.length,
+				position
+			})
 			.returning()
 			.all();
-		return row;
+		return ownedRow(row);
 	} catch (cause) {
 		removeAttachmentFiles(dir, [id]);
 		throw cause;

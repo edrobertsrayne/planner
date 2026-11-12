@@ -6,7 +6,9 @@ import { classDeleteText } from '$lib/delete-text';
 import * as schema from '../db/schema';
 import { lessonNames, loadCalendar, scheduleFor, type Db } from './derive';
 import { runway as deriveRunway, type Calendar, type Runway } from './engine';
-import { required, requireRow } from './fields';
+import { attachmentsOf, removeAttachmentFiles } from './attachments';
+import { linksOf } from './links';
+import { lessonBody, required, requireRow } from './fields';
 import { teachingNotesFor } from './teaching-notes';
 import { inTransaction } from '../db';
 import { Refused } from './refused';
@@ -44,6 +46,16 @@ export function renameClass(db: Db, { id, label }: { id: string; label: string }
 	return row;
 }
 
+// The Class note: one markdown entry about the Class as a whole, replaced on each save; a blank
+// one clears it (ADR-0032). Stored as typed, like every note (ADR-0023).
+export function setClassNote(db: Db, { classId, note }: { classId: string; note: string }) {
+	requireRow(db, schema.classes, classId, 'Class not found.');
+	db.update(schema.classes)
+		.set({ note: lessonBody(note) })
+		.where(eq(schema.classes.id, classId))
+		.run();
+}
+
 // Every Class, alphabetical — what classLanes and the Class page's create form read.
 export function listClasses(db: Db) {
 	return db
@@ -65,7 +77,8 @@ export function classDetail(db: Db, id: string) {
 			label: schema.classes.label,
 			tone: schema.classes.tone,
 			courseId: schema.classes.courseId,
-			courseName: schema.course.name
+			courseName: schema.course.name,
+			note: schema.classes.note
 		})
 		.from(schema.classes)
 		.innerJoin(schema.course, eq(schema.course.id, schema.classes.courseId))
@@ -163,7 +176,12 @@ export function classLanes(db: Db, { today }: { today: string }): ClassLane[] {
 // An unknown id returns undefined, the door's 404.
 export function deleteClass(
 	db: Db,
-	{ id, today, confirmed = false }: { id: string; today: string; confirmed?: boolean }
+	{
+		id,
+		today,
+		dir,
+		confirmed = false
+	}: { id: string; today: string; dir: string; confirmed?: boolean }
 ): typeof schema.classes.$inferSelect | undefined {
 	const [row] = db.select().from(schema.classes).where(eq(schema.classes.id, id)).all();
 	if (!row) return undefined;
@@ -179,9 +197,19 @@ export function deleteClass(
 		.where(eq(schema.teachingNote.classId, id))
 		.all();
 
+	const links = linksOf(db, { classId: id }).length;
+	const attachmentIds = attachmentsOf(db, { classId: id }).map((attachment) => attachment.id);
+
 	if (!confirmed) {
 		const taught = dates.filter((session) => session.date < today).length;
-		throw new Refused('unconfirmed', classDeleteText(dates.length, taught, notes.length));
+		throw new Refused(
+			'unconfirmed',
+			classDeleteText(dates.length, taught, notes.length, {
+				note: row.note !== null,
+				links,
+				attachments: attachmentIds.length
+			})
+		);
 	}
 
 	const sessionsOfClass = db
@@ -189,7 +217,9 @@ export function deleteClass(
 		.from(schema.session)
 		.where(eq(schema.session.classId, id));
 
-	return inTransaction(db.$client, () => {
+	// Its Attachments' files go only once the delete has committed, as a Lesson's do: a file is the
+	// one thing a rollback cannot restore.
+	const deleted = inTransaction(db.$client, () => {
 		db.delete(schema.continuation)
 			.where(inArray(schema.continuation.sessionId, sessionsOfClass))
 			.run();
@@ -201,8 +231,12 @@ export function deleteClass(
 		db.delete(schema.classLesson).where(eq(schema.classLesson.classId, id)).run();
 		db.delete(schema.readiness).where(eq(schema.readiness.classId, id)).run();
 		db.delete(schema.teachingNote).where(eq(schema.teachingNote.classId, id)).run();
+		db.delete(schema.link).where(eq(schema.link.classId, id)).run();
+		db.delete(schema.attachment).where(eq(schema.attachment.classId, id)).run();
 
 		const [deleted] = db.delete(schema.classes).where(eq(schema.classes.id, id)).returning().all();
 		return deleted;
 	});
+	removeAttachmentFiles(dir, attachmentIds);
+	return deleted;
 }
