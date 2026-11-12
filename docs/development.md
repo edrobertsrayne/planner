@@ -198,8 +198,7 @@ Better Auth's tables are generated: after changing the auth config, run `npm run
 - `pre-push`: `npm run check`.
 - CI (`.github/workflows/ci.yml`) runs on pushes and pull requests to `main`, in order: lint
   (`npm audit --omit=dev --audit-level=high`, `npm run lint`, `npm run check`), then the full test
-  suite with Playwright, then an automated review of pull requests from the same repository. A
-  failure stops the later jobs. Failed e2e runs upload their traces as an artifact for seven days.
+  suite with Playwright. A failure stops the later jobs. Failed e2e runs upload their traces as an artifact for seven days.
 - A second workflow runs an opencode agent when a comment contains `/oc` or `/opencode`.
 
 ## Pull requests
