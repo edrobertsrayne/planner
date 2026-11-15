@@ -7,7 +7,7 @@ import type { RequestHandler } from './$types';
 
 // The only place an Attachment's bytes are served (spec #221) — outside `/api` entirely, since
 // the API is bearer-key-only and cannot serve a browser download. Sits under the ordinary
-// session guard (src/hooks.server.ts) exactly like /backup and /logout: a signed-out request
+// session guard (src/hooks.server.ts) exactly like /session and /logout: a signed-out request
 // is redirected before this handler ever runs.
 export const GET: RequestHandler = ({ params }) => {
 	// A parameterized lookup first: a traversal payload in `params.id` matches no row and 404s

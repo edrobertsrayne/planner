@@ -170,7 +170,7 @@ Better Auth's tables are generated: after changing the auth config, run `npm run
 - **Use the glossary's words**, never the synonyms it lists under _Avoid_. User-visible text,
   identifiers, tests and commits all follow it.
 - **The seam owns every value rule** ([ADR-0025](adr/0025-the-seam-owns-every-value-rule.md)).
-  Form actions and the API parse input into typed values at the door, call a
+  Form actions, the API and the Session routes parse input into typed values at the door, call a
   function in `src/lib/server/planner/`, and map `Refused` to a status. Do not repeat a rule in a
   door.
 - **Subtract before you add.** Remove dead code and stale tests first. Make the smallest diff that

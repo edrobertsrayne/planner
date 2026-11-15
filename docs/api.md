@@ -533,14 +533,17 @@ These routes exist for the web app. They sit behind the **session cookie**, not 
 signed-out request is redirected to `/login`. They are not a supported integration surface and may
 change with the UI.
 
-| Route                             | Purpose                                                                                                      |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `GET /attachments/:id`            | Download an Attachment under its own name (`Content-Disposition: attachment`)                                |
-| `GET /backup`                     | Download a Backup tar (`planner-backup-<date>.tar`): the database and every Attachment                       |
-| `POST /setup/restore`             | Restore a Backup into an **empty** instance (raw tar as body; no size limit); only while no account exists   |
-| `GET /feedback`, `POST /feedback` | Whether the in-app feedback button is enabled; file feedback as a GitHub issue                               |
-| `POST /logout`                    | Sign out                                                                                                     |
-| `/api/auth/*`                     | Better Auth's own endpoints. Sign-up and email sign-in are disabled; the login form is the only sign-in door |
+| Route                                 | Purpose                                                                                                      |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `GET /attachments/:id`                | Download an Attachment under its own name (`Content-Disposition: attachment`)                                |
+| `GET /backup`                         | Download a Backup tar (`planner-backup-<date>.tar`): the database and every Attachment                       |
+| `POST /setup/restore`                 | Restore a Backup into an **empty** instance (raw tar as body; no size limit); only while no account exists   |
+| `GET /session`, `POST /session`       | Read a Session by `classId`, `date`, `period`; write the Teaching note                                       |
+| `POST`/`DELETE /session/continuation` | Record or undo a Continuation on an occasion                                                                 |
+| `POST`/`DELETE /session/placement`    | Place a Lesson in an Open Slot, or remove a Placement                                                        |
+| `GET /feedback`, `POST /feedback`     | Whether the in-app feedback button is enabled; file feedback as a GitHub issue                               |
+| `POST /logout`                        | Sign out                                                                                                     |
+| `/api/auth/*`                         | Better Auth's own endpoints. Sign-up and email sign-in are disabled; the login form is the only sign-in door |
 
 Writes to the app are refused with 403 when the `Origin` header names another site, whatever the
 content type. A form-typed write (`application/x-www-form-urlencoded`, `multipart/form-data`,

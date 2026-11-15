@@ -5,7 +5,7 @@
 // they always have, and each door answers 404 itself.
 //
 // The kind says which class of refusal it is, and each door maps it with one helper of its own —
-// `refusal` for form actions, `apiRoute` for the API.
+// `refusal` for form actions, `apiRoute` for the API, the Session routes' helper for `/session`.
 // The table lives here so no door can drift from the others.
 export type RefusalKind = 'invalid' | 'conflict' | 'missing' | 'unconfirmed';
 

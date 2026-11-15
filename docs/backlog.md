@@ -71,8 +71,8 @@ Add new entries at the top, dated:
   Lessons. Keep it as that, change it, or remove it. Ruled out of scope on the per-Class lesson
   order map (#366).
 
-- 2026-10-06: Show the Rewind report of placing a Lesson on the Session page. The
-  `?/place` action answers with `report`, but `session-body.svelte` ignores it, so a Placement
+- 2026-10-06: Show the Rewind report of placing a Lesson on the Session page. `POST
+/session/placement` sends `report`, but `session-body.svelte` ignores it, so a Placement
   that shifts another Placement stays silent (found in #357).
 
 - 2026-10-06: A search control over Lessons and Sessions (#265). The dashed "Search" room in
