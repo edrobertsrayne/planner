@@ -165,13 +165,7 @@ const event = (date: string, position: number, scheduleId: string | null = null)
 const merge = (rows: AgendaRow[], events: AgendaEvent[], schedules: BellSchedule[] = []) =>
 	withEvents(groupByDay(rows), events, schedules).map((d) => [
 		d.date,
-		d.rows.map((l) =>
-			l.kind === 'row'
-				? `P${l.row.periodFrom}`
-				: l.kind === 'event'
-					? `E${l.event.position}`
-					: l.row.label
-		)
+		d.rows.map((l) => (l.kind === 'row' ? `P${l.row.periodFrom}` : `E${l.event.position}`))
 	]);
 
 describe('withEvents (ADR-0029)', () => {
@@ -200,26 +194,30 @@ describe('withEvents (ADR-0029)', () => {
 });
 
 describe('withEvents with Bell Schedules (ADR-0033)', () => {
-	test('a teaching day shows Break and both Lunches between the Periods, in day order', () => {
+	test('a teaching day with nothing at Break or Lunch shows neither', () => {
 		expect(merge([row('2026-11-02', 1), row('2026-11-02', 4)], [], [lower, upper])).toEqual([
-			['2026-11-02', ['P1', 'Break', 'Lunch (Lower)', 'P4', 'Lunch (Upper)']]
+			['2026-11-02', ['P1', 'P4']]
 		]);
 	});
 
-	test('an Event at Lunch (Upper) holds that row, and the other Lunch still shows quietly', () => {
+	test('an Event at Lunch (Upper) sits at that Lunch, and the empty Break and Lunch do not show', () => {
 		expect(
 			merge(
 				[row('2026-11-02', 1), row('2026-11-02', 4), row('2026-11-02', 5)],
 				[event('2026-11-02', 9, 'upper')],
 				[lower, upper]
 			)
-		).toEqual([['2026-11-02', ['P1', 'Break', 'Lunch (Lower)', 'P4', 'E9', 'P5']]]);
+		).toEqual([['2026-11-02', ['P1', 'P4', 'E9', 'P5']]]);
 	});
 
-	test('an Event at Break holds the one shared row, whichever Bell Schedule it names', () => {
+	test('an Event at Break sits at the one shared Break, whichever Bell Schedule it names', () => {
 		expect(
-			merge([row('2026-11-02', 1)], [event('2026-11-02', 8, 'upper')], [lower, upper])
-		).toEqual([['2026-11-02', ['P1', 'E8', 'Lunch (Lower)', 'Lunch (Upper)']]]);
+			merge(
+				[row('2026-11-02', 1), row('2026-11-02', 3)],
+				[event('2026-11-02', 8, 'upper')],
+				[lower, upper]
+			)
+		).toEqual([['2026-11-02', ['P1', 'E8', 'P3']]]);
 	});
 
 	test('a day that holds only Events grows no Break or Lunch rows', () => {

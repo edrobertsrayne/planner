@@ -38,6 +38,7 @@ Calendar's year setup, and none is hard-coded.
 The views order a day's rows by the default Bell Schedule's times, and put each Break and Lunch
 row at its own start time. A Break or Lunch with the same times in every Bell Schedule is one row.
 The Agenda and the Event page show the times: each Session the times of its Class's Bell Schedule.
+The Agenda shows a Break or Lunch only when an Event holds it.
 The Calendar shows only the order, so the week reads at a glance. With no Bell Schedule set up, the
 views are exactly as before: six Periods, no times, no Break or Lunch.
 
