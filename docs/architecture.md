@@ -18,7 +18,7 @@ flowchart LR
     Agent -- bearer API key --> Hooks
     Hooks[hooks.server.ts] --> Pages[(app) pages and form actions]
     Hooks --> API[/api/* routes/]
-    Hooks --> Other[session, backup, attachments]
+    Hooks --> Other[backup, attachments]
     Pages --> Seam
     API --> Seam
     Other --> Seam
@@ -79,12 +79,12 @@ which names everything the rest of the app may do.
 
 Three rules follow ([ADR-0025](adr/0025-the-seam-owns-every-value-rule.md)):
 
-1. **A door parses; the seam decides.** Doors (form actions, API routes, `load`, session routes)
+1. **A door parses; the seam decides.** Doors (form actions, API routes, `load`)
    narrow untyped input to types and map outcomes to statuses. They hold no value rule.
 2. **Refusals leave as `Refused`.** A seam function throws `Refused(kind, message)` with a message
    already written for the teacher. `kind` maps to a status in one table (`refused.ts`):
-   `invalid` 400, `missing` 404, `conflict` and `unconfirmed` 409. The API wrapper `apiRoute`, the
-   form-action helper and the session routes all use it, so doors cannot drift. A URL-addressed
+   `invalid` 400, `missing` 404, `conflict` and `unconfirmed` 409. The API wrapper `apiRoute` and
+   the form-action helper both use it, so doors cannot drift. A URL-addressed
    record that does not exist is not a refusal: the function returns `undefined` and the door answers 404.
 3. **A write that can move a date answers with its report.** Every scheduling write re-derives the
    affected Classes in the same call and returns `{ placementsMoved }`. There is no separate

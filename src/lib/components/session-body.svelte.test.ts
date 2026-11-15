@@ -4,11 +4,17 @@ import type { SessionDetail } from '$lib/server/planner';
 import SessionBody from './session-body.svelte';
 
 // The Session panel's rendering seam (issue #243): it draws straight off the sessionDetail
-// payload, so these stub the fetch it opens with rather than standing up a server.
-function stubSessionFetch(detail: SessionDetail) {
+// payload the page's load hands it. A write is one of the page's form actions; these stub the
+// fetch it posts with rather than standing up a server.
+//
+// `deserialize` reads the answer with the running app's decoders, which a component test has
+// none of, so the stubbed answer is plain JSON and is read as that.
+vi.mock('$app/forms', () => ({ deserialize: (text: string) => JSON.parse(text) }));
+
+function stubRefusal(status: number, error: string) {
 	vi.stubGlobal(
 		'fetch',
-		vi.fn(async () => new Response(JSON.stringify(detail), { status: 200 }))
+		vi.fn(async () => new Response(JSON.stringify({ type: 'failure', status, data: { error } })))
 	);
 }
 
@@ -53,9 +59,7 @@ function lesson(
 
 describe('the Session panel', () => {
 	test("the Class badge opens the Class's page", async () => {
-		stubSessionFetch(baseDetail);
-
-		const screen = await render(SessionBody, { occasion });
+		const screen = await render(SessionBody, { detail: baseDetail });
 
 		await expect
 			.element(screen.getByRole('link', { name: '9B/Sc1' }))
@@ -64,9 +68,9 @@ describe('the Session panel', () => {
 
 	// The server's day decides, not the browser's clock: the payload carries it.
 	test('a Session ahead of the server\'s day shows its Readiness and no "Needs more time"', async () => {
-		stubSessionFetch({ ...baseDetail, today: '2026-09-02', ready: false, lesson: lesson() });
-
-		const screen = await render(SessionBody, { occasion });
+		const screen = await render(SessionBody, {
+			detail: { ...baseDetail, today: '2026-09-02', ready: false, lesson: lesson() }
+		});
 
 		await expect.element(screen.getByText('Not ready')).toBeVisible();
 		await expect
@@ -75,42 +79,42 @@ describe('the Session panel', () => {
 	});
 
 	test('a Session on the server\'s day shows its Readiness and "Needs more time"', async () => {
-		stubSessionFetch({ ...baseDetail, today: occasion.date, ready: true, lesson: lesson() });
-
-		const screen = await render(SessionBody, { occasion });
+		const screen = await render(SessionBody, {
+			detail: { ...baseDetail, today: occasion.date, ready: true, lesson: lesson() }
+		});
 
 		await expect.element(screen.getByText('Ready', { exact: true })).toBeVisible();
 		await expect.element(screen.getByRole('button', { name: 'Needs more time' })).toBeVisible();
 	});
 
 	test("lists the Lesson's Attachments read-only, each a download link with its size", async () => {
-		stubSessionFetch({
-			...baseDetail,
-			ready: true,
-			lesson: lesson({
-				body: 'Recap Newton I',
-				attachments: [
-					{
-						id: 'att-1',
-						lessonId: 'lesson-1',
-						filename: 'worksheet.pdf',
-						mimeType: 'application/pdf',
-						size: 2048,
-						position: 0
-					},
-					{
-						id: 'att-2',
-						lessonId: 'lesson-1',
-						filename: 'slides.pdf',
-						mimeType: 'application/pdf',
-						size: 512,
-						position: 1
-					}
-				]
-			})
+		const screen = await render(SessionBody, {
+			detail: {
+				...baseDetail,
+				ready: true,
+				lesson: lesson({
+					body: 'Recap Newton I',
+					attachments: [
+						{
+							id: 'att-1',
+							lessonId: 'lesson-1',
+							filename: 'worksheet.pdf',
+							mimeType: 'application/pdf',
+							size: 2048,
+							position: 0
+						},
+						{
+							id: 'att-2',
+							lessonId: 'lesson-1',
+							filename: 'slides.pdf',
+							mimeType: 'application/pdf',
+							size: 512,
+							position: 1
+						}
+					]
+				})
+			}
 		});
-
-		const screen = await render(SessionBody, { occasion });
 
 		const worksheet = screen.getByRole('link', { name: 'worksheet.pdf' });
 		await expect.element(worksheet).toBeVisible();
@@ -127,22 +131,22 @@ describe('the Session panel', () => {
 	});
 
 	test('an Open Slot — no Lesson on the Slot — shows no Attachments UI', async () => {
-		stubSessionFetch({ ...baseDetail, ready: null, lesson: null });
-
-		const screen = await render(SessionBody, { occasion });
+		const screen = await render(SessionBody, {
+			detail: { ...baseDetail, ready: null, lesson: null }
+		});
 
 		await expect.element(screen.getByText('Open Slot')).toBeVisible();
 		await expect.element(screen.getByRole('link', { name: /\.pdf$/ })).not.toBeInTheDocument();
 	});
 
 	test('renders the Lesson body as markdown, not source', async () => {
-		stubSessionFetch({
-			...baseDetail,
-			ready: true,
-			lesson: lesson({ body: '## Aims\n\n- Recap **Newton I**' })
+		const screen = await render(SessionBody, {
+			detail: {
+				...baseDetail,
+				ready: true,
+				lesson: lesson({ body: '## Aims\n\n- Recap **Newton I**' })
+			}
 		});
-
-		const screen = await render(SessionBody, { occasion });
 
 		await expect.element(screen.getByRole('heading', { level: 2, name: 'Aims' })).toBeVisible();
 		await expect.element(screen.getByRole('listitem')).toBeVisible();
@@ -151,18 +155,14 @@ describe('the Session panel', () => {
 	});
 
 	test('an Open Slot open to Placing shows the Place-a-Lesson card', async () => {
-		stubSessionFetch({ ...baseDetail, canPlace: true });
-
-		const screen = await render(SessionBody, { occasion });
+		const screen = await render(SessionBody, { detail: { ...baseDetail, canPlace: true } });
 
 		await expect.element(screen.getByText('Place a Lesson')).toBeVisible();
 		await expect.element(screen.getByRole('textbox', { name: 'Lesson title' })).toBeVisible();
 	});
 
 	test('an Open Slot not open to Placing shows no Place-a-Lesson card', async () => {
-		stubSessionFetch({ ...baseDetail, canPlace: false });
-
-		const screen = await render(SessionBody, { occasion });
+		const screen = await render(SessionBody, { detail: { ...baseDetail, canPlace: false } });
 
 		await expect.element(screen.getByText('Open Slot')).toBeVisible();
 		await expect.element(screen.getByText('Place a Lesson')).not.toBeInTheDocument();
@@ -171,14 +171,14 @@ describe('the Session panel', () => {
 	// The mid-Topic throw-in (issue #256): the card shows over a Topic Lesson too, and says what
 	// Placing there moves.
 	test('an occasion holding a Topic Lesson shows the Place-a-Lesson card and what it moves', async () => {
-		stubSessionFetch({
-			...baseDetail,
-			canPlace: true,
-			ready: false,
-			lesson: lesson()
+		const screen = await render(SessionBody, {
+			detail: {
+				...baseDetail,
+				canPlace: true,
+				ready: false,
+				lesson: lesson()
+			}
 		});
-
-		const screen = await render(SessionBody, { occasion });
 
 		await expect.element(screen.getByText('Place a Lesson')).toBeVisible();
 		await expect.element(screen.getByRole('textbox', { name: 'Lesson title' })).toBeVisible();
@@ -188,26 +188,26 @@ describe('the Session panel', () => {
 	});
 
 	test('a placed Lesson shows "Standalone Lesson · Placed" and a Remove-placement button', async () => {
-		stubSessionFetch({
-			...baseDetail,
-			placement: { id: 'placement-1' },
-			lesson: lesson({ title: 'Assembly' })
+		const screen = await render(SessionBody, {
+			detail: {
+				...baseDetail,
+				placement: { id: 'placement-1' },
+				lesson: lesson({ title: 'Assembly' })
+			}
 		});
-
-		const screen = await render(SessionBody, { occasion });
 
 		await expect.element(screen.getByText('Standalone Lesson · Placed')).toBeVisible();
 		await expect.element(screen.getByRole('button', { name: 'Remove placement' })).toBeVisible();
 	});
 
 	test('a placed Lesson shows its title and plan read-only, with no field to write them', async () => {
-		stubSessionFetch({
-			...baseDetail,
-			placement: { id: 'placement-1' },
-			lesson: lesson({ title: 'Assembly', body: 'Hand out the **slides**.' })
+		const screen = await render(SessionBody, {
+			detail: {
+				...baseDetail,
+				placement: { id: 'placement-1' },
+				lesson: lesson({ title: 'Assembly', body: 'Hand out the **slides**.' })
+			}
 		});
-
-		const screen = await render(SessionBody, { occasion });
 
 		await expect.element(screen.getByRole('heading', { name: 'Assembly' })).toBeVisible();
 		await expect.element(screen.getByText('slides')).toBeVisible();
@@ -220,9 +220,7 @@ describe('the Session panel', () => {
 	});
 
 	test('the Place button stays disabled for a blank or whitespace-only title', async () => {
-		stubSessionFetch({ ...baseDetail, canPlace: true });
-
-		const screen = await render(SessionBody, { occasion });
+		const screen = await render(SessionBody, { detail: { ...baseDetail, canPlace: true } });
 		const input = screen.getByRole('textbox', { name: 'Lesson title' });
 		const button = screen.getByRole('button', { name: 'Place' });
 
@@ -233,41 +231,10 @@ describe('the Session panel', () => {
 		await expect.element(button).not.toBeDisabled();
 	});
 
-	test('an occasion that names no Session says so', async () => {
-		vi.stubGlobal(
-			'fetch',
-			vi.fn(async () => new Response('', { status: 404 }))
-		);
-		const screen = await render(SessionBody, { occasion });
-		await expect.element(screen.getByText('No such Session.')).toBeVisible();
-	});
-
-	test('a load that failed says so, not that the Session is missing', async () => {
-		vi.stubGlobal(
-			'fetch',
-			vi.fn(async () => new Response('', { status: 500 }))
-		);
-		const screen = await render(SessionBody, { occasion });
-		await expect
-			.element(screen.getByText("Couldn't load this Session. Check your connection and reload."))
-			.toBeVisible();
-		await expect.element(screen.getByText('No such Session.')).not.toBeInTheDocument();
-	});
-
 	test('a failed Place surfaces the error and leaves the card usable again', async () => {
-		const fetchMock = vi
-			.fn()
-			.mockResolvedValueOnce(
-				new Response(JSON.stringify({ ...baseDetail, canPlace: true }), { status: 200 })
-			)
-			.mockResolvedValueOnce(
-				new Response(JSON.stringify({ message: 'That Slot is no longer Available.' }), {
-					status: 400
-				})
-			);
-		vi.stubGlobal('fetch', fetchMock);
+		stubRefusal(400, 'That Slot is no longer Available.');
 
-		const screen = await render(SessionBody, { occasion });
+		const screen = await render(SessionBody, { detail: { ...baseDetail, canPlace: true } });
 		await screen.getByRole('textbox', { name: 'Lesson title' }).fill('Assembly');
 		await screen.getByRole('button', { name: 'Place' }).click();
 
@@ -276,24 +243,15 @@ describe('the Session panel', () => {
 	});
 
 	test('a failed Remove-placement surfaces the error and leaves the button usable again', async () => {
-		const fetchMock = vi
-			.fn()
-			.mockResolvedValueOnce(
-				new Response(
-					JSON.stringify({
-						...baseDetail,
-						placement: { id: 'placement-1' },
-						lesson: lesson({ title: 'Assembly' })
-					}),
-					{ status: 200 }
-				)
-			)
-			.mockResolvedValueOnce(
-				new Response(JSON.stringify({ message: 'No such Placement.' }), { status: 404 })
-			);
-		vi.stubGlobal('fetch', fetchMock);
+		stubRefusal(404, 'No such Placement.');
 
-		const screen = await render(SessionBody, { occasion });
+		const screen = await render(SessionBody, {
+			detail: {
+				...baseDetail,
+				placement: { id: 'placement-1' },
+				lesson: lesson({ title: 'Assembly' })
+			}
+		});
 		await screen.getByRole('button', { name: 'Remove placement' }).click();
 
 		await expect.element(screen.getByText('No such Placement.')).toBeVisible();
@@ -313,36 +271,20 @@ describe('the Session panel', () => {
 			course: { id: 'course-1', name: 'KS3 Science' }
 		});
 		const placed = { ...topicLesson, id: 'lesson-2', title: 'Assembly', topic: null, course: null };
-		const fetchMock = vi
-			.fn()
-			.mockResolvedValueOnce(
-				new Response(
-					JSON.stringify({
-						...baseDetail,
-						canPlace: true,
-						note: 'Ratio tables went well',
-						lesson: topicLesson
-					}),
-					{ status: 200 }
-				)
-			)
-			.mockResolvedValue(
-				new Response(
-					JSON.stringify({ ...baseDetail, placement: { id: 'placement-1' }, lesson: placed }),
-					{ status: 200 }
-				)
-			);
-		vi.stubGlobal('fetch', fetchMock);
 
-		const screen = await render(SessionBody, { occasion });
+		const screen = await render(SessionBody, {
+			detail: { ...baseDetail, canPlace: true, note: 'Ratio tables went well', lesson: topicLesson }
+		});
 		// The editor's own content, read straight off the DOM: the note is markdown, so its text
 		// is what the teacher sees in the box, not the payload's string.
 		const noteText = () =>
 			screen.container.querySelector('[aria-label="How it went"]')?.textContent?.trim();
 		await vi.waitFor(() => expect(noteText()).toBe('Ratio tables went well'));
 
-		await screen.getByRole('textbox', { name: 'Lesson title' }).fill('Assembly');
-		await screen.getByRole('button', { name: 'Place' }).click();
+		// What the page's load answers once the Place has landed.
+		await screen.rerender({
+			detail: { ...baseDetail, placement: { id: 'placement-1' }, lesson: placed }
+		});
 
 		await expect.element(screen.getByRole('heading', { name: 'Assembly' })).toBeVisible();
 		await vi.waitFor(() => expect(noteText()).toBe(''));

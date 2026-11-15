@@ -1,5 +1,5 @@
 // The value rules every write applies to the fields a teacher types (ADR-0025). Each door — a
-// form action, the planning API, the Session routes — only turns its request into typed
+// form action or the planning API — only turns its request into typed
 // arguments; the seam's writers run these rules, so one rule holds at every entry point and
 // refuses with one message. Only a value that would break something has a rule: an empty name,
 // a Link url that is not http(s), a Length the layout cannot draw, a status the database

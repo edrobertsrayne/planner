@@ -147,7 +147,7 @@ export function writeTeachingNote(
 // The Session must already have started (dated today or earlier), since a Continuation is a reaction to
 // how teaching actually went, not a plan. Both refusals are `invalid`: an occasion with no
 // Session to continue, and an occasion that has not happened yet, are each bad input to this
-// write — the occasion comes from the request body, not the URL.
+// write.
 export function recordContinuation(
 	db: Db,
 	{ today, ...occasion }: Occasion & { today: string }

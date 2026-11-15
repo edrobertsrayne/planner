@@ -1,19 +1,13 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { page } from '$app/state';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import { useBack } from '$lib/client/back';
 	import SessionBody from '$lib/components/session-body.svelte';
 	import { Button } from '$lib/ui';
 
 	// The Session is addressed by its occasion (ADR-0002), so the URL is the whole state: a reload
-	// or a pasted link lands on the same Session. A period that is not a whole number is a
-	// missing Session, which the body shows.
-	const occasion = $derived({
-		classId: page.params.class ?? '',
-		date: page.params.date ?? '',
-		period: Number(page.params.period)
-	});
+	// or a pasted link lands on the same Session.
+	let { data } = $props();
 
 	// With no in-app previous page, Back goes to the Agenda.
 	const back = useBack(() => resolve('/'));
@@ -26,7 +20,12 @@
 		<ArrowLeftIcon data-icon="inline-start" />
 		Back
 	</Button>
-	{#key `${occasion.classId}~${occasion.date}~${occasion.period}`}
-		<SessionBody {occasion} />
-	{/key}
+	{#if data.detail}
+		<!-- Remounted for another Session, so no state carries over. -->
+		{#key `${data.detail.classId}~${data.detail.date}~${data.detail.period}`}
+			<SessionBody detail={data.detail} />
+		{/key}
+	{:else}
+		<p class="mt-4 text-sm text-muted-foreground">No such Session.</p>
+	{/if}
 </div>

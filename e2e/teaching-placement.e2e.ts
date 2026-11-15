@@ -55,9 +55,7 @@ async function expectSessionClosed(page: Page) {
 async function typeNote(page: Page, text: string) {
 	const note = page.getByLabel('How it went');
 	await note.click();
-	const saved = page.waitForResponse(
-		(r) => r.url().endsWith('/session') && r.request().method() === 'POST'
-	);
+	const saved = page.waitForResponse((r) => r.url().includes('writeNote'));
 	await note.pressSequentially(text);
 	await saved;
 }
