@@ -2,10 +2,19 @@
 // so both Session endpoints take that triple rather than an id, and both narrow it here. Anything
 // that is not a complete occasion is a 400: there is no partial occasion to fall back to.
 import { error } from '@sveltejs/kit';
+import { jsonObject } from '$lib/server/api-helpers';
 import { Refused, refusalStatus } from '$lib/server/planner';
 import type { Occasion } from '$lib/server/planner';
 
-export function occasionOf(input: { classId: unknown; date: unknown; period: unknown }): Occasion {
+// Every Session write reads its JSON body through here. A body that does not parse, or parses to
+// something other than an object, is a 400, never the framework's 500.
+export async function bodyOf(request: Request): Promise<Record<string, unknown>> {
+	const body = jsonObject(await request.json().catch(() => null));
+	if (!body) error(400, 'The body must be a JSON object.');
+	return body;
+}
+
+export function occasionOf(input: Record<string, unknown>): Occasion {
 	const classId = typeof input.classId === 'string' ? input.classId : '';
 	const date = typeof input.date === 'string' ? input.date : '';
 	const period = Number(input.period);

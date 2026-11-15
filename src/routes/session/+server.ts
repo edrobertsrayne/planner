@@ -2,7 +2,7 @@ import { error, json } from '@sveltejs/kit';
 import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
 import { sessionDetail, writeTeachingNote } from '$lib/server/planner';
-import { occasionFromQuery, occasionOf, refusal } from './occasion';
+import { bodyOf, occasionFromQuery, occasionOf, refusal } from './occasion';
 import type { RequestHandler } from './$types';
 
 // The Session page's own endpoint (issue #35) — the only route that reads or writes a Session. The
@@ -14,7 +14,7 @@ export const GET: RequestHandler = ({ url }) => {
 };
 
 export const POST: RequestHandler = async ({ request }) => {
-	const body = await request.json();
+	const body = await bodyOf(request);
 	const occasion = occasionOf(body);
 	const note = typeof body.note === 'string' && body.note.length > 0 ? body.note : null;
 	if (typeof body.lessonId !== 'string' || !body.lessonId) error(400, 'lessonId is required.');
