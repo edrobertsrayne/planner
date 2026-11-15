@@ -21,12 +21,15 @@ import * as schema from '../src/lib/server/db/schema.ts';
 import {
 	addSlot,
 	assignTopic,
+	createBellSchedule,
 	createClass,
 	createCourse,
+	createEvent,
 	createLesson,
 	createLink,
 	createTopic,
 	replaceTerms,
+	takeEventSlot,
 	writeTeachingNote
 } from '../src/lib/server/planner/index.ts';
 import { today } from '../src/lib/date.ts';
@@ -86,14 +89,58 @@ function seed(path: string | undefined) {
 			['B', 3, 4]
 		]
 	};
+	// The split day of ADR-0033: Years 9–10 lunch after P3, Years 11–13 after P4, one shared Break.
+	const lower = {
+		1: { starts: '08:50', ends: '09:50' },
+		2: { starts: '09:50', ends: '10:50' },
+		8: { starts: '10:50', ends: '11:10' },
+		3: { starts: '11:10', ends: '12:10' },
+		9: { starts: '12:10', ends: '12:40' },
+		4: { starts: '12:40', ends: '13:40' },
+		5: { starts: '13:40', ends: '14:40' },
+		6: { starts: '14:40', ends: '15:40' }
+	};
+	const juniors = createBellSchedule(db, { name: 'Years 9–10', times: lower });
+	const seniors = createBellSchedule(db, {
+		name: 'Years 11–13',
+		times: {
+			...lower,
+			4: { starts: '12:10', ends: '13:10' },
+			9: { starts: '13:10', ends: '13:40' }
+		}
+	});
+
 	const created = new Map<string, string>();
 	for (const { label, courseId, topics } of classes) {
-		const cls = createClass(db, { label, courseId });
+		const scheduleId = label.startsWith('11') ? seniors.id : juniors.id;
+		const cls = createClass(db, { label, courseId, scheduleId });
 		created.set(label, cls.id);
 		for (const [week, day, period] of slots[label]) {
 			addSlot(db, { classId: cls.id, week, day, period });
 		}
 		for (const topicId of topics) assignTopic(db, { classId: cls.id, topicId, today: since });
+	}
+
+	// Duties at Break and at the Years 9–10 Lunch.
+	const canteen = createEvent(db, { name: 'Canteen duty', kind: 'duty' });
+	takeEventSlot(db, {
+		eventId: canteen.id,
+		week: 'A',
+		day: 2,
+		position: 9,
+		scheduleId: juniors.id,
+		from: null
+	});
+	const yard = createEvent(db, { name: 'Yard duty', kind: 'duty' });
+	for (const week of ['A', 'B'] as const) {
+		takeEventSlot(db, {
+			eventId: yard.id,
+			week,
+			day: 4,
+			position: 8,
+			scheduleId: juniors.id,
+			from: null
+		});
 	}
 
 	// One Teaching note on the last taught Session, for the Session page and the Class page "Last taught".

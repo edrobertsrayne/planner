@@ -1,9 +1,13 @@
+import { rowIndexOf, type DayRow } from './bell';
+
 // What the pages need to know about Events that is not a rule: the kinds as the teacher names
-// them, and the eight positions of a day (ADR-0029). The rules themselves live in the planner seam.
+// them, and the positions of a day (ADR-0029, ADR-0033). The rules themselves live in the planner
+// seam.
 export const EVENT_KINDS = [
 	{ value: 'meeting', label: 'Meeting' },
 	{ value: 'club', label: 'Club' },
 	{ value: 'intervention', label: 'Intervention' },
+	{ value: 'duty', label: 'Duty' },
 	{ value: 'other', label: 'Other' }
 ] as const;
 
@@ -11,16 +15,26 @@ export type EventKindValue = (typeof EVENT_KINDS)[number]['value'];
 
 export const kindLabel = (kind: string) => EVENT_KINDS.find((k) => k.value === kind)?.label ?? kind;
 
-// 0 Before school, 1 to 6 the Periods, 7 After school: the order a day's rows are drawn in.
-export const POSITIONS = [0, 1, 2, 3, 4, 5, 6, 7];
+const WORDS: Record<number, string> = {
+	0: 'Before school',
+	7: 'After school',
+	8: 'Break',
+	9: 'Lunch'
+};
 
-// The short label a grid row carries: P3, or the words for the two positions only Events hold.
-export const positionLabel = (position: number) =>
-	position === 0 ? 'Before school' : position === 7 ? 'After school' : `P${position}`;
+// The short label a position carries: P3, or the word for a position only Events hold.
+export const positionLabel = (position: number) => WORDS[position] ?? `P${position}`;
 
 // "P3", "P1–P2", or the words for Before school and After school: where an Event sits in a day.
 export const positionRangeLabel = (from: number, to: number) =>
 	from === to ? positionLabel(from) : `${positionLabel(from)}–${positionLabel(to)}`;
+
+// The name of the day row an Event Slot sits in, as `dayRows` draws it: "Lunch (Upper)" where two
+// Lunches fall at different times, "Break" where every Bell Schedule shares one. Falls back to the
+// position's own label when no row holds it, which can only be a Bell Schedule deleted since.
+export function dayRowLabel(rows: readonly DayRow[], position: number, scheduleId: string | null) {
+	return rows[rowIndexOf(rows, position, scheduleId)]?.label ?? positionLabel(position);
+}
 
 // One Event over adjacent Periods is one occurrence to the teacher, since its note belongs to the
 // Event and the date, not to a position. Joins each run of adjacent Periods (P1 to P6) of one Event

@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest';
+import type { BellSchedule, BellTime } from '$lib/bell';
 import {
 	agendaStream,
 	filterByTag,
@@ -127,15 +128,53 @@ describe('agendaStream', () => {
 	});
 });
 
-describe('withEvents (ADR-0029)', () => {
-	const row = (date: string, periodFrom: number) => ({ date, periodFrom });
-	const event = (date: string, position: number) => ({ date, position });
-	const merge = (rows: ReturnType<typeof row>[], events: ReturnType<typeof event>[]) =>
-		withEvents(groupByDay(rows), events).map((d) => [
-			d.date,
-			d.rows.map((l) => (l.kind === 'row' ? `P${l.row.periodFrom}` : `E${l.event.position}`))
-		]);
+const time = (starts: string, ends: string): BellTime => ({ starts, ends });
 
+// Years 9–10 lunch after P3, Years 11–13 after P4; Break shared (ADR-0033).
+const lower: BellSchedule = {
+	id: 'lower',
+	name: 'Lower',
+	isDefault: true,
+	times: {
+		1: time('08:50', '09:50'),
+		2: time('09:50', '10:50'),
+		8: time('10:50', '11:10'),
+		3: time('11:10', '12:10'),
+		9: time('12:10', '12:40'),
+		4: time('12:40', '13:40'),
+		5: time('13:40', '14:40'),
+		6: time('14:40', '15:40')
+	}
+};
+const upper: BellSchedule = {
+	id: 'upper',
+	name: 'Upper',
+	isDefault: false,
+	times: { ...lower.times, 4: time('12:10', '13:10'), 9: time('13:10', '13:40') }
+};
+
+type AgendaRow = { date: string; periodFrom: number };
+type AgendaEvent = { date: string; position: number; scheduleId: string | null };
+
+const row = (date: string, periodFrom: number): AgendaRow => ({ date, periodFrom });
+const event = (date: string, position: number, scheduleId: string | null = null): AgendaEvent => ({
+	date,
+	position,
+	scheduleId
+});
+const merge = (rows: AgendaRow[], events: AgendaEvent[], schedules: BellSchedule[] = []) =>
+	withEvents(groupByDay(rows), events, schedules).map((d) => [
+		d.date,
+		d.rows.map((l) =>
+			l.kind === 'row'
+				? `P${l.row.periodFrom}`
+				: l.kind === 'event'
+					? `E${l.event.position}`
+					: l.row.label
+		)
+	]);
+
+describe('withEvents (ADR-0029)', () => {
 	test('an Event sits in its Period among the rows, Before school first and After school last', () => {
 		expect(
 			merge(
@@ -157,6 +196,36 @@ describe('withEvents (ADR-0029)', () => {
 
 	test('with no Events the days are as grouped', () => {
 		expect(merge([row('2026-11-02', 1)], [])).toEqual([['2026-11-02', ['P1']]]);
+	});
+});
+
+describe('withEvents with Bell Schedules (ADR-0033)', () => {
+	test('a teaching day shows Break and both Lunches between the Periods, in day order', () => {
+		expect(merge([row('2026-11-02', 1), row('2026-11-02', 4)], [], [lower, upper])).toEqual([
+			['2026-11-02', ['P1', 'Break', 'Lunch (Lower)', 'P4', 'Lunch (Upper)']]
+		]);
+	});
+
+	test('an Event at Lunch (Upper) holds that row, and the other Lunch still shows quietly', () => {
+		expect(
+			merge(
+				[row('2026-11-02', 1), row('2026-11-02', 4), row('2026-11-02', 5)],
+				[event('2026-11-02', 9, 'upper')],
+				[lower, upper]
+			)
+		).toEqual([['2026-11-02', ['P1', 'Break', 'Lunch (Lower)', 'P4', 'E9', 'P5']]]);
+	});
+
+	test('an Event at Break holds the one shared row, whichever Bell Schedule it names', () => {
+		expect(
+			merge([row('2026-11-02', 1)], [event('2026-11-02', 8, 'upper')], [lower, upper])
+		).toEqual([['2026-11-02', ['P1', 'E8', 'Lunch (Lower)', 'Lunch (Upper)']]]);
+	});
+
+	test('a day that holds only Events grows no Break or Lunch rows', () => {
+		expect(merge([], [event('2026-11-02', 9, 'lower')], [lower, upper])).toEqual([
+			['2026-11-02', ['E9']]
+		]);
 	});
 });
 

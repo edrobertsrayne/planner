@@ -1,6 +1,8 @@
 // The Agenda's day grouping (issue #87): the day is the unit — every date in the window gets a
 // heading and a card, whether it holds five lessons or one. Pure: consecutive rows sharing a date
 // form one day; the stream is expected sorted by date then Period, as `agenda` returns it.
+import { BREAK, LUNCH, dayRows, rowIndexOf, type BellSchedule, type DayRow } from '$lib/bell';
+
 export interface AgendaDay<Row> {
 	date: string;
 	rows: Row[];
@@ -55,22 +57,60 @@ export function agendaStream<Row, Blocked extends { date: string }>(
 	].sort((a, b) => a.date.localeCompare(b.date));
 }
 
-// One line in an Agenda day: a Session row or an Event (ADR-0029). An Event never shares a Period
-// with a Class, so each Event takes its own place by position: Before school (0) leads the day,
-// the Periods (1 to 6) sit among the rows, and After school (7) closes it.
-export type AgendaLine<Row, Event> = { kind: 'row'; row: Row } | { kind: 'event'; event: Event };
+// One line in an Agenda day: a Session row, an Event (ADR-0029), or a Break or Lunch no Event
+// holds (ADR-0033). Each takes its place from `dayRows`: a Session by its Period, an Event by its
+// position and — at Break or Lunch — the Bell Schedule it names.
+export type AgendaLine<Row, Event> =
+	{ kind: 'row'; row: Row } | { kind: 'event'; event: Event } | { kind: 'bell'; row: DayRow };
 
+// The day's rows with its Events set among them (ADR-0029, ADR-0033). Every line sits in the row
+// `dayRows` gives it, so the Periods follow their Bell Schedule's times and each Break or Lunch
+// sits at its own; a teaching day also shows the Break and Lunches no Event holds, so the gaps in
+// the day are visible. With no Bell Schedule the order is exactly the old one: Before school, the
+// six Periods, After school.
 export function withEvents<
 	Row extends { date: string; periodFrom: number },
-	Event extends { date: string; position: number }
->(days: readonly AgendaDay<Row>[], events: readonly Event[]): AgendaDay<AgendaLine<Row, Event>>[] {
+	Event extends { date: string; position: number; scheduleId: string | null }
+>(
+	days: readonly AgendaDay<Row>[],
+	events: readonly Event[],
+	schedules: readonly BellSchedule[]
+): AgendaDay<AgendaLine<Row, Event>>[] {
+	const rows = dayRows(schedules);
 	const byDate = new Map<string, { at: number; line: AgendaLine<Row, Event> }[]>();
+	const teaching = new Set<string>();
 	const put = (date: string, at: number, line: AgendaLine<Row, Event>) =>
 		byDate.set(date, [...(byDate.get(date) ?? []), { at, line }]);
 
-	for (const day of days)
-		for (const row of day.rows) put(day.date, row.periodFrom, { kind: 'row', row });
-	for (const event of events) put(event.date, event.position, { kind: 'event', event });
+	// A position with no row — Break or Lunch with no Bell Schedule to place it — still shows,
+	// after the day's last row.
+	const rowOf = (position: number, scheduleId: string | null) => {
+		const index = rowIndexOf(rows, position, scheduleId);
+		return index === -1 ? rows.length + position : index;
+	};
+
+	for (const day of days) {
+		teaching.add(day.date);
+		for (const row of day.rows) put(day.date, rowOf(row.periodFrom, null), { kind: 'row', row });
+	}
+	for (const event of events)
+		put(event.date, rowOf(event.position, event.scheduleId ?? null), { kind: 'event', event });
+
+	// Break and Lunch belong to every teaching day (ADR-0033): a row no Event holds shows its
+	// times quietly. A day that holds only Events grew no Break or Lunch, as none is taught.
+	if (schedules.length > 0)
+		for (const date of teaching) {
+			const lines = byDate.get(date) ?? [];
+			const held = new Set(lines.map((l) => l.at));
+			byDate.set(date, [
+				...lines,
+				...rows.flatMap((row, at) =>
+					(row.position === BREAK || row.position === LUNCH) && !held.has(at)
+						? [{ at, line: { kind: 'bell' as const, row } }]
+						: []
+				)
+			]);
+		}
 
 	return [...byDate]
 		.sort(([a], [b]) => a.localeCompare(b))

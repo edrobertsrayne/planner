@@ -14,6 +14,7 @@ import {
 	classDetail,
 	datedSlotsOf,
 	linksOf,
+	listBellSchedules,
 	listClasses,
 	addLesson,
 	moveLessons,
@@ -23,6 +24,7 @@ import {
 	reportOf,
 	Refused,
 	setClassNote,
+	setClassSchedule,
 	setSlotRoom,
 	sequenceView,
 	toggleSlot
@@ -50,6 +52,7 @@ export const load: PageServerLoad = ({ params, url }) => {
 		class: selected,
 		links: linksOf(db, { classId: selected.id }),
 		attachments: attachmentsOf(db, { classId: selected.id }),
+		schedules: listBellSchedules(db),
 		yearStart,
 		effectiveFrom,
 		today: today(),
@@ -175,6 +178,13 @@ export const actions: Actions = {
 			report: reportOf(result),
 			changed: result.changed,
 			lines: [addedLine(result.lesson.title), changeLine(result.changed.length)]
+		});
+	}),
+
+	setClassSchedule: formAction((data) => {
+		setClassSchedule(db, {
+			id: trimmed(data, 'id'),
+			scheduleId: trimmed(data, 'scheduleId')
 		});
 	}),
 

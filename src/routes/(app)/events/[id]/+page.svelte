@@ -5,11 +5,12 @@
 	import { MediaQuery } from 'svelte/reactivity';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
+	import { dayRows } from '$lib/bell';
 	import { useBack } from '$lib/client/back';
 	import { createDeleteAsk } from '$lib/client/confirm-delete.svelte';
 	import { replaceQuery } from '$lib/client/enhance';
 	import { formatDate } from '$lib/date';
-	import { kindLabel, positionLabel } from '$lib/events';
+	import { dayRowLabel, kindLabel } from '$lib/events';
 	import { withParam } from '$lib/query';
 	import ConfirmDeleteDialog from '$lib/components/confirm-delete-dialog.svelte';
 	import RenameableRow from '$lib/components/renameable-row.svelte';
@@ -37,6 +38,11 @@
 	const deleter = createDeleteAsk(() => ({ id: data.event.id, name: data.event.name }));
 
 	const labelOf = (classId: string) => data.classes.find((c) => c.id === classId)?.label ?? classId;
+	// The day's rows as the Bell Schedules draw them, so a Break or Lunch Slot is named as its row
+	// is: "Lunch (Upper)" where two Lunches fall at different times (ADR-0033).
+	const rows = $derived(dayRows(data.bell.schedules));
+	const slotWhere = (s: { position: number; scheduleId: string | null }) =>
+		dayRowLabel(rows, s.position, s.scheduleId);
 	const slotCount = $derived(data.eventSlots.filter((s) => s.eventId === data.event.id).length);
 	const isPast = $derived(data.on < data.today);
 
@@ -117,6 +123,7 @@
 				occurrences={data.occurrences}
 				today={data.today}
 				focus={data.date}
+				bell={data.bell}
 			/>
 		</div>
 	{:else}
@@ -148,17 +155,23 @@
 					eventName={data.event.name}
 					on={data.on}
 					readOnly={isPast}
+					bell={data.bell}
 					classSlots={data.classSlots}
 					eventSlots={data.eventSlots}
 					{labelOf}
 				/>
 
 				<p class="mt-3 text-xs text-muted-foreground">
-					A position held by a Class or another Event is hatched and carries its name. Before school
-					and After school belong to Events alone.
+					A position held by a Class or another Event is hatched and carries its name. Before
+					school, After school, Break and Lunch belong to Events alone.
 				</p>
 
-				<EventRooms eventId={data.event.id} readOnly={isPast} slots={data.eventSlots} />
+				<EventRooms
+					eventId={data.event.id}
+					readOnly={isPast}
+					slots={data.eventSlots}
+					bell={data.bell}
+				/>
 
 				{#if data.datedSlots.length}
 					<div class="mt-4 rounded-lg bg-muted/40 px-3 py-2">
@@ -167,7 +180,7 @@
 							{#each data.datedSlots as s (s.id)}
 								<li>
 									<span class="font-medium text-foreground">
-										Week {s.week} · {DAY_NAMES[s.day - 1]} · {positionLabel(s.position)}
+										Week {s.week} · {DAY_NAMES[s.day - 1]} · {slotWhere(s)}
 									</span>
 									{#if s.holdsFrom}from {formatDate(s.holdsFrom)}{/if}
 									{#if s.holdsTo}{s.holdsFrom ? ', ' : ''}until {formatDate(s.holdsTo)}{/if}

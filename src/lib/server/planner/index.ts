@@ -105,6 +105,16 @@ export { movePlacement, placeLesson, placementAdmission, removePlacement } from 
 export { replaceTerms } from './terms';
 
 export {
+	bellOf,
+	createBellSchedule,
+	deleteBellSchedule,
+	listBellSchedules,
+	makeDefaultBellSchedule,
+	setClassSchedule,
+	updateBellSchedule
+} from './bell';
+
+export {
 	recordContinuation,
 	removeContinuation,
 	sessionDetail,

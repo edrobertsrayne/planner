@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import PlusIcon from '@lucide/svelte/icons/plus';
+	import { dayRows, rowIndexOf, timesLabel, type Bell } from '$lib/bell';
 	import { onFail } from '$lib/client/enhance';
 	import { formatDate } from '$lib/date';
-	import { POSITIONS, positionLabel } from '$lib/events';
 	import { Button } from '$lib/ui';
 
 	// The same Timetable grid as a Class page's, with the two extra rows only Events hold. A position
 	// a Class or another Event holds is hatched and locked, so a clash is never offered (ADR-0029).
+	// Rows, their order and their times come from the Bell Schedules (ADR-0033).
 	type ClassSlot = { classId: string; week: 'A' | 'B'; day: number; period: number };
 	type EventSlot = {
 		eventId: string;
@@ -15,6 +16,7 @@
 		week: 'A' | 'B';
 		day: number;
 		position: number;
+		scheduleId: string | null;
 	};
 
 	let {
@@ -22,6 +24,7 @@
 		eventName,
 		on,
 		readOnly,
+		bell,
 		classSlots,
 		eventSlots,
 		labelOf
@@ -30,6 +33,7 @@
 		eventName: string;
 		on: string;
 		readOnly: boolean;
+		bell: Bell;
 		classSlots: ClassSlot[];
 		eventSlots: EventSlot[];
 		labelOf: (classId: string) => string;
@@ -38,21 +42,27 @@
 	const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 	const WEEKS = ['A', 'B'] as const;
 
+	const rows = $derived(dayRows(bell.schedules));
+
 	type Cell = { kind: 'mine' | 'other' | 'empty'; label: string };
 
-	function cellAt(week: 'A' | 'B', day: number, position: number): Cell {
-		const own = eventSlots.find((s) => s.week === week && s.day === day && s.position === position);
+	function cellAt(week: 'A' | 'B', day: number, row: number): Cell {
+		const own = eventSlots.find(
+			(s) => s.week === week && s.day === day && rowIndexOf(rows, s.position, s.scheduleId) === row
+		);
 		if (own) {
 			return own.eventId === eventId
 				? { kind: 'mine', label: eventName }
 				: { kind: 'other', label: own.name };
 		}
-		const cls = classSlots.find((s) => s.week === week && s.day === day && s.period === position);
+		const cls = classSlots.find(
+			(s) => s.week === week && s.day === day && rowIndexOf(rows, s.period, null) === row
+		);
 		return cls ? { kind: 'other', label: labelOf(cls.classId) } : { kind: 'empty', label: '' };
 	}
 
-	function describe(cell: Cell, week: 'A' | 'B', day: string, position: number): string {
-		const where = `Week ${week} ${day} ${positionLabel(position)}`;
+	function describe(cell: Cell, week: 'A' | 'B', day: string, row: number): string {
+		const where = `Week ${week} ${day} ${rows[row].label}`;
 		const state =
 			cell.kind === 'mine' ? eventName : cell.kind === 'other' ? `held by ${cell.label}` : 'empty';
 		const then = readOnly
@@ -88,16 +98,22 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each POSITIONS as p (p)}
+					{#each rows as row, r (`${row.position}:${row.scheduleId ?? ''}`)}
 						<tr>
 							<th
+								scope="row"
 								class="pr-2 text-right text-xs font-normal whitespace-nowrap text-muted-foreground"
 							>
-								{positionLabel(p)}
+								<span class="block">{row.label}</span>
+								{#if row.times}
+									<span class="block text-[10px] tabular-nums opacity-75"
+										>{timesLabel(row.times)}</span
+									>
+								{/if}
 							</th>
 							{#each DAYS as d, i (d)}
-								{@const cell = cellAt(w, i + 1, p)}
-								{@const description = describe(cell, w, d, p)}
+								{@const cell = cellAt(w, i + 1, r)}
+								{@const description = describe(cell, w, d, r)}
 								<td>
 									{#if cell.kind === 'other'}
 										<div
@@ -131,7 +147,8 @@
 											<input type="hidden" name="eventId" value={eventId} />
 											<input type="hidden" name="week" value={w} />
 											<input type="hidden" name="day" value={i + 1} />
-											<input type="hidden" name="position" value={p} />
+											<input type="hidden" name="position" value={row.position} />
+											<input type="hidden" name="scheduleId" value={row.scheduleId ?? ''} />
 											<input type="hidden" name="from" value={on} />
 											{#if cell.kind === 'mine'}
 												<Button

@@ -5,6 +5,7 @@ import { formAction, found, trimmed } from '$lib/server/form';
 import {
 	academicYearStart,
 	activeEventSlots,
+	bellOf,
 	activeSlots,
 	deleteEvent,
 	eventOccurrences,
@@ -45,6 +46,7 @@ export const load: PageServerLoad = ({ params, url }) => {
 
 	return {
 		event,
+		bell: bellOf(db),
 		today: now,
 		date,
 		// An Event with no Slot has no dates to write on, so it opens on the Timetable to be placed.
@@ -92,6 +94,7 @@ export const actions: Actions = {
 			week: trimmed(data, 'week'),
 			day: Number(data.get('day')),
 			position: Number(data.get('position')),
+			scheduleId: trimmed(data, 'scheduleId') || null,
 			from
 		});
 	}),

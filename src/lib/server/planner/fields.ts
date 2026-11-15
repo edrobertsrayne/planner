@@ -10,7 +10,7 @@
 import { eq, sql, type SQL } from 'drizzle-orm';
 import type { SQLiteColumn, SQLiteTable } from 'drizzle-orm/sqlite-core';
 import { LESSON_STATUSES, type LessonStatus } from '$lib/lesson-status';
-import { eventKinds } from '../db/schema';
+import { bellSchedule, eventKinds } from '../db/schema';
 import { Refused } from './refused';
 
 type EventKind = (typeof eventKinds)[number];
@@ -99,21 +99,32 @@ export function slotPeriod(period: number): number {
 	return period;
 }
 
-// An Event Slot's position: 0 is Before school, 1 to 6 are the Periods, 7 is After school
-// (ADR-0029). Only an Event may hold 0 or 7, so a Slot keeps `slotPeriod` and its 1 to 6.
-export function eventPosition(position: number): number {
-	if (!Number.isInteger(position) || position < 0 || position > 7) {
+// An Event Slot's place: 0 is Before school, 1 to 6 are the Periods, 7 is After school (ADR-0029),
+// 8 is Break and 9 is Lunch (ADR-0033). Only an Event may hold 0, 7, 8 or 9, so a Slot keeps
+// `slotPeriod` and its 1 to 6. Break and Lunch belong to a Bell Schedule, which must exist; every
+// other position belongs to none.
+export function eventPlace(
+	db: Db,
+	position: number,
+	scheduleId: string | null
+): { position: number; scheduleId: string | null } {
+	if (!Number.isInteger(position) || position < 0 || position > 9) {
 		throw new Refused(
 			'invalid',
-			"An Event's position must be Before school, a Period from 1 to 6, or After school."
+			"An Event's position must be Before school, a Period from 1 to 6, After school, Break or Lunch."
 		);
 	}
-	return position;
+	if (position < 8) return { position, scheduleId: null };
+	if (!scheduleId) {
+		throw new Refused('invalid', 'A Break or Lunch must name its Bell Schedule.');
+	}
+	requireRow(db, bellSchedule, scheduleId, 'Bell Schedule not found.');
+	return { position, scheduleId };
 }
 
 export function eventKind(kind: string): EventKind {
 	if (!eventKinds.includes(kind as EventKind)) {
-		throw new Refused('invalid', 'An Event must be a Meeting, Club, Intervention or Other.');
+		throw new Refused('invalid', 'An Event must be a Meeting, Club, Intervention, Duty or Other.');
 	}
 	return kind as EventKind;
 }

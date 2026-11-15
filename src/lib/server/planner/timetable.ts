@@ -3,6 +3,7 @@
 // its Class from today.
 import { and, asc, eq, gte, isNotNull, or } from 'drizzle-orm';
 import { addDays } from '$lib/date';
+import { positionLabel } from '$lib/events';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import { rederive, type Db } from './derive';
@@ -39,9 +40,8 @@ export const overlaps = (a: Window, b: Window) =>
 
 export const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
-// Position 0 is Before school, 7 is After school, and 1 to 6 are the Periods (ADR-0029).
-export const positionName = (week: 'A' | 'B', day: number, period: number) =>
-	`Week ${week} ${DAY_NAMES[day - 1]} ${period === 0 ? 'Before school' : period === 7 ? 'After school' : `P${period}`}`;
+export const positionName = (week: 'A' | 'B', day: number, position: number) =>
+	`Week ${week} ${DAY_NAMES[day - 1]} ${positionLabel(position)}`;
 
 const takenError = (week: 'A' | 'B', day: number, period: number) =>
 	new Refused(

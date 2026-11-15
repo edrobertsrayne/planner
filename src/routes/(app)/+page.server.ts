@@ -11,6 +11,7 @@ import {
 } from '$lib/server/block-actions';
 import {
 	agenda,
+	bellOf,
 	agendaLookBack,
 	agendaLookBackBlockedDays,
 	agendaLookBackEvents,
@@ -31,6 +32,7 @@ export const load: PageServerLoad = ({ url }) => {
 
 	return {
 		today: today(),
+		bell: bellOf(db),
 		horizon,
 		tag: url.searchParams.get('tag') || null,
 		lookBackOn,

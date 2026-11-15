@@ -144,6 +144,8 @@ test.describe('the Class page on a laptop', () => {
 		page
 	}) => {
 		await openClassPage(page);
+		// No Bell Schedule set up, so the Class page shows no choice of one, exactly as before.
+		await expect(page.getByLabel('Bell Schedule')).toHaveCount(0);
 		await expect(page.getByRole('tablist')).toBeVisible();
 		const tabs = page.getByRole('tab');
 		await expect(tabs).toHaveCount(3);
@@ -316,5 +318,47 @@ test.describe('the Class page on a laptop, tidying up', () => {
 		await Promise.all([page.waitForResponse((r) => r.url().includes('setClassNote')), note.blur()]);
 		await page.reload();
 		await expect(page.getByRole('textbox', { name: 'Class note' })).toHaveText('');
+	});
+});
+
+test.describe('the Bell Schedule a Class follows', () => {
+	// The split day of ADR-0033: Lower is the default, with Lunch after P3; Upper has it after P4.
+	test.beforeAll(() => runFixture('split-day'));
+
+	test('the New Class dialog starts on the default Bell Schedule and can pick another', async ({
+		page
+	}) => {
+		await login(page, '/classes');
+		await page.getByRole('button', { name: 'New Class' }).first().click();
+		const picker = page.getByLabel('Bell Schedule');
+		await expect(picker.locator('option:checked')).toHaveText('Lower');
+
+		await picker.selectOption({ label: 'Upper' });
+		await page.getByLabel('Label').fill('11A/Ph1');
+		await page.getByRole('button', { name: 'Create Class' }).click();
+		await page.waitForURL(/\/classes\/[^/]+$/);
+		await expect(page.getByRole('heading', { level: 1, name: '11A/Ph1' })).toBeVisible();
+		await expect(page.getByLabel('Bell Schedule').locator('option:checked')).toHaveText('Upper');
+
+		// Take the Class back out: the rest of the file reads the standard Classes.
+		await page.getByRole('button', { name: 'Delete Class' }).click();
+		await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
+		await expect(page).toHaveURL(/\/classes$/);
+	});
+
+	test('changing a Class’s Bell Schedule survives a reload', async ({ page }) => {
+		await openClassPage(page);
+		const picker = page.getByLabel('Bell Schedule');
+		await expect(picker.locator('option:checked')).toHaveText('Lower');
+
+		const saved = page.waitForResponse(
+			(response) =>
+				response.request().method() === 'POST' && response.url().includes('setClassSchedule')
+		);
+		await picker.selectOption({ label: 'Upper' });
+		await saved;
+
+		await page.reload();
+		await expect(page.getByLabel('Bell Schedule').locator('option:checked')).toHaveText('Upper');
 	});
 });

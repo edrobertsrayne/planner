@@ -2,15 +2,17 @@
 	import { enhance } from '$app/forms';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-	import { Button } from '$lib/ui';
-	import { formatShortWeekday, formatWeekday } from '$lib/date';
-	import { positionLabel } from '$lib/events';
+	import { dayRows, type Bell } from '$lib/bell';
 	import { onFail } from '$lib/client/enhance';
+	import { formatShortWeekday, formatWeekday } from '$lib/date';
+	import { dayRowLabel } from '$lib/events';
+	import { Button } from '$lib/ui';
 	import { earlierNote, notesByDate, openDate, type DateCard } from './notes-by-date';
 
 	type Occurrence = {
 		date: string;
 		position: number;
+		scheduleId: string | null;
 		room: string | null;
 		note: string | null;
 	};
@@ -19,18 +21,24 @@
 		eventId,
 		occurrences,
 		today,
-		focus
+		focus,
+		bell
 	}: {
 		eventId: string;
 		occurrences: Occurrence[];
 		today: string;
 		focus: string | null;
+		bell: Bell;
 	} = $props();
 
-	// "Before school, P6 · S4": every position held on the date, each with its Room if it has one.
+	const rows = $derived(dayRows(bell.schedules));
+
+	// "Before school, P6 · S4": every position held on the date, each with its Room if it has one,
+	// named as its Bell Schedule's row draws it — "Lunch (Upper)" where two Lunches differ.
 	const where = (card: DateCard) =>
-		card.positions
-			.map((p) => positionLabel(p.position) + (p.room ? ` · ${p.room}` : ''))
+		occurrences
+			.filter((o) => o.date === card.date)
+			.map((o) => dayRowLabel(rows, o.position, o.scheduleId) + (o.room ? ` · ${o.room}` : ''))
 			.join(', ');
 
 	// One date at a time, however long the run: stepped with the arrows or chosen from the list. It

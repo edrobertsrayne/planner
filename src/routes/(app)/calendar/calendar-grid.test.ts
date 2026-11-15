@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'vitest';
+import { dayRows, type BellTime, type BellSchedule } from '$lib/bell';
 import type { CalendarCell } from '$lib/server/planner';
 import {
 	availableSlotLines,
 	absentSlotLines,
 	blockedSlotLines,
-	PERIODS,
 	eventSpans,
 	toEventGrid,
 	toGrid
@@ -81,43 +81,121 @@ const DAYS = [
 	{ date: '2026-09-02', kind: 'teaching' as const }
 ];
 
+// The day before the first Bell Schedule, and the split day of ADR-0033: Years 9–10 lunch after P3,
+// Years 11–13 after P4, Break shared.
+const NO_BELL = dayRows([]);
+
+const at = (starts: string, ends: string): BellTime => ({ starts, ends });
+const LOWER: BellSchedule = {
+	id: 'lower',
+	name: 'Lower',
+	isDefault: true,
+	times: {
+		1: at('08:50', '09:50'),
+		2: at('09:50', '10:50'),
+		8: at('10:50', '11:10'),
+		3: at('11:10', '12:10'),
+		9: at('12:10', '12:40'),
+		4: at('12:40', '13:40'),
+		5: at('13:40', '14:40'),
+		6: at('14:40', '15:40')
+	}
+};
+const UPPER: BellSchedule = {
+	id: 'upper',
+	name: 'Upper',
+	isDefault: false,
+	times: { ...LOWER.times, 4: at('12:10', '13:10'), 9: at('13:10', '13:40') }
+};
+const SPLIT = dayRows([LOWER, UPPER]);
+const rowOf = (rows: typeof SPLIT, label: string) => rows.findIndex((r) => r.label === label);
+
 describe('toGrid', () => {
-	test('Periods down, days across — every date holds a column per Period (issue #90)', () => {
-		const grid = toGrid(DAYS, []);
+	test('Periods down, days across — every date holds a column per row (issue #90)', () => {
+		const grid = toGrid(DAYS, [], NO_BELL);
 		expect(grid).toHaveLength(DAYS.length);
-		expect(grid.every((row) => row.length === PERIODS.length)).toBe(true);
+		expect(grid.every((column) => column.length === NO_BELL.length)).toBe(true);
 	});
 
-	test('an empty week is free everywhere', () => {
-		const grid = toGrid(DAYS, []);
-		expect(grid.flat().every((e) => e.type === 'free')).toBe(true);
+	test('an empty week is free everywhere a Class may sit, and a band elsewhere', () => {
+		const grid = toGrid(DAYS, [], NO_BELL);
+		expect(grid[0].map((e) => e.type)).toEqual([
+			'band',
+			'free',
+			'free',
+			'free',
+			'free',
+			'free',
+			'free',
+			'band'
+		]);
 	});
 
 	test('a multi-Period Lesson starts once and covers the Periods after it', () => {
-		const grid = toGrid(DAYS, [lessonCell({ periodFrom: 3, periodTo: 5 })]);
-		expect(grid[0][2]).toMatchObject({ type: 'start' });
-		expect(grid[0][3]).toEqual({ type: 'covered' });
+		const grid = toGrid(DAYS, [lessonCell({ periodFrom: 3, periodTo: 5 })], NO_BELL);
+		expect(grid[0][3]).toMatchObject({ type: 'start', span: 3 });
 		expect(grid[0][4]).toEqual({ type: 'covered' });
-		expect(grid[0][5]).toEqual({ type: 'free' });
+		expect(grid[0][5]).toEqual({ type: 'covered' });
+		expect(grid[0][6]).toEqual({ type: 'free' });
 	});
 
 	test('a Blocked cell occupies its own Slot position only', () => {
-		const grid = toGrid(DAYS, [blockedCell({ blockedNote: 'Trip', periodFrom: 4, periodTo: 4 })]);
-		expect(grid[0][3]).toMatchObject({ type: 'start' });
+		const grid = toGrid(
+			DAYS,
+			[blockedCell({ blockedNote: 'Trip', periodFrom: 4, periodTo: 4 })],
+			NO_BELL
+		);
+		expect(grid[0][4]).toMatchObject({ type: 'start', span: 1 });
 		// A Period that is nobody's Slot stays unmarked — never hatched by proximity.
-		expect(grid[0][2]).toEqual({ type: 'free' });
-		expect(grid[0][4]).toEqual({ type: 'free' });
+		expect(grid[0][3]).toEqual({ type: 'free' });
+		expect(grid[0][5]).toEqual({ type: 'free' });
 	});
 
 	test('cells on dates outside the week are ignored', () => {
-		const grid = toGrid(DAYS, [lessonCell({ date: '2026-09-07' })]);
-		expect(grid.flat().every((e) => e.type === 'free')).toBe(true);
+		const grid = toGrid(DAYS, [lessonCell({ date: '2026-09-07' })], NO_BELL);
+		expect(grid.flat().every((e) => e.type !== 'start')).toBe(true);
 	});
 
 	test('the start entry carries its cell through to the renderer', () => {
 		const c = lessonCell({ classLabel: '7X/Sc1', tone: 4 });
-		const start = toGrid(DAYS, [c])[0][0];
+		const start = toGrid(DAYS, [c], NO_BELL)[0][1];
 		expect(start).toMatchObject({ type: 'start', cell: c });
+	});
+
+	test('the rows are the Bell Schedules’ own, and Break and Lunch are bands', () => {
+		const types = toGrid(DAYS, [], SPLIT)[0].map((e) => e.type);
+		expect(types).toHaveLength(SPLIT.length);
+		for (const label of ['Break', 'Lunch (Lower)', 'Lunch (Upper)']) {
+			expect(types[rowOf(SPLIT, label)]).toBe('band');
+		}
+	});
+
+	// A duty sits at Lunch between a double's two Periods, so the rowspan stops at the band and the
+	// rest of the Lesson starts again below it (ADR-0033).
+	test('a double across a Lunch draws one tile either side, and the Lunch keeps its row', () => {
+		const c = lessonCell({ periodFrom: 3, periodTo: 4 });
+		const grid = toGrid(DAYS, [c], SPLIT)[0];
+		const p3 = rowOf(SPLIT, 'P3');
+		const lunch = rowOf(SPLIT, 'Lunch (Lower)');
+		const p4 = rowOf(SPLIT, 'P4');
+
+		expect(grid[p3]).toMatchObject({ type: 'start', cell: c, span: 1 });
+		expect(grid[lunch]).toEqual({ type: 'band' });
+		expect(grid[p4]).toMatchObject({ type: 'start', cell: c, span: 1 });
+	});
+
+	test('a double over a Break and a Lunch keeps both bands', () => {
+		const c = lessonCell({ periodFrom: 2, periodTo: 4 });
+		const grid = toGrid(DAYS, [c], SPLIT)[0];
+		const start = rowOf(SPLIT, 'P2');
+		expect(grid[start]).toMatchObject({ type: 'start', span: 1 });
+		expect(grid[rowOf(SPLIT, 'Break')]).toEqual({ type: 'band' });
+		expect(grid[rowOf(SPLIT, 'P3')]).toMatchObject({ type: 'start', span: 1 });
+		expect(grid[rowOf(SPLIT, 'Lunch (Lower)')]).toEqual({ type: 'band' });
+		expect(grid[rowOf(SPLIT, 'P4')]).toMatchObject({ type: 'start', span: 1 });
+		// The Periods before and after the cell are untouched.
+		expect(grid[rowOf(SPLIT, 'P1')]).toEqual({ type: 'free' });
+		expect(grid[rowOf(SPLIT, 'P5')]).toEqual({ type: 'free' });
 	});
 });
 
@@ -273,11 +351,20 @@ describe('absentSlotLines', () => {
 });
 
 describe('toEventGrid (ADR-0029)', () => {
-	const ev = (date: string, position: number) => ({ date, position, name: `E${position}` });
+	const ev = (date: string, position: number, scheduleId: string | null = null) => ({
+		date,
+		position,
+		scheduleId,
+		name: `E${position}`
+	});
 	const days = [{ date: '2026-11-02' }, { date: '2026-11-03' }];
 
 	test('one slot per day for Before school, the six Periods and After school', () => {
-		const grid = toEventGrid(days, [ev('2026-11-02', 0), ev('2026-11-02', 3), ev('2026-11-03', 7)]);
+		const grid = toEventGrid(
+			days,
+			[ev('2026-11-02', 0), ev('2026-11-02', 3), ev('2026-11-03', 7)],
+			NO_BELL
+		);
 
 		expect(grid).toHaveLength(2);
 		expect(grid[0]).toHaveLength(8);
@@ -288,8 +375,24 @@ describe('toEventGrid (ADR-0029)', () => {
 	});
 
 	test('an Event on a date outside the week is ignored', () => {
-		const grid = toEventGrid(days, [ev('2026-12-01', 2)]);
+		const grid = toEventGrid(days, [ev('2026-12-01', 2)], NO_BELL);
 		expect(grid.flat().every((e) => e === null)).toBe(true);
+	});
+
+	// Break is one row for the whole school; each Lunch is its own, so the Bell Schedule an Event
+	// names chooses the row (ADR-0033).
+	test('a Duty at Break or Lunch lands in the row its Bell Schedule times', () => {
+		const column = (position: number, scheduleId: string | null) =>
+			toEventGrid(days, [ev('2026-11-02', position, scheduleId)], SPLIT)[0];
+		const lowerLunch = rowOf(SPLIT, 'Lunch (Lower)');
+		const upperLunch = rowOf(SPLIT, 'Lunch (Upper)');
+
+		expect(column(8, 'upper')[rowOf(SPLIT, 'Break')]?.name).toBe('E8');
+		expect(column(9, 'lower')[lowerLunch]?.name).toBe('E9');
+		expect(column(9, 'upper')[upperLunch]?.name).toBe('E9');
+		// An Upper Lunch never shows in Lower's row, and the other way round.
+		expect(column(9, 'upper')[lowerLunch]).toBeNull();
+		expect(column(9, 'lower')[upperLunch]).toBeNull();
 	});
 });
 
@@ -314,5 +417,17 @@ describe('eventSpans', () => {
 	test('Before school and After school never merge with a Period', () => {
 		const column = [e('a', 0), e('a', 1), null, null, null, null, e('a', 6), e('a', 7)];
 		expect(eventSpans(column)).toEqual([1, 1, 1, 1, 1, 1, 1, 1]);
+	});
+
+	// A Break or Lunch row between a double's Periods is a row of its own, so the Event's block
+	// stops above it and starts again below: a Duty there must keep its row (ADR-0033).
+	test('a Break or Lunch row between two Periods splits the Event’s block', () => {
+		const column = [null, e('a', 3), null, e('a', 4)];
+		expect(eventSpans(column)).toEqual([1, 1, 1, 1]);
+	});
+
+	test('a Break or Lunch Event never merges with a Period', () => {
+		const column = [null, e('a', 6), e('a', 8), e('a', 9)];
+		expect(eventSpans(column)).toEqual([1, 1, 1, 1]);
 	});
 });

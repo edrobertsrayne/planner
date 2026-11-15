@@ -5,6 +5,16 @@
 	import BanIcon from '@lucide/svelte/icons/ban';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import HistoryIcon from '@lucide/svelte/icons/history';
+	import {
+		BREAK,
+		LUNCH,
+		dayRows,
+		periodTimes,
+		rowIndexOf,
+		timesLabel,
+		type BellTime,
+		type DayRow
+	} from '$lib/bell';
 	import { classTone } from '$lib/class-tone';
 	import { formatWeekday } from '$lib/date';
 	import type { AgendaBlockedDay, CoverRef } from '$lib/server/planner';
@@ -81,7 +91,11 @@
 	const eventsIn = (events: typeof data.events) =>
 		data.tag === null ? joinAdjacentPeriods(events) : [];
 	const days = $derived(
-		withEvents(groupByDay(filterByTag(data.rows, data.tag)), eventsIn(data.events))
+		withEvents(
+			groupByDay(filterByTag(data.rows, data.tag)),
+			eventsIn(data.events),
+			data.bell.schedules
+		)
 	);
 	// A whole day is asked for through its own dialog and taken back through one hidden form that
 	// every Blocked Day panel shares, as a Blocked Slot is.
@@ -100,7 +114,11 @@
 	const stream = $derived(agendaStream(days, data.blockedDays, data.holidays));
 	const pastStream = $derived(
 		agendaStream(
-			withEvents(groupByDay(filterByTag(data.lookBack, data.tag)), eventsIn(data.lookBackEvents)),
+			withEvents(
+				groupByDay(filterByTag(data.lookBack, data.tag)),
+				eventsIn(data.lookBackEvents),
+				data.bell.schedules
+			),
 			data.lookBackBlockedDays,
 			[]
 		)
@@ -109,12 +127,33 @@
 	const lineKey = (line: (typeof days)[number]['rows'][number]) =>
 		line.kind === 'row'
 			? `${line.row.classId}${line.row.periodFrom}`
-			: `${line.event.eventId}${line.event.position}`;
+			: line.kind === 'event'
+				? `${line.event.eventId}${line.event.position}`
+				: `bell${line.row.position}${line.row.scheduleIds.join()}`;
 
 	type AgendaEvent = ReturnType<typeof joinAdjacentPeriods<(typeof data.events)[number]>>[number];
 
 	const eventHref = (event: AgendaEvent) =>
 		`${resolve(`/events/${event.eventId}`)}?date=${event.date}#date-${event.date}`;
+
+	// The day's rows in the order the Bell Schedules give them (ADR-0033), and the times a row
+	// shows: a Session its own Class's, an Event in a Period the default's, one at Break or Lunch
+	// the times of the row it holds. Before school and After school show none.
+	const bellRows = $derived(dayRows(data.bell.schedules));
+	// The Period tile widens for the times. With no Bell Schedule it keeps its size, so the
+	// Agenda is exactly as before.
+	const bellTile = $derived(data.bell.schedules.length > 0 ? 'w-[5.5rem]' : 'w-14');
+	const rowTimes = (row: Row): BellTime | null =>
+		periodTimes(data.bell, { from: row.periodFrom, to: row.periodTo, classId: row.classId });
+	const eventTimes = (event: AgendaEvent): BellTime | null => {
+		if (event.position === BREAK || event.position === LUNCH) {
+			const index = rowIndexOf(bellRows, event.position, event.scheduleId);
+			return index === -1 ? null : bellRows[index].times;
+		}
+		return event.position >= 1 && event.position <= 6
+			? periodTimes(data.bell, { from: event.position, to: event.positionTo })
+			: null;
+	};
 
 	// One chip per Tag in the window with its count (issue #340). A Tag with no Lesson in the
 	// window keeps its chip at a count of zero, so a filter on it can still be cleared.
@@ -244,15 +283,16 @@
 	{#snippet agendaRow(row: (typeof data.rows)[number], past: boolean)}
 		{@const tone = classTone(row.tone)}
 		{@const blocked = row.blocked}
+		{@const times = rowTimes(row)}
 		<li
 			class="group/row relative flex items-center gap-3 pr-2 {blocked
 				? 'hatched'
 				: 'hover:bg-muted/40'}"
 		>
-			<!-- The Period in the Class's Tone: a tile that names the Period and its room, a Blocked
-			     Slot's own in the neutral step. -->
+			<!-- The Period in the Class's Tone: a tile that names the Period, its room and — where a
+			     Bell Schedule gives them — its clock times; a Blocked Slot's own in the neutral step. -->
 			<span
-				class="my-3 ml-4 flex min-h-12 w-14 shrink-0 flex-col items-center justify-center rounded-lg px-1 text-center text-[13px] leading-tight font-bold tabular-nums {blocked
+				class="my-3 ml-4 flex min-h-12 {bellTile} shrink-0 flex-col items-center justify-center rounded-lg px-1 text-center text-[13px] leading-tight font-bold tabular-nums {blocked
 					? 'bg-surface text-foreground'
 					: ''}"
 				style:background-color={blocked ? undefined : tone.bg}
@@ -262,6 +302,10 @@
 				{#if row.room}<span
 						class="max-w-full truncate text-[11px] font-medium opacity-80"
 						title={row.room}>{row.room}</span
+					>{/if}
+				{#if times}<span
+						class="max-w-full text-[10px] leading-tight font-medium whitespace-nowrap opacity-80"
+						>{timesLabel(times)}</span
 					>{/if}
 			</span>
 
@@ -349,16 +393,22 @@
 	<!-- An Event: a neutral bar, never a Class's hue, and no Ready tick (ADR-0029). The note is the
 	     plan or the log; with none, the row offers to add one. -->
 	{#snippet eventRow(event: AgendaEvent, past: boolean)}
+		{@const times = eventTimes(event)}
 		<li class="relative flex items-center gap-3 bg-muted pr-2">
 			<span
-				class="my-3 ml-4 flex min-h-12 w-14 shrink-0 flex-col items-center justify-center rounded-lg bg-surface px-1 text-center text-[13px] leading-tight font-bold tabular-nums"
+				class="my-3 ml-4 flex min-h-12 {bellTile} shrink-0 flex-col items-center justify-center rounded-lg bg-surface px-1 text-center text-[13px] leading-tight font-bold tabular-nums"
 			>
 				{positionRangeLabel(event.position, event.positionTo)}
 				{#if event.room}<span
 						class="max-w-full truncate text-[11px] font-medium text-muted-foreground"
 						title={event.room}>{event.room}</span
 					>{/if}
+				{#if times}<span
+						class="max-w-full text-[10px] leading-tight font-medium whitespace-nowrap text-muted-foreground"
+						>{timesLabel(times)}</span
+					>{/if}
 			</span>
+
 			<span class="w-24 shrink-0">
 				<span
 					class="inline-flex h-6 items-center rounded-full bg-surface px-2.5 text-xs font-semibold whitespace-nowrap text-muted-foreground"
@@ -382,11 +432,25 @@
 		</li>
 	{/snippet}
 
+	<!-- A Break or Lunch no Event holds: the day keeps the row, quietly, so its gaps and duties are
+	     visible (ADR-0033). A shared Break reads "Break 10:50–11:10"; a split's lunches name their
+	     Bell Schedule. -->
+	{#snippet bellRow(row: DayRow)}
+		<li class="relative flex items-center gap-3 bg-muted/40 pr-2">
+			<span class="my-2 ml-4 min-w-0 flex-1 py-2 text-xs text-muted-foreground">
+				<span class="font-semibold">{row.label}</span>
+				{#if row.times}<span class="ml-2 tabular-nums">{timesLabel(row.times)}</span>{/if}
+			</span>
+		</li>
+	{/snippet}
+
 	{#snippet agendaLine(line: (typeof days)[number]['rows'][number], past: boolean)}
 		{#if line.kind === 'row'}
 			{@render agendaRow(line.row, past)}
-		{:else}
+		{:else if line.kind === 'event'}
 			{@render eventRow(line.event, past)}
+		{:else}
+			{@render bellRow(line.row)}
 		{/if}
 	{/snippet}
 

@@ -6,8 +6,9 @@ const occ = (
 	date: string,
 	note: string | null = null,
 	position = 5,
-	room: string | null = null
-) => ({ date, position, room, note });
+	room: string | null = null,
+	scheduleId: string | null = null
+) => ({ date, position, scheduleId, room, note });
 
 const occurrences = [
 	occ('2026-10-07', 'Set up the group'),
@@ -16,7 +17,13 @@ const occurrences = [
 	occ('2026-11-18', 'Bring the tracker')
 ];
 
-const props = { eventId: 'e1', occurrences, today: '2026-11-04', focus: null };
+const props = {
+	eventId: 'e1',
+	occurrences,
+	today: '2026-11-04',
+	focus: null,
+	bell: { schedules: [], classSchedules: {} }
+};
 
 describe('the Event Notes tab', () => {
 	test('opens on the next date, ready to plan, with the earlier note beside it', async () => {

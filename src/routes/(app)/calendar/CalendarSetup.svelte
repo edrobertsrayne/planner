@@ -2,6 +2,8 @@
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import type { SubmitFunction } from '@sveltejs/kit';
+	import { tick, untrack } from 'svelte';
+	import { TIMED_POSITIONS, defaultSchedule, type BellSchedule, type BellTime } from '$lib/bell';
 	import {
 		generateTeachingWeeks,
 		TERM_NAMES,
@@ -9,9 +11,10 @@
 	} from '$lib/calendar/generate-teaching-weeks';
 	import { failureReason } from '$lib/client/enhance';
 	import { formatDateShort, isRealDate } from '$lib/date';
+	import { positionLabel } from '$lib/events';
 	import type { WriteReport } from '$lib/server/planner';
 	import RewindReport from '$lib/components/rewind-report.svelte';
-	import { Button, Input } from '$lib/ui';
+	import { Badge, Button, Input } from '$lib/ui';
 
 	// The setup mode's own header carries Save year and Cancel, because the week controls in the
 	// page header would read a year that is not saved yet. The Blocked Days below the Terms are
@@ -20,10 +23,12 @@
 	let {
 		terms,
 		blockedDays,
+		schedules,
 		onclose
 	}: {
 		terms: { opens: string; closes: string }[];
 		blockedDays: { date: string; note: string | null }[];
+		schedules: BellSchedule[];
 		onclose: () => void;
 	} = $props();
 
@@ -73,6 +78,72 @@
 				dayError = failureReason(result, 'The Blocked Day was not saved.');
 			}
 		};
+
+	// A Bell Schedule applies the moment it is saved, as a Blocked Day does, so it is not part of
+	// Save year. A new one starts from the default's times, so a school with a split day edits
+	// only what differs, and the one made first becomes the default every Class follows.
+	type TimeFields = Record<number, BellTime>;
+	type ScheduleFields = { name: string; times: TimeFields };
+
+	const timesOf = (schedule?: BellSchedule | null): TimeFields =>
+		Object.fromEntries(
+			TIMED_POSITIONS.map((position) => [
+				position,
+				{
+					starts: schedule?.times[position]?.starts ?? '',
+					ends: schedule?.times[position]?.ends ?? ''
+				}
+			])
+		) as TimeFields;
+
+	// The default is read once, as the starting point: later refreshes must not overwrite what the
+	// teacher has already typed into the new row.
+	let fresh = $state<ScheduleFields>({
+		name: '',
+		times: untrack(() => timesOf(defaultSchedule(schedules)))
+	});
+
+	// A saved row shows exactly what the seam holds; while typing, this holds the fields the
+	// teacher has changed, so another form's refresh on this page does not wipe a half-typed time.
+	let typed = $state<Record<string, string>>({});
+	const typedValue = (key: string, fallback: string) => typed[key] ?? fallback;
+	const remember = (key: string) => (event: Event) => {
+		typed[key] = (event.currentTarget as HTMLInputElement).value;
+	};
+	const forget = (id: string) => {
+		for (const key of Object.keys(typed)) if (key.startsWith(`${id}:`)) delete typed[key];
+	};
+
+	const NEW_SCHEDULE = 'new';
+	let bellError = $state<{ id: string; message: string } | null>(null);
+
+	// Every Bell Schedule form answers the same way: a refusal is named under its own row, and a
+	// save refreshes the page so the views that read the times redraw with them. A saved row drops
+	// its typed copy, so the server's own values show; the other actions leave it alone.
+	function onBell(id: string, saved = false): SubmitFunction {
+		return () =>
+			async ({ result }) => {
+				bellError = null;
+				if (result.type === 'success') {
+					await invalidateAll();
+					await tick();
+					if (saved) forget(id);
+					if (id === NEW_SCHEDULE) nextSchedule();
+				} else if (result.type === 'failure') {
+					bellError = {
+						id,
+						message: failureReason(result, 'The Bell Schedule was not saved.')
+					};
+				}
+			};
+	}
+
+	// The first Bell Schedule is the default, so the next one starts from it — but while the load
+	// has not caught up, the times just typed are that default already.
+	function nextSchedule() {
+		const preset = defaultSchedule(schedules);
+		fresh = { name: '', times: preset ? timesOf(preset) : fresh.times };
+	}
 
 	// The preview updates as the teacher types, before saving, so a mistake costs a retype and
 	// not a Rewind. A row still being typed joins in only once both its dates stand — and a date
@@ -232,3 +303,202 @@
 		{/if}
 	</div>
 </div>
+
+<!-- Bell Schedules apply one at a time, in place, as Blocked Days do: a saved schedule is read
+     by every view at once, so it is never held back to Save year. -->
+<section class="mt-6" data-bell-schedules>
+	<p class="text-sm font-medium">Bell Schedules</p>
+	<p class="text-xs text-muted-foreground">
+		Each Class follows one Bell Schedule, chosen on the Class page. The default's times are what
+		Events and free Periods show; before and after school stay untimed.
+		{#if schedules.length === 0}
+			The first one added is the default, and every Class follows it.
+		{/if}
+	</p>
+
+	<div class="mt-3 grid gap-4 md:grid-cols-2">
+		{#each schedules as schedule (schedule.id)}
+			<div class="min-w-0 rounded-lg border p-3" data-bell-schedule={schedule.id}>
+				<form method="POST" action="?/updateBellSchedule" use:enhance={onBell(schedule.id, true)}>
+					<input type="hidden" name="id" value={schedule.id} />
+					<div class="flex items-center gap-2">
+						<Input
+							name="name"
+							value={typedValue(`${schedule.id}:name`, schedule.name)}
+							oninput={remember(`${schedule.id}:name`)}
+							aria-label={`${schedule.name} name`}
+							class="h-7 min-w-0 flex-1 text-sm"
+						/>
+						{#if schedule.isDefault}
+							<Badge variant="secondary">Default</Badge>
+						{/if}
+					</div>
+
+					<table class="mt-2 w-full">
+						<thead>
+							<tr>
+								<th class="w-12 pb-1 text-left text-xs font-medium text-muted-foreground">
+									<span class="sr-only">Position</span>
+								</th>
+								<th class="pb-1 text-left text-xs font-medium text-muted-foreground"> Starts </th>
+								<th class="pb-1 text-left text-xs font-medium text-muted-foreground"> Ends </th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each TIMED_POSITIONS as position (position)}
+								{@const label = positionLabel(position)}
+								<tr>
+									<td class="py-0.5 pr-2 text-sm">{label}</td>
+									<td class="py-0.5 pr-1">
+										<Input
+											type="time"
+											name={`starts-${position}`}
+											value={typedValue(
+												`${schedule.id}:starts-${position}`,
+												schedule.times[position]?.starts ?? ''
+											)}
+											oninput={remember(`${schedule.id}:starts-${position}`)}
+											aria-label={`${schedule.name} ${label} start`}
+											class="h-7 w-full bg-background text-sm"
+										/>
+									</td>
+									<td class="py-0.5">
+										<Input
+											type="time"
+											name={`ends-${position}`}
+											value={typedValue(
+												`${schedule.id}:ends-${position}`,
+												schedule.times[position]?.ends ?? ''
+											)}
+											oninput={remember(`${schedule.id}:ends-${position}`)}
+											aria-label={`${schedule.name} ${label} end`}
+											class="h-7 w-full bg-background text-sm"
+										/>
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+
+					<div class="mt-2 flex justify-end">
+						<Button
+							type="submit"
+							variant="outline"
+							size="sm"
+							class="h-7"
+							aria-label={`Save ${schedule.name}`}
+						>
+							Save
+						</Button>
+					</div>
+				</form>
+
+				<div class="mt-2 flex items-center gap-2">
+					{#if !schedule.isDefault}
+						<form
+							method="POST"
+							action="?/makeDefaultBellSchedule"
+							use:enhance={onBell(schedule.id)}
+						>
+							<input type="hidden" name="id" value={schedule.id} />
+							<Button
+								type="submit"
+								variant="ghost"
+								size="xs"
+								class="h-6"
+								aria-label={`Make ${schedule.name} the default`}
+							>
+								Make default
+							</Button>
+						</form>
+					{/if}
+					<form
+						method="POST"
+						action="?/deleteBellSchedule"
+						use:enhance={onBell(schedule.id)}
+						class="ml-auto"
+					>
+						<input type="hidden" name="id" value={schedule.id} />
+						<Button
+							type="submit"
+							variant="ghost"
+							size="xs"
+							class="h-6"
+							aria-label={`Delete ${schedule.name}`}
+						>
+							Delete
+						</Button>
+					</form>
+				</div>
+
+				{#if bellError?.id === schedule.id}
+					<p role="alert" class="mt-2 text-sm text-destructive">{bellError.message}</p>
+				{/if}
+			</div>
+		{/each}
+
+		<form
+			method="POST"
+			action="?/createBellSchedule"
+			use:enhance={onBell(NEW_SCHEDULE)}
+			class="min-w-0 self-start rounded-lg border border-dashed p-3"
+			data-new-bell-schedule
+		>
+			<div class="flex items-center gap-2">
+				<Input
+					name="name"
+					bind:value={fresh.name}
+					placeholder="Name — e.g. Years 9–10"
+					aria-label="New Bell Schedule name"
+					class="h-7 min-w-0 flex-1 text-sm"
+				/>
+			</div>
+
+			<table class="mt-2 w-full">
+				<thead>
+					<tr>
+						<th class="w-12 pb-1 text-left text-xs font-medium text-muted-foreground">
+							<span class="sr-only">Position</span>
+						</th>
+						<th class="pb-1 text-left text-xs font-medium text-muted-foreground">Starts</th>
+						<th class="pb-1 text-left text-xs font-medium text-muted-foreground">Ends</th>
+					</tr>
+				</thead>
+				<tbody>
+					{#each TIMED_POSITIONS as position (position)}
+						{@const label = positionLabel(position)}
+						<tr>
+							<td class="py-0.5 pr-2 text-sm">{label}</td>
+							<td class="py-0.5 pr-1">
+								<Input
+									type="time"
+									name={`starts-${position}`}
+									bind:value={fresh.times[position].starts}
+									aria-label={`New Bell Schedule ${label} start`}
+									class="h-7 w-full bg-background text-sm"
+								/>
+							</td>
+							<td class="py-0.5">
+								<Input
+									type="time"
+									name={`ends-${position}`}
+									bind:value={fresh.times[position].ends}
+									aria-label={`New Bell Schedule ${label} end`}
+									class="h-7 w-full bg-background text-sm"
+								/>
+							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+
+			{#if bellError?.id === NEW_SCHEDULE}
+				<p role="alert" class="mt-2 text-sm text-destructive">{bellError.message}</p>
+			{/if}
+
+			<div class="mt-2 flex justify-end">
+				<Button type="submit" size="sm" class="h-7">Add Bell Schedule</Button>
+			</div>
+		</form>
+	</div>
+</section>

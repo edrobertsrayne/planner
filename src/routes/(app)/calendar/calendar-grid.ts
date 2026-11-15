@@ -1,15 +1,18 @@
+import { rowIndexOf, type DayRow } from '$lib/bell';
 import { PERIODS } from '$lib/periods';
 import type { CalendarCell, CoverRef } from '$lib/server/planner';
 
-// The Calendar screen imports the Periods from here, so the shared list is passed on.
-export { PERIODS };
-
-// One entry per (day, Period): the cell that starts there, a Period covered by an earlier cell's
-// rowspan (a Lesson with Length > 1), or genuinely free. A Blocked Day or Blocked Slot
-// arrives as an ordinary `blocked` cell that *starts* here; a Period no Class holds is never a
-// cell at all (calendarWeek leaves it out), so "removed" and "never applicable" stay distinct.
+// One entry per (day, row): the cell that starts in this row, a row an earlier start's rowspan
+// covers (a Lesson with Length > 1), a Period no Class holds, or a band only an Event can hold —
+// Before school, After school, and the Break and Lunch rows a Bell Schedule puts between the
+// Periods (ADR-0033). A Blocked Day or Blocked Slot arrives as an ordinary `blocked` cell that
+// *starts* somewhere; a Period no Class holds is never a cell at all (calendarWeek leaves it out),
+// so "removed" and "never applicable" stay distinct.
 export type GridEntry =
-	{ type: 'start'; cell: CalendarCell } | { type: 'covered' } | { type: 'free' };
+	| { type: 'start'; cell: CalendarCell; span: number }
+	| { type: 'covered' }
+	| { type: 'free' }
+	| { type: 'band' };
 
 // One line per Available Slot a day's menu offers to block: every non-blocked cell on the
 // date, read out per Slot in Period order — a Lesson over two Periods appears twice, once per
@@ -103,52 +106,88 @@ export function absentSlotLines(cells: readonly CalendarCell[], date: string): A
 	);
 }
 
+// One column per day, one entry per row of `rows`. A cell's Periods are split wherever a row no
+// Class holds interrupts them, so a Lesson or Blocked Slot across a Break or Lunch draws one tile
+// either side and the band keeps its own row and its own Event: a Duty at Lunch must never be
+// covered by a double's rowspan.
 export function toGrid(
 	days: readonly { date: string }[],
-	cells: readonly CalendarCell[]
+	cells: readonly CalendarCell[],
+	rows: readonly DayRow[]
 ): GridEntry[][] {
 	const dates = days.map((d) => d.date);
-	const matrix: GridEntry[][] = dates.map(() => PERIODS.map((): GridEntry => ({ type: 'free' })));
+	const grid = dates.map(() =>
+		rows.map((row): GridEntry =>
+			PERIODS.includes(row.position) ? { type: 'free' } : { type: 'band' }
+		)
+	);
+	const rowOfPeriod = new Map<number, number>();
+	rows.forEach((row, i) => {
+		if (PERIODS.includes(row.position)) rowOfPeriod.set(row.position, i);
+	});
 	for (const cell of cells) {
 		const di = dates.indexOf(cell.date);
 		if (di < 0) continue;
-		matrix[di][cell.periodFrom - 1] = { type: 'start', cell };
-		for (let p = cell.periodFrom + 1; p <= cell.periodTo; p++)
-			matrix[di][p - 1] = { type: 'covered' };
+		// Write one start per run of adjacent rows, so a band between a double's Periods keeps its
+		// own row instead of being swallowed by the rowspan.
+		let run: number[] = [];
+		const flush = () => {
+			if (run.length === 0) return;
+			grid[di][run[0]] = { type: 'start', cell, span: run.length };
+			for (const ri of run.slice(1)) grid[di][ri] = { type: 'covered' };
+			run = [];
+		};
+		for (let p = cell.periodFrom; p <= cell.periodTo; p++) {
+			const ri = rowOfPeriod.get(p);
+			if (ri === undefined) continue;
+			const last = run[run.length - 1];
+			if (last !== undefined && ri !== last + 1) flush();
+			run.push(ri);
+		}
+		flush();
 	}
-	return matrix;
+	return grid;
 }
 
-// The Events of a week laid out like `toGrid`: one slot per day for each of the eight positions,
-// 0 Before school, 1 to 6 the Periods, 7 After school (ADR-0029). An Event never shares a position
-// with a Class's cell, so the two grids are read side by side.
-export function toEventGrid<Event extends { date: string; position: number }>(
+// The Events of a week laid out like `toGrid`: one slot per day for each row of the day, so an
+// Event at Break or Lunch lands in the row its Bell Schedule times (ADR-0033). An Event never
+// shares a row with a Class's cell, so the two grids are read side by side.
+export function toEventGrid<
+	Event extends { date: string; position: number; scheduleId: string | null }
+>(
 	days: readonly { date: string }[],
-	events: readonly Event[]
+	events: readonly Event[],
+	rows: readonly DayRow[]
 ): (Event | null)[][] {
 	const dates = days.map((d) => d.date);
-	const matrix: (Event | null)[][] = dates.map(() => Array.from({ length: 8 }, () => null));
+	const grid: (Event | null)[][] = dates.map(() => rows.map(() => null));
 	for (const event of events) {
 		const di = dates.indexOf(event.date);
-		if (di >= 0) matrix[di][event.position] = event;
+		if (di < 0) continue;
+		const ri = rowIndexOf(rows, event.position, event.scheduleId);
+		if (ri >= 0) grid[di][ri] = event;
 	}
-	return matrix;
+	return grid;
 }
 
-// How many Periods the Event at each position of one day's column fills, so one Event across
-// adjacent Periods draws as a single block like a double Lesson: the count at the position it
-// starts, 0 at a position an earlier block covers, 1 for anything else. Only the six Periods
-// merge; Before school (0) and After school (7) are bands of their own and stay single.
+// How many rows the Event in each row fills, so one Event across adjacent Periods draws as a single
+// block like a double Lesson: the count at the row it starts, 0 at a row an earlier block covers, 1
+// for anything else. Only adjacent Period rows of one Event merge: Before school and After school
+// are bands of their own, and a Break or Lunch row between two Periods is not adjacent to either,
+// so the run stops and the band keeps its own row (ADR-0033).
 export function eventSpans(column: readonly ({ eventId: string; position: number } | null)[]) {
 	const spans = column.map(() => 1);
-	for (let p = 1; p <= 6; p++) {
-		const here = column[p];
-		if (!here || spans[p] === 0) continue;
-		let q = p + 1;
-		while (q <= 6 && column[q]?.eventId === here.eventId) {
-			spans[p]++;
-			spans[q] = 0;
-			q++;
+	for (let i = 0; i < column.length; i++) {
+		const here = column[i];
+		if (!here || spans[i] === 0) continue;
+		for (let j = i + 1; j < column.length; j++) {
+			const prev = column[j - 1];
+			const next = column[j];
+			// Both Periods, in Period order; the rows are adjacent by construction of the loop.
+			if (!prev || !next || next.eventId !== here.eventId) break;
+			if (prev.position < 1 || prev.position > 5 || next.position !== prev.position + 1) break;
+			spans[i]++;
+			spans[j] = 0;
 		}
 	}
 	return spans;

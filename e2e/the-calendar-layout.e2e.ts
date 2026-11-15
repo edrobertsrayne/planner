@@ -6,7 +6,8 @@ import {
 	login,
 	mondayOf,
 	plusDays,
-	resetTo
+	resetTo,
+	runFixture
 } from './helpers.ts';
 
 test.beforeAll(() => resetTo('standard'));
@@ -177,3 +178,37 @@ test.describe('the Calendar grid on a phone', () => {
 		});
 	}
 }
+
+// ADR-0033: a split day orders the rows. Lower follows the default Bell Schedule and Upper another
+// that shares Break but takes P4 before its Lunch, so the grid reads Break between P2 and P3 and a
+// Lunch for each. The Calendar shows no clock times; those are the Agenda's.
+test.describe('the Calendar with a split day', () => {
+	test.use({ viewport: { width: 1280, height: 800 } });
+
+	test('the grid rows read Break and both Lunches in the day’s order, untimed (ADR-0033)', async ({
+		page
+	}) => {
+		runFixture('split-day', '9C/Sc1');
+		try {
+			await login(page, '/calendar');
+
+			// Between the untimed Before school and After school bands.
+			const heads = (await page.locator('main tbody tr th').allInnerTexts()).map((t) => t.trim());
+			expect(heads.slice(1, -1)).toEqual([
+				'P1',
+				'P2',
+				'Break',
+				'P3',
+				'Lunch (Lower)',
+				'P4',
+				'Lunch (Upper)',
+				'P5',
+				'P6'
+			]);
+			await expect(page.locator('main table')).not.toContainText(/\d\d:\d\d/);
+		} finally {
+			// The file opens and closes on the standard state, so a rerun or a later file starts there.
+			resetTo('standard');
+		}
+	});
+});

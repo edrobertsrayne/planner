@@ -38,6 +38,10 @@ disturb ADR-0003, which governs whether history is append-only, not when it is a
 correctly, stays legible in a database browser, and carries no timezone hazard, because the domain
 has no clock times at all.
 
+> **Amended 2026-11-15 (ADR-0033).** The domain now has clock times: a Bell Schedule's `HH:MM`
+> start and end for each Period, Break and Lunch. They carry no date and no zone, so the hazard
+> above still does not arise.
+
 **Durability belongs to whoever deploys the artifact, not to the application.** The database is a
 file at a configured path; the application ships no backup feature and makes no assumption that its
 state directory survives a reboot. On an impermanence host such as thor that means an explicit

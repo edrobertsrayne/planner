@@ -101,10 +101,10 @@ _Avoid_: Bulk create, batch upload, sync
 **Class**:
 A group of pupils taught as a unit, identified by a label such as "9B/Sc1". A Class follows
 exactly one Course, fixed when the Class is created, which limits the Topics it may be given; what
-it actually teaches is its Sequence. It has its own Slots, and is scoped to one academic year —
-next year's teaching is new Classes, not these ones carried forward. It is a label, a Course, a
-Timetable, a Sequence, a Tone, a Class note, and its own Links and Attachments only — it holds no
-information about individual pupils.
+it actually teaches is its Sequence. It has its own Slots, follows one Bell Schedule, and is scoped
+to one academic year — next year's teaching is new Classes, not these ones carried forward. It is a
+label, a Course, a Timetable, a Bell Schedule, a Sequence, a Tone, a Class note, and its own Links
+and Attachments only — it holds no information about individual pupils.
 _Avoid_: Group, set, form, cohort
 
 **Class note**:
@@ -138,15 +138,30 @@ _Avoid_: Queue, list, Assigned Topic
 
 **Period**:
 One of the six numbered teaching positions in a school day, P1 to P6. Every day has the same six.
-A Period is a position in the day, not a time of day — the planner never needs the clock. A day
-also has two positions outside the Periods, Before school and After school, which are not Periods.
+A Period is a position in the day; its clock time comes from a Bell Schedule — the Class's own for
+a Class, the default otherwise — and a day with no Bell Schedule set up has none. A day also has
+four positions outside the Periods: Before school, After school, Break and Lunch.
 _Avoid_: Lesson, session, hour
 
 **Before school / After school**:
-The two positions in a day outside its six Periods: Before school precedes P1 and After school
-follows P6. Only an Event holds one; a Class never does. Like a Period, each is a position and not
-a time, so a briefing at 8:15 and a club at 3:30 are simply Before school and After school.
-_Avoid_: Period 0, P7, registration, break, lunch
+The two untimed positions in a day outside its six Periods: Before school precedes P1 and After
+school follows P6. Only an Event holds one; a Class never does. Neither takes a time from a Bell
+Schedule, so a briefing at 8:15 and a club at 3:30 are simply Before school and After school.
+_Avoid_: Period 0, P7, registration
+
+**Bell Schedule**:
+A named set of clock times for the school day, set up in the year setup: a start and an end for
+P1 to P6, Break and Lunch. A school with a split day has more than one — here, one for Years 9–10
+and one for Years 11–13. Exactly one is the default. Each Class follows one, chosen by the teacher;
+an Event in a Period and an empty Period show the default's times. Read only by the views: editing
+one moves no Lesson (ADR-0033).
+_Avoid_: Timetable, bell times, day pattern, split
+
+**Break / Lunch**:
+The two timed positions in a day outside its Periods, each placed by its times in a Bell Schedule
+rather than after a fixed Period. Each Bell Schedule has its own, so a split day has two Lunches.
+Only an Event holds one, and its Event Slot names whose Break or Lunch it is.
+_Avoid_: Recess, interval, dinner, School Holiday
 
 **Slot**:
 A recurring position in the Timetable when a given Class is taught, such as "Week A, Monday,
@@ -196,19 +211,20 @@ reservation, pin, lock, unplace, cancel
 **Event**:
 A recurring commitment of the teacher's own that is not a Class: a department meeting, a club, an
 intervention group, a duty. It has a name, a kind and its Event Slots. The kind is Meeting, Club,
-Intervention or Other, a label that changes nothing. It may carry a Room on each Event Slot, as a
-Class does. It holds no Lessons, no Sequence and no Tone, and it never displaces a Lesson: it can
-hold only a position that no Class holds. It recurs and is never a one-off. It does not occur on a
-School Holiday or a Blocked Day. Unlike a Class it is not scoped to an academic year: its Event Slots
-hold between dates, so a series carries on until the teacher ends it. Like a Class it holds no
+Intervention, Duty or Other, a label that changes nothing. It may carry a Room on each Event Slot,
+as a Class does. It holds no Lessons, no Sequence and no Tone, and it never displaces a Lesson: it
+can hold only a position that no Class holds. It recurs and is never a one-off. It does not occur
+on a School Holiday or a Blocked Day. Unlike a Class it is not scoped to an academic year: its Event
+Slots hold between dates, so a series carries on until the teacher ends it. Like a Class it holds no
 information about individual pupils.
 _Avoid_: Meeting, club, activity, appointment, duty (each is a kind of Event, not the general term)
 
 **Event Slot**:
 A recurring position in the Timetable held by an Event, such as "Week A, Monday, After school". It
 is a Slot's counterpart for an Event: it _holds_ over a range of dates, and no two may share a
-position over dates where both hold. Unlike a Slot it may be Before school or After school as well
-as a Period. A position is held by a Class's Slot, by an Event Slot or by neither, never by both.
+position over dates where both hold. Unlike a Slot it may be Before school, After school, Break or
+Lunch as well as a Period; at Break or Lunch it names the Bell Schedule whose Break or Lunch it is.
+A position is held by a Class's Slot, by an Event Slot or by neither, never by both.
 _Avoid_: Booking, reservation
 
 **Event note**:
