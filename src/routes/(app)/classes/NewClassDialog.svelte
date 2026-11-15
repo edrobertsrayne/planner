@@ -111,7 +111,7 @@
 							options={scheduleOptions}
 							class="w-full"
 						/>
-						<Field.Description>Which bell times its Periods follow.</Field.Description>
+						<Field.Description>Which Bell Schedule's times its Periods follow.</Field.Description>
 					</Field.Root>
 				{/if}
 			</Field.Group>

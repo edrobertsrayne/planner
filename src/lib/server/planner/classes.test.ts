@@ -67,6 +67,16 @@ describe('creating a Class', () => {
 		);
 		expect(db.select().from(schema.classes).all()).toEqual([]);
 	});
+
+	test('refuses a Bell Schedule that is not there', () => {
+		const { db, course } = setUp();
+
+		refused(
+			() => createClass(db, { label: '9C/Sc2', courseId: course.id, scheduleId: 'nope' }),
+			'missing',
+			'Bell Schedule not found.'
+		);
+	});
 });
 
 describe('Class Tones are assigned at creation, never derived (ADR-0013)', () => {

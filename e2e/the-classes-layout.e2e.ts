@@ -20,8 +20,8 @@ test.beforeAll(() => {
 // Chromium matches `(pointer: coarse)` as soon as `hasTouch` is true; `isMobile` is not needed.
 // Each describe sets its size and pointer with `test.use`.
 //
-// It leaves a `Grip target` Lesson at the end of 9B/Sc1's Sequence; everything else it makes it
-// undoes.
+// It leaves a `Grip target` Lesson at the end of 9B/Sc1's Sequence, and the Bell Schedules with
+// 9B/Sc1 on Upper; everything else it makes it undoes.
 
 // The Class page: Overview (the default: the Class note, Links and Attachments), Schedule (the
 // Sequence) and Timetable tabs from `md` up; on a phone Overview and Schedule only, read-only

@@ -25,7 +25,7 @@ test('a Session shows its times, and Break and both Lunches sit among the Period
 	await expect(rows).toHaveCount(4);
 	await expect(rows.nth(0)).toContainText('Break 10:50–11:10');
 	await expect(rows.nth(1)).toContainText('P3');
-	await expect(rows.nth(1)).toContainText('11:10–12:10');
+	await expect(rows.nth(1)).toContainText('11:15–12:10');
 	await expect(rows.nth(1)).toContainText('9C/Sc1');
 	await expect(rows.nth(2)).toContainText('Lunch (Lower) 12:10–12:40');
 	await expect(rows.nth(3)).toContainText('Lunch (Upper) 13:10–13:40');

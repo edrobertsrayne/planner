@@ -18,7 +18,7 @@
 	import { classTone } from '$lib/class-tone';
 	import { formatWeekday } from '$lib/date';
 	import type { AgendaBlockedDay, CoverRef } from '$lib/server/planner';
-	import { joinAdjacentPeriods, kindLabel, positionRangeLabel } from '$lib/events';
+	import { dayRowLabel, joinAdjacentPeriods, kindLabel, positionRangeLabel } from '$lib/events';
 	import { onFail, replaceQuery, submitForm } from '$lib/client/enhance';
 	import { sessionHref } from '$lib/client/session-href';
 	import { withParam } from '$lib/query';
@@ -94,7 +94,7 @@
 		withEvents(
 			groupByDay(filterByTag(data.rows, data.tag)),
 			eventsIn(data.events),
-			data.bell.schedules
+			data.tag === null ? data.bell.schedules : []
 		)
 	);
 	// A whole day is asked for through its own dialog and taken back through one hidden form that
@@ -117,7 +117,7 @@
 			withEvents(
 				groupByDay(filterByTag(data.lookBack, data.tag)),
 				eventsIn(data.lookBackEvents),
-				data.bell.schedules
+				data.tag === null ? data.bell.schedules : []
 			),
 			data.lookBackBlockedDays,
 			[]
@@ -128,7 +128,7 @@
 		line.kind === 'row'
 			? `${line.row.classId}${line.row.periodFrom}`
 			: line.kind === 'event'
-				? `${line.event.eventId}${line.event.position}`
+				? `${line.event.eventId}${line.event.position}${line.event.scheduleId ?? ''}`
 				: `bell${line.row.position}${line.row.scheduleIds.join()}`;
 
 	type AgendaEvent = ReturnType<typeof joinAdjacentPeriods<(typeof data.events)[number]>>[number];
@@ -398,7 +398,9 @@
 			<span
 				class="my-3 ml-4 flex min-h-12 {bellTile} shrink-0 flex-col items-center justify-center rounded-lg bg-surface px-1 text-center text-[13px] leading-tight font-bold tabular-nums"
 			>
-				{positionRangeLabel(event.position, event.positionTo)}
+				{event.position >= 8
+					? dayRowLabel(bellRows, event.position, event.scheduleId)
+					: positionRangeLabel(event.position, event.positionTo)}
 				{#if event.room}<span
 						class="max-w-full truncate text-[11px] font-medium text-muted-foreground"
 						title={event.room}>{event.room}</span

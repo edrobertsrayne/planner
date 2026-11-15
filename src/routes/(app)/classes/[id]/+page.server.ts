@@ -181,12 +181,15 @@ export const actions: Actions = {
 		});
 	}),
 
-	setClassSchedule: formAction((data) => {
-		setClassSchedule(db, {
-			id: trimmed(data, 'id'),
-			scheduleId: trimmed(data, 'scheduleId')
-		});
-	}),
+	setClassSchedule: formAction((data) => ({
+		class: found(
+			setClassSchedule(db, {
+				id: trimmed(data, 'id'),
+				scheduleId: trimmed(data, 'scheduleId')
+			}),
+			'Class'
+		)
+	})),
 
 	setSlotRoom: formAction((data) => ({
 		slot: found(

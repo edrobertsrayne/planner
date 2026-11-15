@@ -280,4 +280,50 @@ describe('an Event at Break or Lunch', () => {
 		toggleEventSlot(db, click);
 		expect(eventOccurrences(db, { from: '2026-11-02', to: '2026-11-02' })).toEqual([]);
 	});
+
+	// Lower and Upper share Break, so the views draw one Break row for both (ADR-0033). A Duty
+	// holding it under either Bell Schedule holds that row.
+	test('a Break shared by two Bell Schedules is one position, whichever names it', () => {
+		const { db } = setUp();
+		const lower = createBellSchedule(db, { name: 'Lower', times: LOWER });
+		const upper = createBellSchedule(db, { name: 'Upper', times: UPPER });
+		const gate = createEvent(db, { name: 'Gate duty', kind: 'duty' });
+		const yard = createEvent(db, { name: 'Yard duty', kind: 'duty' });
+		const at = { week: 'A', day: 1, position: 8, from: '2026-11-02' } as const;
+
+		takeEventSlot(db, { eventId: gate.id, ...at, scheduleId: upper.id });
+
+		refused(
+			() => takeEventSlot(db, { eventId: yard.id, ...at, scheduleId: lower.id }),
+			'conflict',
+			'Week A Mon Break already belongs to Gate duty over these dates.'
+		);
+		// The row's click names the default, yet clears the slot held under Upper.
+		toggleEventSlot(db, { eventId: gate.id, ...at, scheduleId: lower.id });
+		expect(eventOccurrences(db, { from: '2026-11-02', to: '2026-11-02' })).toEqual([]);
+	});
+
+	test('an edit that would merge two Lunches both held on one day is refused', () => {
+		const { db } = setUp();
+		createBellSchedule(db, { name: 'Lower', times: LOWER });
+		const upper = createBellSchedule(db, { name: 'Upper', times: UPPER });
+		const lowerId = listBellSchedules(db)[0].id;
+		const canteen = createEvent(db, { name: 'Canteen duty', kind: 'duty' });
+		const yard = createEvent(db, { name: 'Yard duty', kind: 'duty' });
+		const at = { week: 'A', day: 1, position: 9, from: null } as const;
+		takeEventSlot(db, { eventId: canteen.id, ...at, scheduleId: lowerId });
+		takeEventSlot(db, { eventId: yard.id, ...at, scheduleId: upper.id });
+
+		refused(
+			() =>
+				updateBellSchedule(db, {
+					id: upper.id,
+					name: 'Upper',
+					times: { ...UPPER, ...{ 9: LOWER[9], 4: LOWER[4] } }
+				}),
+			'conflict',
+			'Lunch would then be the same for two Bell Schedules, and Canteen duty and Yard duty both hold it on Week A Mon.'
+		);
+		expect(listBellSchedules(db)[1].times[9]).toEqual(UPPER[9]);
+	});
 });

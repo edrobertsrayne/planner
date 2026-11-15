@@ -154,6 +154,7 @@ switch (command) {
 			name: 'Upper',
 			times: {
 				...lower,
+				3: { starts: '11:15', ends: '12:10' },
 				4: { starts: '12:10', ends: '13:10' },
 				9: { starts: '13:10', ends: '13:40' }
 			}

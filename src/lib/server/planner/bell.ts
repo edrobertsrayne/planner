@@ -4,10 +4,19 @@
 import { and, asc, desc, eq, isNull, ne } from 'drizzle-orm';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
-import { TIMED_POSITIONS, type Bell, type BellSchedule, type BellTime } from '$lib/bell';
+import {
+	BREAK,
+	LUNCH,
+	TIMED_POSITIONS,
+	type Bell,
+	type BellSchedule,
+	type BellTime
+} from '$lib/bell';
+import { positionLabel } from '$lib/events';
 import type { Db } from './derive';
 import { required, requireRow, sameName } from './fields';
 import { Refused } from './refused';
+import { DAY_NAMES, overlaps } from './timetable';
 
 const CLOCK = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -135,7 +144,58 @@ export function updateBellSchedule(
 	return inTransaction(db.$client, () => {
 		db.update(schema.bellSchedule).set({ name }).where(eq(schema.bellSchedule.id, input.id)).run();
 		writeTimes(db, input.id, times);
+		// Equal Break or Lunch times make one row in the views, so two Duties held under different
+		// Bell Schedules on the same day would collide there. Refused, and rolled back.
+		for (const position of [BREAK, LUNCH]) {
+			const kin = equivalentSchedules(db, position, input.id);
+			const held = db
+				.select({
+					name: schema.event.name,
+					week: schema.eventSlot.week,
+					day: schema.eventSlot.day,
+					scheduleId: schema.eventSlot.scheduleId,
+					holdsFrom: schema.eventSlot.holdsFrom,
+					holdsTo: schema.eventSlot.holdsTo
+				})
+				.from(schema.eventSlot)
+				.innerJoin(schema.event, eq(schema.event.id, schema.eventSlot.eventId))
+				.where(eq(schema.eventSlot.position, position))
+				.all()
+				.filter((s) => kin.includes(s.scheduleId));
+			for (const a of held) {
+				const b = held.find(
+					(s) =>
+						s !== a &&
+						s.scheduleId !== a.scheduleId &&
+						s.week === a.week &&
+						s.day === a.day &&
+						overlaps(a, s)
+				);
+				if (b) {
+					throw new Refused(
+						'conflict',
+						`${positionLabel(position)} would then be the same for two Bell Schedules, and ${a.name} and ${b.name} both hold it on Week ${a.week} ${DAY_NAMES[a.day - 1]}.`
+					);
+				}
+			}
+		}
 	});
+}
+
+// The Bell Schedules whose Break or Lunch (`position`) has exactly the times of this one's: the
+// views draw them as one row, so an Event Slot naming any of them holds that row. A position with
+// no Bell Schedule is only itself.
+export function equivalentSchedules(
+	db: Db,
+	position: number,
+	scheduleId: string | null
+): (string | null)[] {
+	if (!scheduleId) return [null];
+	const all = db.select().from(schema.bellTime).where(eq(schema.bellTime.position, position)).all();
+	const mine = all.find((t) => t.scheduleId === scheduleId);
+	return mine
+		? all.filter((t) => t.starts === mine.starts && t.ends === mine.ends).map((t) => t.scheduleId)
+		: [scheduleId];
 }
 
 // Makes one Bell Schedule the default in place of the old one.

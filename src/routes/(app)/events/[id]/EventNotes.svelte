@@ -2,7 +2,7 @@
 	import { enhance } from '$app/forms';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-	import { dayRows, type Bell } from '$lib/bell';
+	import { dayRows, rowIndexOf, type Bell } from '$lib/bell';
 	import { onFail } from '$lib/client/enhance';
 	import { formatShortWeekday, formatWeekday } from '$lib/date';
 	import { dayRowLabel } from '$lib/events';
@@ -38,6 +38,10 @@
 	const where = (card: DateCard) =>
 		occurrences
 			.filter((o) => o.date === card.date)
+			.toSorted(
+				(a, b) =>
+					rowIndexOf(rows, a.position, a.scheduleId) - rowIndexOf(rows, b.position, b.scheduleId)
+			)
 			.map((o) => dayRowLabel(rows, o.position, o.scheduleId) + (o.room ? ` · ${o.room}` : ''))
 			.join(', ');
 

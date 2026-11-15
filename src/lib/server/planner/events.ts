@@ -6,6 +6,7 @@ import { addDays } from '$lib/date';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import type { Db } from './derive';
+import { equivalentSchedules } from './bell';
 import { inAnyTerm, slotHolds } from './engine';
 import { loadCalendar } from './derive';
 import {
@@ -123,6 +124,7 @@ export function takeEventSlot(
 	const week = slotWeek(input.week);
 	const day = slotDay(input.day);
 	const { position, scheduleId } = eventPlace(db, input.position, input.scheduleId ?? null);
+	const kin = equivalentSchedules(db, position, scheduleId);
 	requireRow(db, schema.event, input.eventId, 'Event not found.');
 	const window = { holdsFrom: input.from, holdsTo: null };
 	const where = (name: string) =>
@@ -163,7 +165,7 @@ export function takeEventSlot(
 			)
 		)
 		.all()
-		.find((s) => s.scheduleId === scheduleId && overlaps(window, s));
+		.find((s) => kin.includes(s.scheduleId) && overlaps(window, s));
 	if (heldByEvent) throw where(heldByEvent.name);
 
 	const [slot] = db
@@ -228,6 +230,7 @@ export function clearEventSlot(
 	const week = slotWeek(input.week);
 	const day = slotDay(input.day);
 	const { position, scheduleId } = eventPlace(db, input.position, input.scheduleId ?? null);
+	const kin = equivalentSchedules(db, position, scheduleId);
 	const [held] = db
 		.select()
 		.from(schema.eventSlot)
@@ -241,7 +244,7 @@ export function clearEventSlot(
 		)
 		.all()
 		.filter(
-			(s) => s.scheduleId === scheduleId && overlaps({ holdsFrom: input.from, holdsTo: null }, s)
+			(s) => kin.includes(s.scheduleId) && overlaps({ holdsFrom: input.from, holdsTo: null }, s)
 		);
 	return held ? endEventSlot(db, held, input.from) : null;
 }
@@ -264,9 +267,10 @@ export function toggleEventSlot(
 	const day = slotDay(input.day);
 	const { position, scheduleId } = eventPlace(db, input.position, input.scheduleId ?? null);
 	return inTransaction(db.$client, () => {
+		const kin = equivalentSchedules(db, position, scheduleId);
 		const holder = activeEventSlots(db, input.from).find(
 			(s) =>
-				s.week === week && s.day === day && s.position === position && s.scheduleId === scheduleId
+				s.week === week && s.day === day && s.position === position && kin.includes(s.scheduleId)
 		);
 		if (holder) {
 			return holder.eventId === input.eventId

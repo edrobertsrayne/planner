@@ -128,7 +128,7 @@
 						action="?/setClassSchedule"
 						use:enhance={() =>
 							async ({ result }) => {
-								// The bell times change under the select he just used, so the data refreshes; a form
+								// The Bell Schedule changes under the select he just used, so the data refreshes; a form
 								// reset would take the select back to the value it was rendered with.
 								if (result.type === 'redirect' || result.type === 'error')
 									return applyAction(result);

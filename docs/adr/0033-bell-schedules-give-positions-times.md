@@ -8,7 +8,7 @@ The teacher keeps duties at break and lunch. The planner has no positions there:
 school, P1 to P6 and After school, and none of them carries a time (ADR-0008, ADR-0029). A duty has
 nowhere to sit.
 
-The school runs a split day. Years 9 and 10 follow one set of bell times, Years 11 to 13 another.
+The school runs a split day. Years 9 and 10 follow one set of clock times, Years 11 to 13 another.
 The Periods shift between the two, and lunch falls at a different point in each. Break is at the
 same time in both. Which times a Period has therefore depends on which Class is taught in it.
 
@@ -44,7 +44,7 @@ views are exactly as before: six Periods, no times, no Break or Lunch.
 ## Why
 
 Times belong to a Bell Schedule, not to a Period, because the same Period has different times for
-different Classes. Hanging them off the Class instead would repeat one school's bell times on
+different Classes. Hanging them off the Class instead would repeat one school's clock times on
 every Class.
 
 A Class picks its Bell Schedule rather than having it inferred from a year group or its label. The

@@ -281,12 +281,12 @@ test.describe.serial('the Calendar setup mode', () => {
 		await expect(upper.getByRole('alert')).toContainText('P1 and P2 overlap');
 		await expect(upper.getByLabel('Years 11–13 P1 end')).toHaveValue('10:00');
 
-		await upper.getByLabel('Years 11–13 P1 end').fill('09:50');
+		await upper.getByLabel('Years 11–13 P1 end').fill('09:45');
 		await upper.getByRole('button', { name: 'Save Years 11–13' }).click();
 		await expect(upper.getByRole('alert')).toHaveCount(0);
 		await page.getByRole('button', { name: 'Cancel' }).click();
 		await page.getByRole('button', { name: 'Set up year' }).click();
-		await expect(page.getByLabel('Years 11–13 Lunch start')).toHaveValue('13:10');
+		await expect(page.getByLabel('Years 11–13 P1 end')).toHaveValue('09:45');
 
 		// Making the other one the default moves the badge, and leaves the old default as the
 		// non-default row.
