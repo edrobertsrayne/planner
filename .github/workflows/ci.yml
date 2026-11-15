@@ -1,6 +1,7 @@
 name: CI
 
-# One workflow so `needs` can order the jobs: lint, then test. A failure skips everything after it.
+# The two jobs run side by side, so a pull request waits for the slower one, not for both in turn.
+# Main requires both.
 
 on:
   push:
@@ -49,7 +50,6 @@ jobs:
 
   test:
     name: Test Suite
-    needs: lint
     runs-on: ubuntu-latest
     # Fifteen minutes was enough while the layout suite was one file. A cold cache — which every
     # package-lock.json change forces — spends most of that on `npm ci` and the Chromium download, and
