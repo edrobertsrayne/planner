@@ -6,6 +6,9 @@ import { setClock } from '$lib/date';
 import { auth } from '$lib/server/auth';
 import { hasUser } from '$lib/server/setup';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
+// `better-auth` and `@better-auth/core` are pinned to the same exact version in package.json and
+// must move together: two copies of core would give this import a request state the library never
+// reads, and every guarded page would answer 500.
 import { runWithRequestState } from '@better-auth/core/context';
 import { crossSiteWriteRefused, guardRedirect } from '$lib/server/guard';
 import { bodyTooLarge } from '$lib/server/body-limit';
