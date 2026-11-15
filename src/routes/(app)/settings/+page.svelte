@@ -7,6 +7,7 @@
 	import * as Field from '$lib/ui/field';
 	import { Button, Input } from '$lib/ui';
 	import * as Dialog from '$lib/ui/dialog';
+	import { dayOf, formatDateShort } from '$lib/date';
 	import { formatSize } from '$lib/format-size';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import CopyIcon from '@lucide/svelte/icons/copy';
@@ -121,7 +122,7 @@
 				</Card.Content>
 
 				<Card.Footer class="flex-col items-start gap-3">
-					<p class="text-sm text-muted-foreground">Logs out every other device.</p>
+					<p class="text-xs text-muted-foreground">Logs out every other device.</p>
 					<Button type="submit" disabled={pending}>
 						{pending ? 'Changing…' : 'Change password'}
 					</Button>
@@ -176,9 +177,9 @@
 					</div>
 
 					<p class="mt-2 text-xs text-muted-foreground">
-						Created {new Date(data.key.createdAt).toLocaleDateString()}
+						Created {formatDateShort(dayOf(data.key.createdAt))}
 						{#if data.key.lastUsedAt}
-							&middot; Last used {new Date(data.key.lastUsedAt).toLocaleDateString()}
+							&middot; Last used {formatDateShort(dayOf(data.key.lastUsedAt))}
 						{:else}
 							&middot; Never used
 						{/if}

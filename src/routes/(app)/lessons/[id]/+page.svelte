@@ -2,12 +2,13 @@
 	import { deserialize, enhance } from '$app/forms';
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { courseHref, useBack } from '$lib/client/back';
+	import { courseHref, useBack } from '$lib/client/back.svelte';
+	import BackButton from '$lib/components/back-button.svelte';
 	import { createDeleteAsk } from '$lib/client/confirm-delete.svelte';
 	import { failureReason, hasReport, reportOfResult, submitForm } from '$lib/client/enhance';
 	import { STATUS_LABEL } from '$lib/lesson-status';
 	import { toast } from '$lib/ui/toast';
-	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
+	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
@@ -52,7 +53,7 @@
 				headers: { 'x-sveltekit-action': 'true' }
 			});
 		}
-		await back();
+		await back.go();
 	}
 
 	// Title and plan save on blur. Blurring the focused field before every move off this page, Back,
@@ -119,7 +120,7 @@
 			if (hasReport(report)) {
 				toast.custom(RewindReport, { componentProps: { report }, duration: 20000 });
 			}
-			await back();
+			await back.go();
 		} else if (result.type === 'failure') {
 			toast.error(failureReason(result, 'Could not delete the Lesson.'));
 		} else {
@@ -179,10 +180,7 @@
 
 <div class="mx-auto max-w-6xl px-6 pt-4 pb-24">
 	<div class="flex items-center gap-2">
-		<Button variant="ghost" size="sm" class="-ml-3" onclick={leave}>
-			<ArrowLeftIcon data-icon="inline-start" />
-			Back
-		</Button>
+		<BackButton {back} onclick={leave} />
 		{#if data.lesson.course && data.lesson.topic}
 			<a
 				href={courseHref(data.lesson.course.id, data.lesson.topic.id)}
@@ -336,30 +334,33 @@
 									}}
 								>
 									<input type="hidden" name="id" value={lesson.id} />
-									<select
-										id="lesson-topic"
-										name="topicId"
-										value={data.lesson.topic?.id ?? ''}
-										class="ui-input"
-										onchange={(e) => e.currentTarget.form?.requestSubmit()}
-									>
-										{#if data.lesson.topic}
-											{#each data.topics as t (t.id)}
-												<option value={t.id}>{t.name}</option>
-											{/each}
-										{:else}
-											<option value="" disabled>Choose a Topic…</option>
-											{#each data.topicChoices as group (group.id)}
-												{#if group.topics.length}
-													<optgroup label={group.course}>
-														{#each group.topics as t (t.id)}
-															<option value={t.id}>{t.name}</option>
-														{/each}
-													</optgroup>
-												{/if}
-											{/each}
-										{/if}
-									</select>
+									<!-- The shared select's look, written out because its options are grouped by Course. -->
+									<span class="ui-select w-full">
+										<select
+											id="lesson-topic"
+											name="topicId"
+											value={data.lesson.topic?.id ?? ''}
+											onchange={(e) => e.currentTarget.form?.requestSubmit()}
+										>
+											{#if data.lesson.topic}
+												{#each data.topics as t (t.id)}
+													<option value={t.id}>{t.name}</option>
+												{/each}
+											{:else}
+												<option value="" disabled>Choose a Topic…</option>
+												{#each data.topicChoices as group (group.id)}
+													{#if group.topics.length}
+														<optgroup label={group.course}>
+															{#each group.topics as t (t.id)}
+																<option value={t.id}>{t.name}</option>
+															{/each}
+														</optgroup>
+													{/if}
+												{/each}
+											{/if}
+										</select>
+										<ChevronDownIcon aria-hidden="true" />
+									</span>
 								</form>
 							{/if}
 

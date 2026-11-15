@@ -220,6 +220,11 @@
 		color: var(--muted);
 		pointer-events: none;
 	}
+	/* Beside a small label in a page header, where the full control height would shout. */
+	.ui-select-sm select {
+		height: 2rem;
+		font-size: 0.8125rem;
+	}
 	@media (pointer: coarse) {
 		.ui-select select {
 			min-height: 2.75rem;

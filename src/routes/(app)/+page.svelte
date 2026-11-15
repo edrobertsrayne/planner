@@ -388,10 +388,21 @@
 				<span class="block text-sm font-medium">{event.name}</span>
 				{#if event.note}
 					<span class="block text-xs whitespace-pre-wrap text-muted-foreground">{event.note}</span>
+				{:else}
+					<!-- A phone has no room for the button beside the name, so the offer sits under it,
+					     inside the same link. -->
+					<span class="block text-xs text-muted-foreground md:hidden">
+						{past ? 'Add log' : 'Add plan'}
+					</span>
 				{/if}
 			</a>
 			{#if !event.note}
-				<Button variant="ghost" size="sm" class="h-7 row-control" href={eventHref(event)}>
+				<Button
+					variant="ghost"
+					size="sm"
+					class="h-7 row-control max-md:hidden"
+					href={eventHref(event)}
+				>
 					{past ? 'Add log' : 'Add plan'}
 				</Button>
 			{/if}

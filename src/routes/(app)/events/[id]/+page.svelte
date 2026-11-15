@@ -3,10 +3,10 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { MediaQuery } from 'svelte/reactivity';
-	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
 	import { dayRows } from '$lib/bell';
-	import { useBack } from '$lib/client/back';
+	import { useBack } from '$lib/client/back.svelte';
+	import BackButton from '$lib/components/back-button.svelte';
 	import { createDeleteAsk } from '$lib/client/confirm-delete.svelte';
 	import { replaceQuery } from '$lib/client/enhance';
 	import { formatDate } from '$lib/date';
@@ -69,10 +69,7 @@
 <svelte:head><title>{data.event.name}</title></svelte:head>
 
 <div class="mx-auto max-w-6xl px-6 py-6">
-	<Button variant="ghost" size="sm" class="-ml-3" onclick={back}>
-		<ArrowLeftIcon data-icon="inline-start" />
-		Back
-	</Button>
+	<BackButton {back} />
 
 	{#if form?.error}
 		<p role="alert" class="mt-3 text-xs text-destructive">{form.error}</p>

@@ -68,7 +68,9 @@ describe('the Session panel', () => {
 
 		const screen = await render(SessionBody, { occasion });
 
-		await expect.element(screen.getByText('Not ready')).toBeVisible();
+		await expect
+			.element(screen.getByRole('checkbox', { name: 'Ready to teach Forces recap to 9B/Sc1' }))
+			.not.toBeChecked();
 		await expect
 			.element(screen.getByRole('button', { name: 'Needs more time', exact: false }))
 			.not.toBeInTheDocument();
@@ -79,8 +81,42 @@ describe('the Session panel', () => {
 
 		const screen = await render(SessionBody, { occasion });
 
-		await expect.element(screen.getByText('Ready', { exact: true })).toBeVisible();
+		await expect
+			.element(screen.getByRole('checkbox', { name: 'Ready to teach Forces recap to 9B/Sc1' }))
+			.toBeChecked();
 		await expect.element(screen.getByRole('button', { name: 'Needs more time' })).toBeVisible();
+	});
+
+	test('ticking Ready writes the Readiness of the Lesson for its Class', async () => {
+		const upcoming = { ...baseDetail, today: '2026-09-02', ready: false, lesson: lesson() };
+		const fetched = vi.fn(async (_url: string, init?: RequestInit) =>
+			init?.method === 'POST'
+				? new Response(JSON.stringify({ ...upcoming, ready: true }), { status: 200 })
+				: new Response(JSON.stringify(upcoming), { status: 200 })
+		);
+		vi.stubGlobal('fetch', fetched);
+
+		const screen = await render(SessionBody, { occasion });
+		const tick = screen.getByRole('checkbox', { name: 'Ready to teach Forces recap to 9B/Sc1' });
+		await tick.click();
+
+		await expect.element(tick).toBeChecked();
+		const [url, init] = fetched.mock.calls.find(([, init]) => init?.method === 'POST')!;
+		expect(url).toBe('/session/readiness');
+		expect(JSON.parse(init!.body as string)).toEqual({
+			...occasion,
+			lessonId: 'lesson-1',
+			ready: true
+		});
+	});
+
+	test('a Session already taught shows no Ready tick', async () => {
+		stubSessionFetch({ ...baseDetail, ready: true, lesson: lesson() });
+
+		const screen = await render(SessionBody, { occasion });
+
+		await expect.element(screen.getByText('Forces recap')).toBeVisible();
+		await expect.element(screen.getByRole('checkbox')).not.toBeInTheDocument();
 	});
 
 	test("lists the Lesson's Attachments read-only, each a download link with its size", async () => {
@@ -180,7 +216,11 @@ describe('the Session panel', () => {
 
 		const screen = await render(SessionBody, { occasion });
 
-		await expect.element(screen.getByText('Place a Lesson')).toBeVisible();
+		// Over a Lesson the card is closed until asked for: Placing here is the rare act.
+		await expect
+			.element(screen.getByRole('textbox', { name: 'Lesson title' }))
+			.not.toBeInTheDocument();
+		await screen.getByText('Place a Lesson').click();
 		await expect.element(screen.getByRole('textbox', { name: 'Lesson title' })).toBeVisible();
 		await expect
 			.element(screen.getByText(/Forces recap and every Lesson after it move/))
@@ -341,6 +381,7 @@ describe('the Session panel', () => {
 			screen.container.querySelector('[aria-label="How it went"]')?.textContent?.trim();
 		await vi.waitFor(() => expect(noteText()).toBe('Ratio tables went well'));
 
+		await screen.getByText('Place a Lesson').click();
 		await screen.getByRole('textbox', { name: 'Lesson title' }).fill('Assembly');
 		await screen.getByRole('button', { name: 'Place' }).click();
 

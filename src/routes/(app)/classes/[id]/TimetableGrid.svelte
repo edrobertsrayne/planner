@@ -55,7 +55,7 @@
 			);
 			return event ? { kind: 'other', label: event.name } : { kind: 'empty', label: '' };
 		}
-		if (slot.classId === classId) return { kind: 'mine', label: classLabel.split('/')[0] };
+		if (slot.classId === classId) return { kind: 'mine', label: classLabel };
 		return { kind: 'other', label: labelOf(slot.classId) };
 	}
 

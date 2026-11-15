@@ -5,7 +5,7 @@
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import { classTone } from '$lib/class-tone';
-	import { courseHref } from '$lib/client/back';
+	import { courseHref } from '$lib/client/back.svelte';
 	import { STATUS_LABEL } from '$lib/lesson-status';
 	import { createDeleteAsk } from '$lib/client/confirm-delete.svelte';
 	import { createInPlace, createThenSelect, onFail, submitForm } from '$lib/client/enhance';

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import CheckIcon from '@lucide/svelte/icons/check';
 	import { toast } from '$lib/ui/toast';
 	import { formatWeekday } from '$lib/date';
 	import type { Occasion } from '$lib/client/session-href';
@@ -164,6 +165,16 @@
 		);
 	}
 
+	// Readiness belongs to the Lesson and the Class, so the tick writes that pair and takes the
+	// Session back as the server now has it.
+	async function setReady(lessonId: string, ready: boolean) {
+		try {
+			showDetail(await post('/session/readiness', 'POST', { ...occasion, lessonId, ready }));
+		} catch {
+			toast.error('Could not save Ready.');
+		}
+	}
+
 	function removePlacementNow() {
 		const id = detail?.placement?.id;
 		if (!id) return;
@@ -185,15 +196,26 @@
 	<span class="text-sm text-muted-foreground tabular-nums">
 		{formatWeekday(occasion.date)} · P{occasion.period}
 	</span>
-	{#if detail && occasion.date >= detail.today && detail.ready !== null}
-		<Badge
-			variant="outline"
-			class={detail.ready
-				? 'border-transparent bg-ready text-ready-foreground'
-				: 'text-muted-foreground'}
+	<!-- The Ready tick of the Agenda row, for the same Lesson and Class; a Session already taught
+	     has none. The server's answer sets the box, whichever way the write went. -->
+	{#if detail?.lesson && occasion.date >= detail.today && detail.ready !== null}
+		{@const lessonId = detail.lesson.id}
+		<label
+			class="relative inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full border border-outline-soft bg-surface px-3 text-xs font-semibold has-checked:border-transparent has-checked:bg-ready has-checked:text-ready-foreground {touchTarget}"
 		>
-			{detail.ready ? 'Ready' : 'Not ready'}
-		</Badge>
+			<input
+				type="checkbox"
+				checked={detail.ready}
+				class="peer size-3.5 shrink-0 cursor-pointer appearance-none rounded-[4px] border border-outline bg-surface outline-none checked:border-ready-foreground checked:bg-ready-foreground focus-visible:ring-2 focus-visible:ring-ring"
+				aria-label="Ready to teach {detail.lesson.title} to {detail.classLabel}"
+				onchange={(e) => setReady(lessonId, e.currentTarget.checked)}
+			/>
+			<CheckIcon
+				aria-hidden="true"
+				class="pointer-events-none absolute top-1/2 left-3 hidden size-3.5 -translate-y-1/2 text-ready peer-checked:block"
+			/>
+			<span aria-hidden="true">Ready</span>
+		</label>
 	{/if}
 </div>
 
@@ -224,7 +246,9 @@
 
 	<!-- Below `lg` one column: the plan first for a Session still ahead, the note first once the
 	     Session has started. From `lg` the plan is on the left and the rail on the right. -->
-	<div class="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+	<div
+		class="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] xl:grid-cols-[minmax(0,1fr)_25rem]"
+	>
 		{#if detail.lesson}
 			<div
 				class="flex min-w-0 flex-col gap-4 self-start lg:order-1 {started ? 'order-2' : 'order-1'}"
@@ -344,8 +368,12 @@
 			     every Lesson after it shift right. `canPlace` (sessions.ts) is the whole gate: future or
 			     today, and no Placement anchored here already. -->
 			{#if detail.canPlace}
-				<div class="rounded-2xl border border-dashed bg-surface p-4">
-					<h3 class="text-sm font-semibold">Place a Lesson</h3>
+				<!-- On an Open Slot Placing is the act the page is opened for, so the card stands open.
+				     Over a Lesson it is the rare one, and waits closed behind its heading. -->
+				<details class="rounded-2xl border border-dashed bg-surface p-4" open={!detail.lesson}>
+					<summary class="cursor-pointer pointer-coarse:py-2">
+						<h3 class="inline text-sm font-semibold">Place a Lesson</h3>
+					</summary>
 					<p class="mt-1 text-xs text-muted-foreground">
 						A Lesson with no Topic, scheduled directly on this occasion. It will not be part of
 						{detail.classLabel}'s Course sequence.
@@ -373,7 +401,7 @@
 					{#if errors.place}
 						<p class="mt-1.5 text-xs text-destructive">{errors.place}</p>
 					{/if}
-				</div>
+				</details>
 			{/if}
 		</div>
 	</div>

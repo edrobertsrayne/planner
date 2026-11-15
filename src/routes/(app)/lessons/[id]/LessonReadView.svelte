@@ -54,6 +54,10 @@
 
 	{#if lesson.body}
 		<Markdown source={lesson.body} class="rounded-lg border px-4 py-3" />
+	{:else}
+		<p class="rounded-lg border px-4 py-3 text-sm text-muted-foreground italic">
+			No plan written yet. A Lesson is written on a laptop or desktop.
+		</p>
 	{/if}
 
 	<LessonChildren links={lesson.links} attachments={lesson.attachments} variant="rows" />
