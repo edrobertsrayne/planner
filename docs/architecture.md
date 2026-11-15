@@ -207,9 +207,10 @@ either option without a Content Security Policy (see [backlog](backlog.md)).
 ## Front end
 
 - Svelte 5, runes mode enforced for the project.
-- Tailwind 4 with shadcn-svelte components in `src/lib/components/ui/`, on the project's own tokens
-  ([ADR-0012](adr/0012-shadcn-svelte-on-our-own-tokens.md)). Class and course colours are assigned,
-  not hashed ([ADR-0013](adr/0013-class-tones-are-assigned-not-hashed.md)).
+- Tailwind 4 with the Calm design system: the planner's own components in `src/lib/ui/`, styled by
+  `src/lib/ui/ui.css` on the tokens in `src/routes/layout.css`
+  ([ADR-0031](adr/0031-the-calm-design-system.md)). Class and course colours are assigned, not
+  hashed ([ADR-0013](adr/0013-class-tones-are-assigned-not-hashed.md)).
 - The app shell is a sidebar on laptops, icons only on tablets, and a top bar with a drawer on
   phones. Screens are listed in `src/routes/(app)/nav.ts`.
 - Write controls (drag to reorder, Ready ticks) appear from a tablet up; a phone mostly reads.
