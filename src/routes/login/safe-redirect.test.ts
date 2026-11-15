@@ -22,6 +22,10 @@ describe('safeRedirectTarget', () => {
 		expect(safeRedirectTarget('//evil.example', ORIGIN)).toBe('/');
 	});
 
+	test('a target that is not a URL at all falls back to the root', () => {
+		expect(safeRedirectTarget('//[', ORIGIN)).toBe('/');
+	});
+
 	test('an absolute URL is rejected', () => {
 		expect(safeRedirectTarget('https://evil.example', ORIGIN)).toBe('/');
 	});

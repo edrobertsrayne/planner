@@ -1,13 +1,13 @@
 // What `use:enhance` does on this app's forms: refresh the page data, toast the server's reason
 // on a refusal, create in place, create-then-select, and hand one hidden form its fields.
 //
-// A form action's `result.data` is typed as a loose record, so each of these narrows it in one
+// A form action's `result.data` is typed as a loose record, so each of these reads it in one
 // place rather than casting at the call site.
 import { applyAction } from '$app/forms';
 import { goto, invalidateAll } from '$app/navigation';
 import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 import type { SequenceResult } from '$lib/sequence-text';
-import type { DateChange, PlacementMoved, WriteReport } from '$lib/server/planner';
+import type { WriteReport } from '$lib/server/planner';
 import { toast } from '$lib/ui/toast';
 
 // A write can move dates on a screen other than the one it was made from — assigning a Topic
@@ -58,43 +58,12 @@ export function createdId(result: ActionResult, key: string): string | null {
 	return typeof id === 'string' ? id : null;
 }
 
-// A Placement the engine moved, as the Rewind report shows it.
-function isPlacementMoved(value: unknown): value is PlacementMoved {
-	if (typeof value !== 'object' || value === null) return false;
-	if (!(
-		'placementId' in value &&
-		'classId' in value &&
-		'classLabel' in value &&
-		'lessonTitle' in value &&
-		'anchorDate' in value &&
-		'anchorPeriod' in value &&
-		'date' in value &&
-		'period' in value
-	))
-		return false;
-	if (
-		typeof value.placementId !== 'string' ||
-		typeof value.classId !== 'string' ||
-		typeof value.classLabel !== 'string' ||
-		typeof value.lessonTitle !== 'string' ||
-		typeof value.anchorDate !== 'string' ||
-		typeof value.anchorPeriod !== 'number' ||
-		typeof value.date !== 'string' ||
-		typeof value.period !== 'number'
-	)
-		return false;
-	return !('stranded' in value) || typeof value.stranded === 'boolean';
-}
-
-// The Rewind report a successful action answered with, when it carried one under `report`.
-export function reportOfResult(result: ActionResult): WriteReport | null {
-	if (result.type !== 'success') return null;
-	const report: unknown = result.data?.report;
-	if (typeof report !== 'object' || report === null) return null;
-	if (!('placementsMoved' in report)) return null;
-	const moved = report.placementsMoved;
-	if (!Array.isArray(moved) || !moved.every(isPlacementMoved)) return null;
-	return { placementsMoved: moved };
+// The Rewind report a successful action answered with, when it carried one under `report`. The
+// action typed its answer and the server checked it, so it is read, not checked again.
+export function reportOfResult(
+	result: ActionResult<{ report?: WriteReport | null }>
+): WriteReport | null {
+	return result.type === 'success' ? (result.data?.report ?? null) : null;
 }
 
 // Whether a report has anything to show. A toast for an empty report would be blank.
@@ -102,37 +71,12 @@ export function hasReport(report: WriteReport | null): report is WriteReport {
 	return !!report && report.placementsMoved.length > 0;
 }
 
-const SEQUENCE_KINDS: SequenceResult['kind'][] = ['assign', 'move', 'add', 'remove'];
-
-function isDateChange(value: unknown): value is DateChange {
-	if (typeof value !== 'object' || value === null) return false;
-	if (!('lessonId' in value && 'was' in value)) return false;
-	return (
-		typeof value.lessonId === 'string' && (value.was === null || typeof value.was === 'string')
-	);
-}
-
-// The Sequence outcome a successful Sequence action answered with, when it carried one under
-// `sequenceResult` — the one shape Assign Topic, Move, Add and Remove all answer with.
-export function sequenceOfResult(result: ActionResult): SequenceResult | null {
-	if (result.type !== 'success') return null;
-	const answer: unknown = result.data?.sequenceResult;
-	if (typeof answer !== 'object' || answer === null) return null;
-	if (!('kind' in answer && 'lines' in answer && 'changed' in answer && 'ringed' in answer))
-		return null;
-	const kind = answer.kind;
-	if (!SEQUENCE_KINDS.includes(kind as SequenceResult['kind'])) return null;
-	if (!Array.isArray(answer.lines) || !answer.lines.every((line) => typeof line === 'string'))
-		return null;
-	if (!Array.isArray(answer.changed) || !answer.changed.every(isDateChange)) return null;
-	if (!Array.isArray(answer.ringed) || !answer.ringed.every((id) => typeof id === 'string'))
-		return null;
-	return {
-		kind: kind as SequenceResult['kind'],
-		lines: answer.lines,
-		changed: answer.changed,
-		ringed: answer.ringed
-	};
+// The Sequence outcome a successful Sequence action answered with, under `sequenceResult` — the
+// one shape Assign Topic, Move, Add and Remove all answer with.
+export function sequenceOfResult(
+	result: ActionResult<{ sequenceResult?: SequenceResult }>
+): SequenceResult | null {
+	return result.type === 'success' ? (result.data?.sequenceResult ?? null) : null;
 }
 
 // A create box that stays where it is: the new row appears in the list above it, and the box is

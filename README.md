@@ -39,7 +39,7 @@ The vocabulary (Lesson versus Session, Sequence, Placement, Cover, and so on) is
 
 ## Stack
 
-SvelteKit 2 and Svelte 5 (runes), Tailwind 4 with shadcn-svelte components, Node 26, SQLite through
+SvelteKit 2 and Svelte 5 (runes), Tailwind 4 with the planner's own components, Node 26, SQLite through
 Drizzle and `better-sqlite3`, Better Auth for the single login, Tiptap for the Markdown editor.
 Tests are Vitest (unit and browser components) and Playwright (end to end).
 

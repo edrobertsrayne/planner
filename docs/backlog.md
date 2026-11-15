@@ -37,8 +37,8 @@ Add new entries at the top, dated:
   values in Dokploy instead. A hung server is therefore still never restarted by the platform, and a
   code-execution bug still runs as whichever user Railpack's image uses.
 
-- 2026-10-26: Clear the eleven dev-only advisories `npm audit` still reports, all pinned exactly by a
-  devDependency: `lodash` under `auth`'s chevrotain, `markdown-it` and `smol-toml` under
+- 2026-10-26: Clear the dev-only advisories `npm audit` still reports (18 on 2026-11-15, none high,
+  after an `npm audit fix`), pinned by a devDependency: `lodash` under `auth`'s chevrotain, `markdown-it` and `smol-toml` under
   `markdownlint-cli2`, `@sveltejs/kit` and `cookie` (first fixed in kit 3.0.0, which also needs
   `@sveltejs/adapter-node` 6), and `katex` under `markdownlint`. Needs major bumps or a Renovate policy.
   Issue #414 fixed every production advisory.
