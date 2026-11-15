@@ -6,6 +6,7 @@
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
+	import { dayRows, type DayRow } from '$lib/bell';
 	import { classTone } from '$lib/class-tone';
 	import { formatDayMonth } from '$lib/date';
 	import { positionLabel } from '$lib/events';
@@ -25,7 +26,6 @@
 		availableSlotLines,
 		blockedSlotLines,
 		eventSpans,
-		PERIODS,
 		toEventGrid,
 		toGrid
 	} from './calendar-grid';
@@ -60,14 +60,22 @@
 		return goto(sessionHref({ classId, date, period }));
 	}
 
-	// One entry per (day, Period); see calendar-grid.ts. The explicit `h-16` on a start cell's
-	// <td> is what lets the tile's `h-full` resolve, so a multi-Period Lesson renders as one tall
-	// tile rather than silently collapsing to one Period.
-	const grid = $derived.by(() => toGrid(data.week?.days ?? [], data.week?.cells ?? []));
-	// The Events of the week by day and position: 0 Before school, 1 to 6 the Periods, 7 After school.
-	const eventGrid = $derived.by(() => toEventGrid(data.week?.days ?? [], data.week?.events ?? []));
+	// The day as the Bell Schedules draw it (ADR-0033): Before school, the timed rows by start time,
+	// After school. With no Bell Schedule that is the six Periods between the untimed bands, the day
+	// the Calendar drew before one was set up.
+	const rows = $derived(dayRows(data.bell.schedules));
+	// One entry per (day, row); see calendar-grid.ts. The explicit `h-16` on a start cell's <td> is
+	// what lets the tile's `h-full` resolve, so a multi-Period Lesson renders as one tall tile
+	// rather than silently collapsing to one Period.
+	const grid = $derived(toGrid(data.week?.days ?? [], data.week?.cells ?? [], rows));
+	// The Events of the week by day and row, so a Duty at Break or Lunch sits in its own band.
+	const eventGrid = $derived(toEventGrid(data.week?.days ?? [], data.week?.events ?? [], rows));
 	const eventSpanGrid = $derived(eventGrid.map((column) => eventSpans(column)));
 	const blockedByDate = $derived(new Map((data.week?.blockedDays ?? []).map((b) => [b.date, b])));
+	// A day with no teaching draws one panel over every row between the untimed bands: the six
+	// Periods, and the Break and Lunch rows a Bell Schedule puts between them.
+	const dayPanelAt = $derived(rows.findIndex((r) => r.position !== 0 && r.position !== 7));
+	const dayPanelSpan = $derived(rows.filter((r) => r.position !== 0 && r.position !== 7).length);
 
 	// The Slot the day menu picked to block, whose note is asked for in a dialog. The dialog
 	// is mounted once and opens through the bound pick, the way ConfirmDeleteDialog is.
@@ -95,18 +103,23 @@
 	}
 </script>
 
-{#snippet eventBand(position: number)}
-	<tr>
-		<th class="pr-1 text-right align-top">
+{#snippet rowHead(row: DayRow)}
+	<th class="pr-1 text-right align-top">
+		{#if row.position === 0 || row.position === 7}
+			<!-- Before school and After school: the untimed bands, as compact as they were before a
+			     Bell Schedule existed (ADR-0033). -->
 			<div class="pt-1.5 text-[10px] leading-tight font-medium text-muted-foreground md:text-xs">
-				<span aria-hidden="true">{position === 0 ? 'Bef.' : 'Aft.'}</span>
-				<span class="sr-only">{positionLabel(position)}</span>
+				<span aria-hidden="true">{row.position === 0 ? 'Bef.' : 'Aft.'}</span>
+				<span class="sr-only">{positionLabel(row.position)}</span>
 			</div>
-		</th>
-		{#each DAY_NAMES as d, di (d)}
-			<td class="h-10 align-top">{@render eventTile(eventGrid[di][position], 'h-10')}</td>
-		{/each}
-	</tr>
+		{:else}
+			<!-- Periods, Break and Lunch: the label only. The Calendar shows the order of the day; its
+			     clock times are the Agenda's (ADR-0033). -->
+			<div class="pt-1.5 text-xs font-medium text-muted-foreground">
+				<span class="block break-words">{row.label}</span>
+			</div>
+		{/if}
+	</th>
 {/snippet}
 
 <!-- An Event: a neutral tile, never a Class's hue (ADR-0029). It opens the Event on that date. A
@@ -250,6 +263,7 @@
 		<CalendarSetup
 			terms={data.terms}
 			blockedDays={data.blockedDays}
+			schedules={data.bell.schedules}
 			onclose={() => (setup = false)}
 		/>
 	{:else if data.ribbon.length === 0}
@@ -270,7 +284,9 @@
 			<table class="w-full table-fixed border-separate border-spacing-1 md:border-spacing-1.5">
 				<thead>
 					<tr>
-						<th class="w-6 md:w-12"></th>
+						<!-- A Lunch's Bell Schedule name needs more width than a Period label. Without a
+						     Bell Schedule the column keeps its old width. -->
+						<th class={data.bell.schedules.length > 0 ? 'w-14 md:w-24' : 'w-6 md:w-12'}></th>
 						{#each DAY_NAMES as d, di (d)}
 							{@const date = data.week.days[di].date}
 							{@const blockedDay = blockedByDate.get(date)}
@@ -430,23 +446,23 @@
 					</tr>
 				</thead>
 				<tbody>
-					{@render eventBand(0)}
-					{#each PERIODS as period (period)}
+					{#each rows as row, ri (ri)}
 						<tr>
-							<th class="pr-1 text-right align-top">
-								<div class="pt-1.5 text-xs font-medium text-muted-foreground tabular-nums">
-									P{period}
-								</div>
-							</th>
+							{@render rowHead(row)}
 							{#each DAY_NAMES as d, di (d)}
 								{@const date = data.week.days[di].date}
 								{@const dayKind = data.week.days[di].kind}
-								{#if dayKind !== 'teaching'}
-									<!-- A day with no teaching drops its six Periods and reads as one panel
-									     spanning the column, told apart from an empty Period by a step in
-									     shade — hatched grey for a removal, a solid step for a School Holiday
-									     where nothing was removed — never by a hue. -->
-									{#if period === 1}
+								{#if row.position === 0 || row.position === 7}
+									<!-- Before school and After school: bands no Bell Schedule times, so an
+									     Event holds them and nothing else ever does. -->
+									<td class="h-10 align-top">{@render eventTile(eventGrid[di][ri], 'h-10')}</td>
+								{:else if dayKind !== 'teaching'}
+									<!-- A day with no teaching drops its rows and reads as one panel spanning
+									     the column, told apart from an empty Period by a step in shade — hatched
+									     grey for a removal, a solid step for a School Holiday where nothing was
+									     removed — never by a hue. The panel covers the Break and Lunch rows a
+									     Bell Schedule puts between the Periods, as it covers the Periods. -->
+									{#if ri === dayPanelAt}
 										{@const blockedDay = blockedByDate.get(date)}
 										{@const headline =
 											dayKind === 'holiday'
@@ -454,7 +470,7 @@
 												: (blockedDay?.note ?? 'Blocked Day')}
 										{@const under = dayKind === 'holiday' ? 'Outside every Term' : 'No teaching'}
 										<td
-											rowspan={PERIODS.length}
+											rowspan={dayPanelSpan}
 											class="h-16 align-middle md:h-[92px]"
 											data-day-kind={dayKind}
 										>
@@ -508,29 +524,16 @@
 											</div>
 										</td>
 									{/if}
+								{:else if row.position > 7}
+									<!-- Break and Lunch: bands only an Event holds, so a Duty sits here between
+									     the Periods. No Lesson or Event block may span across them. -->
+									<td class="h-10 align-top">{@render eventTile(eventGrid[di][ri], 'h-10')}</td>
 								{:else}
-									{@const entry = grid[di][period - 1]}
-									{#if entry.type === 'covered'}
-										<!-- covered by an earlier Period's rowspan -->
-									{:else if entry.type === 'free'}
-										<!-- No Class holds this Period, and an Event may: it never shares one. -->
-										{@const event = eventGrid[di][period]}
-										{@const span = eventSpanGrid[di][period]}
-										{#if span === 0}
-											<!-- covered by an earlier Period's rowspan: one Event over adjacent
-										     Periods is a single block, as a double Lesson is -->
-										{:else if event}
-											<td rowspan={span} class="h-16 align-top md:h-[92px]">
-												{@render eventTile(event, 'h-full')}
-											</td>
-										{:else}
-											<td class="h-16 rounded-lg bg-muted/40 md:h-[92px]"></td>
-										{/if}
-									{:else}
+									{@const entry = grid[di][ri]}
+									{#if entry.type === 'start'}
 										{@const cell = entry.cell}
-										{@const rowspan = cell.periodTo - cell.periodFrom + 1}
 										{@const tone = classTone(cell.tone)}
-										<td {rowspan} class="relative h-16 align-top md:h-[92px]">
+										<td rowspan={entry.span} class="relative h-16 align-top md:h-[92px]">
 											{#if cell.kind === 'blocked'}
 												<!-- A Blocked Slot on an otherwise teaching day: a removal, so it keeps
 											the hatch and its note. Its unblock lives in the day's menu, like every
@@ -629,12 +632,25 @@
 												</a>
 											{/if}
 										</td>
+									{:else if entry.type === 'free'}
+										<!-- No Class holds this Period, and an Event may: it never shares one. -->
+										{@const event = eventGrid[di][ri]}
+										{@const span = eventSpanGrid[di][ri]}
+										{#if span === 0}
+											<!-- covered by an earlier row's rowspan: one Event over adjacent
+										     Periods is a single block, as a double Lesson is -->
+										{:else if event}
+											<td rowspan={span} class="h-16 align-top md:h-[92px]">
+												{@render eventTile(event, 'h-full')}
+											</td>
+										{:else}
+											<td class="h-16 rounded-lg bg-muted/40 md:h-[92px]"></td>
+										{/if}
 									{/if}
 								{/if}
 							{/each}
 						</tr>
 					{/each}
-					{@render eventBand(7)}
 				</tbody>
 			</table>
 		</div>

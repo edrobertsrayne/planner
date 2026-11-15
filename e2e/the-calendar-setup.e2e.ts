@@ -210,6 +210,112 @@ test.describe.serial('the Calendar setup mode', () => {
 		await expect(page.getByRole('button', { name: 'Set up year' })).toBeVisible();
 	});
 
+	// Bell Schedules are the year's clock times (ADR-0033). They apply the moment they are saved,
+	// not with Save year, and a school with a split day adds a second over the first's times.
+	test('Bell Schedules are created, edited, made the default, and refused where a Class follows one', async () => {
+		await page.goto('/calendar');
+		await page.getByRole('button', { name: 'Set up year' }).click();
+
+		const add = page.locator('[data-new-bell-schedule]');
+		const cards = page.locator('[data-bell-schedule]');
+
+		// The Lower school's day, and the Upper school's only where it differs.
+		const lowerTimes: Record<string, [string, string]> = {
+			P1: ['08:50', '09:50'],
+			P2: ['09:50', '10:50'],
+			P3: ['11:10', '12:10'],
+			P4: ['12:40', '13:40'],
+			P5: ['13:40', '14:40'],
+			P6: ['14:40', '15:40'],
+			Break: ['10:50', '11:10'],
+			Lunch: ['12:10', '12:40']
+		};
+
+		// A new Bell Schedule needs all eight times: the seam says so at the row, and nothing is
+		// added until they stand.
+		await add.getByLabel('New Bell Schedule name').fill('Years 9–10');
+		await add.getByRole('button', { name: 'Add Bell Schedule' }).click();
+		await expect(
+			add.getByRole('alert').filter({ hasText: 'P1 needs a start and an end time' })
+		).toBeVisible();
+		await expect(cards).toHaveCount(0);
+
+		for (const [label, [starts, ends]] of Object.entries(lowerTimes)) {
+			await add.getByLabel(`New Bell Schedule ${label} start`).fill(starts);
+			await add.getByLabel(`New Bell Schedule ${label} end`).fill(ends);
+		}
+		await add.getByRole('button', { name: 'Add Bell Schedule' }).click();
+
+		// The first one made is the default, and every Class follows it.
+		const lower = cards.filter({ has: page.getByLabel('Years 9–10 name') });
+		await expect(lower).toHaveCount(1);
+		await expect(lower.getByText('Default', { exact: true })).toBeVisible();
+		for (const [label, [starts, ends]] of Object.entries(lowerTimes)) {
+			await expect(lower.getByLabel(`Years 9–10 ${label} start`)).toHaveValue(starts);
+			await expect(lower.getByLabel(`Years 9–10 ${label} end`)).toHaveValue(ends);
+		}
+
+		// The split day starts from the default's times, so only what differs is typed.
+		for (const label of ['P1', 'P2', 'P3', 'P5', 'P6', 'Break', 'Lunch']) {
+			await expect(add.getByLabel(`New Bell Schedule ${label} start`)).toHaveValue(
+				lowerTimes[label][0]
+			);
+		}
+		await add.getByLabel('New Bell Schedule name').fill('Years 11–13');
+		await add.getByLabel('New Bell Schedule P4 start').fill('12:10');
+		await add.getByLabel('New Bell Schedule P4 end').fill('13:10');
+		await add.getByLabel('New Bell Schedule Lunch start').fill('13:10');
+		await add.getByLabel('New Bell Schedule Lunch end').fill('13:40');
+		await add.getByRole('button', { name: 'Add Bell Schedule' }).click();
+
+		const upper = cards.filter({ has: page.getByLabel('Years 11–13 name') });
+		await expect(upper).toHaveCount(1);
+		await expect(upper.getByLabel('Years 11–13 P1 start')).toHaveValue('08:50');
+		await expect(upper.getByLabel('Years 11–13 P4 start')).toHaveValue('12:10');
+		await expect(upper.getByLabel('Years 11–13 Lunch start')).toHaveValue('13:10');
+
+		// An edit applies at once. A refused one is named at its own row, with what was typed
+		// still in place; the correction saves, and survives leaving and reopening the setup.
+		await upper.getByLabel('Years 11–13 P1 end').fill('10:00');
+		await upper.getByRole('button', { name: 'Save Years 11–13' }).click();
+		await expect(upper.getByRole('alert')).toContainText('P1 and P2 overlap');
+		await expect(upper.getByLabel('Years 11–13 P1 end')).toHaveValue('10:00');
+
+		await upper.getByLabel('Years 11–13 P1 end').fill('09:45');
+		await upper.getByRole('button', { name: 'Save Years 11–13' }).click();
+		await expect(upper.getByRole('alert')).toHaveCount(0);
+		await page.getByRole('button', { name: 'Cancel' }).click();
+		await page.getByRole('button', { name: 'Set up year' }).click();
+		await expect(page.getByLabel('Years 11–13 P1 end')).toHaveValue('09:45');
+
+		// Making the other one the default moves the badge, and leaves the old default as the
+		// non-default row.
+		await page.getByRole('button', { name: 'Make Years 11–13 the default' }).click();
+		await expect(upper.getByText('Default', { exact: true })).toBeVisible();
+		await expect(lower.getByText('Default', { exact: true })).toHaveCount(0);
+		await expect(lower.getByRole('button', { name: 'Make Years 9–10 the default' })).toBeVisible();
+
+		// A Bell Schedule a Class follows cannot be deleted: the refusal names the Classes and
+		// leaves the row where it was.
+		await lower.getByRole('button', { name: 'Delete Years 9–10' }).click();
+		await expect(lower.getByRole('alert')).toContainText(
+			'cannot be deleted while 9B/Sc1, 9C/Sc1 follows it'
+		);
+		await expect(lower).toHaveCount(1);
+
+		// The non-default one, which no Class follows, goes — and then the last one may go too,
+		// leaving the planner as it was before any Bell Schedule was made.
+		await lower.getByRole('button', { name: 'Make Years 9–10 the default' }).click();
+		await expect(lower.getByText('Default', { exact: true })).toBeVisible();
+		await upper.getByRole('button', { name: 'Delete Years 11–13' }).click();
+		await expect(upper).toHaveCount(0);
+		await page.getByRole('button', { name: 'Delete Years 9–10' }).click();
+		await expect(cards).toHaveCount(0);
+
+		await page.getByRole('button', { name: 'Cancel' }).click();
+		await expect(page.getByRole('button', { name: 'Set up year' })).toBeVisible();
+	});
+
 	test('a Blocked Day and a School Holiday each collapse into one panel, told apart by shade', async () => {
 		// A year built around TODAY's week: Term 1 closes on its Monday and Term 2 opens on its
 		// Wednesday, so the Tuesday of that week is outside every Term — a School Holiday — and

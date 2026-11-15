@@ -60,3 +60,7 @@ Slot mid-year impossible — the replacement would collide with the Slot it repl
 > the six Periods plus Before school and After school, and only an Event Slot may take either of
 > the last two. A Class's edit that would take an Event's position is refused and names the Event,
 > as an Event's edit that would take a Class's position names the Class.
+
+> **Amended 2026-11-15 (ADR-0033).** Break and Lunch join the positions, and like Before school and
+> After school only an Event Slot may take them. An Event Slot at Break or Lunch also names a Bell
+> Schedule, and two Event Slots clash there only when they name the same one.

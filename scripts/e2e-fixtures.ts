@@ -20,6 +20,7 @@
  *   DATABASE_URL=e2e.db npx tsx scripts/e2e-fixtures.ts unplace-lesson <lessonId>
  *   DATABASE_URL=e2e.db npx tsx scripts/e2e-fixtures.ts place-at <classLabel> <date> <title>
  *   DATABASE_URL=e2e.db npx tsx scripts/e2e-fixtures.ts remove-placement <lessonId>
+ *   DATABASE_URL=e2e.db npx tsx scripts/e2e-fixtures.ts split-day [upperClassLabel]
  */
 import { rmSync } from 'node:fs';
 import { and, eq } from 'drizzle-orm';
@@ -33,6 +34,7 @@ import {
 	attachmentsDir,
 	classSchedule,
 	createAttachment,
+	createBellSchedule,
 	createClass,
 	createCourse,
 	createLesson,
@@ -40,6 +42,7 @@ import {
 	placeLesson,
 	removePlacement,
 	sequenceLessonIds,
+	setClassSchedule,
 	takeSlot
 } from '../src/lib/server/planner/index.ts';
 import { setClock, today } from '../src/lib/date.ts';
@@ -132,6 +135,40 @@ function seedStandard() {
 }
 
 switch (command) {
+	// The split day of ADR-0033: Lower (the default) has Lunch after P3, Upper after P4, and both
+	// share Break. The named Class, if any, follows Upper.
+	case 'split-day': {
+		const [upperClass] = args;
+		const lower: Record<number, { starts: string; ends: string }> = {
+			1: { starts: '08:50', ends: '09:50' },
+			2: { starts: '09:50', ends: '10:50' },
+			8: { starts: '10:50', ends: '11:10' },
+			3: { starts: '11:10', ends: '12:10' },
+			9: { starts: '12:10', ends: '12:40' },
+			4: { starts: '12:40', ends: '13:40' },
+			5: { starts: '13:40', ends: '14:40' },
+			6: { starts: '14:40', ends: '15:40' }
+		};
+		createBellSchedule(db, { name: 'Lower', times: lower });
+		const upper = createBellSchedule(db, {
+			name: 'Upper',
+			times: {
+				...lower,
+				3: { starts: '11:15', ends: '12:10' },
+				4: { starts: '12:10', ends: '13:10' },
+				9: { starts: '13:10', ends: '13:40' }
+			}
+		});
+		if (upperClass) {
+			const [row] = db
+				.select({ id: schema.classes.id })
+				.from(schema.classes)
+				.where(eq(schema.classes.label, upperClass))
+				.all();
+			setClassSchedule(db, { id: row.id, scheduleId: upper.id });
+		}
+		break;
+	}
 	case 'find-class-id': {
 		const [label] = args;
 		if (!label) throw new Error('Usage: find-class-id <label>');

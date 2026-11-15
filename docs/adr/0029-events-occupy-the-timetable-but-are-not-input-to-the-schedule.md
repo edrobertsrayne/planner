@@ -27,6 +27,10 @@ An **Event** is a recurring occupant of the Timetable that never displaces a Les
 - **Two new positions.** Alongside the six Periods, a day has **Before school** and **After
   school**. Only Events hold them. They carry no time of day, so the planner still never needs the
   clock.
+
+  > **Amended 2026-11-15 (ADR-0033).** Break and Lunch are two more Event-only positions, timed by
+  > a Bell Schedule; Periods now carry times too. Duty joins the kinds.
+
 - **It is skipped, not blocked.** An Event does not occur on a School Holiday or a Blocked Day. Both
   are already derived or stored, so skipping adds no state. A Blocked Slot belongs to one Class and
   does not touch an Event.

@@ -16,7 +16,16 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { openDatabase, runMigrations, type Client } from '../db';
 import * as schema from '../db/schema';
-import { attachmentsDir, createEvent, takeEventSlot } from '../planner';
+import {
+	attachmentsDir,
+	bellOf,
+	createBellSchedule,
+	createClass,
+	createCourse,
+	createEvent,
+	listBellSchedules,
+	takeEventSlot
+} from '../planner';
 import { ATTACHMENT_PREFIX, DATABASE_ENTRY, createBackup } from './backup';
 import { RestoreRefused, restoreBackup } from './restore';
 import { sizeOfFd, tarChunks } from './tar';
@@ -203,6 +212,47 @@ describe('Back up then Restore', () => {
 				.all()
 				.map((n) => n.body)
 		).toEqual(['Past paper Q4']);
+	});
+
+	test('Bell Schedules, the Class that follows one and a duty at its Lunch come back', async () => {
+		const source = instance();
+		const course = createCourse(source.db, { name: 'Physics' });
+		const cls = createClass(source.db, { label: '12X/Ph', courseId: course.id });
+		const t = (starts: string, ends: string) => ({ starts, ends });
+		const lower = createBellSchedule(source.db, {
+			name: 'Lower',
+			times: {
+				1: t('08:50', '09:50'),
+				2: t('09:50', '10:50'),
+				8: t('10:50', '11:10'),
+				3: t('11:10', '12:10'),
+				9: t('12:10', '12:40'),
+				4: t('12:40', '13:40'),
+				5: t('13:40', '14:40'),
+				6: t('14:40', '15:40')
+			}
+		});
+		const duty = createEvent(source.db, { name: 'Canteen duty', kind: 'duty' });
+		takeEventSlot(source.db, {
+			eventId: duty.id,
+			week: 'A',
+			day: 1,
+			position: 9,
+			scheduleId: lower.id,
+			from: null
+		});
+		const archive = await collect(createBackup(source.client, source.databaseUrl).body);
+
+		const target = instance();
+		await restoreInto(target, archive).done;
+
+		expect(bellOf(target.db)).toEqual({
+			schedules: listBellSchedules(source.db),
+			classSchedules: { [cls.id]: lower.id }
+		});
+		expect(target.db.select().from(schema.eventSlot).all()).toMatchObject([
+			{ position: 9, scheduleId: lower.id }
+		]);
 	});
 
 	test('an Attachment added after the copy is taken is left out', async () => {

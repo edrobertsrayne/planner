@@ -56,7 +56,7 @@
 			<p class="mt-1 text-sm text-muted-foreground">
 				Create your first Class, then timetable it onto the week it teaches.
 			</p>
-			<NewClassDialog courses={data.courses}>
+			<NewClassDialog courses={data.courses} schedules={data.schedules}>
 				{#snippet trigger(props)}
 					<Button {...props} size="sm" class="mt-4 max-md:hidden">
 						<PlusIcon data-icon="inline-start" />New Class
@@ -118,7 +118,7 @@
 
 			<!-- Nothing is written on a phone, so the New Class tile is not there (story 109). -->
 			<li class="max-md:hidden">
-				<NewClassDialog courses={data.courses}>
+				<NewClassDialog courses={data.courses} schedules={data.schedules}>
 					{#snippet trigger(props)}
 						<button
 							{...props}

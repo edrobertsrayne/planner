@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import type { Snippet } from 'svelte';
+	import { defaultSchedule, type BellSchedule } from '$lib/bell';
 	import { createdId, failureReason } from '$lib/client/enhance';
 	import * as Dialog from '$lib/ui/dialog';
 	import * as Field from '$lib/ui/field';
@@ -10,9 +11,11 @@
 
 	let {
 		courses,
+		schedules,
 		trigger
 	}: {
 		courses: { id: string; name: string }[];
+		schedules: BellSchedule[];
 		trigger: Snippet<[props: Record<string, unknown>]>;
 	} = $props();
 
@@ -26,6 +29,13 @@
 	// list cannot change while the dialog is open.
 	const courseOptions = $derived(courses.map((c) => ({ value: c.id, label: c.name })));
 	const course = $derived(courses.find((c) => c.id === pickedCourseId) ?? courses[0]);
+
+	// The default Bell Schedule stands in until the teacher picks another, as the Course does.
+	let pickedScheduleId = $state('');
+	const scheduleOptions = $derived(schedules.map((s) => ({ value: s.id, label: s.name })));
+	const schedule = $derived(
+		schedules.find((s) => s.id === pickedScheduleId) ?? defaultSchedule(schedules)
+	);
 </script>
 
 <Dialog.Root onOpenChange={() => (error = null)}>
@@ -89,6 +99,21 @@
 						A mis-pick means deleting the Class and starting again.
 					</Field.Description>
 				</Field.Root>
+
+				{#if schedules.length}
+					<Field.Root>
+						<Field.Label for="new-class-schedule">Bell Schedule</Field.Label>
+						<Select
+							name="scheduleId"
+							id="new-class-schedule"
+							value={schedule?.id ?? ''}
+							onValueChange={(id) => (pickedScheduleId = id)}
+							options={scheduleOptions}
+							class="w-full"
+						/>
+						<Field.Description>Which Bell Schedule's times its Periods follow.</Field.Description>
+					</Field.Root>
+				{/if}
 			</Field.Group>
 
 			{#if error}

@@ -5,6 +5,7 @@ import {
 	assignTopic,
 	classLanes,
 	createClass,
+	listBellSchedules,
 	listCourses,
 	reportOf,
 	topicOptions
@@ -23,7 +24,7 @@ export const load: PageServerLoad = () => {
 		])
 	);
 
-	return { courses, lanes, topics };
+	return { courses, lanes, topics, schedules: listBellSchedules(db) };
 };
 
 export const actions: Actions = {
@@ -42,7 +43,8 @@ export const actions: Actions = {
 	createClass: formAction((data) => ({
 		class: createClass(db, {
 			label: String(data.get('label') ?? ''),
-			courseId: trimmed(data, 'courseId')
+			courseId: trimmed(data, 'courseId'),
+			scheduleId: trimmed(data, 'scheduleId') || undefined
 		})
 	}))
 };

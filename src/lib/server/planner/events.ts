@@ -6,11 +6,12 @@ import { addDays } from '$lib/date';
 import * as schema from '../db/schema';
 import { inTransaction } from '../db';
 import type { Db } from './derive';
+import { equivalentSchedules } from './bell';
 import { inAnyTerm, slotHolds } from './engine';
 import { loadCalendar } from './derive';
 import {
 	eventKind,
-	eventPosition,
+	eventPlace,
 	lessonBody,
 	required,
 	requireRow,
@@ -116,12 +117,14 @@ export function takeEventSlot(
 		week: string;
 		day: number;
 		position: number;
+		scheduleId?: string | null;
 		from: string | null;
 	}
 ) {
 	const week = slotWeek(input.week);
 	const day = slotDay(input.day);
-	const position = eventPosition(input.position);
+	const { position, scheduleId } = eventPlace(db, input.position, input.scheduleId ?? null);
+	const kin = equivalentSchedules(db, position, scheduleId);
 	requireRow(db, schema.event, input.eventId, 'Event not found.');
 	const window = { holdsFrom: input.from, holdsTo: null };
 	const where = (name: string) =>
@@ -148,6 +151,7 @@ export function takeEventSlot(
 	const heldByEvent = db
 		.select({
 			name: schema.event.name,
+			scheduleId: schema.eventSlot.scheduleId,
 			holdsFrom: schema.eventSlot.holdsFrom,
 			holdsTo: schema.eventSlot.holdsTo
 		})
@@ -161,12 +165,12 @@ export function takeEventSlot(
 			)
 		)
 		.all()
-		.find((s) => overlaps(window, s));
+		.find((s) => kin.includes(s.scheduleId) && overlaps(window, s));
 	if (heldByEvent) throw where(heldByEvent.name);
 
 	const [slot] = db
 		.insert(schema.eventSlot)
-		.values({ eventId: input.eventId, week, day, position, holdsFrom: input.from })
+		.values({ eventId: input.eventId, week, day, position, scheduleId, holdsFrom: input.from })
 		.returning()
 		.all();
 	return { slot };
@@ -184,6 +188,7 @@ export function activeEventSlots(db: Db, on: string) {
 			week: schema.eventSlot.week,
 			day: schema.eventSlot.day,
 			position: schema.eventSlot.position,
+			scheduleId: schema.eventSlot.scheduleId,
 			holdsFrom: schema.eventSlot.holdsFrom,
 			holdsTo: schema.eventSlot.holdsTo,
 			room: schema.eventSlot.room
@@ -213,11 +218,19 @@ function endEventSlot(db: Db, row: typeof schema.eventSlot.$inferSelect, endFrom
 // takeEventSlot.
 export function clearEventSlot(
 	db: Db,
-	input: { eventId: string; week: string; day: number; position: number; from: string }
+	input: {
+		eventId: string;
+		week: string;
+		day: number;
+		position: number;
+		scheduleId?: string | null;
+		from: string;
+	}
 ) {
 	const week = slotWeek(input.week);
 	const day = slotDay(input.day);
-	const position = eventPosition(input.position);
+	const { position, scheduleId } = eventPlace(db, input.position, input.scheduleId ?? null);
+	const kin = equivalentSchedules(db, position, scheduleId);
 	const [held] = db
 		.select()
 		.from(schema.eventSlot)
@@ -230,7 +243,9 @@ export function clearEventSlot(
 			)
 		)
 		.all()
-		.filter((s) => overlaps({ holdsFrom: input.from, holdsTo: null }, s));
+		.filter(
+			(s) => kin.includes(s.scheduleId) && overlaps({ holdsFrom: input.from, holdsTo: null }, s)
+		);
 	return held ? endEventSlot(db, held, input.from) : null;
 }
 
@@ -239,18 +254,27 @@ export function clearEventSlot(
 // holds on that date is a stale click and a no-op.
 export function toggleEventSlot(
 	db: Db,
-	input: { eventId: string; week: string; day: number; position: number; from: string }
+	input: {
+		eventId: string;
+		week: string;
+		day: number;
+		position: number;
+		scheduleId?: string | null;
+		from: string;
+	}
 ) {
 	const week = slotWeek(input.week);
 	const day = slotDay(input.day);
-	const position = eventPosition(input.position);
+	const { position, scheduleId } = eventPlace(db, input.position, input.scheduleId ?? null);
 	return inTransaction(db.$client, () => {
+		const kin = equivalentSchedules(db, position, scheduleId);
 		const holder = activeEventSlots(db, input.from).find(
-			(s) => s.week === week && s.day === day && s.position === position
+			(s) =>
+				s.week === week && s.day === day && s.position === position && kin.includes(s.scheduleId)
 		);
 		if (holder) {
 			return holder.eventId === input.eventId
-				? clearEventSlot(db, { ...input, week, day, position })
+				? clearEventSlot(db, { ...input, week, day, position, scheduleId })
 				: null;
 		}
 		const heldByClass = db
@@ -262,7 +286,7 @@ export function toggleEventSlot(
 			.all()
 			.some((s) => slotHolds(s, input.from));
 		if (heldByClass) return null;
-		return takeEventSlot(db, { ...input, week, day, position });
+		return takeEventSlot(db, { ...input, week, day, position, scheduleId });
 	});
 }
 
@@ -285,6 +309,7 @@ export type EventOccurrence = {
 	week: 'A' | 'B';
 	day: number;
 	position: number;
+	scheduleId: string | null;
 	room: string | null;
 	note: string | null;
 };
@@ -308,6 +333,7 @@ export function eventOccurrences(
 			week: schema.eventSlot.week,
 			day: schema.eventSlot.day,
 			position: schema.eventSlot.position,
+			scheduleId: schema.eventSlot.scheduleId,
 			room: schema.eventSlot.room,
 			holdsFrom: schema.eventSlot.holdsFrom,
 			holdsTo: schema.eventSlot.holdsTo
@@ -340,6 +366,7 @@ export function eventOccurrences(
 					week: slot.week,
 					day,
 					position: slot.position,
+					scheduleId: slot.scheduleId,
 					room: slot.room,
 					note: notes.get(`${slot.eventId}|${date}`) ?? null
 				});

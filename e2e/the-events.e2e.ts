@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { login, resetTo } from './helpers.ts';
+import { login, resetTo, runFixture } from './helpers.ts';
 
 test.beforeAll(() => resetTo('standard'));
 
@@ -154,5 +154,46 @@ test.describe('an Event on a phone', () => {
 	test('has no New Event tile', async ({ page }) => {
 		await login(page, '/events');
 		await expect(page.getByRole('button', { name: 'New Event' })).toBeHidden();
+	});
+});
+
+// The split day of ADR-0033: Lower is the default, with Lunch after P3; Upper has it after P4.
+// Break is the same in both. A Duty held at Lunch must say whose Lunch it is.
+test.describe('a Duty at Lunch on a split day', () => {
+	test.use({ viewport: { width: 1280, height: 900 } });
+	test.beforeAll(() => runFixture('split-day'));
+
+	test('is created as a Duty, holds Lunch (Upper), and the Notes name whose Lunch it is', async ({
+		page
+	}) => {
+		await login(page, '/events');
+		await page.getByRole('button', { name: 'New Event' }).first().click();
+		await page.getByLabel('Name').fill('Y11 gate duty');
+		await page.getByLabel('Kind').selectOption('duty');
+		await page.getByRole('button', { name: 'Create Event' }).click();
+
+		await expect(page.getByRole('heading', { name: 'Y11 gate duty' })).toBeVisible();
+		await expect(page.getByText('Duty', { exact: true })).toBeVisible();
+
+		// The grid draws the day as the Bell Schedules do: each Lunch in its own row, with its times.
+		await expect(page.getByRole('rowheader', { name: /Lunch \(Lower\)/ })).toHaveCount(2);
+		const upperLunch = page.getByRole('rowheader', { name: /Lunch \(Upper\)/ }).first();
+		await expect(upperLunch).toBeVisible();
+		await expect(upperLunch).toContainText('13:10–13:40');
+		await expect(page.getByRole('rowheader', { name: /Break/ }).first()).toContainText(
+			'10:50–11:10'
+		);
+
+		// Taking the Upper Lunch row names that Bell Schedule to the action, so the Slot is its Lunch.
+		await page.getByRole('button', { name: /^Week A Mon Lunch \(Upper\)/ }).click();
+		await expect(
+			page.getByRole('button', {
+				name: /^Week A Mon Lunch \(Upper\) — Y11 gate duty, click to clear$/
+			})
+		).toBeVisible();
+
+		// The Notes tab names whose Lunch the date holds, not a bare "Lunch".
+		await page.getByRole('tab', { name: 'Notes' }).click();
+		await expect(page.getByText('Lunch (Upper)')).toBeVisible();
 	});
 });

@@ -1,8 +1,9 @@
+import { TIMED_POSITIONS, type BellTime } from '$lib/bell';
 import { TERM_NAMES } from '$lib/calendar/generate-teaching-weeks';
 import { defaultWeek } from '$lib/calendar/default-week';
 import { today } from '$lib/date';
 import { db } from '$lib/server/db/client';
-import { formAction } from '$lib/server/form';
+import { formAction, trimmed } from '$lib/server/form';
 import {
 	clearCoverAction,
 	setCoverAction,
@@ -13,7 +14,17 @@ import {
 } from '$lib/server/block-actions';
 import { asc } from 'drizzle-orm';
 import * as schema from '$lib/server/db/schema';
-import { calendarWeek, coverChoices, replaceTerms, teachingWeeks } from '$lib/server/planner';
+import {
+	bellOf,
+	calendarWeek,
+	coverChoices,
+	createBellSchedule,
+	deleteBellSchedule,
+	makeDefaultBellSchedule,
+	replaceTerms,
+	teachingWeeks,
+	updateBellSchedule
+} from '$lib/server/planner';
 import type { Actions, PageServerLoad } from './$types';
 
 // The ribbon shows the selected week and two Teaching Weeks either side (issue #293).
@@ -50,6 +61,7 @@ export const load: PageServerLoad = ({ url }) => {
 
 	return {
 		selected,
+		bell: bellOf(db),
 		week,
 		ribbon,
 		prev,
@@ -61,6 +73,18 @@ export const load: PageServerLoad = ({ url }) => {
 		today: today()
 	};
 };
+
+// The eight times a Bell Schedule form carries, read position by position. What a time means — a
+// real HH:MM, ending after it starts, no overlap — is the seam's to say, so the door only carries
+// the strings across.
+function bellTimes(data: FormData): Record<number, BellTime> {
+	return Object.fromEntries(
+		TIMED_POSITIONS.map((position) => [
+			position,
+			{ starts: trimmed(data, `starts-${position}`), ends: trimmed(data, `ends-${position}`) }
+		])
+	);
+}
 
 export const actions: Actions = {
 	blockDay: blockDayAction,
@@ -87,5 +111,28 @@ export const actions: Actions = {
 		}));
 
 		return { report: replaceTerms(db, { terms, today: today() }), yearSaved: true };
+	}),
+
+	// A Bell Schedule applies the moment it is saved, as a Blocked Day does, because the views
+	// read it at once and it is never part of the year's save. The seam owns every rule, so these
+	// actions only hand it the typed document.
+	createBellSchedule: formAction((data) => {
+		createBellSchedule(db, { name: trimmed(data, 'name'), times: bellTimes(data) });
+	}),
+
+	updateBellSchedule: formAction((data) => {
+		updateBellSchedule(db, {
+			id: trimmed(data, 'id'),
+			name: trimmed(data, 'name'),
+			times: bellTimes(data)
+		});
+	}),
+
+	makeDefaultBellSchedule: formAction((data) => {
+		makeDefaultBellSchedule(db, { id: trimmed(data, 'id') });
+	}),
+
+	deleteBellSchedule: formAction((data) => {
+		deleteBellSchedule(db, { id: trimmed(data, 'id') });
 	})
 };

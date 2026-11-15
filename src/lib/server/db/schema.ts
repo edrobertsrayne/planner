@@ -132,6 +132,41 @@ export const readiness = sqliteTable(
 
 // Scheduling
 
+// A Bell Schedule: a named set of clock times for the day (ADR-0033). Exactly one is the default
+// once any exists; the partial unique index allows no more than one.
+export const bellSchedule = sqliteTable(
+	'bell_schedule',
+	{
+		id: id(),
+		name: text('name').notNull(),
+		isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false)
+	},
+	(table) => [
+		uniqueIndex('bell_schedule_name_unique').on(sql`${table.name} COLLATE NOCASE`),
+		uniqueIndex('bell_schedule_one_default')
+			.on(table.isDefault)
+			.where(sql`${table.isDefault} = 1`)
+	]
+);
+
+// One timed position of a Bell Schedule: 1 to 6 for the Periods, 8 for Break, 9 for Lunch, each
+// with an `HH:MM` start and end. Every Bell Schedule has all eight.
+export const bellTime = sqliteTable(
+	'bell_time',
+	{
+		scheduleId: text('schedule_id')
+			.notNull()
+			.references(() => bellSchedule.id, { onDelete: 'cascade' }),
+		position: integer('position').notNull(),
+		starts: text('starts').notNull(),
+		ends: text('ends').notNull()
+	},
+	(table) => [
+		primaryKey({ columns: [table.scheduleId, table.position] }),
+		check('bell_time_position', sql`${table.position} in (1,2,3,4,5,6,8,9)`)
+	]
+);
+
 export const classes = sqliteTable('class', {
 	id: id(),
 	label: text('label').notNull(),
@@ -140,7 +175,9 @@ export const classes = sqliteTable('class', {
 		.references(() => course.id),
 	tone: integer('tone').notNull().default(0),
 	// The Class note: one markdown entry about the Class as a whole (ADR-0032).
-	note: text('note')
+	note: text('note'),
+	// Null only while no Bell Schedule exists (ADR-0033).
+	scheduleId: text('schedule_id').references(() => bellSchedule.id)
 });
 
 // A Class's Sequence (ADR-0026): the shared Lessons it teaches, in its own order.
@@ -195,7 +232,7 @@ export const slot = sqliteTable(
 
 // An Event: a recurring commitment of the teacher's own that is not a Class (ADR-0029). The kind
 // is a label and changes nothing. An Event holds no Lessons and is never an input to the schedule.
-export const eventKinds = ['meeting', 'club', 'intervention', 'other'] as const;
+export const eventKinds = ['meeting', 'club', 'intervention', 'duty', 'other'] as const;
 
 export const event = sqliteTable(
 	'event',
@@ -204,12 +241,15 @@ export const event = sqliteTable(
 		name: text('name').notNull(),
 		kind: text('kind', { enum: eventKinds }).notNull()
 	},
-	(table) => [check('event_kind', sql`${table.kind} in ('meeting','club','intervention','other')`)]
+	(table) => [
+		check('event_kind', sql`${table.kind} in ('meeting','club','intervention','duty','other')`)
+	]
 );
 
 // An Event Slot: a recurring position held by an Event, over a range of dates like a Slot. The
-// position is 0 for Before school, 1 to 6 for the Periods and 7 for After school; only an Event
-// may hold 0 or 7 (ADR-0029).
+// position is 0 for Before school, 1 to 6 for the Periods, 7 for After school, 8 for Break and 9
+// for Lunch; only an Event may hold 0, 7, 8 or 9 (ADR-0029). Break and Lunch name the Bell
+// Schedule whose Break or Lunch it is, and no other position does (ADR-0033).
 export const eventSlot = sqliteTable(
 	'event_slot',
 	{
@@ -220,13 +260,18 @@ export const eventSlot = sqliteTable(
 		week: text('week', { enum: ['A', 'B'] }).notNull(),
 		day: integer('day').notNull(),
 		position: integer('position').notNull(),
+		scheduleId: text('schedule_id').references(() => bellSchedule.id),
 		holdsFrom: text('holds_from'),
 		holdsTo: text('holds_to'),
 		room: text('room')
 	},
 	(table) => [
 		check('event_slot_day_range', sql`${table.day} between 1 and 5`),
-		check('event_slot_position_range', sql`${table.position} between 0 and 7`)
+		check('event_slot_position_range', sql`${table.position} between 0 and 9`),
+		check(
+			'event_slot_schedule',
+			sql`(${table.position} in (8,9)) = (${table.scheduleId} is not null)`
+		)
 	]
 );
 

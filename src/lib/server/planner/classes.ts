@@ -12,11 +12,17 @@ import { lessonBody, required, requireRow } from './fields';
 import { teachingNotesFor } from './teaching-notes';
 import { inTransaction } from '../db';
 import { Refused } from './refused';
+import { defaultScheduleId } from './bell';
 
 // The Tone is assigned once here, at creation — the next unused position of the fixed walk
-// (ADR-0013) — and never touched again by any other write.
-export function createClass(db: Db, { label, courseId }: { label: string; courseId: string }) {
+// (ADR-0013) — and never touched again by any other write. The Class follows the Bell Schedule
+// chosen, or the default when none is (ADR-0033).
+export function createClass(
+	db: Db,
+	{ label, courseId, scheduleId }: { label: string; courseId: string; scheduleId?: string }
+) {
 	requireRow(db, schema.course, courseId, 'Course not found.');
+	if (scheduleId) requireRow(db, schema.bellSchedule, scheduleId, 'Bell Schedule not found.');
 	const tonesInUse = db
 		.select({ tone: schema.classes.tone })
 		.from(schema.classes)
@@ -27,7 +33,8 @@ export function createClass(db: Db, { label, courseId }: { label: string; course
 		.values({
 			label: required(label, 'A Class needs a label.'),
 			courseId,
-			tone: nextTone(tonesInUse)
+			tone: nextTone(tonesInUse),
+			scheduleId: scheduleId ?? defaultScheduleId(db)
 		})
 		.returning()
 		.all();
@@ -76,6 +83,7 @@ export function classDetail(db: Db, id: string) {
 			id: schema.classes.id,
 			label: schema.classes.label,
 			tone: schema.classes.tone,
+			scheduleId: schema.classes.scheduleId,
 			courseId: schema.classes.courseId,
 			courseName: schema.course.name,
 			note: schema.classes.note

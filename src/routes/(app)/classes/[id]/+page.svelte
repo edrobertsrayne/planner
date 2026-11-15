@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { applyAction, enhance } from '$app/forms';
+	import { invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { MediaQuery } from 'svelte/reactivity';
@@ -8,7 +9,7 @@
 	import { classTone } from '$lib/class-tone';
 	import { useBack } from '$lib/client/back';
 	import { createDeleteAsk } from '$lib/client/confirm-delete.svelte';
-	import { replaceQuery } from '$lib/client/enhance';
+	import { failureReason, replaceQuery } from '$lib/client/enhance';
 	import { formatDate } from '$lib/date';
 	import { withParam } from '$lib/query';
 	import AttachmentsSection from '$lib/components/attachments-section.svelte';
@@ -21,6 +22,7 @@
 	import { Badge, Button, Select } from '$lib/ui';
 	import * as Tabs from '$lib/ui/tabs';
 	import ClassNote from './ClassNote.svelte';
+	import { toast } from '$lib/ui/toast';
 	import SequenceTab from './SequenceTab.svelte';
 	import SlotRooms from './SlotRooms.svelte';
 	import TimetableGrid from './TimetableGrid.svelte';
@@ -84,6 +86,11 @@
 	const isPast = $derived(data.on < data.today);
 
 	const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+
+	// The Bell Schedule the Class follows (ADR-0033), and the others the teacher can move it to.
+	// With none set up the page shows no control, exactly as before.
+	const scheduleOptions = $derived(data.schedules.map((s) => ({ value: s.id, label: s.name })));
+	const schedule = $derived(data.schedules.find((s) => s.id === data.class.scheduleId) ?? null);
 </script>
 
 <svelte:head><title>{data.class.label}</title></svelte:head>
@@ -114,6 +121,41 @@
 				editable={md.current}
 			/>
 			<Badge variant="outline" class="mt-1">{data.class.courseName}</Badge>
+			{#if schedule}
+				{#if md.current}
+					<form
+						method="POST"
+						action="?/setClassSchedule"
+						use:enhance={() =>
+							async ({ result }) => {
+								// The Bell Schedule changes under the select he just used, so the data refreshes; a form
+								// reset would take the select back to the value it was rendered with.
+								if (result.type === 'redirect' || result.type === 'error')
+									return applyAction(result);
+								if (result.type === 'failure')
+									toast.error(failureReason(result, 'Could not change the Bell Schedule.'));
+								await invalidateAll();
+							}}
+						class="mt-1 flex items-center gap-1.5"
+					>
+						<input type="hidden" name="id" value={data.class.id} />
+						<label for="class-schedule" class="text-xs font-medium text-muted-foreground">
+							Bell Schedule
+						</label>
+						<Select
+							id="class-schedule"
+							name="scheduleId"
+							value={schedule.id}
+							options={scheduleOptions}
+							class="w-32"
+							onchange={(e) => e.currentTarget.form?.requestSubmit()}
+						/>
+					</form>
+				{:else}
+					<!-- A phone reads the Bell Schedule and writes nothing here, as it does for the label. -->
+					<Badge variant="outline" class="mt-1">Bell Schedule: {schedule.name}</Badge>
+				{/if}
+			{/if}
 		</div>
 		<!-- The rename pencil's partner, and shown on the same widths: a phone writes nothing here. -->
 		{#if md.current}

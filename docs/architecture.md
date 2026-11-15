@@ -97,6 +97,7 @@ Three rules follow ([ADR-0025](adr/0025-the-seam-owns-every-value-rule.md)):
 | `courses`, `lessons`, `links`, `tags`, `attachments`, `import`                | The planning half                                          |
 | `classes`, `timetable`, `sequence`, `placement`, `sessions`, `teaching-notes` | A Class and its schedule                                   |
 | `events`                                                                      | Recurring commitments that never clash with a Class        |
+| `bell`                                                                        | Bell Schedules: clock times for Periods, Break and Lunch   |
 | `disruptions`, `terms`, `cover`                                               | Blocked Days and Slots, the six Terms, Absence Cover       |
 | `views`                                                                       | The Agenda stream and Calendar grid across every Class     |
 | `ordering`, `fields`, `refused`                                               | Shared position arithmetic, field rules, the refusal       |
@@ -166,6 +167,7 @@ erDiagram
 | Planning   | `course`, `topic`, `lesson`, `link`, `tag`, `lesson_tag`, `attachment`                                         |
 | Scheduling | `class`, `class_lesson`, `slot`, `session`, `placement`, `continuation`, `readiness`, `teaching_note`, `cover` |
 | Events     | `event`, `event_slot`, `event_note`                                                                            |
+| Bell       | `bell_schedule`, `bell_time`                                                                                   |
 | Calendar   | `term`, `blocked_day`, `blocked_slot`                                                                          |
 | Access     | `api_key`; Better Auth's `user`, `auth_session`, `account`, `verification`                                     |
 
