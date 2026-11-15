@@ -37,14 +37,10 @@ Calendar's year setup, and none is hard-coded.
 
 The views order a day's rows by the default Bell Schedule's times, and put each Break and Lunch
 row at its own start time. A Break or Lunch with the same times in every Bell Schedule is one row.
-The Agenda and the Event page show the times: each Session the times of its Class's Bell Schedule.
-The Calendar shows only the order, so the week reads at a glance. With no Bell Schedule set up, the
+The Event page shows the times. The Agenda and the Calendar show only the order, so the day and
+the week read at a glance. The Agenda shows a Break or Lunch only when an Event holds it. With no
+Bell Schedule set up, the
 views are exactly as before: six Periods, no times, no Break or Lunch.
-
-> **Amended 2026-11-15.** On the Agenda, a Break or Lunch that no Event holds shows only on a day
-> that teaches a Class following its Bell Schedule. On a split day every row showed both Lunches,
-> and the other Bell Schedule's Lunch is not a gap in the teacher's day. A Break or Lunch an Event
-> holds always shows, and the Calendar still draws every row so the grid keeps one shape.
 
 ## Why
 

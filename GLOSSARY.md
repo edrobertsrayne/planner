@@ -405,9 +405,7 @@ hides the Blocked Slot rows as it hides Open Slots. An Event shows as a row in i
 school at the head of its day and After school at the foot. One Event across adjacent Periods is one
 row over them ("P1–P2"), not one per Period, since its note belongs to the Event and the date. It
 carries its Event note, or an Add plan button when that date has none; on a phone the offer is a
-line under the Event's name. A teaching day also shows, quietly, the Break and Lunch no Event holds,
-for the Bell Schedules its Classes follow: another Bell Schedule's Lunch is no gap in that day. It
-carries no Ready tick,
+line under the Event's name. It carries no Ready tick,
 because Readiness belongs to a Lesson, and it opens the Event page on that date. It is told apart
 from teaching by the same step in shade, a Blocked Day or a School Holiday shows none, and the Tag
 filter hides Event rows as it hides Open Slots. Where the planner opens. The teacher can also turn
