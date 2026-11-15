@@ -41,6 +41,11 @@ The Agenda and the Event page show the times: each Session the times of its Clas
 The Calendar shows only the order, so the week reads at a glance. With no Bell Schedule set up, the
 views are exactly as before: six Periods, no times, no Break or Lunch.
 
+> **Amended 2026-11-15.** On the Agenda, a Break or Lunch that no Event holds shows only on a day
+> that teaches a Class following its Bell Schedule. On a split day every row showed both Lunches,
+> and the other Bell Schedule's Lunch is not a gap in the teacher's day. A Break or Lunch an Event
+> holds always shows, and the Calendar still draws every row so the grid keeps one shape.
+
 ## Why
 
 Times belong to a Bell Schedule, not to a Period, because the same Period has different times for

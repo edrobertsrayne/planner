@@ -18,7 +18,7 @@
 	import { classTone } from '$lib/class-tone';
 	import { formatWeekday } from '$lib/date';
 	import type { AgendaBlockedDay, CoverRef } from '$lib/server/planner';
-	import { dayRowLabel, joinAdjacentPeriods, kindLabel, positionRangeLabel } from '$lib/events';
+	import { joinAdjacentPeriods, kindLabel, positionRangeLabel } from '$lib/events';
 	import { onFail, replaceQuery, submitForm } from '$lib/client/enhance';
 	import { sessionHref } from '$lib/client/session-href';
 	import { withParam } from '$lib/query';
@@ -90,12 +90,9 @@
 	// One Event over adjacent Periods is one row: its note belongs to the Event and the date.
 	const eventsIn = (events: typeof data.events) =>
 		data.tag === null ? joinAdjacentPeriods(events) : [];
+	const bell = $derived(data.tag === null ? data.bell : { schedules: [], classSchedules: {} });
 	const days = $derived(
-		withEvents(
-			groupByDay(filterByTag(data.rows, data.tag)),
-			eventsIn(data.events),
-			data.tag === null ? data.bell.schedules : []
-		)
+		withEvents(groupByDay(filterByTag(data.rows, data.tag)), eventsIn(data.events), bell)
 	);
 	// A whole day is asked for through its own dialog and taken back through one hidden form that
 	// every Blocked Day panel shares, as a Blocked Slot is.
@@ -117,7 +114,7 @@
 			withEvents(
 				groupByDay(filterByTag(data.lookBack, data.tag)),
 				eventsIn(data.lookBackEvents),
-				data.tag === null ? data.bell.schedules : []
+				bell
 			),
 			data.lookBackBlockedDays,
 			[]
@@ -398,9 +395,9 @@
 			<span
 				class="my-3 ml-4 flex min-h-12 {bellTile} shrink-0 flex-col items-center justify-center rounded-lg bg-surface px-1 text-center text-[13px] leading-tight font-bold tabular-nums"
 			>
-				{event.position >= 8
-					? dayRowLabel(bellRows, event.position, event.scheduleId)
-					: positionRangeLabel(event.position, event.positionTo)}
+				<!-- A Break or Lunch is its one word: the times beneath say whose it is, and a Bell
+				     Schedule's name would not fit the tile. -->
+				{positionRangeLabel(event.position, event.positionTo)}
 				{#if event.room}<span
 						class="max-w-full truncate text-[11px] font-medium text-muted-foreground"
 						title={event.room}>{event.room}</span
@@ -424,10 +421,21 @@
 				<span class="block text-sm font-medium">{event.name}</span>
 				{#if event.note}
 					<span class="block text-xs whitespace-pre-wrap text-muted-foreground">{event.note}</span>
+				{:else}
+					<!-- A phone has no room for the button beside the name, so the offer sits under it,
+					     inside the same link. -->
+					<span class="block text-xs text-muted-foreground md:hidden">
+						{past ? 'Add log' : 'Add plan'}
+					</span>
 				{/if}
 			</a>
 			{#if !event.note}
-				<Button variant="ghost" size="sm" class="h-7 row-control" href={eventHref(event)}>
+				<Button
+					variant="ghost"
+					size="sm"
+					class="h-7 row-control max-md:hidden"
+					href={eventHref(event)}
+				>
 					{past ? 'Add log' : 'Add plan'}
 				</Button>
 			{/if}

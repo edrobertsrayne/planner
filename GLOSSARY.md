@@ -380,7 +380,8 @@ The frame around every screen except Login and Setup. On a laptop it is a sideba
 wordmark, the six screens (Agenda, Calendar, Classes, Events, Courses, Planning) with an icon and a
 name each, and at its foot Settings, the theme toggle, Log out and the build line. On a tablet the
 sidebar shows icons only. On a phone it is a top bar with a menu button and the current screen's
-name; the menu button opens the same list as a drawer.
+name, or "Lesson" or "Session" on those two pages; the menu button opens the same list as a drawer.
+A page other screens open has a Back button that names where it lands, such as "Back to Agenda".
 There is no top header on a laptop or a tablet, so a screen starts at the top of the window. The
 window is the only thing that scrolls. The shell has no shortcut to the next Session: the teacher
 opens a Session from its row on the Agenda or the Calendar.
@@ -403,7 +404,10 @@ none. All three are told apart from teaching by a step in shade, never a hue, an
 hides the Blocked Slot rows as it hides Open Slots. An Event shows as a row in its position, Before
 school at the head of its day and After school at the foot. One Event across adjacent Periods is one
 row over them ("P1–P2"), not one per Period, since its note belongs to the Event and the date. It
-carries its Event note, or an Add plan button when that date has none. It carries no Ready tick,
+carries its Event note, or an Add plan button when that date has none; on a phone the offer is a
+line under the Event's name. A teaching day also shows, quietly, the Break and Lunch no Event holds,
+for the Bell Schedules its Classes follow: another Bell Schedule's Lunch is no gap in that day. It
+carries no Ready tick,
 because Readiness belongs to a Lesson, and it opens the Event page on that date. It is told apart
 from teaching by the same step in shade, a Blocked Day or a School Holiday shows none, and the Tag
 filter hides Event rows as it hides Open Slots. Where the planner opens. The teacher can also turn
@@ -416,7 +420,7 @@ apart from the days ahead by a step in shade, never a hue. An Open Slot appears 
 in its own position, marked as carrying no Lesson, because the teacher is teaching that Period and
 an Agenda that omitted it would report a free one — it carries no Ready tick, since there is no
 (Lesson, Class) pairing to key one on. Every other upcoming row carries the Ready tick for its Class
-from a tablet up, and this is the only screen on which Readiness is written; a row can be ticked
+from a tablet up; Readiness is written here and on the Session page. A row can be ticked
 only while it is on screen, so the ticks reach only as far as the chosen horizon, and no past day
 can be ticked. A Continuation's two rows share one Readiness record, so ticking either moves both.
 The Agenda can be narrowed to one Tag with a row of Tag chips under the heading, the same control as
@@ -539,8 +543,9 @@ ordered by soonest next Scheduled occurrence, Lessons with no scheduled occurren
 Lesson rather than by Class, so it shows the shared plan and never shows Readiness: what the
 teacher has not yet written is one question, and whether one Class is set to be taught is another.
 The screen can be narrowed to one Class with a row of Class chips; it then lists only that Class's
-upcoming Lessons, ordered by that Class's Sessions. It can also be narrowed to Draft or Planned with
-tabs. Both filters live in the address, so a reload or a Back into the screen keeps them. It is a
+upcoming Lessons, ordered by that Class's Sessions. It opens on Draft, the Lessons still to write,
+and the tabs show All or Planned instead. Both filters live in the address, so a reload or a Back
+into the screen keeps them. It is a
 table, one row per Lesson, holding the whole stream with no page size; the window scrolls it. Only
 the Lesson's title opens the Lesson editor. On a phone each row is a card, and Draft and Planned
 are shown but not changed.
@@ -573,14 +578,16 @@ it opens the Lesson's own page in the Lesson editor for that. It is where a Less
 Placement removed, because those are acts on the occasion, not on the plan. Opened from any of the
 three reading views; there is no other place a Session is read or written. It opens on an Open
 Slot too, showing no plan and no note: a Teaching note needs a Lesson, and an Open Slot has none.
-Shows the Class's Readiness for this Lesson, read-only — the page describes the exact (Lesson,
-Class) occasion the Agenda row already ticks, so it would otherwise hide a fact its own row
-displays. No other screen shows Readiness.
+Carries the Ready tick for this Lesson and Class while the Session is still ahead — the page
+describes the exact (Lesson, Class) occasion the Agenda row ticks, and writes the same record, so
+Readiness can be set from a phone, whose Agenda has no tick. No other screen shows Readiness.
 A page of its own, like the Lesson editor, addressed by its occasion: the Class, the date and the
 Period. It does not step to another Session. Leaving it by Back returns the teacher to the view
 they came from, or, when there is none, to the Agenda. On a laptop the plan is on the left and a
 rail on the right holds the Teaching note and the acts on the occasion — Needs more time, Remove a
-Continuation, Place a Lesson and Remove placement. Below a laptop it is one column, and once the
+Continuation, Place a Lesson and Remove placement. Place a Lesson stands open on an Open Slot and
+waits closed behind its heading over a Lesson, where it is the rare act. Below a laptop it is one
+column, and once the
 Session has started the note comes before the plan, because on a phone the teacher opens it after
 the lesson to write the note.
 _Avoid_: Session panel

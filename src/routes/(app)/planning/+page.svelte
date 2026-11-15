@@ -32,11 +32,13 @@
 		{ key: 'planned', name: STATUS_LABEL.planned }
 	];
 
-	// The status tab lives in the query string (`?status=draft`), like the Class chips (issue
-	// #338), so it survives a reload and a Back into the page. A value the tabs do not name is All.
+	// The screen opens on Draft, the Lessons still to write: with every Lesson listed it only
+	// repeats the Agenda. Another tab lives in the query string (`?status=all`), like the Class
+	// chips (issue #338), so it survives a reload and a Back into the page. A value the tabs do not
+	// name is Draft.
 	const filter = $derived.by<Filter>(() => {
 		const value = page.url.searchParams.get('status');
-		return FILTERS.some((f) => f.key === value) ? (value as Filter) : 'all';
+		return FILTERS.some((f) => f.key === value) ? (value as Filter) : 'draft';
 	});
 
 	const tally = $derived({
@@ -110,7 +112,8 @@
 				<!-- All / Draft / Planned narrow the table below, and carry their counts. -->
 				<Tabs.Root
 					value={filter}
-					onValueChange={(v) => replaceQuery(withParam(page.url, 'status', v === 'all' ? null : v))}
+					onValueChange={(v) =>
+						replaceQuery(withParam(page.url, 'status', v === 'draft' ? null : v))}
 				>
 					<Tabs.List variant="segmented">
 						{#each FILTERS as f (f.key)}
@@ -251,7 +254,7 @@
 				class="mt-4 rounded-lg border border-dashed px-3 py-8 text-center text-sm text-muted-foreground"
 			>
 				{#if filter === 'draft'}
-					No Draft Lessons
+					No Draft Lessons: every upcoming Lesson is Planned
 				{:else if filter === 'planned'}
 					No Planned Lessons
 				{:else if data.classId}

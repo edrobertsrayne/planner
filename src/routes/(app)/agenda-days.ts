@@ -1,7 +1,7 @@
 // The Agenda's day grouping (issue #87): the day is the unit — every date in the window gets a
 // heading and a card, whether it holds five lessons or one. Pure: consecutive rows sharing a date
 // form one day; the stream is expected sorted by date then Period, as `agenda` returns it.
-import { BREAK, LUNCH, dayRows, rowIndexOf, type BellSchedule, type DayRow } from '$lib/bell';
+import { BREAK, LUNCH, dayRows, rowIndexOf, scheduleOf, type Bell, type DayRow } from '$lib/bell';
 
 export interface AgendaDay<Row> {
 	date: string;
@@ -66,19 +66,22 @@ export type AgendaLine<Row, Event> =
 // The day's rows with its Events set among them (ADR-0029, ADR-0033). Every line sits in the row
 // `dayRows` gives it, so the Periods follow their Bell Schedule's times and each Break or Lunch
 // sits at its own; a teaching day also shows the Break and Lunches no Event holds, so the gaps in
-// the day are visible. With no Bell Schedule the order is exactly the old one: Before school, the
-// six Periods, After school.
+// the day are visible — those of the Bell Schedules its Classes follow, since another Bell
+// Schedule's Lunch is no gap in this day. With no Bell Schedule the order is exactly the old one:
+// Before school, the six Periods, After school.
 export function withEvents<
-	Row extends { date: string; periodFrom: number },
+	Row extends { date: string; periodFrom: number; classId: string },
 	Event extends { date: string; position: number; scheduleId: string | null }
 >(
 	days: readonly AgendaDay<Row>[],
 	events: readonly Event[],
-	schedules: readonly BellSchedule[]
+	bell: Bell
 ): AgendaDay<AgendaLine<Row, Event>>[] {
+	const { schedules } = bell;
 	const rows = dayRows(schedules);
 	const byDate = new Map<string, { at: number; line: AgendaLine<Row, Event> }[]>();
-	const teaching = new Set<string>();
+	// Each teaching day, with the Bell Schedules its Classes follow.
+	const teaching = new Map<string, Set<string>>();
 	const put = (date: string, at: number, line: AgendaLine<Row, Event>) =>
 		byDate.set(date, [...(byDate.get(date) ?? []), { at, line }]);
 
@@ -90,7 +93,10 @@ export function withEvents<
 	};
 
 	for (const day of days) {
-		teaching.add(day.date);
+		teaching.set(
+			day.date,
+			new Set(day.rows.flatMap((row) => scheduleOf(bell, row.classId)?.id ?? []))
+		);
 		for (const row of day.rows) put(day.date, rowOf(row.periodFrom, null), { kind: 'row', row });
 	}
 	for (const event of events)
@@ -99,13 +105,15 @@ export function withEvents<
 	// Break and Lunch belong to every teaching day (ADR-0033): a row no Event holds shows its
 	// times quietly. A day that holds only Events grew no Break or Lunch, as none is taught.
 	if (schedules.length > 0)
-		for (const date of teaching) {
+		for (const [date, taught] of teaching) {
 			const lines = byDate.get(date) ?? [];
 			const held = new Set(lines.map((l) => l.at));
 			byDate.set(date, [
 				...lines,
 				...rows.flatMap((row, at) =>
-					(row.position === BREAK || row.position === LUNCH) && !held.has(at)
+					(row.position === BREAK || row.position === LUNCH) &&
+					!held.has(at) &&
+					row.scheduleIds.some((id) => taught.has(id))
 						? [{ at, line: { kind: 'bell' as const, row } }]
 						: []
 				)

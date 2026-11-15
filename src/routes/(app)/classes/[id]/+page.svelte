@@ -4,10 +4,10 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { MediaQuery } from 'svelte/reactivity';
-	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
 	import { classTone } from '$lib/class-tone';
-	import { useBack } from '$lib/client/back';
+	import { useBack } from '$lib/client/back.svelte';
+	import BackButton from '$lib/components/back-button.svelte';
 	import { createDeleteAsk } from '$lib/client/confirm-delete.svelte';
 	import { failureReason, replaceQuery } from '$lib/client/enhance';
 	import { formatDate } from '$lib/date';
@@ -96,10 +96,7 @@
 <svelte:head><title>{data.class.label}</title></svelte:head>
 
 <div class="mx-auto max-w-6xl px-6 py-6">
-	<Button variant="ghost" size="sm" class="-ml-3" onclick={back}>
-		<ArrowLeftIcon data-icon="inline-start" />
-		Back
-	</Button>
+	<BackButton {back} />
 
 	{#if form?.error}
 		<p role="alert" class="mt-3 text-xs text-destructive">{form.error}</p>
@@ -147,7 +144,7 @@
 							name="scheduleId"
 							value={schedule.id}
 							options={scheduleOptions}
-							class="w-32"
+							class="ui-select-sm w-32"
 							onchange={(e) => e.currentTarget.form?.requestSubmit()}
 						/>
 					</form>

@@ -311,6 +311,8 @@ test.describe.serial('Placing and removing a Lesson', () => {
 		await expect(page.getByLabel('How it went')).toHaveText(original);
 
 		// Place over the occasion. The Session now carries another Lesson, which has no note yet.
+		// Over a Lesson the card waits closed behind its heading.
+		await page.getByRole('heading', { name: 'Place a Lesson' }).click();
 		await page.getByRole('textbox', { name: 'Lesson title', exact: true }).fill('Note target');
 		await page.getByRole('button', { name: 'Place' }).click();
 		await expect(page.getByText('Standalone Lesson · Placed')).toBeVisible();

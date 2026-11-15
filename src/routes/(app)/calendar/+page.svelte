@@ -109,13 +109,17 @@
 			<!-- Before school and After school: the untimed bands, as compact as they were before a
 			     Bell Schedule existed (ADR-0033). -->
 			<div class="pt-1.5 text-[10px] leading-tight font-medium text-muted-foreground md:text-xs">
-				<span aria-hidden="true">{row.position === 0 ? 'Bef.' : 'Aft.'}</span>
-				<span class="sr-only">{positionLabel(row.position)}</span>
+				<span aria-hidden="true" class="md:hidden">{row.position === 0 ? 'Bef.' : 'Aft.'}</span>
+				<span class="max-md:sr-only">{positionLabel(row.position)}</span>
 			</div>
 		{:else}
 			<!-- Periods, Break and Lunch: the label only. The Calendar shows the order of the day; its
 			     clock times are the Agenda's (ADR-0033). -->
-			<div class="pt-1.5 text-xs font-medium text-muted-foreground">
+			<div
+				class="pt-1.5 text-xs font-medium text-muted-foreground {row.position >= 8
+					? 'max-md:text-[10px] max-md:leading-tight'
+					: ''}"
+			>
 				<span class="block break-words">{row.label}</span>
 			</div>
 		{/if}
@@ -129,12 +133,16 @@
 		<a
 			href="{resolve(`/events/${event.eventId}`)}?date={event.date}#date-{event.date}"
 			class={cn(
-				'flex w-full flex-col overflow-hidden rounded-lg border bg-muted px-1.5 py-1 text-left max-md:rounded-md md:px-2',
+				'flex w-full flex-col overflow-hidden rounded-lg border bg-muted px-0.5 py-1 text-left max-md:rounded-md md:px-2',
 				height === 'h-10' ? 'h-10' : 'h-full min-h-16',
 				event.date < data.today && 'hatched'
 			)}
 		>
-			<span class="truncate text-xs font-semibold">{event.name}</span>
+			<!-- On a phone the name takes two short lines rather than being cut to "Yar…". -->
+			<span
+				class="text-xs font-semibold max-md:line-clamp-2 max-md:text-[10px] max-md:leading-tight max-md:tracking-tight max-md:break-words md:truncate"
+				>{event.name}</span
+			>
 			<span class="hidden truncate text-[11px] text-muted-foreground md:block">
 				{event.room ?? ''}
 			</span>

@@ -124,7 +124,21 @@ test.describe.serial('an Event on a laptop', () => {
 
 	test('its note is written on a phone too', async ({ page }) => {
 		await page.setViewportSize({ width: 390, height: 844 });
-		await login(page, '/events');
+		// On the Agenda a date with no note offers one under the Event's name, never on top of it.
+		await login(page, '/');
+		const row = page
+			.locator('li')
+			.filter({ hasText: 'Maths clinic' })
+			.filter({ hasText: /Add (plan|log)/ })
+			.first();
+		const name = await row.getByText('Maths clinic', { exact: true }).boundingBox();
+		const offer = await row
+			.getByText(/Add (plan|log)/)
+			.filter({ visible: true })
+			.boundingBox();
+		expect(offer!.y).toBeGreaterThanOrEqual(name!.y + name!.height);
+
+		await page.goto('/events');
 		await page.getByRole('link', { name: /Maths clinic/ }).click();
 		await expect(page.getByRole('tab')).toHaveCount(0);
 		const box = page.getByPlaceholder(/(Plan|Log) this date/);

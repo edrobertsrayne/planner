@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { addDays, isRealDate, mondayOf, setClock, today } from './date';
+import { addDays, dayOf, isRealDate, mondayOf, setClock, today } from './date';
 
 describe('today', () => {
 	afterEach(() => {
@@ -19,6 +19,14 @@ describe('today', () => {
 		vi.setSystemTime(new Date('2026-12-01T23:30:00Z'));
 
 		expect(today()).toBe('2026-12-01');
+	});
+});
+
+describe('dayOf', () => {
+	test('names the London day an instant falls on', () => {
+		// 23:30 UTC on 1 July is 00:30 on 2 July in London (BST).
+		expect(dayOf(Date.UTC(2026, 6, 1, 23, 30))).toBe('2026-07-02');
+		expect(dayOf(Date.UTC(2026, 11, 1, 23, 30))).toBe('2026-12-01');
 	});
 });
 

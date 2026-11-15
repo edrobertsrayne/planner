@@ -55,7 +55,12 @@ export function setClock(iso: string) {
 // date and never before it. The Europe/London calendar day, because UTC would date a late-evening
 // BST write to yesterday; en-CA happens to format a date as YYYY-MM-DD.
 export function today(): string {
-	return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(now());
+	return dayOf(now());
+}
+
+// The Europe/London calendar day an instant falls on, for a stored timestamp shown as a date.
+export function dayOf(instant: Date | number): string {
+	return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(instant);
 }
 
 function format(iso: string, options: Intl.DateTimeFormatOptions): string {
