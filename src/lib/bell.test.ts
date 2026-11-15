@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { dayRows, periodTimes, rowIndexOf, type BellSchedule, type BellTime } from './bell';
+import { dayRows, rowIndexOf, type BellSchedule, type BellTime } from './bell';
 
 const t = (starts: string, ends: string): BellTime => ({ starts, ends });
 
@@ -78,19 +78,5 @@ describe('dayRows', () => {
 		expect(rowIndexOf(rows, 8, 'upper')).toBe(rows.indexOf(shared));
 		expect(rows[rowIndexOf(rows, 9, 'upper')].label).toBe('Lunch (Upper)');
 		expect(rows[rowIndexOf(rows, 4, null)].label).toBe('P4');
-	});
-});
-
-describe('periodTimes', () => {
-	const bell = { schedules: [lower, upper], classSchedules: { '12X': 'upper', '9A': 'lower' } };
-
-	test('a Class shows its own Bell Schedule’s times, across every Period it spans', () => {
-		expect(periodTimes(bell, { from: 4, classId: '12X' })).toEqual(t('12:10', '13:10'));
-		expect(periodTimes(bell, { from: 3, to: 4, classId: '9A' })).toEqual(t('11:10', '13:40'));
-	});
-
-	test('anything not a Class shows the default’s, and nothing shows with no Bell Schedule', () => {
-		expect(periodTimes(bell, { from: 4 })).toEqual(t('12:40', '13:40'));
-		expect(periodTimes({ schedules: [], classSchedules: {} }, { from: 4 })).toBeNull();
 	});
 });

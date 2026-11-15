@@ -93,17 +93,4 @@ export function rowIndexOf(
 	);
 }
 
-// The clock times of Periods `from` to `to` for one Class, or for the default Bell Schedule when
-// no Class holds them: from the first one's start to the last one's end. Null when no Bell
-// Schedule is set up.
-export function periodTimes(
-	bell: Bell,
-	{ from, to = from, classId }: { from: number; to?: number; classId?: string | null }
-): BellTime | null {
-	const id = classId ? bell.classSchedules[classId] : undefined;
-	const schedule = bell.schedules.find((s) => s.id === id) ?? defaultSchedule(bell.schedules);
-	if (!schedule) return null;
-	return { starts: schedule.times[from].starts, ends: schedule.times[to].ends };
-}
-
 export const timesLabel = (t: BellTime) => `${t.starts}–${t.ends}`;
