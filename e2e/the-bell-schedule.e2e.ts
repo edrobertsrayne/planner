@@ -31,7 +31,7 @@ test('a Session shows its times, and Break and both Lunches sit among the Period
 	await expect(rows.nth(3)).toContainText('Lunch (Upper) 13:10–13:40');
 
 	// The times sit inside the Period tile, not spilling into the Class chip beside it.
-	const times = rows.nth(1).getByText('11:10–12:10');
+	const times = rows.nth(1).getByText('11:15–12:10');
 	await expect(times).toBeVisible();
 	expect(await times.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
 });
