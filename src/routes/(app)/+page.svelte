@@ -12,8 +12,7 @@
 		periodTimes,
 		rowIndexOf,
 		timesLabel,
-		type BellTime,
-		type DayRow
+		type BellTime
 	} from '$lib/bell';
 	import { classTone } from '$lib/class-tone';
 	import { formatWeekday } from '$lib/date';
@@ -127,9 +126,7 @@
 	const lineKey = (line: (typeof days)[number]['rows'][number]) =>
 		line.kind === 'row'
 			? `${line.row.classId}${line.row.periodFrom}`
-			: line.kind === 'event'
-				? `${line.event.eventId}${line.event.position}${line.event.scheduleId ?? ''}`
-				: `bell${line.row.position}${line.row.scheduleIds.join()}`;
+			: `${line.event.eventId}${line.event.position}${line.event.scheduleId ?? ''}`;
 
 	type AgendaEvent = ReturnType<typeof joinAdjacentPeriods<(typeof data.events)[number]>>[number];
 
@@ -434,25 +431,11 @@
 		</li>
 	{/snippet}
 
-	<!-- A Break or Lunch no Event holds: the day keeps the row, quietly, so its gaps and duties are
-	     visible (ADR-0033). A shared Break reads "Break 10:50–11:10"; a split's lunches name their
-	     Bell Schedule. -->
-	{#snippet bellRow(row: DayRow)}
-		<li class="relative flex items-center gap-3 bg-muted/40 pr-2">
-			<span class="my-2 ml-4 min-w-0 flex-1 py-2 text-xs text-muted-foreground">
-				<span class="font-semibold">{row.label}</span>
-				{#if row.times}<span class="ml-2 tabular-nums">{timesLabel(row.times)}</span>{/if}
-			</span>
-		</li>
-	{/snippet}
-
 	{#snippet agendaLine(line: (typeof days)[number]['rows'][number], past: boolean)}
 		{#if line.kind === 'row'}
 			{@render agendaRow(line.row, past)}
-		{:else if line.kind === 'event'}
-			{@render eventRow(line.event, past)}
 		{:else}
-			{@render bellRow(line.row)}
+			{@render eventRow(line.event, past)}
 		{/if}
 	{/snippet}
 
