@@ -11,6 +11,18 @@ afterEach(() => {
 	if (dir) rmSync(dir, { recursive: true, force: true });
 });
 
+// What SQLite said when it refused a write. Drizzle wraps the driver's error, so the reason is
+// on the cause.
+function refusalOf(write: () => unknown): string {
+	try {
+		write();
+	} catch (thrown) {
+		const error = thrown as Error & { cause?: Error };
+		return error.cause?.message ?? error.message;
+	}
+	return '';
+}
+
 test('booting against a fresh empty file produces the complete schema', () => {
 	dir = mkdtempSync(join(tmpdir(), 'planner-db-'));
 	const { client, db } = openDatabase(join(dir, 'fresh.db'));
@@ -56,16 +68,46 @@ test('a foreign key violation is rejected', () => {
 	const { client, db } = openDatabase(join(dir, 'fk.db'));
 	runMigrations(client, 'drizzle');
 
-	let error: unknown;
-	try {
-		db.insert(schema.topic).values({ name: 'Forces', courseId: 'does-not-exist' }).run();
-	} catch (thrown) {
-		error = thrown;
-	}
+	expect(
+		refusalOf(() =>
+			db.insert(schema.topic).values({ name: 'Forces', courseId: 'does-not-exist' }).run()
+		)
+	).toMatch(/FOREIGN KEY constraint failed/i);
+});
 
-	expect(error).toBeInstanceOf(Error);
-	expect((error as Error & { cause?: Error }).cause?.message ?? (error as Error).message).toMatch(
-		/FOREIGN KEY constraint failed/i
+test('a date is a Blocked Day once at most', () => {
+	dir = mkdtempSync(join(tmpdir(), 'planner-db-'));
+	const { client, db } = openDatabase(join(dir, 'blocked-day.db'));
+	runMigrations(client, 'drizzle');
+
+	db.insert(schema.blockedDay).values({ date: '2026-09-07' }).run();
+
+	expect(
+		refusalOf(() => db.insert(schema.blockedDay).values({ date: '2026-09-07' }).run())
+	).toMatch(/UNIQUE constraint failed/i);
+});
+
+test('a Slot is blocked once at most on one date', () => {
+	dir = mkdtempSync(join(tmpdir(), 'planner-db-'));
+	const { client, db } = openDatabase(join(dir, 'blocked-slot.db'));
+	runMigrations(client, 'drizzle');
+
+	const [course] = db.insert(schema.course).values({ name: 'Physics' }).returning().all();
+	const [cls] = db
+		.insert(schema.classes)
+		.values({ label: '10A', courseId: course.id })
+		.returning()
+		.all();
+	const [slot] = db
+		.insert(schema.slot)
+		.values({ classId: cls.id, week: 'A', day: 1, period: 1 })
+		.returning()
+		.all();
+	const block = { classId: cls.id, date: '2026-09-07', slotId: slot.id, note: 'Trip' };
+	db.insert(schema.blockedSlot).values(block).run();
+
+	expect(refusalOf(() => db.insert(schema.blockedSlot).values(block).run())).toMatch(
+		/UNIQUE constraint failed/i
 	);
 });
 

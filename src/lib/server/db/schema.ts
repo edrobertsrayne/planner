@@ -295,12 +295,16 @@ export const term = sqliteTable('term', {
 	closes: text('closes').notNull()
 });
 
-export const blockedDay = sqliteTable('blocked_day', {
-	id: id(),
-	date: text('date').notNull(),
-	note: text('note'),
-	absent: integer('absent', { mode: 'boolean' }).notNull().default(false)
-});
+export const blockedDay = sqliteTable(
+	'blocked_day',
+	{
+		id: id(),
+		date: text('date').notNull(),
+		note: text('note'),
+		absent: integer('absent', { mode: 'boolean' }).notNull().default(false)
+	},
+	(table) => [uniqueIndex('blocked_day_date').on(table.date)]
+);
 
 export const apiKey = sqliteTable('api_key', {
 	id: id(),
@@ -311,18 +315,22 @@ export const apiKey = sqliteTable('api_key', {
 	lastUsedAt: integer('last_used_at')
 });
 
-export const blockedSlot = sqliteTable('blocked_slot', {
-	id: id(),
-	classId: text('class_id')
-		.notNull()
-		.references(() => classes.id),
-	date: text('date').notNull(),
-	slotId: text('slot_id')
-		.notNull()
-		.references(() => slot.id),
-	note: text('note').notNull(),
-	absent: integer('absent', { mode: 'boolean' }).notNull().default(false)
-});
+export const blockedSlot = sqliteTable(
+	'blocked_slot',
+	{
+		id: id(),
+		classId: text('class_id')
+			.notNull()
+			.references(() => classes.id),
+		date: text('date').notNull(),
+		slotId: text('slot_id')
+			.notNull()
+			.references(() => slot.id),
+		note: text('note').notNull(),
+		absent: integer('absent', { mode: 'boolean' }).notNull().default(false)
+	},
+	(table) => [uniqueIndex('blocked_slot_occasion').on(table.classId, table.date, table.slotId)]
+);
 
 // The Cover for one Slot of an Absence (ADR-0030): a Lesson the teacher recorded as the work set.
 // Read only by the views, never by the engine, and dropped with the Absence it belongs to.
