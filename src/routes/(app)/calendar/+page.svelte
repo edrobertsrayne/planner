@@ -303,7 +303,7 @@
 							{@const absentLines = absentSlotLines(data.week.cells, date)}
 							<th class="rounded-lg pb-1 text-left align-bottom" data-day-kind={dayKind}>
 								<div
-									class="flex items-center gap-1.5 rounded-[10px] max-md:justify-center {date ===
+									class="flex items-center gap-1.5 rounded-[10px] px-2.5 py-1.5 max-md:justify-center max-md:px-1 {date ===
 									data.today
 										? 'bg-primary-container text-primary-container-foreground'
 										: ''}"
