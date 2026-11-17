@@ -17,7 +17,6 @@ import {
 	discardBlankCover,
 	editLesson,
 	endSlot,
-	planningStream,
 	setCover,
 	unblockDay,
 	unblockSlot
@@ -264,13 +263,6 @@ describe('Cover', () => {
 			'conflict',
 			'A Cover names this Lesson, so it cannot be filed into a Topic. Remove the Cover first.'
 		);
-	});
-
-	test('is kept out of Planning', () => {
-		const { db, classA, slotA } = absentMonday();
-		setCover(db, { classId: classA.id, date: MON, slotId: slotA, title: 'Cover: 9B/Sc1' });
-
-		expect(planningStream(db, TODAY).map((e) => e.title)).not.toContain('Cover: 9B/Sc1');
 	});
 });
 

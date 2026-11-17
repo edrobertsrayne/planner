@@ -1,4 +1,4 @@
-// What each page of the app is called, by its path: the six screens and Settings by name, and a
+// What each page of the app is called, by its path: the five screens and Settings by name, and a
 // page under one in the singular. The sidebar, the phone top bar and a Back button all name a page
 // from here.
 const SCREENS: Record<string, string> = {
@@ -7,7 +7,6 @@ const SCREENS: Record<string, string> = {
 	classes: 'Classes',
 	events: 'Events',
 	courses: 'Courses',
-	planning: 'Planning',
 	settings: 'Settings'
 };
 

@@ -129,7 +129,6 @@ export {
 	agendaLookBackBlockedDays,
 	agendaLookBackEvents,
 	calendarWeek,
-	planningStream,
 	type AbsentLine,
 	type AgendaBlockedDay,
 	type AgendaEntry,
@@ -137,9 +136,7 @@ export {
 	type CalendarCell,
 	type CalendarWeek,
 	type CoverRef,
-	type DayKind,
-	type PlanningEntry,
-	type PlanningOccurrence
+	type DayKind
 } from './views';
 
 export {

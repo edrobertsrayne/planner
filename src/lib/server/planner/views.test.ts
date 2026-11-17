@@ -4,7 +4,6 @@ import { makeLessons, makeTopic, setUp } from './fixtures';
 import {
 	activeSlots,
 	addLesson,
-	addSlot,
 	setSlotRoom,
 	agenda,
 	agendaLookBack,
@@ -19,7 +18,6 @@ import {
 	deleteLesson,
 	editLesson,
 	listClasses,
-	planningStream,
 	recordContinuation,
 	sessionDetail,
 	setReadiness,
@@ -730,175 +728,6 @@ describe('the Calendar', () => {
 	});
 });
 
-describe('the Planning stream', () => {
-	test('ordered by soonest next Scheduled occurrence', () => {
-		const { db, course, classA } = setUp();
-		const topic = makeTopic(db, course.id, 'Forces');
-		const [l1, l2, l3] = makeLessons(db, topic.id, 3);
-		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
-
-		const stream = planningStream(db, '2026-09-03');
-		expect(stream.map((s) => s.id)).toEqual([l1.id, l2.id, l3.id]);
-		expect(stream[0]).toMatchObject({
-			id: l1.id,
-			title: 'Lesson 1',
-			topicName: 'Forces',
-			courseName: 'Year 9 Science',
-			status: 'draft',
-			occurrence: {
-				classId: classA.id,
-				label: '9B/Sc1',
-				tone: classA.tone,
-				date: '2026-09-03',
-				period: 5
-			}
-		});
-	});
-
-	test("carries each Lesson's Tags, empty when untagged", () => {
-		const { db, course, classA } = setUp();
-		const topic = makeTopic(db, course.id, 'Forces');
-		const [l1, l2] = makeLessons(db, topic.id, 2);
-		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
-		attachTag(db, { lessonId: l1.id, name: 'Practical' });
-
-		const stream = planningStream(db, '2026-09-03');
-		expect(stream.find((s) => s.id === l1.id)?.tags).toEqual(['Practical']);
-		expect(stream.find((s) => s.id === l2.id)?.tags).toEqual([]);
-	});
-
-	test('a Lesson taught by two Classes takes the sooner of the two', () => {
-		const { db, course, classA, classB } = setUp();
-		const topic = makeTopic(db, course.id, 'Forces');
-		const [l1] = makeLessons(db, topic.id, 1);
-		// classA's first slot is 2026-09-03 P5 (Thu)
-		// classB's first slot is 2026-09-07 P1 (Mon)
-		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
-		assignTopic(db, { classId: classB.id, topicId: topic.id, today: '2026-09-03' });
-
-		const stream = planningStream(db, '2026-09-03');
-		const entry = stream.find((s) => s.id === l1.id);
-		expect(entry?.occurrence).toMatchObject({
-			classId: classA.id,
-			label: '9B/Sc1',
-			date: '2026-09-03',
-			period: 5
-		});
-	});
-
-	test('a Lesson with no scheduled occurrence sits at the bottom', () => {
-		const { db, course, classA } = setUp();
-		const topic1 = makeTopic(db, course.id, 'Forces');
-		const topic2 = makeTopic(db, course.id, 'Electricity');
-		const [l1, l2] = makeLessons(db, topic1.id, 2);
-		const [u1, u2] = makeLessons(db, topic2.id, 2);
-
-		// Only topic1 is assigned to classA
-		assignTopic(db, { classId: classA.id, topicId: topic1.id, today: '2026-09-03' });
-
-		const stream = planningStream(db, '2026-09-03');
-		expect(stream.map((s) => s.id)).toEqual([l1.id, l2.id, u1.id, u2.id]);
-		expect(stream[2].occurrence).toBeNull();
-		expect(stream[3].occurrence).toBeNull();
-	});
-
-	test('a Blocked Day moves a row up the stream because the schedule re-derived beneath it', () => {
-		const { db, course, classA, classB } = setUp();
-		// classB teaches on Friday P2 in Week A
-		addSlot(db, { classId: classB.id, week: 'A', day: 5, period: 2 });
-
-		const topicA = makeTopic(db, course.id, 'Forces');
-		const topicB = makeTopic(db, course.id, 'Chemistry');
-		const [la] = makeLessons(db, topicA.id, 1);
-		const [lb] = makeLessons(db, topicB.id, 1);
-
-		// classA (9B/Sc1) teaches la on Thu 2026-09-03 P5
-		assignTopic(db, { classId: classA.id, topicId: topicA.id, today: '2026-09-03' });
-		// classB (10C/Ph2) teaches lb on Fri 2026-09-04 P2
-		assignTopic(db, { classId: classB.id, topicId: topicB.id, today: '2026-09-03' });
-
-		let stream = planningStream(db, '2026-09-03');
-		expect(stream[0].id).toBe(la.id); // la is on 2026-09-03
-		expect(stream[0].occurrence).toMatchObject({ date: '2026-09-03', period: 5 });
-		expect(stream[1].id).toBe(lb.id); // lb is on 2026-09-04
-		expect(stream[1].occurrence).toMatchObject({ date: '2026-09-04', period: 2 });
-
-		// Block 2026-09-03: classA's first available slot shifts to Tue 2026-09-08 P2.
-		// classB still teaches lb on Fri 2026-09-04 P2, so lb moves up to the top of the stream.
-		blockDay(db, { date: '2026-09-03', today: '2026-09-03' });
-
-		stream = planningStream(db, '2026-09-03');
-		expect(stream[0].id).toBe(lb.id);
-		expect(stream[0].occurrence).toMatchObject({ date: '2026-09-04', period: 2 });
-		expect(stream[1].id).toBe(la.id);
-		expect(stream[1].occurrence).toMatchObject({ date: '2026-09-08', period: 2 });
-	});
-
-	test('a placed Lesson (no Topic) carries its occurrence, with no Topic and no Course name', () => {
-		const { db, classA } = setUp();
-		const [lesson] = db
-			.insert(schema.lesson)
-			.values({ title: 'Revision session', position: 0, length: 1 })
-			.returning()
-			.all();
-
-		const before = classSchedule(db, { classId: classA.id, today: '2026-09-03' });
-		const [anchor] = before.openSlots;
-		db.insert(schema.placement)
-			.values({ classId: classA.id, date: anchor.date, slotId: anchor.slotId, lessonId: lesson.id })
-			.run();
-
-		const stream = planningStream(db, '2026-09-03');
-		const entry = stream.find((e) => e.id === lesson.id);
-		expect(entry).not.toBeUndefined();
-		expect(entry!.topicName).toBeNull();
-		expect(entry!.courseName).toBeNull();
-		expect(entry!.occurrence).toMatchObject({
-			classId: classA.id,
-			date: anchor.date,
-			period: anchor.period
-		});
-	});
-
-	test("narrowed to one Class, a shared Lesson takes that Class's own occurrence", () => {
-		const { db, course, classA, classB } = setUp();
-		const topic = makeTopic(db, course.id, 'Forces');
-		const [l1] = makeLessons(db, topic.id, 1);
-		// classA teaches l1 first, on Thu 2026-09-03 P5; classB on Wed 2026-09-09 P4.
-		assignTopic(db, { classId: classA.id, topicId: topic.id, today: '2026-09-03' });
-		assignTopic(db, { classId: classB.id, topicId: topic.id, today: '2026-09-03' });
-
-		const stream = planningStream(db, '2026-09-03', classB.id);
-		expect(stream.map((s) => s.id)).toEqual([l1.id]);
-		expect(stream[0].occurrence).toEqual({
-			classId: classB.id,
-			label: '10C/Ph2',
-			tone: classB.tone,
-			date: '2026-09-09',
-			period: 4,
-			room: null
-		});
-	});
-
-	test("narrowed to one Class, only that Class's upcoming Lessons are listed, in its own order", () => {
-		const { db, course, classA, classB } = setUp();
-		const shared = makeTopic(db, course.id, 'Forces');
-		const onlyA = makeTopic(db, course.id, 'Chemistry');
-		makeTopic(db, course.id, 'Waves'); // assigned to nobody
-		const [s1, s2] = makeLessons(db, shared.id, 2);
-		const [a1] = makeLessons(db, onlyA.id, 1);
-		// classB's slots: Wed 2026-09-09 P4, then Mon 2026-09-14 P1.
-		assignTopic(db, { classId: classA.id, topicId: onlyA.id, today: '2026-09-03' });
-		assignTopic(db, { classId: classA.id, topicId: shared.id, today: '2026-09-03' });
-		assignTopic(db, { classId: classB.id, topicId: shared.id, today: '2026-09-03' });
-
-		const stream = planningStream(db, '2026-09-03', classB.id);
-		expect(stream.map((s) => s.id)).toEqual([s1.id, s2.id]);
-		expect(stream.map((s) => s.occurrence?.date)).toEqual(['2026-09-09', '2026-09-14']);
-		expect(stream.some((s) => s.id === a1.id)).toBe(false);
-	});
-});
-
 describe('Readiness', () => {
 	test('a mark is made and cleared, and operations are idempotent', () => {
 		const { db, course, classA } = setUp();
@@ -1170,15 +999,7 @@ describe('a Standalone Lesson', () => {
 			expect(cell.lesson.topicName).toBeNull();
 		}
 
-		// 4) Planning tab lists l1 with no topic name and no course name
-		const stream = planningStream(db, '2026-09-05');
-		const l1Entry = stream.find((e) => e.id === l1.id);
-		expect(l1Entry).not.toBeUndefined();
-		expect(l1Entry!.topicName).toBeNull();
-		expect(l1Entry!.courseName).toBeNull();
-		expect(l1Entry!.occurrence).toBeNull();
-
-		// 5) Readiness rows survive clearing the Topic
+		// 4) Readiness rows survive clearing the Topic
 		const marks = db
 			.select()
 			.from(schema.readiness)
@@ -1186,7 +1007,7 @@ describe('a Standalone Lesson', () => {
 			.all();
 		expect(marks).toHaveLength(1);
 
-		// 6) l1 is never Scheduled (Standalone Lessons reach no Class's Lesson stream)
+		// 5) l1 is never Scheduled (Standalone Lessons reach no Class's Lesson stream)
 		const result = classSchedule(db, { classId: classA.id, today: '2026-09-05' });
 		const l1Scheduled = result.scheduled.filter((s) => s.lessonId === l1.id);
 		expect(l1Scheduled).toHaveLength(0);
@@ -1214,13 +1035,11 @@ describe('the Room', () => {
 			(c) => c.date === '2026-09-03' && c.periodFrom === 5 && c.classId === classId
 		);
 
-	test('a double across two Rooms reads both, on the Agenda and the Calendar; the Planning stream gives the first Period', () => {
-		const { db, classA, lesson } = withRooms({ p5: 'S12', p6: 'Lab 3' });
+	test('a double across two Rooms reads both, on the Agenda and the Calendar', () => {
+		const { db, classA } = withRooms({ p5: 'S12', p6: 'Lab 3' });
 
 		expect(agenda(db, { today: '2026-09-03', horizonDays: 14 }).rows[0].room).toBe('S12 / Lab 3');
 		expect(cellAt(db, '2026-09-03', classA.id)?.room).toBe('S12 / Lab 3');
-		const entry = planningStream(db, '2026-09-03').find((e) => e.id === lesson.id);
-		expect(entry?.occurrence?.room).toBe('S12');
 	});
 
 	test('the same Room on both Periods reads once', () => {
