@@ -241,7 +241,7 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 	});
 
 	test('typing a run of Lessons keeps the New Lesson box focused', async () => {
-		// Nine more Lessons in Forces; the tests after this one read them.
+		// Nine more Lessons in Forces.
 		await page.goto('/courses');
 		await page.getByRole('link', { name: 'KS3 Science' }).click();
 		await page.getByRole('link', { name: 'Forces' }).click();

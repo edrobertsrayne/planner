@@ -169,7 +169,7 @@
 		{/snippet}
 	</PageHeader>
 
-	<!-- The Tag chips under the heading, (issue #340): the value lives in the query string, so a Back from a Session keeps the filter. -->
+	<!-- The Tag chips under the heading (issue #340): the value lives in the query string, so a Back from a Session keeps the filter. -->
 	<FilterChips
 		param="tag"
 		value={data.tag}
