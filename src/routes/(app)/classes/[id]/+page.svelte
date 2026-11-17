@@ -9,7 +9,7 @@
 	import { useBack } from '$lib/client/back.svelte';
 	import BackButton from '$lib/components/back-button.svelte';
 	import { createDeleteAsk } from '$lib/client/confirm-delete.svelte';
-	import { failureReason, replaceQuery } from '$lib/client/enhance';
+	import { failureReason, replaceQuery, submitForm } from '$lib/client/enhance';
 	import { formatDate } from '$lib/date';
 	import { withParam } from '$lib/query';
 	import AttachmentsSection from '$lib/components/attachments-section.svelte';
@@ -20,6 +20,7 @@
 	import RenameableRow from '$lib/components/renameable-row.svelte';
 	import RewindReport from '$lib/components/rewind-report.svelte';
 	import { Badge, Button, Select } from '$lib/ui';
+	import * as ToggleGroup from '$lib/ui/toggle-group';
 	import * as Tabs from '$lib/ui/tabs';
 	import ClassNote from './ClassNote.svelte';
 	import { toast } from '$lib/ui/toast';
@@ -87,9 +88,9 @@
 
 	const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
-	// The Bell Schedule the Class follows (ADR-0033), and the others the teacher can move it to.
+	// The Bell Schedule the Class follows (ADR-0033), chosen on the Timetable whose times it sets.
 	// With none set up the page shows no control, exactly as before.
-	const scheduleOptions = $derived(data.schedules.map((s) => ({ value: s.id, label: s.name })));
+	let scheduleForm = $state<HTMLFormElement>();
 	const schedule = $derived(data.schedules.find((s) => s.id === data.class.scheduleId) ?? null);
 </script>
 
@@ -118,41 +119,6 @@
 				editable={md.current}
 			/>
 			<Badge variant="outline" class="mt-1">{data.class.courseName}</Badge>
-			{#if schedule}
-				{#if md.current}
-					<form
-						method="POST"
-						action="?/setClassSchedule"
-						use:enhance={() =>
-							async ({ result }) => {
-								// The Bell Schedule changes under the select he just used, so the data refreshes; a form
-								// reset would take the select back to the value it was rendered with.
-								if (result.type === 'redirect' || result.type === 'error')
-									return applyAction(result);
-								if (result.type === 'failure')
-									toast.error(failureReason(result, 'Could not change the Bell Schedule.'));
-								await invalidateAll();
-							}}
-						class="mt-1 flex items-center gap-1.5"
-					>
-						<input type="hidden" name="id" value={data.class.id} />
-						<label for="class-schedule" class="text-xs font-medium text-muted-foreground">
-							Bell Schedule
-						</label>
-						<Select
-							id="class-schedule"
-							name="scheduleId"
-							value={schedule.id}
-							options={scheduleOptions}
-							class="ui-select-sm w-32"
-							onchange={(e) => e.currentTarget.form?.requestSubmit()}
-						/>
-					</form>
-				{:else}
-					<!-- A phone reads the Bell Schedule and writes nothing here, as it does for the label. -->
-					<Badge variant="outline" class="mt-1">Bell Schedule: {schedule.name}</Badge>
-				{/if}
-			{/if}
 		</div>
 		<!-- The rename pencil's partner, and shown on the same widths: a phone writes nothing here. -->
 		{#if md.current}
@@ -244,6 +210,39 @@
 				/>
 				{#if isPast}
 					<Badge variant="outline" class="text-muted-foreground">Read-only — past</Badge>
+				{/if}
+				{#if schedule}
+					<form
+						method="POST"
+						action="?/setClassSchedule"
+						bind:this={scheduleForm}
+						use:enhance={() =>
+							async ({ result }) => {
+								// The Bell Schedule changes under the toggle he just used, so the data refreshes;
+								// a form reset would take the toggle back to the value it was rendered with.
+								if (result.type === 'redirect' || result.type === 'error')
+									return applyAction(result);
+								if (result.type === 'failure')
+									toast.error(failureReason(result, 'Could not change the Bell Schedule.'));
+								await invalidateAll();
+							}}
+						class="ml-auto flex items-center gap-2"
+					>
+						<input type="hidden" name="id" value={data.class.id} />
+						<input type="hidden" name="scheduleId" value={schedule.id} />
+						<span id="class-schedule" class="text-xs font-medium text-muted-foreground">
+							Bell Schedule
+						</span>
+						<ToggleGroup.Root
+							aria-labelledby="class-schedule"
+							value={schedule.id}
+							onValueChange={(v) => submitForm(scheduleForm, { fields: { scheduleId: v } })}
+						>
+							{#each data.schedules as s (s.id)}
+								<ToggleGroup.Item value={s.id}>{s.name}</ToggleGroup.Item>
+							{/each}
+						</ToggleGroup.Root>
+					</form>
 				{/if}
 			</div>
 
