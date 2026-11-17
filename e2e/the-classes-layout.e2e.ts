@@ -338,7 +338,8 @@ test.describe('the Bell Schedule a Class follows', () => {
 		await page.getByRole('button', { name: 'Create Class' }).click();
 		await page.waitForURL(/\/classes\/[^/]+$/);
 		await expect(page.getByRole('heading', { level: 1, name: '11A/Ph1' })).toBeVisible();
-		await expect(page.getByLabel('Bell Schedule').locator('option:checked')).toHaveText('Upper');
+		await page.getByRole('tab', { name: /^Timetable/ }).click();
+		await expect(page.getByRole('radio', { name: 'Upper' })).toBeChecked();
 
 		// Take the Class back out: the rest of the file reads the standard Classes.
 		await page.getByRole('button', { name: 'Delete Class' }).click();
@@ -346,19 +347,22 @@ test.describe('the Bell Schedule a Class follows', () => {
 		await expect(page).toHaveURL(/\/classes$/);
 	});
 
-	test('changing a Class’s Bell Schedule survives a reload', async ({ page }) => {
+	test('changing a Class’s Bell Schedule on its Timetable survives a reload', async ({ page }) => {
 		await openClassPage(page);
-		const picker = page.getByLabel('Bell Schedule');
-		await expect(picker.locator('option:checked')).toHaveText('Lower');
+		// The Bell Schedule sets the Timetable's times, so it is chosen there, not under the label.
+		const picker = page.getByRole('radiogroup', { name: 'Bell Schedule' });
+		await expect(picker).toBeHidden();
+		await page.getByRole('tab', { name: /^Timetable/ }).click();
+		await expect(picker.getByRole('radio', { name: 'Lower' })).toBeChecked();
 
 		const saved = page.waitForResponse(
 			(response) =>
 				response.request().method() === 'POST' && response.url().includes('setClassSchedule')
 		);
-		await picker.selectOption({ label: 'Upper' });
+		await picker.getByRole('radio', { name: 'Upper' }).click();
 		await saved;
 
 		await page.reload();
-		await expect(page.getByLabel('Bell Schedule').locator('option:checked')).toHaveText('Upper');
+		await expect(picker.getByRole('radio', { name: 'Upper' })).toBeChecked();
 	});
 });

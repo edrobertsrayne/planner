@@ -7,11 +7,13 @@
 		value = $bindable(''),
 		onValueChange,
 		class: className,
+		'aria-labelledby': labelledBy,
 		children
 	}: {
 		value?: string;
 		onValueChange?: (value: string) => void;
 		class?: string;
+		'aria-labelledby'?: string;
 		children?: Snippet;
 	} = $props();
 
@@ -46,6 +48,11 @@
 </script>
 
 <!-- svelte-ignore a11y_interactive_supports_focus -->
-<div role="radiogroup" {onkeydown} class={cn('ui-segmented', className)}>
+<div
+	role="radiogroup"
+	aria-labelledby={labelledBy}
+	{onkeydown}
+	class={cn('ui-segmented', className)}
+>
 	{@render children?.()}
 </div>
