@@ -4,7 +4,6 @@ import {
 	expectHitArea44,
 	expectNoHorizontalScroll,
 	login,
-	openCourse,
 	resetTo,
 	runFixture
 } from './helpers.ts';
@@ -76,31 +75,6 @@ for (const [name, use] of [
 		});
 	});
 }
-
-test.describe('the Class chip row on a phone', () => {
-	// The chips must outnumber what a phone can show, so what a sideways swipe scrolls is the
-	// row itself — and never the page. `defaultBrowserType` stays out, so no new worker is forced.
-	const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices['Pixel 8'];
-	test.use({ viewport, userAgent, deviceScaleFactor, isMobile, hasTouch });
-
-	test('the chips scroll sideways and the page does not', async ({ page }) => {
-		await openCourse(page);
-		await page.waitForURL(/\/courses\/[^/]+$/);
-		const courseId = new URL(page.url()).pathname.split('/').pop()!;
-		for (let i = 1; i <= 6; i++) runFixture('create-class', `Filler ${i}`, courseId);
-		try {
-			await page.goto('/planning');
-			const chips = page.getByRole('group', { name: 'Filter by Class' });
-			await expect(chips.getByRole('button', { name: 'Filler 1' })).toBeVisible();
-			expect(await chips.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
-			await expectNoHorizontalScroll(page);
-		} finally {
-			// The Fillers exist to outnumber what a phone shows; they go whatever the assertions
-			// did, so no later test reads them as Classes the suite built.
-			for (let i = 1; i <= 6; i++) runFixture('delete-class', `Filler ${i}`);
-		}
-	});
-});
 
 test.describe('the Classes screen on a laptop', () => {
 	test.use({ viewport: { width: 1280, height: 720 } });

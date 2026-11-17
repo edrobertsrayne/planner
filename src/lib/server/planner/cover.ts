@@ -67,9 +67,9 @@ export function setCover(
 	});
 }
 
-// A Cover is a Standalone Lesson nothing else holds: a Topic Lesson belongs to Sequences and
-// Planning, and so does a Standalone Lesson a Class's Sequence or a Placement names. Planning leaves
-// out every Cover Lesson, so taking one of those would hide a scheduled Lesson (ADR-0030).
+// A Cover is a Standalone Lesson nothing else holds: a Topic Lesson belongs to Sequences, and so
+// does a Standalone Lesson a Class's Sequence or a Placement names; taking one of those would
+// pull a scheduled Lesson out of its Sequence (ADR-0030).
 function requireStandalone(db: Db, lesson: typeof schema.lesson.$inferSelect) {
 	if (lesson.topicId !== null) {
 		throw new Refused('invalid', 'Only a Standalone Lesson can be a Cover.');
@@ -110,8 +110,8 @@ export function clearCover(db: Db, { id }: { id: string }) {
 }
 
 // The Lessons a Cover may reuse: the Standalone ones that no Sequence or Placement holds. A Topic
-// Lesson stays out, and so does a held one, because a Cover must not leave Planning anything it
-// schedules.
+// Lesson stays out, and so does a held one, because a Cover must not take a Lesson a
+// Sequence or Placement schedules.
 export function coverChoices(db: Db) {
 	return db
 		.select({ id: schema.lesson.id, title: schema.lesson.title })

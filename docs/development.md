@@ -64,7 +64,7 @@ src/
     client/                  browser-only helpers (drag, save, confirm)
     components/              app components; components/ui is shadcn-svelte
   routes/
-    (app)/                   the six screens, Lessons, Settings
+    (app)/                   the five screens, Lessons, Settings
     api/                     the Planning API
     login/ setup/ session/ backup/ attachments/ logout/
 drizzle/                     migrations, one folder each with migration.sql and snapshot.json

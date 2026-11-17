@@ -5,7 +5,6 @@ import BookOpenIcon from '@lucide/svelte/icons/book-open';
 import CalendarIcon from '@lucide/svelte/icons/calendar';
 import CalendarClockIcon from '@lucide/svelte/icons/calendar-clock';
 import LayoutListIcon from '@lucide/svelte/icons/layout-list';
-import NotebookPenIcon from '@lucide/svelte/icons/notebook-pen';
 import UsersIcon from '@lucide/svelte/icons/users';
 
 export const SCREENS = [
@@ -13,15 +12,14 @@ export const SCREENS = [
 	{ href: resolve('/calendar'), icon: CalendarIcon },
 	{ href: resolve('/classes'), icon: UsersIcon },
 	{ href: resolve('/events'), icon: CalendarClockIcon },
-	{ href: resolve('/courses'), icon: BookOpenIcon },
-	{ href: resolve('/planning'), icon: NotebookPenIcon }
+	{ href: resolve('/courses'), icon: BookOpenIcon }
 ].map((screen) => ({ ...screen, label: screenName(screen.href) }));
 
 export function isActive(href: string): boolean {
 	return href === '/' ? page.url.pathname === '/' : page.url.pathname.startsWith(href);
 }
 
-/** Settings is not one of the six screens, so no screen is lit while it is open. */
+/** Settings is not one of the five screens, so no screen is lit while it is open. */
 export function settingsOpen(): boolean {
 	return isActive(resolve('/settings'));
 }

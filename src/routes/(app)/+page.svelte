@@ -152,7 +152,7 @@
 		</h1>
 		{#snippet actions()}
 			<!-- The horizon is tabs at the right of the heading (issue #341), the same tab style as
-			     Draft/Planned on Planning. Below `md` the heading is hidden (issue #342), so the
+			     the Class page's. Below `md` the heading is hidden (issue #342), so the
 			     tabs sit where the heading would. -->
 			<Tabs.Root
 				value={String(data.horizon)}
@@ -169,8 +169,7 @@
 		{/snippet}
 	</PageHeader>
 
-	<!-- The Tag chips under the heading, the same control as the Class chips on Planning (issue
-	     #340): the value lives in the query string, so a Back from a Session keeps the filter. -->
+	<!-- The Tag chips under the heading (issue #340): the value lives in the query string, so a Back from a Session keeps the filter. -->
 	<FilterChips
 		param="tag"
 		value={data.tag}

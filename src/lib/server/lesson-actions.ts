@@ -32,8 +32,7 @@ const editAction = (change: (data: FormData) => LessonChange) =>
 		return edited(found(result, 'Lesson'));
 	});
 
-// The lesson-editing actions the Lesson editor posts. Planning shares only setLessonStatus, the
-// one status toggle its rows carry.
+// The lesson-editing actions the Lesson editor posts.
 export const lessonActions = {
 	...ownedActions,
 

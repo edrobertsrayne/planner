@@ -34,11 +34,11 @@
 	let { data, form }: PageProps = $props();
 	const lesson = $derived(data.lesson);
 
-	// A Standalone Lesson belongs to no Course, so Back with nowhere to go goes to Planning.
+	// A Standalone Lesson belongs to no Course, so Back with nowhere to go goes to the Agenda.
 	const back = useBack(() =>
 		data.lesson.course && data.lesson.topic
 			? courseHref(data.lesson.course.id, data.lesson.topic.id)
-			: resolve('/planning')
+			: resolve('/')
 	);
 
 	// Back from a new Cover's Lesson takes the Lesson and its Cover back when nothing was written

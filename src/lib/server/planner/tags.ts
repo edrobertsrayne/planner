@@ -23,7 +23,7 @@ export function attachedTags(db: Db, lessonId: string): { id: string; name: stri
 		.all();
 }
 
-// Batch form of tagsOf, for a row of Lessons rendered together — the Agenda, Planning and the
+// Batch form of tagsOf, for a row of Lessons rendered together — the Agenda and the
 // Courses list each resolve every Lesson's Tags in one query rather than one per row, mirroring
 // derive.ts's lessonNames. Lives here, not in derive.ts, because Tag is authored from this module;
 // views.ts and sessions.ts import it from here, through no re-export.

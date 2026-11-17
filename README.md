@@ -20,7 +20,6 @@ Timetable ([ADR-0001](docs/adr/0001-no-pupil-identifiable-data.md)).
 | Classes  | Each Class's Timetable, Bell Schedule, Rooms and Sequence of Lessons                                                     |
 | Events   | Recurring commitments that are not Lessons (meetings, clubs, interventions, duties)                                      |
 | Courses  | Courses, Topics and the Lesson editor: Markdown plans, Links, Tags, Attachments                                          |
-| Planning | Which Lessons are drafted, planned and ready, across Classes                                                             |
 | Settings | Change password, API key, Backup                                                                                         |
 
 Also:

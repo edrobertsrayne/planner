@@ -292,7 +292,7 @@ the Lesson editor, and either new or an existing Lesson, so a standard cover tas
 Classes. Optional: an Absence with no Cover is not a fault and nothing nags about it. A Cover is not
 in the Class's Sequence and is not a Placement; it moves no Lesson, because the displaced Lesson has
 already shifted right. It belongs to the occasion — Class, date and Slot — and ends with the
-Absence, leaving the Lesson standing. It is kept out of Planning.
+Absence, leaving the Lesson standing.
 _Avoid_: Cover lesson, cover work, supply lesson
 
 **Available Slot**:
@@ -377,7 +377,7 @@ agree on what to call them.
 
 **App shell**:
 The frame around every screen except Login and Setup. On a laptop it is a sidebar on the left: the
-wordmark, the six screens (Agenda, Calendar, Classes, Events, Courses, Planning) with an icon and a
+wordmark, the five screens (Agenda, Calendar, Classes, Events, Courses) with an icon and a
 name each, and at its foot Settings, the theme toggle, Log out and the build line. On a tablet the
 sidebar shows icons only. On a phone it is a top bar with a menu button and the current screen's
 name, or "Lesson" or "Session" on those two pages; the menu button opens the same list as a drawer.
@@ -421,14 +421,14 @@ an Agenda that omitted it would report a free one — it carries no Ready tick, 
 from a tablet up; Readiness is written here and on the Session page. A row can be ticked
 only while it is on screen, so the ticks reach only as far as the chosen horizon, and no past day
 can be ticked. A Continuation's two rows share one Readiness record, so ticking either moves both.
-The Agenda can be narrowed to one Tag with a row of Tag chips under the heading, the same control as
-the Class chips on Planning: while a Tag filter is on, it shows only the Lessons with that Tag and
-hides Open Slots, in the look-back and in the days ahead. The Agenda is one column at every size. On
-a phone it is the main screen, so an Open Slot's Plan button and the day's Block control show
-without a hover, and that control names itself. A phone reads the plan rather than editing it, so it
-carries no Ready tick, no "Ready to teach?" heading and no Block or Unblock on a row, only a day's
-Block day and Unblock day, for the day the teacher is off sick. On a phone the page heading is out
-of sight, because the top bar names the screen; a screen reader still reads it.
+The Agenda can be narrowed to one Tag with a row of Tag chips under the heading: while a Tag filter
+is on, it shows only the Lessons with that Tag and hides Open Slots, in the look-back and in the
+days ahead. The Agenda is one column at every size. On a phone it is the main screen, so an Open
+Slot's Plan button and the day's Block control show without a hover, and that control names itself.
+A phone reads the plan rather than editing it, so it carries no Ready tick, no "Ready to teach?"
+heading and no Block or Unblock on a row, only a day's Block day and Unblock day, for the day the
+teacher is off sick. On a phone the page heading is out of sight, because the top bar names the
+screen; a screen reader still reads it.
 
 **Calendar**:
 One Teaching Week as a grid of Periods against days, showing which Class is taught when and what
@@ -535,35 +535,20 @@ has no control here. The only screen that writes Courses and Topics. On a phone 
 Unlike the other three screens it is a writing surface, and it is where the planner is used on a
 Sunday rather than during a teaching week.
 
-**Planning**:
-The stream of upcoming Lessons by planning status — which are still Draft, which are Planned —
-ordered by soonest next Scheduled occurrence, Lessons with no scheduled occurrence last. Keyed by
-Lesson rather than by Class, so it shows the shared plan and never shows Readiness: what the
-teacher has not yet written is one question, and whether one Class is set to be taught is another.
-The screen can be narrowed to one Class with a row of Class chips; it then lists only that Class's
-upcoming Lessons, ordered by that Class's Sessions. It opens on Draft, the Lessons still to write,
-and the tabs show All or Planned instead. Both filters live in the address, so a reload or a Back
-into the screen keeps them. It is a
-table, one row per Lesson, holding the whole stream with no page size; the window scrolls it. Only
-the Lesson's title opens the Lesson editor. On a phone each row is a card, and Draft and Planned
-are shown but not changed.
-Note that this names a _screen_; "planning" unqualified means the activity, and the Planning half
-of the Language above names its parts.
-
 **Lesson editor**:
 The single surface for one Lesson — its title, its markdown body, its links, its attachments, its
 Tags and its Length, its Topic, and the Detach and delete controls. Every Lesson is written here, a
 Standalone Lesson included, placed or not: to the teacher a Standalone Lesson differs from any
 other only in having no Topic, so its page lacks Detach, and its Topic control gives it one. A
 page of its own, addressed by the Lesson alone, so the same page opens from the Courses view, the
-Class page, the Planning view and the Session page, and moving the Lesson to another Topic, or
+Class page and the Session page, and moving the Lesson to another Topic, or
 Detaching it, keeps the teacher on it. Opened from the Class page, it steps through that Class's
 whole Sequence, taught, untaught and past the end, Standalone Lessons included, and says so:
 "Lesson 14 of 52 in 9B/Sc1". Opened from any other view, it steps through the Lesson's Topic, in
 the Topic's order; stepping stops at either end of the Topic and never crosses into another,
 because a Course holds its Topics in no order, and a Standalone Lesson does not step. Leaving it —
 by Back or by deleting the Lesson — returns the teacher to the view they came from, or, when there
-is none, to the Lesson's Topic on its Course page, or to the Planning view for a Standalone Lesson.
+is none, to the Lesson's Topic on its Course page, or to the Agenda for a Standalone Lesson.
 Creating a Lesson does not open it. It is written on a laptop or desktop; on a phone it is a read
 view. Distinct from the Session page: the Lesson editor writes the plan shared by every Class, the
 Session page writes one Class's occasion and its Teaching note.

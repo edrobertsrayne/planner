@@ -374,9 +374,9 @@ test.describe('the Lesson editor for a Standalone Lesson', () => {
 		});
 		await expect(page.locator('main').getByText('carousel.txt')).toBeVisible();
 
-		// Opened directly, Back goes to Planning.
+		// Opened directly, Back goes to the Agenda.
 		await page.getByRole('button', { name: 'Back' }).click();
-		await expect(page).toHaveURL(/\/planning$/);
+		await expect(page).toHaveURL('/');
 	});
 
 	test('Delete on a placed Standalone Lesson shows the refusal and keeps it; an unplaced one is deleted', async ({
@@ -391,28 +391,10 @@ test.describe('the Lesson editor for a Standalone Lesson', () => {
 		await expectToast(page, 'A Placement names this Lesson');
 		await expect(page).toHaveURL(`/lessons/${id}`);
 
-		// Every Lesson title on Planning opens the Lesson editor, a placed Standalone one too.
-		await page.goto('/planning');
-		await page.getByRole('link', { name: 'Placed carousel', exact: true }).click();
-		await expect(page).toHaveURL(`/lessons/${id}`);
-
 		runFixture('unplace-lesson', id);
 		await page.reload();
 		await page.getByRole('button', { name: 'Delete Lesson' }).click();
-		await expect(page).toHaveURL(/\/planning$/);
-		await expect(page.getByRole('link', { name: 'Placed carousel' })).toHaveCount(0);
-	});
-
-	test('an unplaced Standalone Lesson on Planning opens the Lesson editor', async ({ page }) => {
-		standaloneLesson('Planning carousel');
-		await login(page, '/planning');
-		await page.getByRole('link', { name: 'Planning carousel', exact: true }).click();
-		await expectLessonPage(page);
-		await expect(page.getByText('Standalone Lesson', { exact: true })).toBeVisible();
-
-		// Delete it, so nothing lasts.
-		await page.getByRole('button', { name: 'Delete Lesson' }).click();
-		await expect(page).toHaveURL(/\/planning$/);
+		await expect(page).toHaveURL('/');
 	});
 });
 
@@ -601,28 +583,5 @@ test.describe('the Timetable grid', () => {
 
 		await page.goto(`/classes/${classId}`);
 		await expect(page.getByRole('tab', { name: /^Timetable/ })).toHaveAccessibleName(/3/);
-	});
-});
-
-test.describe('the Planning table', () => {
-	test.use({ viewport: { width: 1280, height: 560 } });
-
-	test('a click beside the Draft/Planned toggle opens nothing; the title opens the Lesson', async ({
-		page
-	}) => {
-		await login(page, '/planning');
-		const row = page
-			.getByRole('row')
-			.filter({ has: page.getByRole('link', { name: 'Speed', exact: true }) })
-			.first();
-		// The corner of the Status cell is beside the toggle and on no control.
-		await row
-			.getByRole('cell')
-			.last()
-			.click({ position: { x: 2, y: 2 } });
-		await expect(page).toHaveURL(/\/planning/);
-		await expect(row).toBeVisible();
-		await row.getByRole('link', { name: 'Speed', exact: true }).click();
-		await expectLessonPage(page);
 	});
 });

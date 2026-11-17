@@ -240,8 +240,8 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 		await expect.poll(isDark).toBe(!before);
 	});
 
-	test('the Planning tab shows the whole stream and updates status with tones and counts', async () => {
-		// Nine more Lessons in Courses: the stream then holds 11, and the counts below read 11.
+	test('typing a run of Lessons keeps the New Lesson box focused', async () => {
+		// Nine more Lessons in Forces.
 		await page.goto('/courses');
 		await page.getByRole('link', { name: 'KS3 Science' }).click();
 		await page.getByRole('link', { name: 'Forces' }).click();
@@ -267,63 +267,9 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 			).toBeVisible();
 		}
 		await expect(nextLesson).toHaveAttribute('data-blurs', '0');
-
-		// Planning opens on Draft; All is the whole stream.
-		await page.goto('/planning?status=all');
-
-		const speedRow = page.getByRole('row').filter({ hasText: 'Speed' });
-		const motionRow = page.getByRole('row').filter({ hasText: 'Motion' });
-
-		// The whole stream shows at once: Speed was taught in the past and so sits in the
-		// unscheduled tail, and it is in view with no page size to trim it.
-		await expect(motionRow).toBeVisible();
-		await expect(speedRow).toBeVisible();
-		await expect(page.getByRole('button', { name: /^(Show \d+|Show all)$/ })).toHaveCount(0);
-		await expect(page.getByText(/^Showing \d+ of \d+$/)).toHaveCount(0);
-
-		// Initial counts: 11 lessons, all Draft. The tabs at the right of the title carry the
-		// counts and narrow the table.
-		const allTab = page.getByRole('tab', { name: /^All\s+\d+$/ });
-		const draftTab = page.getByRole('tab', { name: /^Draft\s+\d+$/ });
-		const plannedTab = page.getByRole('tab', { name: /^Planned\s+\d+$/ });
-		await expect(allTab).toContainText('11');
-		await expect(draftTab).toContainText('11');
-		await expect(plannedTab).toContainText('0');
-
-		// The Planned tab narrows the table to Planned, and shows the dashed empty state with
-		// nothing Planned.
-		await plannedTab.click();
-		await expect(page.getByText('No Planned Lessons')).toBeVisible();
-		await expect(motionRow).toBeHidden();
-
-		// The Draft tab narrows the table to Draft.
-		await draftTab.click();
-		await expect(motionRow).toBeVisible();
-
-		// Switch back to All to update status.
-		await allTab.click();
-
-		// Advance 'Motion' to Planned from its row's segmented control.
-		const motionPlannedBtn = motionRow.getByRole('button', { name: 'Planned' });
-		await motionPlannedBtn.click();
-		await expect(motionPlannedBtn).toHaveAttribute('aria-pressed', 'true');
-		await expect(motionPlannedBtn).toHaveAttribute('style', /var\(--success-bg\)/);
-
-		// Live counts update across the whole stream.
-		await expect(allTab).toContainText('11');
-		await expect(draftTab).toContainText('10');
-		await expect(plannedTab).toContainText('1');
-
-		// Filter to Planned — only 'Motion' shows.
-		await plannedTab.click();
-		await expect(motionRow).toBeVisible();
-
-		// Filter to Draft — 'Motion' is hidden.
-		await draftTab.click();
-		await expect(motionRow).toBeHidden();
 	});
 
-	test('tagging a Lesson in the editor shows its chip on the Courses list and Planning', async () => {
+	test('tagging a Lesson in the editor shows its chip on the Courses list', async () => {
 		await page.goto('/courses');
 		await page.getByRole('link', { name: 'KS3 Science' }).click();
 		await page.getByRole('link', { name: 'Forces' }).click();
@@ -339,92 +285,6 @@ test.describe.serial('the rebuilt reading views and their Session page', () => {
 
 		const courseRow = page.locator('li').filter({ hasText: 'Motion' });
 		await expect(courseRow.getByText('Practical', { exact: true })).toBeVisible();
-
-		await page.goto('/planning?status=all');
-		const motionRow = page.getByRole('row').filter({ hasText: 'Motion' });
-		// The chip reads in the row at every size: in the Tags column, or folded under the title.
-		await expect(motionRow).toContainText('Practical');
-	});
-
-	test('a Class chip narrows Planning to one Class, and a click on the chip again clears the filter', async () => {
-		await page.goto('/planning?status=all');
-		const allTab = page.getByRole('tab', { name: /^All\s+\d+$/ });
-		const plannedTab = page.getByRole('tab', { name: /^Planned\s+\d+$/ });
-		await expect(allTab).toContainText('11');
-
-		// A Class chip narrows the stream to that Class and puts it in the URL.
-		await page.getByRole('button', { name: '9B/Sc1' }).click();
-		await page.waitForURL(`/planning?status=all&class=${classAId}`);
-
-		// Only 9B/Sc1's upcoming Lessons, each dated by 9B/Sc1, with no unscheduled tail.
-		const rows = page
-			.getByRole('row')
-			.filter({ has: page.getByRole('button', { name: 'Draft', exact: true }) });
-		await expect(rows.first()).toContainText('9B/Sc1');
-		await expect(rows.filter({ hasText: '9C/Sc1' })).toHaveCount(0);
-		await expect(rows.filter({ hasText: '—' })).toHaveCount(0);
-		await expect(allTab).not.toContainText('11');
-
-		// The chip is on, and the filter is in the URL across a reload.
-		await page.reload();
-		await expect(page.getByRole('button', { name: '9B/Sc1' })).toHaveAttribute(
-			'aria-pressed',
-			'true'
-		);
-		await expect(rows.filter({ hasText: '—' })).toHaveCount(0);
-
-		// The status tabs narrow the Class's list further: Motion is the one Planned Lesson.
-		await plannedTab.click();
-		await expect(rows).toHaveCount(1);
-		await expect(rows.first()).toContainText('Motion');
-
-		// A click on the chip that is on returns to All Classes; the Planned tab stays, since the
-		// two filters live in the address side by side.
-		await page.getByRole('button', { name: '9B/Sc1' }).click();
-		await page.waitForURL('/planning?status=planned');
-		await expect(allTab).toContainText('11');
-
-		// An unknown Class in the URL falls back to All Classes.
-		await page.goto('/planning?class=no-such-class');
-		await expect(allTab).toContainText('11');
-		await expect(page.getByRole('button', { name: 'All Classes' })).toHaveAttribute(
-			'aria-pressed',
-			'true'
-		);
-	});
-
-	test('Back from the Lesson editor keeps the Class filter', async () => {
-		await page.goto('/planning?status=all');
-		await page.getByRole('button', { name: '9B/Sc1' }).click();
-		await page.waitForURL(`/planning?status=all&class=${classAId}`);
-		await page.getByRole('link', { name: 'Motion', exact: true }).click();
-		await expect(page).toHaveURL(/\/lessons\/[^/]+$/);
-		await page.getByRole('button', { name: 'Back to Planning' }).click();
-		await page.waitForURL(`/planning?status=all&class=${classAId}`);
-		await expect(page.getByRole('button', { name: '9B/Sc1' })).toHaveAttribute(
-			'aria-pressed',
-			'true'
-		);
-	});
-
-	test('Planning opens on Draft, and another tab lives in the query string', async () => {
-		await page.goto('/planning');
-		await expect(page.getByRole('tab', { name: /^Draft/ })).toHaveAttribute(
-			'aria-selected',
-			'true'
-		);
-		await page.getByRole('tab', { name: /^All/ }).click();
-		await expect(page).toHaveURL(/status=all/);
-		await page.reload();
-		await expect(page.getByRole('tab', { name: /^All/ })).toHaveAttribute('aria-selected', 'true');
-		// Back from the Lesson editor remounts the page: the tab must survive it.
-		await page.getByRole('link', { name: 'Speed', exact: true }).click();
-		await expect(page).toHaveURL(/\/lessons\/[^/]+$/);
-		await page.getByRole('button', { name: 'Back' }).click();
-		await page.waitForURL(/status=all/);
-		await expect(page.getByRole('tab', { name: /^All/ })).toHaveAttribute('aria-selected', 'true');
-		await page.getByRole('tab', { name: /^Draft/ }).click();
-		await expect(page).not.toHaveURL(/status=/);
 	});
 
 	test('a tagged Lesson shows its chip on the Agenda and Session page, and click-through from the Calendar', async () => {

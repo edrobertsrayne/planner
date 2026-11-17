@@ -31,13 +31,6 @@ const screens: [string, (page: Page) => Promise<void>][] = [
 		}
 	],
 	[
-		'the Planning table',
-		async (page) => {
-			await page.goto('/planning');
-			await expect(page.getByRole('link', { name: 'Speed', exact: true })).toBeVisible();
-		}
-	],
-	[
 		'the Courses screen',
 		async (page) => {
 			await page.goto('/courses');

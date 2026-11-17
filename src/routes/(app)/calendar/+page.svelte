@@ -203,8 +203,8 @@
 					</Button>
 
 					<!-- The week ribbon is the one row that must fit beside the arrows and Today. It
-						     shrinks and scrolls inside itself — the chip-row rule the Agenda and
-						     Planning follow — so the page never scrolls sideways (issue #343). -->
+						     shrinks and scrolls inside itself — the chip-row rule the Agenda
+						     follows — so the page never scrolls sideways (issue #343). -->
 					<div
 						class="hidden max-w-full items-center gap-1 overflow-x-auto rounded-[10px] bg-muted p-[3px] md:flex md:flex-1"
 					>

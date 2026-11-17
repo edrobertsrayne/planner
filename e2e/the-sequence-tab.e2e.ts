@@ -357,7 +357,7 @@ test.describe.serial('the By week layout', () => {
 		runFixture('remove-placement', lessonId);
 		await page.goto(`/lessons/${lessonId}`);
 		await page.getByRole('button', { name: 'Delete Lesson' }).click();
-		await expect(page).toHaveURL(/\/planning$/);
+		await expect(page).toHaveURL('/');
 	});
 });
 
